@@ -1,0 +1,22 @@
+{
+  "name": "main_web",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "build": "echo \"No build step\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "body-parser": "^1.20.2",
+    "connect-pg-simple": "^9.0.1",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "main_web": "file:"
+  }
+}
