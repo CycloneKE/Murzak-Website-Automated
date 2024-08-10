@@ -322,7 +322,7 @@ img {
 
 .expert-btn, .tech-btn, .games-btn, .dropbtn {
     position: absolute;
-    background-color: rgba(150, 197, 161, 0.6);
+    background-color: rgba(171, 176, 177, 0.6);
     color: rgb(2, 7, 28);
     width: 12vw;
     font-size: calc(0.3rem + 0.8vw);
