@@ -10,12 +10,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// PostgreSQL connection pool
 const pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'murzuk',
-    password: process.env.DATABASE_PASSWORD,
+    user: 'murzak tech',
+    host: '34.68.165.194',
+    database: 'murzak',
+    password: process.env.CLOUD_SQL_DATABASE_PASSWORD,
     port: 5432,
 });
 
