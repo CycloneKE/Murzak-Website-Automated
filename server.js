@@ -11,10 +11,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 const pool = new Pool({
-    user: 'murzak tech',
-    host: '34.68.165.194',
-    database: 'murzak',
-    password: process.env.CLOUD_SQL_DATABASE_PASSWORD,
+    user: 'postgres',
+    host: 'localhost',
+    database: 'murzuk',
+    password: 12345,
     port: 5432,
 });
 
