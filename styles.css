@@ -37,12 +37,10 @@ button {
     align-items: center;
     position: absolute;
     text-align: center;
-    border: thistle;
-    border-style: groove;
-    border-radius: 5%;
+    border: none;    
     width: 36vw;
-    margin-top: 2vh;
-    height: 12vh;
+    margin-top: 3vh;
+    height: calc(1em + 2vh);
     margin-left: 35vw;
     background: url("bg.png");
 }
@@ -325,10 +323,10 @@ img {
     background-color: rgb(247, 254, 255);
     color: rgb(2, 7, 28);
     width: 12vw;
-    font-size: calc(0.3rem + 0.8vw);
+    font-size: calc(0.1rem + 0.8vw);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-weight: bold;
-    height: 5vh;
+    height: 3em;
 }
 
 .menu {
