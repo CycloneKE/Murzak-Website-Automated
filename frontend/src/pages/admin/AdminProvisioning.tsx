@@ -1,0 +1,326 @@
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  RefreshCw, Play, RotateCcw, CheckCircle2, XCircle, AlertCircle,
+  Server, Database, Activity, ShieldCheck,
+} from "lucide-react";
+import {
+  getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob,
+  Readiness, QueueHealth, Capacity, ProvisioningJob,
+} from "../../services/adminProvisioning";
+
+const JOB_STATUSES = ["all", "queued", "running", "active", "needs_human", "failed"] as const;
+
+function jobStatusClasses(s?: string) {
+  switch ((s || "").toLowerCase()) {
+    case "active": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
+    case "running": return "bg-amber-500/15 text-amber-300 border-amber-500/20";
+    case "queued": return "bg-cyan-500/15 text-cyan-300 border-cyan-500/20";
+    case "failed": return "bg-red-500/15 text-red-400 border-red-500/20";
+    case "needs_human": return "bg-orange-500/15 text-orange-300 border-orange-500/20";
+    default: return "bg-slate-500/10 text-slate-300 border-white/10";
+  }
+}
+
+function Dot({ ok }: { ok: boolean }) {
+  return ok
+    ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+    : <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
+}
+
+const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
+  <div className={`bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+    {children}
+  </div>
+);
+
+const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{children}</p>
+);
+
+const AdminProvisioning: React.FC = () => {
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [queue, setQueue] = useState<QueueHealth | null>(null);
+  const [capacity, setCapacity] = useState<Capacity | null>(null);
+  const [jobs, setJobs] = useState<ProvisioningJob[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [retryingId, setRetryingId] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [notice, setNotice] = useState<string>("");
+
+  const refresh = useCallback(async (status = statusFilter) => {
+    setLoading(true);
+    setError("");
+    const results = await Promise.allSettled([
+      getReadiness(),
+      getQueueHealth(),
+      getCapacity(),
+      listJobs(status === "all" ? undefined : status),
+    ]);
+    const [r, q, c, j] = results;
+    if (r.status === "fulfilled") setReadiness(r.value);
+    if (q.status === "fulfilled") setQueue(q.value);
+    if (c.status === "fulfilled") setCapacity(c.value);
+    if (j.status === "fulfilled") setJobs(j.value.data || []);
+    const firstErr = results.find((x) => x.status === "rejected") as PromiseRejectedResult | undefined;
+    if (firstErr) setError(firstErr.reason?.message || "Failed to load some data.");
+    setLoading(false);
+  }, [statusFilter]);
+
+  useEffect(() => { void refresh(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { void refresh(statusFilter); /* eslint-disable-next-line */ }, [statusFilter]);
+
+  const onRun = async () => {
+    setRunning(true); setError(""); setNotice("");
+    try {
+      const r = await runQueue();
+      setNotice(`Runner pass complete — processed ${r.processed} job(s).`);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to run queue.");
+    } finally { setRunning(false); }
+  };
+
+  const onRetry = async (name: string) => {
+    setRetryingId(name); setError(""); setNotice("");
+    try {
+      await retryJob(name);
+      setNotice(`Re-queued ${name}.`);
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to re-queue job.");
+    } finally { setRetryingId(""); }
+  };
+
+  const required = readiness?.checks.filter((c) => c.level === "required") || [];
+  const conditional = readiness?.checks.filter((c) => c.level === "conditional") || [];
+  const optional = readiness?.checks.filter((c) => c.level === "optional") || [];
+
+  return (
+    <div className="w-full">
+      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Provisioning</h2>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">
+            Go-live readiness, capacity, and the job queue.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => refresh()} type="button"
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </button>
+          <button onClick={onRun} disabled={running} type="button"
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition disabled:opacity-60">
+            {running ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Run queue now
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-500">
+          <AlertCircle className="w-4 h-4" /> {error}
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+          <CheckCircle2 className="w-4 h-4" /> {notice}
+        </div>
+      )}
+
+      {/* Readiness */}
+      <Card className="mb-6">
+        <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><ShieldCheck className="w-[18px] h-[18px]" /></div>
+            <div>
+              <Label>Go-live readiness</Label>
+              <p className="text-sm font-black text-murzak-navy dark:text-white">
+                {readiness ? (readiness.ready ? "Ready to go live" : "Not ready — see below") : "—"}
+              </p>
+            </div>
+          </div>
+          <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${
+            readiness?.ready ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-orange-500/15 text-orange-300 border-orange-500/20"
+          }`}>
+            {readiness ? (readiness.ready ? "Ready" : "Action needed") : "…"}
+          </span>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            { title: "Required", items: required },
+            { title: "Conditional", items: conditional },
+            { title: "Optional", items: optional },
+          ].map((grp) => (
+            <div key={grp.title}>
+              <Label>{grp.title}</Label>
+              <ul className="mt-3 space-y-2.5">
+                {grp.items.length === 0 && <li className="text-[11px] font-bold text-slate-400">—</li>}
+                {grp.items.map((c) => (
+                  <li key={c.key} className="flex items-start gap-2.5">
+                    <Dot ok={c.ok} />
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-bold text-murzak-navy dark:text-white leading-tight">{c.label}</p>
+                      {c.detail && <p className="text-[10px] font-semibold text-slate-400 leading-tight mt-0.5">{c.detail}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Queue + Capacity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <Card>
+          <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Activity className="w-[18px] h-[18px]" /></div>
+            <div>
+              <Label>Dispatcher</Label>
+              <p className="text-sm font-black text-murzak-navy dark:text-white">mode: {queue?.mode || "—"}</p>
+            </div>
+          </div>
+          <div className="p-6">
+            {queue?.counts ? (
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                {Object.entries(queue.counts).map(([k, v]) => (
+                  <div key={k} className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 p-3 text-center">
+                    <p className="text-lg font-black text-murzak-navy dark:text-white">{v}</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{k}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] font-bold text-slate-400">
+                {queue?.mode === "poll" ? "Poll mode — no queue counters (jobs are read from the doctype each pass)." : "No queue metrics."}
+              </p>
+            )}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Server className="w-[18px] h-[18px]" /></div>
+            <div>
+              <Label>Capacity (RAM per box)</Label>
+              <p className="text-sm font-black text-murzak-navy dark:text-white">{capacity?.targets.length || 0} box(es)</p>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            {(capacity?.targets || []).map((t) => {
+              const pct = t.limitRamMb ? Math.min(100, Math.round((t.reservedRamMb / t.limitRamMb) * 100)) : 0;
+              const hot = pct >= 85;
+              return (
+                <div key={t.id}>
+                  <div className="flex items-center justify-between text-[11px] font-black mb-1.5">
+                    <span className="text-murzak-navy dark:text-white uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
+                    <span className="text-slate-400">{t.reservedRamMb} / {t.limitRamMb} MB</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+                    <div className={`h-full rounded-full ${hot ? "bg-orange-400" : "bg-murzak-cyan"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            {capacity?.requests && capacity.requests.length > 0 && (
+              <div className="pt-2">
+                <Label>Open scale-out requests</Label>
+                <ul className="mt-2 space-y-1.5">
+                  {capacity.requests.filter((r) => r.status === "pending" || r.status === "provisioning").map((r) => (
+                    <li key={r.name} className="flex items-center gap-2 text-[11px] font-bold text-orange-400">
+                      <Database className="w-3.5 h-3.5" /> {r.name} · {r.status} · ~{r.requested_ram_mb}MB
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      {/* Jobs */}
+      <Card>
+        <div className="p-6 border-b border-slate-100 dark:border-white/10">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <Label>Provisioning jobs</Label>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {JOB_STATUSES.map((s) => (
+                <button key={s} onClick={() => setStatusFilter(s)} type="button"
+                  className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition ${
+                    statusFilter === s ? "bg-murzak-cyan text-murzak-navy border-murzak-cyan" : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 hover:text-murzak-cyan"
+                  }`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          {jobs.length === 0 ? (
+            <div className="p-12 text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No jobs for this filter.</p>
+            </div>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-white/10">
+                  <th className="p-4">Service</th>
+                  <th className="p-4">Lane / Box</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">Backup / Edge</th>
+                  <th className="p-4">Notes</th>
+                  <th className="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((j) => {
+                  const canRetry = j.status === "failed" || j.status === "needs_human";
+                  return (
+                    <tr key={j.name} className="border-b border-slate-50 dark:border-white/5 align-top">
+                      <td className="p-4">
+                        <p className="text-[13px] font-black text-murzak-navy dark:text-white">{j.service_name || j.service_id}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-[11px] font-black text-murzak-navy dark:text-white">{j.lane || "—"}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{j.target || "box-1"}</p>
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${jobStatusClasses(j.status)}`}>
+                          {j.status || "—"}{j.attempts ? ` · ${j.attempts}x` : ""}{j.gated ? " · gated" : ""}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-[10px] font-bold text-slate-400">bk: {j.backup_status || "—"}</p>
+                        <p className="text-[10px] font-bold text-slate-400">edge: {j.edge_status || "—"}</p>
+                      </td>
+                      <td className="p-4 max-w-[260px]">
+                        {j.error
+                          ? <p className="text-[10px] font-semibold text-red-400 break-words">{j.error}</p>
+                          : j.external_ref
+                          ? <p className="text-[10px] font-semibold text-emerald-400 break-words">{j.external_ref}</p>
+                          : <span className="text-[10px] text-slate-400">—</span>}
+                      </td>
+                      <td className="p-4 text-right">
+                        {canRetry && (
+                          <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
+                            {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+export default AdminProvisioning;

@@ -1,0 +1,19 @@
+
+User-agent: *
+Allow: /
+
+# Specifically inviting AI Agents for better indexing
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Sitemap location
+Sitemap: https://murzaktech.com/sitemap.xml
