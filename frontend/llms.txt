@@ -1,0 +1,31 @@
+
+# Murzak Technologies
+
+> Nairobi-native engineering firm specializing in high-integrity software and managed cloud infrastructure for the East African frontier.
+
+## Core Capabilities
+- **Software Engineering**: Custom enterprise applications, ERPNext implementation, and B2B system integration.
+- **Cloud Infrastructure**: Managed hosting nodes (NBO-01, NBO-02) optimized for regional latency (12ms avg).
+- **Fintech Integration**: Specialization in Safaricom Daraja API (M-Pesa) automation and STK-push reconciliation.
+
+## Flagship Products
+- **Murzak Logistics**: End-to-end fleet orchestration, delivery tracking, and automated manifest reconciliation.
+- **MatatuKe**: Urban mobility engine for public transit stage-finding and route optimization in Nairobi.
+- **Handshake ID**: Digital trust protocol for regional B2B identity verification.
+
+## Technical Specifications
+- **Cloud Stack**: Ubuntu-based KVM nodes, NVMe storage, dedicated Nairobi peering.
+- **Software Stack**: React 19, TypeScript, Go (Backend), MQTT (IoT), MapBox GL.
+- **Region**: Primary focus on Kenya (Nairobi) and the broader East African Community (EAC).
+
+## Contact & Links
+- **Website**: https://murzaktech.com
+- **Engineering Hub**: Nairobi, Kenya
+- **Email**: murzaktechnologies@gmail.com
+- **LinkedIn**: https://www.linkedin.com/in/murzak-technologies-1774b63a9
+
+## Sitemap Summary
+- /services : Detailed roadmap for Logistics and Mobility engines.
+- /cloud : Infrastructure specs and managed node deployment.
+- /pricing : Tiered subscription models for regional businesses.
+- /about : Company philosophy and architectural integrity standards.

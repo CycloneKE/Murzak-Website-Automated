@@ -1,0 +1,25 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime / PM2
+pids
+*.pid
+.pm2
+
+# Uploaded customer storage (do not commit user data)
+storage/
+
+# OS / editor
+.DS_Store
+.vscode/*
+.idea
