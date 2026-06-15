@@ -96,10 +96,10 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
               <Rocket size={40} className="animate-bounce" />
             </div>
             
-            <h2 className="text-3xl lg:text-4xl font-[900] text-murzak-navy dark:text-white mb-6 tracking-tighter leading-none">Evaluation Plan Ready.</h2>
-            
+            <h2 className="text-3xl lg:text-4xl font-[900] text-murzak-navy dark:text-white mb-6 tracking-tighter leading-none">Trial Ready.</h2>
+
             <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-10 max-w-sm mx-auto leading-relaxed">
-              We've saved your goals for <span className="text-murzak-cyan font-black">{formData.testingGoal}</span>. Now, create your account and share your project link to see your system go live.
+              We've saved your goals for <span className="text-murzak-cyan font-black">{formData.testingGoal}</span>. Create your account, then a quick <span className="text-murzak-cyan font-black">KES 1</span> verification (card or M-Pesa) starts your 36-hour trial.
             </p>
 
             {errors.submit && (
@@ -112,7 +112,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
               onClick={() => onNavigate('login')} 
               className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
             >
-              Start Account & Upload Project <ArrowRight size={18} />
+              Create account & start trial <ArrowRight size={18} />
             </button>
           </div>
         </div>

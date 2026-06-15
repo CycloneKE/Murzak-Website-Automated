@@ -80,6 +80,11 @@ const { activateServicesForInvoice } = require("./services/billingActivationServ
 const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmount");
 const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
+const { getServiceMeta } = require("./services/provisioning/catalog");
+
+// Which demo service seeds a trial sandbox (override per env). Used by the
+// KES-1 trial-verification flow.
+const TRIAL_SANDBOX_SERVICE_ID = process.env.TRIAL_SANDBOX_SERVICE_ID || "test-erpnext-demo";
 const provisioningRunner = require("./services/provisioning/runner");
 const provisioningQueue = require("./services/provisioning/queue");
 const { JOB_DOCTYPE: PROVISIONING_JOB_DOCTYPE } = require("./services/provisioning/provisioningService");
@@ -1491,6 +1496,108 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
   return { ok: true, invoice: created.data?.data || null };
 }
 
+// Idempotently set up the KES-1 trial verification: seed a sandbox service
+// (Awaiting Payment) and create a zero-amount "Trial Verification" Portal
+// Invoice the user pays (card / M-Pesa) to START their 36h trial. effectiveChargeKes
+// turns the 0 amount into the small verification charge at the payment rail.
+// Returns the verification invoice docName (existing or new). Best-effort; never throws.
+async function setupTrialVerification(client, webAccountName) {
+  try {
+    // Idempotent: reuse an existing unpaid Trial Verification invoice.
+    const existing = await client.get("/api/resource/Portal Invoice", {
+      params: {
+        filters: JSON.stringify([
+          ["web_account", "=", webAccountName],
+          ["type", "=", "Trial Verification"],
+          ["status", "in", ["Unpaid", "Awaiting Payment", "Pending", "Draft"]],
+        ]),
+        fields: JSON.stringify(["name"]),
+        limit_page_length: 1,
+        order_by: "creation desc",
+      },
+    });
+    const already = existing.data?.data?.[0]?.name;
+    if (already) return already;
+
+    const meta = getServiceMeta(TRIAL_SANDBOX_SERVICE_ID);
+    const sandboxName = meta?.name || "Trial Sandbox";
+
+    // Seed the sandbox service row on the Web Account (Awaiting Payment) if absent.
+    const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
+    const account = accRes.data?.data || {};
+    const rows = asArray(account[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
+    if (!rows.some((r) => String(r[CHILD_SERVICE_ID_FIELD] || "") === TRIAL_SANDBOX_SERVICE_ID)) {
+      rows.push(normalizeChildRow({
+        service_id: TRIAL_SANDBOX_SERVICE_ID,
+        service_name: sandboxName,
+        tier: meta?.tier || "Demo",
+        status: "Awaiting Payment",
+      }));
+      await updateWebAccountServices(client, webAccountName, rows);
+    }
+
+    // Create the verification invoice (amount 0 -> KES 1 at the rail).
+    const today = new Date().toISOString().slice(0, 10);
+    const created = await client.post("/api/resource/Portal Invoice", {
+      web_account: webAccountName,
+      client_name: account.account_holder_name || "",
+      invoice_no: `TRIAL-${Date.now()}`,
+      type: "Trial Verification",
+      plan: "Test",
+      amount: 0,
+      status: "Unpaid",
+      invoice_date: today,
+      [PORTAL_INVOICE_SERVICES_FIELD]: buildInvoiceServiceRows([
+        { serviceId: TRIAL_SANDBOX_SERVICE_ID, serviceName: sandboxName, status: "Awaiting Payment" },
+      ]),
+    });
+    return created.data?.data?.name || null;
+  } catch (e) {
+    console.warn("TRIAL VERIFICATION SETUP WARN:", e.response?.data || e.message);
+    return null;
+  }
+}
+
+// Expire active trials past their trial_end: mark the Test Plan Invoice "Expired"
+// and suspend the trial sandbox service. Best-effort; silent if Frappe is down.
+async function expireStaleTrials() {
+  try {
+    const client = frappeClient();
+    const nowSql = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const res = await client.get("/api/resource/Test Plan Invoice", {
+      params: {
+        filters: JSON.stringify([["status", "=", "Active"], ["trial_end", "<", nowSql]]),
+        fields: JSON.stringify(["name", "web_account"]),
+        limit_page_length: 50,
+      },
+    });
+    const expired = res.data?.data || [];
+    for (const t of expired) {
+      try {
+        await client.put(`/api/resource/Test Plan Invoice/${encodeURIComponent(t.name)}`, { status: "Expired" });
+        if (t.web_account) {
+          const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(t.web_account)}`);
+          const rows = asArray(accRes.data?.data?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
+          let changed = false;
+          const updated = rows.map((r) => {
+            if (String(r[CHILD_SERVICE_ID_FIELD] || "") === TRIAL_SANDBOX_SERVICE_ID && String(r[CHILD_STATUS_FIELD] || "") !== "Suspended") {
+              changed = true;
+              return { ...r, [CHILD_STATUS_FIELD]: "Suspended" };
+            }
+            return r;
+          });
+          if (changed) await updateWebAccountServices(client, t.web_account, updated);
+        }
+      } catch (e) {
+        console.warn("TRIAL EXPIRE WARN:", t.name, e.message);
+      }
+    }
+    if (expired.length) console.log(`[trial] expired ${expired.length} trial(s)`);
+  } catch {
+    /* Frappe down / not configured — stay quiet. */
+  }
+}
+
 async function fetchInvoicesForUser(client, webAccountName) {
   try {
     // 1) Paid invoices
@@ -2748,9 +2855,12 @@ app.post("/api/register", authLimiter, async (req, res) => {
       });
     }
 
-    // 4) Create invoice if needed
+    // 4) Create invoice if needed. Paid plans → a subscription invoice; the free
+    //    trial → a KES-1 verification invoice the user pays to start the 36h trial.
     if (resolvedPlan !== "Test") {
       await applyPlanAndCreateInvoice(client, docName, resolvedPlan, resolvedServices);
+    } else {
+      await setupTrialVerification(client, docName);
     }
 
     // 5) Fetch invoices for portal display
@@ -2914,6 +3024,12 @@ app.post("/api/login", authLimiter, async (req, res) => {
           await client.put(`/api/resource/Test Plan Invoice/${existingTrial.name}`, {
             web_account: docName,
           });
+        }
+
+        // Ensure the KES-1 verification invoice exists (idempotent) so the trial
+        // isn't a dead-end — the portal prompts the user to verify and start.
+        if (String(existingTrial.status || "").toLowerCase() !== "active") {
+          await setupTrialVerification(client, docName);
         }
       }
     } catch (e) {
@@ -5634,6 +5750,14 @@ const server = app.listen(PORT, () => {
       if (r.mode && r.mode !== "off") console.log(`[provisioning] dispatcher started: ${JSON.stringify(r)}`);
     })
     .catch((e) => console.error("[provisioning] failed to start dispatcher:", e.message));
+
+  // Trial expiry sweep (36h). Off only if explicitly disabled. Silent when Frappe
+  // isn't configured (the query just throws and is swallowed).
+  if (process.env.TRIAL_EXPIRY_ENABLED !== "false") {
+    const everyMs = Math.max(60000, Number(process.env.TRIAL_EXPIRY_INTERVAL_MS || 15 * 60 * 1000));
+    setTimeout(() => { expireStaleTrials(); }, 30000).unref();
+    setInterval(() => { expireStaleTrials(); }, everyMs).unref();
+  }
 });
 
 // ---- Graceful shutdown ----

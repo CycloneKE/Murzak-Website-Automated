@@ -162,6 +162,25 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
     user.accountStatus === "Evaluating" ||
     user.accountStatus === "Provisioning";
 
+  // Trial (KES-1 verification flow) state, derived from the invoices the portal
+  // already receives: the unpaid verification invoice the user pays to START,
+  // and the trial itself once active/expired.
+  const trialVerifyInvoice = (localInvoices || []).find(
+    (i: any) =>
+      String(i?.type || "").toLowerCase() === "trial verification" &&
+      String(i?.status || "").toLowerCase() !== "paid"
+  );
+  const trialInvoice = (localInvoices || []).find(
+    (i: any) => String(i?.type || "").toLowerCase() === "trial"
+  );
+  const trialStatus = String(trialInvoice?.status || "").toLowerCase();
+  const trialActive = trialStatus === "active";
+  const trialExpired = trialStatus === "expired";
+  const trialEndStr = trialInvoice?.meta?.trialEnd
+    ? new Date(String(trialInvoice.meta.trialEnd).replace(" ", "T")).toLocaleString()
+    : null;
+  const needsTrialVerify = isTestUser && !!trialVerifyInvoice && !trialActive;
+
   const activeTab: Tab = useMemo(() => {
     const last = location.pathname.split("/").filter(Boolean).pop();
     return isTab(last) ? last : "overview";
@@ -979,42 +998,79 @@ const renderCloudSystemsGrid = () => (
                   <Shield className="w-4 h-4 text-murzak-cyan" />
                 )}
                 <span className="text-[9px] font-black uppercase tracking-widest">
-                  {isTestUser ? "Free trial" : "Subscription active"}
+                  {needsTrialVerify ? "Verify to start" : trialExpired ? "Trial ended" : isTestUser ? "Free trial" : "Subscription active"}
                 </span>
               </div>
 
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
-                Everything's <br />
-                <span className="text-murzak-cyan">up and running.</span>
-              </h2>
+              {needsTrialVerify ? (
+                <>
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
+                    One step left:<br />
+                    <span className="text-murzak-cyan">start your 36h trial.</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 mb-10 max-w-sm leading-relaxed opacity-90">
+                    We confirm your payment method with a small, refundable <span className="text-murzak-cyan">KES 1</span> charge (card or M-Pesa). Your 36-hour trial begins the moment it clears.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      onClick={() => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`)}
+                      className="bg-murzak-cyan text-murzak-navy px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
+                    >
+                      Verify &amp; start trial <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onTabClick("sync")}
+                      className="px-8 py-4 rounded-xl border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-md"
+                    >
+                      Talk to support <Headphones className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
+                    {trialExpired ? (
+                      <>Your trial<br /><span className="text-murzak-cyan">has ended.</span></>
+                    ) : trialActive ? (
+                      <>Your trial<br /><span className="text-murzak-cyan">is live.</span></>
+                    ) : (
+                      <>Everything's <br /><span className="text-murzak-cyan">up and running.</span></>
+                    )}
+                  </h2>
 
-              <p className="text-xs sm:text-sm font-bold text-slate-300 mb-10 max-w-sm leading-relaxed opacity-90">
-                {user.evaluationGoal ? (
-                  <>What you're working on:{" "}
-                    <span className="text-murzak-cyan underline decoration-murzak-cyan/30 underline-offset-4">
-                      {user.evaluationGoal}
-                    </span>.
-                  </>
-                ) : (
-                  <>You're on the <span className="text-murzak-cyan">{user.plan}</span> plan. Manage your systems, billing and support all from here.</>
-                )}
-              </p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-300 mb-10 max-w-sm leading-relaxed opacity-90">
+                    {trialExpired ? (
+                      <>Your 36-hour trial has wrapped up. Pick a plan to keep your setup and pick up right where you left off.</>
+                    ) : trialActive && trialEndStr ? (
+                      <>Your trial is running — it ends <span className="text-murzak-cyan">{trialEndStr}</span>. Upgrade anytime to keep everything.</>
+                    ) : user.evaluationGoal ? (
+                      <>What you're working on:{" "}
+                        <span className="text-murzak-cyan underline decoration-murzak-cyan/30 underline-offset-4">
+                          {user.evaluationGoal}
+                        </span>.
+                      </>
+                    ) : (
+                      <>You're on the <span className="text-murzak-cyan">{user.plan}</span> plan. Manage your systems, billing and support all from here.</>
+                    )}
+                  </p>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={() => onTabClick("cloud")}
-                  className="bg-murzak-cyan text-murzak-navy px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
-                >
-                  Open my systems <ArrowRight className="w-4 h-4" />
-                </button>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <button
+                      onClick={() => (trialExpired ? onNavigate("pricing") : onTabClick("cloud"))}
+                      className="bg-murzak-cyan text-murzak-navy px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
+                    >
+                      {trialExpired ? "Choose a plan" : "Open my systems"} <ArrowRight className="w-4 h-4" />
+                    </button>
 
-                <button
-                  onClick={() => onTabClick("sync")}
-                  className="px-8 py-4 rounded-xl border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-md"
-                >
-                  Talk to support <Headphones className="w-4 h-4" />
-                </button>
-              </div>
+                    <button
+                      onClick={() => onTabClick("sync")}
+                      className="px-8 py-4 rounded-xl border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-md"
+                    >
+                      Talk to support <Headphones className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
