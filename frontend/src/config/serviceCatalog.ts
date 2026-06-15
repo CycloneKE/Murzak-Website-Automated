@@ -780,6 +780,19 @@ export function serviceMonthlyKes(id: string): number | undefined {
   return getService(id)?.pricing.monthlyKes;
 }
 
+/**
+ * Which plan tab a service belongs to — used to open the configurator on the
+ * right plan when a visitor picks a specific product elsewhere (e.g. the
+ * Products page). Universal add-ons aren't tied to one plan; default to Business.
+ */
+export function planForService(id: string): PlanCode | null {
+  for (const code of Object.keys(SERVICE_CATALOG) as PlanCode[]) {
+    if ((SERVICE_CATALOG[code] || []).some((s) => s.id === id)) return code;
+  }
+  if (UNIVERSAL_ADDONS.some((s) => s.id === id)) return "Business";
+  return null;
+}
+
 /** One-time setup fee (KES) of a service by id, or undefined if unknown. */
 export function serviceSetupKes(id: string): number | undefined {
   return getService(id)?.pricing.setupKes;

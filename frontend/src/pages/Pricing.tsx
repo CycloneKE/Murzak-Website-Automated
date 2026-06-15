@@ -23,7 +23,7 @@ import PlanServicesModal from "../components/PlanServicesModal";
 import ManagedComparison from "../components/ManagedComparison";
 import Faq, { type FaqItem } from "../components/Faq";
 import PlanAdvisor from "../components/PlanAdvisor";
-import { PLAN_META, formatKes, type PlanCode } from "../config/serviceCatalog";
+import { PLAN_META, formatKes, planForService, type PlanCode } from "../config/serviceCatalog";
 import { Button } from "../components/ui/Button";
 
 interface PricingProps {
@@ -56,6 +56,24 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading }
       });
     }
   }, [location.hash]);
+
+  // Deep-link from elsewhere (e.g. a Products card): /pricing?configure=<serviceId>
+  // opens the configurator on the right plan with that product pre-selected, so
+  // the chosen product isn't lost on the way to checkout.
+  useEffect(() => {
+    const productId = new URLSearchParams(location.search).get("configure");
+    if (!productId) return;
+    const plan = planForService(productId);
+    if (plan && plan !== "Enterprise") {
+      setPreselectIds([productId]);
+      setServicesPlanCode(plan);
+      setServicesPlanLabel(PLAN_META[plan].label);
+      setServicesOpen(true);
+    }
+    // Strip the param so a refresh/back doesn't reopen the modal.
+    navigate("/pricing", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   // Cards are derived from the single catalog source (PLAN_META) so prices never drift.
   const planImages: Record<PlanCode, string> = {

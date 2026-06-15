@@ -183,7 +183,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
               </ul>
               <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/10">
                 <span className="font-mono text-[11px] uppercase tracking-widest text-slate-300">{fromMonthly(r.id)}</span>
-                <button onClick={() => onNavigate('pricing')} className="inline-flex items-center gap-1.5 font-black text-[10px] uppercase tracking-widest text-murzak-cyan hover:gap-2.5 transition-all">
+                <button onClick={() => onNavigate(`/pricing?configure=${r.id}`)} className="inline-flex items-center gap-1.5 font-black text-[10px] uppercase tracking-widest text-murzak-cyan hover:gap-2.5 transition-all">
                   Configure &amp; start <ArrowRight size={14} />
                 </button>
               </div>
