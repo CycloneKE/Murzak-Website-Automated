@@ -910,9 +910,30 @@ app.post("/api/test-plan", publicFormLimiter, async (req, res) => {
       return res.json({ ok: true, id: updateResp.data?.data?.name, updated: true });
     }
 
-    // 3) Else CREATE
-    const createResp = await client.post("/api/resource/Test Plan Invoice", payload);
-    return res.json({ ok: true, id: createResp.data?.data?.name, created: true });
+    // 3) Else CREATE. The find-then-create above is racy; rely on a unique index
+    //    on Test Plan Invoice.web_account_email and, if a concurrent submit won
+    //    the race, re-fetch and return the existing trial (idempotent upsert).
+    try {
+      const createResp = await client.post("/api/resource/Test Plan Invoice", payload);
+      return res.json({ ok: true, id: createResp.data?.data?.name, created: true });
+    } catch (e) {
+      const dup =
+        e?.response?.status === 409 ||
+        /duplicate|already exists|unique/i.test(`${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`);
+      if (dup) {
+        const again = await client.get("/api/resource/Test Plan Invoice", {
+          params: {
+            filters: JSON.stringify([["web_account_email", "=", workEmail.trim()]]),
+            fields: JSON.stringify(["name"]),
+            limit_page_length: 1,
+            order_by: "modified desc",
+          },
+        });
+        const found = again.data?.data?.[0]?.name;
+        if (found) return res.json({ ok: true, id: found, deduped: true });
+      }
+      throw e;
+    }
 
   } catch (err) {
     console.error("TEST PLAN CREATE ERROR:", err.response?.data || err.message);
@@ -2685,22 +2706,34 @@ app.post("/api/register", authLimiter, async (req, res) => {
     // 2) Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // 3) Create Web Account doc
-    const createResp = await client.post("/api/resource/Web Account", {
-      account_holder_name: name,
-      entity_name: company,
-      work_email: email.toLowerCase().trim(),
-      password_hash: passwordHash,
-      purpose,
-      source_code: sourceCode,
+    // 3) Create Web Account doc. The existence check above is racy on its own
+    //    (two concurrent submits both pass it), so we ALSO rely on a unique index
+    //    on Web Account.work_email and treat a duplicate-insert as 409 — making
+    //    registration idempotent under double-submit / concurrent requests.
+    let createResp;
+    try {
+      createResp = await client.post("/api/resource/Web Account", {
+        account_holder_name: name,
+        entity_name: company,
+        work_email: email.toLowerCase().trim(),
+        password_hash: passwordHash,
+        purpose,
+        source_code: sourceCode,
 
-      // persist plan at creation (recommended)
-      plan: resolvedPlan,
-      account_status: "Active",
-      [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(
-        resolvedServices.map((s) => ({ ...s, status: s.status || "Awaiting Payment" }))
-      ),
-    });
+        // persist plan at creation (recommended)
+        plan: resolvedPlan,
+        account_status: "Active",
+        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(
+          resolvedServices.map((s) => ({ ...s, status: s.status || "Awaiting Payment" }))
+        ),
+      });
+    } catch (e) {
+      const dup =
+        e?.response?.status === 409 ||
+        /duplicate|already exists|unique/i.test(`${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`);
+      if (dup) return res.status(409).json({ error: "Email already in use." });
+      throw e;
+    }
 
     const docName = createResp.data?.data?.name;
     if (!docName) {

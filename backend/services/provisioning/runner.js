@@ -79,6 +79,16 @@ async function fetchJobByName(client, name) {
  * @returns {Promise<boolean>} true if we own the job.
  */
 async function claimJob(client, name, runnerId, targetId) {
+  // Pre-check: claimable only if still queued, OR already owned by us (idempotent
+  // re-claim). A job another runner already moved to running/active is rejected.
+  try {
+    const pre = await fetchJobByName(client, name);
+    if (!pre) return false;
+    if (pre.status !== "queued" && pre.runner_id !== runnerId) return false;
+  } catch {
+    // read failed — proceed to the write+verify below (lane is idempotent).
+  }
+
   await updateJob(client, name, {
     status: "running",
     runner_id: runnerId,

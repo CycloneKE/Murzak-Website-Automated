@@ -11,6 +11,7 @@
   "sort_order": "DESC",
   "fields": [
     { "fieldname": "section_order", "fieldtype": "Section Break", "label": "Order" },
+    { "fieldname": "job_key", "fieldtype": "Data", "label": "Job Key", "unique": 1, "read_only": 1, "description": "invoice::service_id — UNIQUE: enforces one job per (invoice, service) so concurrent enqueues can't duplicate." },
     { "fieldname": "web_account", "fieldtype": "Link", "label": "Web Account", "options": "Web Account", "in_list_view": 1, "reqd": 1 },
     { "fieldname": "invoice", "fieldtype": "Link", "label": "Invoice", "options": "Portal Invoice", "in_list_view": 1 },
     { "fieldname": "column_break_order", "fieldtype": "Column Break" },
