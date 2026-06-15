@@ -83,7 +83,7 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading }
     { q: "How do I pay — and in what currency?", a: "Everything is billed in Kenyan Shillings (KES). Pay by M-Pesa STK push or card from your client portal. No forex surprises." },
     { q: "Can I use my own domain or register a new one?", a: "Both. Point an existing domain to us, use a free Murzak subdomain to start, or search and register a brand-new domain right inside the plan configurator — we handle the setup." },
     { q: "What does 'managed' actually include?", a: "We provision and configure the server, install and tune your apps (ERPNext, POS, CRM, websites), set up SSL, run daily backups, patch security, and support you from Nairobi. You focus on your business." },
-    { q: "Can I add services or upgrade later?", a: "Yes — add services anytime from your portal. Included slots are applied first; anything extra is added as a clearly-priced add-on invoice. You only pay for what you use." },
+    { q: "Can I add services or upgrade later?", a: "Yes — add services anytime from your portal. Each one is a clearly-priced add-on billed in KES, so you only ever pay for what you actually use." },
     { q: "What happens if I outgrow my plan?", a: "Larger ERPs, databases and high-load platforms move to dedicated capacity. We size it, quote it, and migrate you with no downtime." },
     { q: "How fast is setup?", a: "Most websites and standard apps go live the same day. Configured ERPNext with data migration is scoped during onboarding and typically takes a few days." },
     { q: "Are my data and site backed up?", a: "Yes. Daily backups are included on paid plans, with SSL and security hardening as standard. Disaster-recovery options are available on dedicated plans." },
@@ -283,7 +283,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
           <div className="grid sm:grid-cols-3 gap-5">
             {[
               { n: '01', icon: <SlidersHorizontal size={20} />, t: 'Pick your services', s: 'Use the configurator to choose exactly what you need. The total adds up in shillings as you go.' },
-              { n: '02', icon: <Sparkles size={20} />, t: 'Included slots first', s: 'Your plan’s included services are applied first. You only pay extra for what goes beyond them.' },
+              { n: '02', icon: <Sparkles size={20} />, t: 'See the total in shillings', s: 'Every service shows its price as you add it and the total updates live — what the configurator shows is exactly what you pay at checkout.' },
               { n: '03', icon: <ArrowRight size={20} />, t: 'Add or upgrade anytime', s: 'Need more later? Add services from your portal as a clearly-priced add-on. Outgrow the plan and we migrate you with no downtime.' },
             ].map((step) => (
               <div key={step.n} className="relative rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 lg:p-8">

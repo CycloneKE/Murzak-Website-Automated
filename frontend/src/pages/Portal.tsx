@@ -741,11 +741,13 @@ const renderCloudSystemsGrid = () => (
   // --------------------------
   // Billing helpers (front-end)
   // --------------------------
+  // Real recurring cost: sum the catalog monthly price of the account's ACTIVE
+  // services (was hardcoded 5000/25000 magic numbers per plan).
   const monthlyBurnKes = useMemo(() => {
-    if ((user.plan || "").includes("Starter")) return 5000;
-    if ((user.plan || "").includes("Business")) return 25000;
-    return 0;
-  }, [user.plan]);
+    return selectedServices
+      .filter((s) => s.status === "Active")
+      .reduce((sum, s) => sum + (catalogLookup.get(s.serviceId)?.pricing?.monthlyKes || 0), 0);
+  }, [selectedServices, catalogLookup]);
 
   const hasUnpaidSubscriptionInvoice = useMemo(() => {
     return (localInvoices || []).some(

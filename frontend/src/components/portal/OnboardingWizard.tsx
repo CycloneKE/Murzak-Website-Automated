@@ -28,7 +28,12 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
   const [goal, setGoal] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) { setStep(0); setGoal(null); }
+    if (isOpen) {
+      setStep(0);
+      let saved: string | null = null;
+      try { saved = localStorage.getItem("murzak_onboarding_goal"); } catch { /* ignore */ }
+      setGoal(saved);
+    }
   }, [isOpen]);
 
   // Lock background scroll while open.
@@ -42,16 +47,35 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
   const services = (user.selectedServices || []) as any[];
   const hasServices = services.length > 0;
   const hasPaid = (user.invoices || []).some((inv: any) => String(inv?.status).toLowerCase() === "paid");
+  // "Say hi" completes once the user has opened the support chat (tracked locally
+  // when they act on it), so the item is actually completable.
+  const saidHi = typeof localStorage !== "undefined" && localStorage.getItem("murzak_said_hi") === "1";
 
-  const checklist = useMemo(
-    () => [
+  const chooseGoal = (id: string) => {
+    setGoal(id);
+    try { localStorage.setItem("murzak_onboarding_goal", id); } catch { /* ignore */ }
+  };
+
+  const checklist = useMemo(() => {
+    // The "services" step adapts to the stated goal: a custom build is a
+    // conversation, not a self-serve configurator selection.
+    const custom = goal === "custom";
+    return [
       { id: "account", icon: <Check size={16} />, title: "Account created", done: true, action: null as null | (() => void), cta: "" },
-      { id: "services", icon: <Server size={16} />, title: "Choose your services", done: hasServices, action: onChooseServices, cta: "Configure" },
+      custom
+        ? { id: "services", icon: <Code2 size={16} />, title: "Tell us about your custom build", done: false, action: () => onGoTab("sync"), cta: "Message us" }
+        : { id: "services", icon: <Server size={16} />, title: "Choose your services", done: hasServices, action: onChooseServices, cta: "Configure" },
       { id: "pay", icon: <CreditCard size={16} />, title: "Make your first payment", done: hasPaid, action: () => onGoTab("billing"), cta: "Go to billing" },
-      { id: "support", icon: <Headphones size={16} />, title: "Say hi to your support team", done: false, action: () => onGoTab("sync"), cta: "Message us" },
-    ],
-    [hasServices, hasPaid, onChooseServices, onGoTab]
-  );
+      {
+        id: "support",
+        icon: <Headphones size={16} />,
+        title: "Say hi to your support team",
+        done: saidHi,
+        action: () => { try { localStorage.setItem("murzak_said_hi", "1"); } catch { /* ignore */ } onGoTab("sync"); },
+        cta: "Message us",
+      },
+    ];
+  }, [goal, hasServices, hasPaid, saidHi, onChooseServices, onGoTab]);
 
   const doneCount = checklist.filter((c) => c.done).length;
 
@@ -134,7 +158,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 {GOALS.map((g) => (
                   <button
                     key={g.id}
-                    onClick={() => setGoal(g.id)}
+                    onClick={() => chooseGoal(g.id)}
                     className={`text-left rounded-2xl border p-4 transition-all ${
                       goal === g.id
                         ? "border-murzak-cyan bg-murzak-cyan/10 shadow-md"

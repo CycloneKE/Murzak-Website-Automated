@@ -606,7 +606,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             Tier
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
-            {payload.service.tier || "Medium"}
+            {payload.service.tier || "Standard"}
           </h3>
         </div>
 
@@ -1441,13 +1441,13 @@ const WebsiteHostingDashboard: React.FC = () => {
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">Plan</span>
               <span className="font-semibold text-slate-700 dark:text-slate-100">
-                {activeSite?.planName || payload.service.tier || "Medium"}
+                {activeSite?.planName || payload.service.tier || "Standard"}
               </span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">Tier</span>
               <span className="font-semibold text-slate-700 dark:text-slate-100">
-                {activeSite?.tier || payload.service.tier || "Medium"}
+                {activeSite?.tier || payload.service.tier || "Standard"}
               </span>
             </div>
             <div className="flex justify-between gap-4">
@@ -1841,7 +1841,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Website Hosting • {payload.service.tier || "Medium"}
+              Website Hosting • {payload.service.tier || "Standard"}
             </p>
 
             <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-navy dark:text-white">

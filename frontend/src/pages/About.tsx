@@ -18,7 +18,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
       {/* Hero */}
       <section className="relative pt-20 lg:pt-32 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 left-[-10%] w-[620px] h-[620px] rounded-full blur-[150px] bg-murzak-gradient opacity-20 animate-drift-slow -z-10" />
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-5">About Murzak</p>
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
@@ -33,7 +33,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
       {/* At a glance */}
       <section className="pb-8">
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-3xl overflow-hidden border border-white/10 bg-white/5">
             {[
               { big: 'Nairobi', label: 'Based & operated' },
@@ -52,7 +52,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
       {/* Story */}
       <section className="py-16 lg:py-24 border-t border-white/5">
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-[1fr_1.2fr] gap-12 items-start">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-[1fr_1.2fr] gap-12 items-start">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
             Built for the business owner, not the IT department.
           </h2>
@@ -76,7 +76,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
       {/* What we do */}
       <section className="py-16 lg:py-24 border-t border-white/5">
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">What we do</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Three things, done properly.</h2>
@@ -100,7 +100,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
       {/* Values */}
       <section className="py-16 lg:py-24 border-t border-white/5">
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">How we work</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">What you can expect from us.</h2>
@@ -119,7 +119,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
       {/* Contact us */}
       <section className="py-16 lg:py-24 border-t border-white/5">
-        <div className="max-w-[1000px] mx-auto px-6 sm:px-10 lg:px-16">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div>
               <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Contact us</p>

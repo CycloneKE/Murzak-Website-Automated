@@ -65,7 +65,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
     } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition`;
 
   return (
-    <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
+    <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
       <div className="text-center mb-12 sm:mb-16">
         <p className="font-mono text-[10px] font-black text-murzak-cyan uppercase tracking-[0.3em] mb-4">Get in touch</p>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-navy dark:text-white tracking-tighter">
