@@ -294,9 +294,10 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                       </div>
                         <button
                           type="submit"
-                          className="w-full sm:w-auto bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                          disabled={isProcessing}
+                          className="w-full sm:w-auto bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                         >
-                          Authorize Rails <Lock size={16} />
+                          {isProcessing ? <>Sending…</> : <>Authorize Rails <Lock size={16} /></>}
                         </button>
                     </div>
                   )}

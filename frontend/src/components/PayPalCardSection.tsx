@@ -30,9 +30,12 @@ const SubmitCardButton: React.FC<{
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }> = ({ setStep, setErrors }) => {
   const { cardFieldsForm } = usePayPalCardFields();
+  const [submitting, setSubmitting] = useState(false);
 
   const handleClick = async () => {
+    if (submitting) return; // guard against double-click double-capture
     try {
+      setSubmitting(true);
       setErrors((prev) => ({ ...prev, payment: "" }));
 
       if (!cardFieldsForm) {
@@ -52,6 +55,7 @@ const SubmitCardButton: React.FC<{
         payment: e?.message || "Card payment failed.",
       }));
       setStep("form");
+      setSubmitting(false);
     }
   };
 
@@ -59,9 +63,10 @@ const SubmitCardButton: React.FC<{
     <button
       type="button"
       onClick={handleClick}
-      className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
+      disabled={submitting}
+      className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
     >
-      Pay by Card
+      {submitting ? "Processing…" : "Pay by Card"}
     </button>
   );
 };
