@@ -117,6 +117,20 @@ function baseArgs(extra) {
     ok(puts.some((p) => p.url.includes("Web") || p.url.includes("Account")), "account services were updated");
   }
 
+  section("SaaS managed-setup: premium -> 'Setting up', volume -> 'Active'");
+  {
+    const inv = { name: "INV-1", web_account: "acct-1", status: "Unpaid", services: [{ service_id: "biz-pos-inventory" }, { service_id: "starter-web-hosting" }] };
+    const acct = { services: [{ service_id: "biz-pos-inventory", status: "Pending" }, { service_id: "starter-web-hosting", status: "Pending" }] };
+    const { frappeClient, puts } = makeFrappe({ invoice: inv, account: acct });
+    await activateServicesForInvoice(baseArgs({ frappeClient, paymentVerified: true }));
+    const accPut = [...puts].reverse().find((p) => /Web|Account/.test(p.url) && p.body.services);
+    const rows = accPut?.body?.services || [];
+    const pos = rows.find((r) => r.service_id === "biz-pos-inventory");
+    const web = rows.find((r) => r.service_id === "starter-web-hosting");
+    ok(pos?.status === "Setting up", `premium POS activates as 'Setting up' (got ${pos?.status})`);
+    ok(web?.status === "Active", `volume hosting activates as 'Active' (got ${web?.status})`);
+  }
+
   section("B1 gate: ownership is enforced");
   {
     const inv = { name: "INV-1", web_account: "someone-else", status: "Paid", services: [] };

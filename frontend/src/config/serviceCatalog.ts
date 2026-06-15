@@ -755,6 +755,15 @@ export function isQuoteOnly(svc: ServiceItem): boolean {
   return svc.capacityClass === "dedicated" || svc.pricing.model === "custom";
 }
 
+/**
+ * Managed SaaS (premium: ERPNext/POS/CRM…) — configured & operated by the team,
+ * so it's set up (not instant) after checkout. Drives the "Managed setup" badge
+ * and the "Setting up" post-payment status. Volume hosting slices are not managed.
+ */
+export function isManagedSetup(svc: ServiceItem): boolean {
+  return svc.capacityClass === "premium";
+}
+
 // =====================================================================
 //  SINGLE SOURCE OF TRUTH — price + lookup helpers.
 //  Every customer-facing price MUST be derived from these, never hardcoded

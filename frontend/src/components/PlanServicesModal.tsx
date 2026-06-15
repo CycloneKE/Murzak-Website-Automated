@@ -13,6 +13,7 @@ import {
   ServiceCategory,
   formatKes,
   isQuoteOnly,
+  isManagedSetup,
   exceedsSelfServeCap,
   SELF_SERVE_ORDER_RAM_CAP_MB,
   SELF_SERVE_ORDER_DISK_CAP_GB,
@@ -453,6 +454,11 @@ export default function PlanServicesModal({
                           <div className="text-base sm:text-lg font-black text-murzak-navy dark:text-white mt-1 leading-tight">
                             {svc.name}
                           </div>
+                          {isManagedSetup(svc) && (
+                            <span className="inline-flex items-center gap-1 mt-2 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest">
+                              <Server size={11} /> Managed setup
+                            </span>
+                          )}
                           <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                             {quote ? (
                               <span className="text-lg font-black text-murzak-cyan">Custom quote</span>
@@ -732,6 +738,12 @@ export default function PlanServicesModal({
                     <p className="text-[10px] font-bold text-slate-400 leading-relaxed mt-3 text-center">
                       You’ll log in next so we can attach this to your account. No charge yet.
                     </p>
+
+                    {selectedSvcItems.some(isManagedSetup) && (
+                      <p className="text-[10px] font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
+                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team — live within a short setup window, not instantly.
+                      </p>
+                    )}
 
                     {/* managed vs DIY reassurance */}
                     <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10 space-y-2.5">

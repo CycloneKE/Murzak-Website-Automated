@@ -1,6 +1,17 @@
 
 // services/billingActivationService.js
 const { runProvisioningForInvoice } = require("./provisioning/provisioningService");
+const { getServiceMeta } = require("./provisioning/catalog");
+const { STATUS_SETTING_UP, STATUS_ACTIVE } = require("./provisioning/constants");
+
+// Managed SaaS (premium: ERPNext/POS/CRM…) is configured by the team, so on
+// payment it lands in "Setting up" until provisioning completes; light volume
+// slices (hosting/email/storage) are effectively instant -> "Active".
+function activatedStatusFor(serviceId) {
+  return getServiceMeta(serviceId)?.capacityClass === "premium"
+    ? STATUS_SETTING_UP
+    : STATUS_ACTIVE;
+}
 
 async function activateServicesForInvoice({
   req,
@@ -94,7 +105,7 @@ async function activateServicesForInvoice({
   const updatedRows = rows.map((r) => {
     const sid = r[CHILD_SERVICE_ID_FIELD];
     if (invoiceServiceIds.includes(sid)) {
-      return { ...r, [CHILD_STATUS_FIELD]: "Active" };
+      return { ...r, [CHILD_STATUS_FIELD]: activatedStatusFor(sid) };
     }
     return r;
   });

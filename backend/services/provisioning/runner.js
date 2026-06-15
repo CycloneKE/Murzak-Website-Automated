@@ -17,6 +17,11 @@
  */
 
 const { JOB_DOCTYPE } = require("./provisioningService");
+const {
+  WEB_ACCOUNT_DOCTYPE, WEB_ACCOUNT_SERVICES_FIELD,
+  CHILD_SERVICE_ID_FIELD, CHILD_STATUS_FIELD,
+  STATUS_SETTING_UP, STATUS_ACTIVE,
+} = require("./constants");
 const { getServiceMeta, laneFor } = require("./catalog");
 const scaling = require("./scaling");
 const targets = require("./targets");
@@ -107,6 +112,32 @@ async function claimJob(client, name, runnerId, targetId) {
 async function escalate(client, job, reason) {
   await updateJob(client, job.name, { status: "needs_human", error: String(reason).slice(0, 500) });
   return { name: job.name, outcome: "needs_human", reason };
+}
+
+// On provisioning completion, flip the managed (premium) service's Web Account
+// row from "Setting up" to "Active". Best-effort; never throws into the runner.
+async function markAccountServiceActive(client, webAccount, serviceId) {
+  if (!webAccount || !serviceId) return;
+  try {
+    const res = await client.get(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(webAccount)}`);
+    const acc = res.data?.data || {};
+    const rows = Array.isArray(acc[WEB_ACCOUNT_SERVICES_FIELD]) ? acc[WEB_ACCOUNT_SERVICES_FIELD] : [];
+    let changed = false;
+    const updated = rows.map((r) => {
+      if (r[CHILD_SERVICE_ID_FIELD] === serviceId && r[CHILD_STATUS_FIELD] === STATUS_SETTING_UP) {
+        changed = true;
+        return { ...r, [CHILD_STATUS_FIELD]: STATUS_ACTIVE };
+      }
+      return r;
+    });
+    if (changed) {
+      await client.put(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(webAccount)}`, {
+        [WEB_ACCOUNT_SERVICES_FIELD]: updated,
+      });
+    }
+  } catch (e) {
+    console.warn(`[provisioning] could not flip ${serviceId} -> Active on ${webAccount}: ${e.message}`);
+  }
 }
 
 /** Queued jobs whose backoff (next_run_at) has elapsed. */
@@ -206,6 +237,8 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
         edge_status: edgeRes.status,
         error: "",
       });
+      // Managed SaaS goes live: flip its Web Account row "Setting up" -> "Active".
+      await markAccountServiceActive(client, job.web_account, job.service_id);
       return { name: job.name, outcome: "active", externalRef: out.externalRef, target: targetId, backup: backup.status, edge: edgeRes.status };
     } catch (e) {
       const attempts = Number(job.attempts || 0) + 1;

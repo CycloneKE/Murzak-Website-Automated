@@ -85,13 +85,14 @@ function allowedAddonTiers(plan: PlanCode): Array<string> {
   return [];
 }
 
+type ServiceStatus = "Active" | "Setting up" | "Awaiting Payment";
 type SelectedServiceView = {
   serviceId: string;
   name: string;
   tier?: string;
   category?: string;
   domainChoice?: string;
-  status: "Active" | "Awaiting Payment";
+  status: ServiceStatus;
   isAddon: boolean;
 };
 
@@ -188,12 +189,13 @@ const renderCloudSystemsGrid = () => (
     ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {selectedServices.map((s) => {
-          const locked = s.status !== "Active";
+          const locked = s.status === "Awaiting Payment";
+          const settingUp = s.status === "Setting up";
           return (
             <button
               key={s.serviceId}
               onClick={() => {
-                // Locked = awaiting payment → send them to Billing to clear it (not a dead-end).
+                // Awaiting payment → Billing (clear it). Active/Setting up → the service view.
                 if (locked) {
                   navigate(`/portal/billing`);
                   return;
@@ -203,6 +205,8 @@ const renderCloudSystemsGrid = () => (
               className={`text-left rounded-[2.25rem] p-6 sm:p-8 border transition-all relative overflow-hidden group hover:scale-[1.01] ${
                 locked
                   ? "bg-orange-500/[0.04] border-orange-500/30"
+                  : settingUp
+                  ? "bg-amber-400/[0.05] border-amber-400/30"
                   : "bg-murzak-cyan/5 border-murzak-cyan/30"
               }`}
             >
@@ -219,10 +223,20 @@ const renderCloudSystemsGrid = () => (
                   {s.name}
                 </h3>
 
+                {settingUp && (
+                  <p className="mt-2 text-[11px] font-bold text-amber-500 leading-snug">
+                    Our team is configuring this for you — we'll email you when it's ready.
+                  </p>
+                )}
+
                 <div className="mt-4 flex items-center justify-between">
                   {locked ? (
                     <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest">
                       Awaiting Payment
+                    </span>
+                  ) : settingUp ? (
+                    <span className="px-3 py-1 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/20 text-[9px] font-black uppercase tracking-widest">
+                      Setting up
                     </span>
                   ) : (
                     <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">
@@ -231,7 +245,7 @@ const renderCloudSystemsGrid = () => (
                   )}
 
                   <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan flex items-center gap-2">
-                    {locked ? "Pay now" : "Open"} <ArrowRight className="w-4 h-4" />
+                    {locked ? "Pay now" : settingUp ? "View status" : "Open"} <ArrowRight className="w-4 h-4" />
                   </span>
                 </div>
               </div>
@@ -432,8 +446,10 @@ const renderCloudSystemsGrid = () => (
       const category = svc?.category;
       const statusRaw = String(s.status || "").toLowerCase();
 
-      const status: "Active" | "Awaiting Payment" =
-        statusRaw.includes("active") || statusRaw.includes("paid")
+      const status: ServiceStatus =
+        statusRaw.includes("setting up") || statusRaw.includes("provision") || statusRaw.includes("configuring")
+          ? "Setting up"
+          : statusRaw.includes("active") || statusRaw.includes("paid")
           ? "Active"
           : "Awaiting Payment";
 
@@ -674,7 +690,9 @@ const renderCloudSystemsGrid = () => (
   };
 
   const activeServices = selectedServices.filter((s) => s.status === "Active");
-  const pendingServices = selectedServices.filter((s) => s.status !== "Active");
+  // Only TRUE awaiting-payment services trigger the "payment required" banner —
+  // "Setting up" services are paid and being configured, not unpaid.
+  const pendingServices = selectedServices.filter((s) => s.status === "Awaiting Payment");
 
   const serviceIdToPlan = useMemo(() => {
     const m = new Map<string, PlanCode>();
