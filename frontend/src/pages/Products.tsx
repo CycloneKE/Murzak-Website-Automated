@@ -5,6 +5,7 @@ import {
   Search, PenTool, Rocket, LifeBuoy, ShieldCheck, Lock, Zap, Headphones, Check,
   Code2, Truck, CalendarCheck, LayoutDashboard, Smartphone, PlugZap,
   SlidersHorizontal, FileSignature, CreditCard, Wand2,
+  ServerCrash, Table2, UserX, Coins, Network,
 } from 'lucide-react';
 import { Page } from '../types';
 import DomainSearch from '../components/DomainSearch';
@@ -105,6 +106,16 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
     { icon: <LifeBuoy size={18} />, t: 'We run it', s: 'We host, maintain and support it. No ghosting, no orphaned code.' },
   ];
 
+  // Problem-first entry (folded in from the old Solutions page): each pain points
+  // straight at the product/flow that fixes it.
+  const symptoms = [
+    { icon: <ServerCrash size={20} />, pain: '"My site keeps going down."', fix: 'Managed hosting that stays up — monitored, backed up and patched for you.', cta: 'Murzak Cloud', action: () => onNavigate('cloud') },
+    { icon: <Table2 size={20} />, pain: '"I\'m running everything on spreadsheets."', fix: 'Hosted ERP, POS and inventory replace the chaos — stock, sales and accounts in one place.', cta: 'Configure ERPNext', action: () => onNavigate('/pricing?configure=biz-erp-light') },
+    { icon: <Coins size={20} />, pain: '"Getting paid and reconciling is a nightmare."', fix: 'POS with M-Pesa built in, reconciling against your invoices automatically.', cta: 'Configure POS', action: () => onNavigate('/pricing?configure=biz-pos-inventory') },
+    { icon: <UserX size={20} />, pain: '"My last developer disappeared."', fix: 'We build your software and then we run it — one accountable team in Nairobi.', cta: 'Start a build', action: () => openSales('quote') },
+    { icon: <Network size={20} />, pain: '"Nothing talks to each other."', fix: 'We connect your tools — website, POS, accounting, M-Pesa — so data flows instead of being re-typed.', cta: 'Talk to us', action: () => openSales('quote') },
+  ];
+
   return (
     <main className="text-white overflow-x-hidden">
       {/* Hero */}
@@ -152,6 +163,37 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
             </p>
             <span className="font-mono text-[11px] uppercase tracking-widest text-murzak-cyan">Scoped &amp; quoted · milestone billing</span>
           </div>
+        </div>
+      </Section>
+
+      {/* Problems we hear most (merged from Solutions) */}
+      <Section spacing="tight" className="border-t border-white/5">
+        <div className="max-w-2xl mb-10">
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-3">What's slowing you down?</p>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">You don't need a lecture. You need it to just work.</h2>
+          <p className="mt-4 text-base text-slate-400 font-medium leading-relaxed">
+            Here's what we hear most — and exactly what we point you to.
+          </p>
+        </div>
+        <div className="space-y-4">
+          {symptoms.map((s) => (
+            <div
+              key={s.pain}
+              className="group grid md:grid-cols-[1fr_1.3fr_auto] items-center gap-6 rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-6 lg:p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]"
+            >
+              <div className="flex items-start gap-4">
+                <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan">{s.icon}</span>
+                <p className="text-lg font-black text-white leading-snug">{s.pain}</p>
+              </div>
+              <p className="text-slate-400 font-medium leading-relaxed text-[14px]">{s.fix}</p>
+              <button
+                onClick={s.action}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-black text-[10px] uppercase tracking-widest text-murzak-cyan hover:bg-murzak-cyan hover:text-murzak-navy transition-all"
+              >
+                {s.cta} <ArrowUpRight size={14} />
+              </button>
+            </div>
+          ))}
         </div>
       </Section>
 

@@ -45,7 +45,6 @@ const Header: React.FC<HeaderProps> = ({
 
   const navItems: NavItem[] = [
     { label: "Home", page: "home" },
-    { label: "Solutions", page: "solutions" },
     { label: "Murzak Cloud", page: "cloud" },
     { label: "Products", page: "products" },
     { label: "Pricing", page: "pricing" },

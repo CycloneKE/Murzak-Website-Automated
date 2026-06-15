@@ -15,7 +15,6 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
   const exploreLinks: { label: string; page: Page }[] = [
     { label: 'Home', page: 'home' },
-    { label: 'Solutions', page: 'solutions' },
     { label: 'Murzak Cloud', page: 'cloud' },
     { label: 'Products', page: 'products' },
     { label: 'Pricing', page: 'pricing' },

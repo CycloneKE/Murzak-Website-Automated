@@ -8,7 +8,6 @@ import InteractiveBackground from "./components/InteractiveBackground";
 import Home from "./pages/Home";
 import Cloud from "./pages/Cloud";
 import Pricing from "./pages/Pricing";
-import Solutions from "./pages/Solutions";
 import Products from "./pages/Products";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
@@ -242,7 +241,8 @@ const App: React.FC = () => {
               <Route path="/services" element={<Navigate to="/products" replace />} />
               <Route path="/cloud" element={<Cloud onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} />} />
-              <Route path="/solutions" element={<Solutions onNavigate={onNavigate} isLoading={isPageLoading} />} />
+              {/* Solutions merged into Products — redirect legacy links. */}
+              <Route path="/solutions" element={<Navigate to="/products" replace />} />
               <Route path="/products" element={<Products onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/about" element={<About onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/contact" element={<ContactPage onNavigate={onNavigate} />} />
