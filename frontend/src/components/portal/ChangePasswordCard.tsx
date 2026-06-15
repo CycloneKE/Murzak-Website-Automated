@@ -50,7 +50,7 @@ const ChangePasswordCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
+    <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
       <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
         <Lock size={14} className="text-murzak-cyan" /> Security · Change Password
       </h3>

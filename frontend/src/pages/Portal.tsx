@@ -32,9 +32,7 @@ import {
   UploadCloud,
   Lock,
   Plus,
-  Crown,
-  Sun,
-  Moon
+  Crown
 } from "lucide-react";
 
 import { User, Page, ProjectUpdate } from "../types";
@@ -58,8 +56,6 @@ interface PortalProps {
   user: User;
   onLogout: () => void;
   onNavigate: (page: Page) => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
   onUserUpdate: (user: User) => void;
 }
 
@@ -99,7 +95,7 @@ type SelectedServiceView = {
   isAddon: boolean;
 };
 
-const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, isDarkMode, toggleTheme, onUserUpdate }) => {
+const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdate }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -609,11 +605,6 @@ const renderCloudSystemsGrid = () => (
       .sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
   }, [planCode]);
 
-  useEffect(() => {
-  console.log("user.addonServiceIds", (user as any)?.addonServiceIds);
-  console.log("selectedServices raw", (user as any)?.selectedServices);
-  console.log("localInvoices", localInvoices);
-}, [user, localInvoices]);
 
   const applyAddonsSelection = async ({
     covered,
@@ -917,7 +908,7 @@ const renderCloudSystemsGrid = () => (
     if (user.accountStatus === "Provisioning" && provisionProgress < 100) {
       return (
         <div className="space-y-12 animate-fade-in">
-          <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
+          <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
             <div className="max-w-4xl relative z-10">
               <div className="inline-flex items-center gap-3 bg-murzak-cyan/10 text-murzak-cyan px-4 py-2 rounded-full border border-murzak-cyan/20 mb-8">
                 <Activity className="w-4 h-4 animate-pulse" />
@@ -1008,7 +999,7 @@ const renderCloudSystemsGrid = () => (
           </div>
 
           {/* Activity */}
-          <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl
+          <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl
                            border border-slate-200 dark:border-white/10 p-10 rounded-[3.5rem] flex flex-col justify-between gap-8">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recent Activity</h3>
             <div className="space-y-4">
@@ -1038,7 +1029,7 @@ const renderCloudSystemsGrid = () => (
         {/* Services + Upload row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Selected services */}
-          <div className="lg:col-span-2 bg-white/60 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl border border-murzak-cyan/15 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
+          <div className="lg:col-span-2 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl border border-murzak-cyan/15 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
             {planAttachBanner && (
               <div className="mb-5 p-4 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-500 flex items-start gap-3">
                 <AlertCircle className="w-4 h-4 mt-0.5" />
@@ -1433,7 +1424,7 @@ const renderCloudSystemsGrid = () => (
         </div>
 
         {/* Invoices */}
-        <div className="lg:col-span-1 bg-white/90 dark:bg-murzak-navy/85 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl border-2 border-murzak-navy/20">
+        <div className="lg:col-span-1 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl border-2 border-murzak-navy/20">
           <div className="flex flex-col sm:flex-row lg:flex-col gap-3 sm:gap-4 items-start sm:items-center lg:items-start justify-between mb-6 sm:mb-10">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
               Settlement History
@@ -1667,7 +1658,7 @@ const renderCloudSystemsGrid = () => (
           <select
             value={updatesSort}
             onChange={(e) => setUpdatesSort(e.target.value as any)}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 text-[10px] font-black uppercase tracking-widest"
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
@@ -1677,14 +1668,14 @@ const renderCloudSystemsGrid = () => (
 
           <button
             onClick={selectAll}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 text-[10px] font-black uppercase tracking-widest"
           >
             Select all
           </button>
 
           <button
             onClick={clearSelection}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
+            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 text-[10px] font-black uppercase tracking-widest"
           >
             Clear
           </button>
@@ -1835,7 +1826,7 @@ const renderCloudSystemsGrid = () => (
         const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);
         const isActive = svc?.status === "Active";
         return (
-          <div className="rounded-[2.25rem] border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-xl p-7 sm:p-10">
+          <div className="rounded-[2.25rem] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 sm:p-10">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="p-3.5 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Server className="w-6 h-6" /></div>
@@ -1893,7 +1884,7 @@ const renderCloudSystemsGrid = () => (
       <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Account Profile</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-        <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
+        <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
           <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8">
             Personal Information
           </h3>
@@ -2069,14 +2060,6 @@ const renderCloudSystemsGrid = () => (
             >
               <LogOut className="w-4 h-4" /> Log out
             </button>
-            <button
-              onClick={toggleTheme}
-              className="hidden lg:flex shrink-0 p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-murzak-navy dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
-              aria-label="Toggle theme"
-              title="Toggle theme"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
           </div>
       </aside>
 
@@ -2111,20 +2094,6 @@ const renderCloudSystemsGrid = () => (
           >
             <Menu className="w-5 h-5" />
           </button>
-          <button
-            onClick={toggleTheme}
-            className="lg:hidden fixed top-5 right-20 z-[140] p-3.5 bg-white dark:bg-murzak-navy rounded-xl shadow-lg
-              flex items-center justify-center border border-slate-100 dark:border-white/10
-              hover:bg-slate-100 dark:hover:bg-white/10 text-murzak-navy dark:text-white transition-all"
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
-            ) : (
-              <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-            )}
-          </button>          
         </header>
 
         <div className="max-w-7xl mx-auto">

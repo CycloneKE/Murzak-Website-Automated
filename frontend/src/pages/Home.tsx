@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { Page } from '../types';
 import Faq, { type FaqItem } from '../components/Faq';
-import { PLAN_META, formatKes } from '../config/serviceCatalog';
+import { PLAN_META, formatKes, serviceMonthlyKes } from '../config/serviceCatalog';
+import { Button } from '../components/ui/Button';
 
 interface HomeProps {
   onNavigate: (page: Page) => void;
@@ -18,11 +19,13 @@ type Testimonial = { quote: string; name: string; org: string };
 // Real, attributable client quotes only — section auto-hides while empty.
 const TESTIMONIALS: Testimonial[] = [];
 
-/* ---------- Hero product peek: the live configurator, ticking ---------- */
+/* ---------- Hero product peek: the live configurator, ticking ----------
+   Prices are pulled from the catalog (single source of truth) so this hero
+   can never contradict the real configurator/pricing. */
 const PEEK_ITEMS = [
-  { name: 'Website Hosting', kes: 1500 },
-  { name: 'Business Email', kes: 1200 },
-  { name: 'Managed ERPNext', kes: 9000 },
+  { name: 'Website Hosting', kes: serviceMonthlyKes('starter-web-hosting') ?? 0 },
+  { name: 'Business Email', kes: serviceMonthlyKes('starter-email') ?? 0 },
+  { name: 'Managed ERPNext', kes: serviceMonthlyKes('biz-erp-light') ?? 0 },
 ];
 
 function ConfigPeek() {
@@ -52,7 +55,7 @@ function ConfigPeek() {
   }, [count]);
 
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 sm:p-6 shadow-2xl">
+    <div className="relative rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md backdrop-blur-xl p-5 sm:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-4">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400">your plan</span>
         <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-murzak-cyan">
@@ -66,7 +69,7 @@ function ConfigPeek() {
             <li
               key={item.name}
               className={`flex items-center justify-between rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
-                on ? 'border-murzak-cyan/30 bg-murzak-cyan/10 opacity-100' : 'border-white/5 bg-white/[0.02] opacity-40'
+                on ? 'border-murzak-cyan/30 bg-murzak-cyan/10 opacity-100' : 'border-white/5 bg-murzak-navy/80 backdrop-blur-md opacity-40'
               }`}
             >
               <span className="flex items-center gap-2 text-[13px] font-bold text-white">
@@ -156,18 +159,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={() => onNavigate('pricing')}
-                className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-cyan text-murzak-navy px-7 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-cyan/20"
-              >
-                Build my plan <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button
-                onClick={() => scrollTo('what-we-do')}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-7 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all"
-              >
+              <Button onClick={() => onNavigate('pricing')}>
+                Build my plan <ArrowRight size={18} />
+              </Button>
+              <Button variant="outlineOnDark" onClick={() => scrollTo('what-we-do')}>
                 See what we do
-              </button>
+              </Button>
             </div>
 
             <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-400">
@@ -182,7 +179,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 02 · TRUST STRIP */}
-      <section className="border-y border-white/5 bg-white/[0.02]">
+      <section className="border-y border-white/5 bg-murzak-navy/80 backdrop-blur-md">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 max-w-xs text-center lg:text-left">
             Trusted by teams who'd rather be doing their actual job
@@ -258,7 +255,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <button
                 key={p.title}
                 onClick={() => onNavigate(p.page)}
-                className={`group text-left rounded-3xl border border-white/10 bg-white/[0.03] p-8 lg:p-10 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05] ${p.span}`}
+                className={`group text-left rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05] ${p.span}`}
               >
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-6">{p.icon}</div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-2">{p.tag}</p>
@@ -284,12 +281,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <p className="mt-6 text-lg text-slate-400 font-medium leading-relaxed max-w-md">
               Pick what you need, watch the cost add up in shillings, and start. No "contact us for pricing," no surprises on the invoice.
             </p>
-            <button
-              onClick={() => onNavigate('pricing')}
-              className="mt-8 group inline-flex items-center gap-2 rounded-2xl bg-murzak-cyan text-murzak-navy px-7 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-cyan/20"
-            >
-              Build my plan <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+            <Button className="mt-8" onClick={() => onNavigate('pricing')}>
+              Build my plan <ArrowRight size={18} />
+            </Button>
           </div>
           <div className="relative">
             <div className="absolute -inset-6 rounded-[2.5rem] bg-murzak-gradient opacity-10 blur-2xl" />
@@ -312,7 +306,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { n: '03', icon: <Rocket size={20} />, t: 'Go live', s: 'Most websites and standard apps are live the same day. ERP with migration takes a few days.' },
               { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support — for as long as you’re with us.' },
             ].map((step) => (
-              <div key={step.n} className="relative rounded-3xl border border-white/10 bg-white/[0.03] p-7 lg:p-8">
+              <div key={step.n} className="relative rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 lg:p-8">
                 <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-white/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{step.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{step.t}</h3>
@@ -333,7 +327,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
           <div className="grid lg:grid-cols-2 gap-5">
             {/* ready-made */}
-            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 lg:p-10">
+            <div className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10">
               <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
@@ -342,7 +336,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   { icon: <Database size={16} />, t: 'CRM & Helpdesk', s: 'Pipeline, tickets, follow-ups' },
                   { icon: <Mail size={16} />, t: 'Business Email', s: 'Your-name@your-domain, managed' },
                 ].map((r) => (
-                  <div key={r.t} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3.5">
+                  <div key={r.t} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-murzak-navy/80 backdrop-blur-md px-4 py-3.5">
                     <span className="text-murzak-cyan">{r.icon}</span>
                     <div>
                       <div className="text-sm font-black text-white">{r.t}</div>
@@ -389,7 +383,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { icon: <ShieldCheck size={22} />, t: 'Billed in shillings', s: 'What you see is what you pay. No forex games.' },
               { icon: <Headphones size={22} />, t: 'Support in your time zone', s: 'Real people in Nairobi, answering the same day.' },
             ].map((c) => (
-              <div key={c.t} className="rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+              <div key={c.t} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
                 <h3 className="text-xl font-black text-white mb-2">{c.t}</h3>
                 <p className="text-slate-400 font-medium leading-relaxed">{c.s}</p>
@@ -408,7 +402,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           </div>
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
-            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 lg:p-10">
+            <div className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10">
               <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
@@ -469,7 +463,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 className={`text-left rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
                   m.featured
                     ? 'border-murzak-cyan/40 bg-murzak-cyan/[0.06]'
-                    : 'border-white/10 bg-white/[0.03] hover:border-white/20'
+                    : 'border-white/10 bg-murzak-navy/80 backdrop-blur-md hover:border-white/20'
                 }`}
               >
                 {m.featured && (
@@ -526,18 +520,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             Build a plan in two minutes, or talk to someone who'll actually pick up.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => onNavigate('pricing')}
-              className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-murzak-navy px-8 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-xl"
-            >
-              Build my plan <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => onNavigate('contact')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 px-8 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all"
-            >
+            <Button variant="onDark" onClick={() => onNavigate('pricing')}>
+              Build my plan <ArrowRight size={18} />
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => onNavigate('contact')}>
               Talk to us
-            </button>
+            </Button>
           </div>
           <p className="mt-6 font-mono text-[11px] uppercase tracking-widest text-white/70">
             Start in a day · No card · Pay by M-Pesa

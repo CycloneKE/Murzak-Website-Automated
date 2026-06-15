@@ -37,6 +37,14 @@ function pruneTokenStore(store) {
 
 function appBaseUrl(req) {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/$/, "");
+  // SECURITY: the Host header is attacker-controlled. Trusting it to build
+  // password-reset / verification links enables host-header poisoning (an
+  // attacker receives a working reset link pointing at their own domain).
+  // In production we refuse to fall back to it — APP_BASE_URL must be set.
+  if (process.env.NODE_ENV === "production") {
+    console.error("APP_BASE_URL is not set in production — refusing to build links from the Host header.");
+    throw new Error("APP_BASE_URL must be set in production.");
+  }
   return `${req.protocol}://${req.get("host")}`;
 }
 
@@ -69,6 +77,9 @@ if (process.env.NODE_ENV === "production") {
 
 const createPaypalRouter = require("./routes/paypalRoutes");
 const { activateServicesForInvoice } = require("./services/billingActivationService");
+const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmount");
+const { assertOrderWithinCapacity } = require("./services/orderCapacity");
+const { capturedAmountMatches } = require("./services/paypalService");
 const provisioningRunner = require("./services/provisioning/runner");
 const provisioningQueue = require("./services/provisioning/queue");
 const { JOB_DOCTYPE: PROVISIONING_JOB_DOCTYPE } = require("./services/provisioning/provisioningService");
@@ -210,15 +221,38 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 
+// Tight per-IP limiter for UNAUTHENTICATED endpoints that write to / query Frappe
+// (contact requests, trial signups, domain lookups). Blunts spam/abuse that the
+// broad apiLimiter is too loose to stop. Generous enough for real humans.
+const publicFormLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many submissions from this device. Please try again later." },
+});
+
+// Domain availability is a lookup users hit repeatedly while searching, so it
+// gets a looser limit than the write/signup forms — still tight enough to stop
+// scripted enumeration of the registrar proxy.
+const domainCheckLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many domain lookups. Please slow down and try again shortly." },
+});
+
 app.use(
   "/api/paypal",
   createPaypalRouter({
     requireAuth,
     frappeClient,
-    activateServicesForInvoice: async ({ req, invoiceDocName }) => {
+    activateServicesForInvoice: async ({ req, invoiceDocName, paymentVerified }) => {
       return activateServicesForInvoice({
         req,
         invoiceDocName,
+        paymentVerified,
         frappeClient,
         PORTAL_INVOICE_SERVICES_FIELD,
         CHILD_SERVICE_ID_FIELD,
@@ -787,7 +821,7 @@ async function hostingerAvailability(label, tldsWithDot) {
   }
 }
 
-app.post("/api/domains/check", async (req, res) => {
+app.post("/api/domains/check", domainCheckLimiter, async (req, res) => {
   try {
     const label = normalizeDomainLabel(req.body?.label);
     if (!label) return res.status(400).json({ error: "Invalid domain label." });
@@ -813,7 +847,7 @@ app.post("/api/domains/check", async (req, res) => {
 });
 
 // --- TEST PLAN (TRIAL) INVOICE ---
-app.post("/api/test-plan", async (req, res) => {
+app.post("/api/test-plan", publicFormLimiter, async (req, res) => {
   try {
     const {
       fullName,
@@ -988,6 +1022,14 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
       return res.status(400).json({ error: `Service tier not allowed for add-ons under ${planKey}.` });
     }
 
+    // Capacity guard: an add-on adds to what the tenant already runs, so check
+    // the EXISTING active services + the new order — not the order alone — or a
+    // tenant could split an over-capacity build across two requests.
+    const existingSelection = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD])
+      .map((r) => ({ serviceId: r?.[CHILD_SERVICE_ID_FIELD] }))
+      .filter((s) => s.serviceId);
+    assertOrderWithinCapacity([...existingSelection, ...norm]);
+
     const amount = computeAddonInvoiceAmount(norm, includedRemaining);
 
     // If everything fits in free included slots, we don't create an Addon invoice.
@@ -1126,7 +1168,10 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     return res.json({ ok: true, user: userPayload });
   } catch (err) {
     console.error("ADDON INVOICE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to create add-on invoice." });
+    const status = err.statusCode || 500;
+    return res.status(status).json({
+      error: status >= 500 ? "Failed to create add-on invoice." : err.message,
+    });
   }
 });
 
@@ -2203,7 +2248,9 @@ app.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       return res.status(409).json({ error: "Invoice is already paid." });
     }
 
-    const amountKes = Math.ceil(Number(inv.amount || 0));
+    // Free / zero-amount invoices push the small verification charge so the
+    // trial is activated against a real M-Pesa transaction ("for free").
+    const amountKes = Math.ceil(effectiveChargeKes(inv.amount));
     if (amountKes <= 0) return res.status(400).json({ error: "Invoice amount must be greater than 0." });
 
     const mpesaEnv = (process.env.MPESA_ENV || "sandbox").toLowerCase();
@@ -2339,7 +2386,7 @@ app.post("/api/billing/mpesa/callback", async (req, res) => {
     // 2) Verify the amount actually paid matches what we billed.
     //    Reject if the amount is missing or below the billed amount (fail closed).
     const paidAmount = Number(mpesaMetaValue(body, "Amount") || 0);
-    const expectedAmount = Math.ceil(Number(inv.amount || 0));
+    const expectedAmount = Math.ceil(effectiveChargeKes(inv.amount));
     if (expectedAmount > 0 && (!(paidAmount > 0) || paidAmount < expectedAmount)) {
       console.error("MPESA CALLBACK: amount missing or underpaid — rejected", {
         invoice: inv.name, paidAmount, expectedAmount,
@@ -2362,6 +2409,9 @@ app.post("/api/billing/mpesa/callback", async (req, res) => {
     await activateServicesForInvoice({
       req: { session: { webAccount: inv.web_account, user: { id: inv.web_account } } },
       invoiceDocName: inv.name,
+      // Trusted rail: the callback verified the shared secret and that the paid
+      // amount meets the invoice's expected charge before reaching this point.
+      paymentVerified: true,
       frappeClient,
       PORTAL_INVOICE_SERVICES_FIELD,
       CHILD_SERVICE_ID_FIELD,
@@ -2403,6 +2453,165 @@ app.get("/api/billing/mpesa/status/:invoiceDocName", requireAuth, async (req, re
   }
 });
 
+// ----------------------------------------
+// --- PAYPAL WEBHOOK (out-of-band truth) ---
+// ----------------------------------------
+// Authoritative, browser-independent payment reconciliation. Reconciles a paid
+// capture even if the buyer closed the tab before /capture-order returned, and
+// reverses activation on refund/chargeback. Signature is verified server-side
+// via PayPal's API; FAILS CLOSED (rejects unverified / unconfigured in prod).
+const { verifyWebhookSignature, extractInvoiceName } = require("./services/paypalWebhook");
+
+// Flip a Portal Invoice's services back to Suspended and the invoice to a
+// non-paid status. Best-effort, only ever called from a verified webhook.
+async function suspendServicesForInvoice(client, invoiceDocName, newInvoiceStatus) {
+  const invRes = await client.get(
+    `/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`
+  );
+  const inv = invRes.data?.data;
+  if (!inv?.name) return;
+
+  // Only ever reverse an invoice that is actually PAID. This makes the handler
+  // idempotent (a second refund/reversal event sees a non-paid status and skips)
+  // and prevents a DENIED event on an already-unpaid invoice from doing writes.
+  if (String(inv.status || "").toLowerCase() !== "paid") {
+    console.warn(`[paypal webhook] skip reverse: invoice ${invoiceDocName} not Paid (status=${inv.status}).`);
+    return;
+  }
+
+  // Don't suspend a live free trial just because its small verification charge
+  // was refunded — a KES-1 verification refund must not kill a legitimate trial.
+  if (isVerificationOnly(inv.amount)) {
+    console.warn(`[paypal webhook] skip reverse: ${invoiceDocName} is a free-trial verification invoice.`);
+    return;
+  }
+
+  await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(inv.name)}`, {
+    status: newInvoiceStatus,
+  });
+
+  const serviceIds = (Array.isArray(inv[PORTAL_INVOICE_SERVICES_FIELD]) ? inv[PORTAL_INVOICE_SERVICES_FIELD] : [])
+    .map((s) => s?.[CHILD_SERVICE_ID_FIELD])
+    .filter(Boolean);
+  if (!serviceIds.length || !inv.web_account) return;
+
+  const accRes = await client.get(
+    `/api/resource/Web Account/${encodeURIComponent(inv.web_account)}`
+  );
+  const account = accRes.data?.data || {};
+  const rows = Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD])
+    ? account[WEB_ACCOUNT_SERVICES_FIELD]
+    : [];
+  const updatedRows = rows.map((r) =>
+    serviceIds.includes(r[CHILD_SERVICE_ID_FIELD])
+      ? { ...r, [CHILD_STATUS_FIELD]: "Suspended" }
+      : r
+  );
+  await client.put(`/api/resource/Web Account/${encodeURIComponent(inv.web_account)}`, {
+    [WEB_ACCOUNT_SERVICES_FIELD]: updatedRows,
+  });
+}
+
+app.post("/api/paypal/webhook", async (req, res) => {
+  try {
+    const event = req.body || {};
+
+    // 1) Verify the signature. FAIL CLOSED in production.
+    let verified = false;
+    let reason = "";
+    try {
+      const result = await verifyWebhookSignature({ headers: req.headers, event });
+      verified = result.verified;
+      reason = result.reason || "";
+    } catch (e) {
+      console.error("PAYPAL WEBHOOK: verification call failed:", e.response?.data || e.message);
+      // Transient verification failure — let PayPal retry.
+      return res.status(500).json({ ok: false });
+    }
+
+    if (!verified) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("PAYPAL WEBHOOK: rejected — signature not verified:", reason);
+        return res.status(401).json({ ok: false });
+      }
+      console.warn("PAYPAL WEBHOOK: signature not verified (allowed in non-prod):", reason);
+    }
+
+    const type = event.event_type;
+    const resource = event.resource;
+    const invoiceDocName = extractInvoiceName(resource);
+
+    // Acknowledge events we don't act on so PayPal stops retrying them.
+    if (!invoiceDocName) {
+      console.warn("PAYPAL WEBHOOK: no invoice reference on", type);
+      return res.status(200).json({ ok: true, ignored: true });
+    }
+
+    const client = frappeClient();
+
+    if (type === "PAYMENT.CAPTURE.COMPLETED") {
+      const invRes = await client.get(
+        `/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`
+      );
+      const inv = invRes.data?.data;
+      if (!inv?.name) {
+        console.warn("PAYPAL WEBHOOK: invoice not found:", invoiceDocName);
+        return res.status(200).json({ ok: true, ignored: true });
+      }
+
+      // Idempotent: already reconciled (likely by the browser capture-order call).
+      if (String(inv.status || "").toLowerCase() === "paid") {
+        return res.status(200).json({ ok: true, alreadyPaid: true });
+      }
+
+      // Verify the captured amount matches what we billed (fail closed).
+      // Shared with the capture flow via capturedAmountMatches so they can't drift.
+      const capturedValue = Number(resource?.amount?.value);
+      const capturedCurrency = resource?.amount?.currency_code;
+      if (!capturedAmountMatches({ invoiceAmountKes: inv.amount, capturedValue, capturedCurrency })) {
+        console.error("PAYPAL WEBHOOK: amount mismatch — not activating", {
+          invoice: inv.name, capturedValue, capturedCurrency,
+        });
+        return res.status(200).json({ ok: true, ignored: true });
+      }
+
+      await activateServicesForInvoice({
+        req: { session: { webAccount: inv.web_account, user: { id: inv.web_account } } },
+        invoiceDocName: inv.name,
+        paymentVerified: true,
+        frappeClient,
+        PORTAL_INVOICE_SERVICES_FIELD,
+        CHILD_SERVICE_ID_FIELD,
+        WEB_ACCOUNT_SERVICES_FIELD,
+        CHILD_STATUS_FIELD,
+        fetchInvoicesForUser,
+        fetchSelectedServicesForUser,
+        buildUserPayload,
+      });
+      console.log("PAYPAL WEBHOOK: reconciled capture for invoice:", inv.name);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (
+      type === "PAYMENT.CAPTURE.REFUNDED" ||
+      type === "PAYMENT.CAPTURE.REVERSED" ||
+      type === "PAYMENT.CAPTURE.DENIED"
+    ) {
+      const newStatus = type === "PAYMENT.CAPTURE.DENIED" ? "Unpaid" : "Refunded";
+      await suspendServicesForInvoice(client, invoiceDocName, newStatus);
+      console.warn(`PAYPAL WEBHOOK: ${type} -> ${newStatus}, services suspended for`, invoiceDocName);
+      return res.status(200).json({ ok: true, reversed: true });
+    }
+
+    // Unhandled but valid event — acknowledge.
+    return res.status(200).json({ ok: true, ignored: true });
+  } catch (err) {
+    console.error("PAYPAL WEBHOOK ERROR:", err.response?.data || err.message);
+    // Transient — let PayPal retry.
+    return res.status(500).json({ ok: false });
+  }
+});
+
 // -------------
 
 // --- REGISTER ---
@@ -2438,6 +2647,7 @@ app.post("/api/register", authLimiter, async (req, res) => {
     }
 
     assertWithinPlanLimit(resolvedPlan, resolvedServices);
+    assertOrderWithinCapacity(resolvedServices);
 
     const client = frappeClient();
 
@@ -2551,7 +2761,8 @@ app.post("/api/register", authLimiter, async (req, res) => {
     return res.json({ ok: true, id: docName, user: userPayload });
   } catch (err) {
     console.error("REGISTER ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Registration failed." });
+    const status = err.statusCode || 500;
+    return res.status(status).json({ error: status >= 500 ? "Registration failed." : err.message });
   }
 });
 
@@ -2564,6 +2775,7 @@ app.post("/api/plan/select-with-services", (req, res) => {
 
     const norm = normalizeSelectedServices(selectedServices);
     assertWithinPlanLimit(planKey, norm);
+    assertOrderWithinCapacity(norm);
 
     req.session.pendingPlan = planKey;
     req.session.pendingServices = norm;
@@ -3246,7 +3458,7 @@ app.get("/api/invoices/download-all", async (req, res) => {
 });
 
 // --- CLIENT MESSAGES / REQUESTS --- 
-app.post("/api/requests", async (req, res) => {
+app.post("/api/requests", publicFormLimiter, async (req, res) => {
   try {
     const {
       firstName,
@@ -5339,6 +5551,42 @@ app.get("/api/admin/provisioning/queue", requireAuth, requireAdmin, async (req, 
 // Any route not matched above will return the React app.
 app.get("*", (req, res) => {
   res.sendFile(path.join(frontendDistPath, "index.html"));
+});
+
+// ---- Global error handler (must be last app.use) ----
+// Catches anything routed via next(err) — CORS rejections, multer upload errors,
+// and any handler that throws synchronously — instead of leaking a stack trace
+// or defaulting to an unhandled 500. 5xx messages are kept generic.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.statusCode || err.status || 500;
+  if (status >= 500) {
+    console.error("UNHANDLED ROUTE ERROR:", err.stack || err.message);
+  }
+  res.status(status).json({
+    error: status >= 500 ? "Something went wrong. Please try again." : err.message,
+  });
+});
+
+// ---- Process-level safety nets ----
+// An unhandled rejection is logged (often non-fatal); we keep serving.
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason instanceof Error ? reason.stack : reason);
+});
+// An uncaught exception leaves the process in an undefined state — Node's
+// documented guidance is to restart. Stop accepting work and exit non-zero so
+// the process manager (pm2/systemd) brings up a clean instance; force-exit if
+// the graceful close hangs.
+let shuttingDownFromCrash = false;
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION — restarting to avoid corrupted state:", err?.stack || err);
+  if (shuttingDownFromCrash) return;
+  shuttingDownFromCrash = true;
+  try {
+    Promise.resolve(provisioningQueue.stop()).catch(() => {});
+  } catch {}
+  server.close(() => process.exit(1));
+  setTimeout(() => process.exit(1), 5000).unref();
 });
 
 // ---- Start server ----

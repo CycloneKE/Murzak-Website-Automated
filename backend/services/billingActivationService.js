@@ -6,6 +6,13 @@ async function activateServicesForInvoice({
   req,
   frappeClient,
   invoiceDocName,
+  // SECURITY GATE: only a server-side verified payment rail (PayPal capture,
+  // M-Pesa STK callback) may pass paymentVerified:true. Any other caller — most
+  // importantly the public POST /api/billing/activate-services endpoint — leaves
+  // this false, in which case we REFUSE to transition an unpaid invoice to Paid.
+  // Without this, any authenticated user could activate their own services for
+  // free by calling activate-services on an unpaid invoice.
+  paymentVerified = false,
   PORTAL_INVOICE_SERVICES_FIELD,
   CHILD_SERVICE_ID_FIELD,
   WEB_ACCOUNT_SERVICES_FIELD,
@@ -45,12 +52,28 @@ async function activateServicesForInvoice({
     throw err;
   }
 
-  await client.put(
-    `/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`,
-    {
-      status: "Paid",
-    }
-  );
+  const alreadyPaid = String(inv.status || "").trim().toLowerCase() === "paid";
+
+  // Untrusted callers may only (re)sync services for an invoice a verified rail
+  // has ALREADY marked Paid. They can never themselves flip Unpaid -> Paid.
+  if (!paymentVerified && !alreadyPaid) {
+    const err = new Error(
+      "Invoice is not paid. Complete payment before activating services."
+    );
+    err.statusCode = 402;
+    throw err;
+  }
+
+  // Only a verified rail transitions the invoice to Paid; if it's already Paid
+  // this is a no-op resync, so skip the redundant write.
+  if (!alreadyPaid) {
+    await client.put(
+      `/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`,
+      {
+        status: "Paid",
+      }
+    );
+  }
 
   const invServices = Array.isArray(inv?.[PORTAL_INVOICE_SERVICES_FIELD])
     ? inv[PORTAL_INVOICE_SERVICES_FIELD]

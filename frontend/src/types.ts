@@ -61,6 +61,16 @@ export interface User {
   updates: ProjectUpdate[];
   sourceCode?: string;
   evaluationGoal?: string;
+  /** Services attached to the account (from the configurator/portal selection). */
+  selectedServices?: Array<{
+    serviceId: string;
+    serviceName?: string;
+    tier?: string;
+    status?: string;
+    [k: string]: unknown;
+  }>;
+  /** Convenience list of selected add-on service ids. */
+  addonServiceIds?: string[];
 }
 
 export type ScrollTarget = "pricing-plans" | null;

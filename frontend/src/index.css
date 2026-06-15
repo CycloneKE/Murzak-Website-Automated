@@ -3,6 +3,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Distinctive display face for all headings; body stays Hanken Grotesk.
+     Applied globally so headlines pick it up without per-element classes. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+  }
+}
+
 /* Universal site backdrop, painted on the body canvas so it sits behind ALL
    transparent content without stacking-order issues. Layers (top → bottom):
    tactical dot-grid · dark veil to mute the image · the image · solid base. */

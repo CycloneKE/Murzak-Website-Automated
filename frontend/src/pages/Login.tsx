@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Lock, Mail, ArrowRight, ShieldCheck, RefreshCw, ChevronLeft, User as UserIcon, Building, Smartphone, FileText, Code, CheckSquare, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Logo from '../components/Logo';
 import { Page, User } from '../types';
-import { authService } from '../services/auth';
 import { firebaseEnabled, getGoogleIdToken } from '../services/firebase';
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -151,14 +150,6 @@ const attachPendingSelection = async (currentUser?: User) => {
   const currentPlan = (currentUser?.plan || "None").trim();
   const pendingPlan = (pending.plan || "None").trim();
 
-  console.log("[UPGRADE] attachPendingSelection() pending", pending);
-  console.log("[UPGRADE] attachPendingSelection() resolved", {
-    currentPlan,
-    pendingPlan,
-    upgradeIntent,
-    upgradeMode,
-  });
-
   // ✅ Only block mismatches when NOT in upgrade mode
   if (!upgradeIntent && currentPlan !== "None" && currentPlan !== pendingPlan) {
     throw new Error(
@@ -179,11 +170,6 @@ const attachPendingSelection = async (currentUser?: User) => {
   });
 
   const data = await res.json().catch(() => ({}));
-  console.log("[UPGRADE] attachPendingSelection() response", {
-    ok: res.ok,
-    status: res.status,
-    data,
-  });
 
   if (!res.ok) {
     if (data?.code === "PLAN_LIMIT_EXCEEDED") {
@@ -429,7 +415,7 @@ const handleReset = async (e: React.FormEvent) => {
           </h1>
         </div>
 
-        <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className=" bg-white/80 dark:bg-murzak-navy/90 backdrop-blur-md sm:backdrop-blur-xl lg:backdrop-blur-2xl p-5 sm:p-8 lg:p-14
+        <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className=" bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl lg:backdrop-blur-2xl p-5 sm:p-8 lg:p-14
            rounded-[2.25rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl lg:shadow-3xl border border-slate-100 dark:border-white/5 space-y-6 sm:space-y-8">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-xs font-bold text-center flex items-center justify-center gap-2">

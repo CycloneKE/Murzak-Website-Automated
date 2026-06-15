@@ -24,6 +24,7 @@ import ManagedComparison from "../components/ManagedComparison";
 import Faq, { type FaqItem } from "../components/Faq";
 import PlanAdvisor from "../components/PlanAdvisor";
 import { PLAN_META, formatKes, type PlanCode } from "../config/serviceCatalog";
+import { Button } from "../components/ui/Button";
 
 interface PricingProps {
   onNavigate: (page: Page) => void;
@@ -149,18 +150,12 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             Pick your services, watch the total add up in shillings, and start. No quotes to chase, no surprises on the invoice.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button
-              onClick={() => document.getElementById("pricing-plans")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="inline-flex items-center gap-2.5 bg-murzak-cyan text-murzak-navy px-7 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-cyan/20"
-            >
+            <Button onClick={() => document.getElementById("pricing-plans")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               View the plans <ArrowRight size={16} />
-            </button>
-            <button
-              onClick={() => setAdvisorOpen(true)}
-              className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-xl text-white border border-white/20 px-7 py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest hover:bg-white/20 hover:scale-[1.02] transition-all"
-            >
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => setAdvisorOpen(true)}>
               <Wand2 size={16} className="text-murzak-cyan" /> Not sure? Help me choose
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -182,7 +177,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             return (
               <article 
                 key={plan.name}
-                className={`flex flex-col bg-white/65 dark:bg-murzak-navy/55 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-500 relative cursor-pointer group shadow-sm ${
+                className={`flex flex-col bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-500 relative cursor-pointer group shadow-sm ${
                   isSelected 
                     ? 'border-murzak-cyan ring-[4px] sm:ring-[8px] ring-murzak-cyan/5 scale-[1.02] z-10 shadow-2xl' 
                     : 'border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 hover:scale-[0.99]'
@@ -261,7 +256,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               { icon: <Smartphone size={20} />, t: 'M-Pesa & KES billing', s: 'Pay in shillings by M-Pesa STK push or card. No forex math.' },
               { icon: <Headphones size={20} />, t: 'Nairobi support', s: 'Real people in your time zone, usually replying the same business day.' },
             ].map((c) => (
-              <div key={c.t} className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-white/[0.05] backdrop-blur-xl p-7">
+              <div key={c.t} className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
                 <h3 className="text-lg font-black text-murzak-navy dark:text-white mb-2">{c.t}</h3>
                 <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
@@ -291,7 +286,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               { n: '02', icon: <Sparkles size={20} />, t: 'Included slots first', s: 'Your plan’s included services are applied first. You only pay extra for what goes beyond them.' },
               { n: '03', icon: <ArrowRight size={20} />, t: 'Add or upgrade anytime', s: 'Need more later? Add services from your portal as a clearly-priced add-on. Outgrow the plan and we migrate you with no downtime.' },
             ].map((step) => (
-              <div key={step.n} className="relative rounded-3xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-white/[0.05] backdrop-blur-xl p-7 lg:p-8">
+              <div key={step.n} className="relative rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 lg:p-8">
                 <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-slate-300 dark:text-white/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{step.icon}</div>
                 <h3 className="text-lg font-black text-murzak-navy dark:text-white mb-2">{step.t}</h3>
@@ -317,18 +312,12 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             Take it for a spin with a free 36-hour trial, or let us recommend the right plan in a minute.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => onNavigate('test-request')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-murzak-navy px-8 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-xl"
-            >
+            <Button variant="onDark" onClick={() => onNavigate('test-request')}>
               Start free trial <ArrowRight size={17} />
-            </button>
-            <button
-              onClick={() => setAdvisorOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 px-8 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all"
-            >
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => setAdvisorOpen(true)}>
               <Wand2 size={16} /> Help me choose
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -360,6 +349,12 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         onProceedPortal={() => {
           setServicesOpen(false);
           onNavigate("portal"); // optional route
+        }}
+        onProceedEnterpriseQuote={() => {
+          // Over-capacity self-serve build → dedicated capacity conversation.
+          setServicesOpen(false);
+          setSalesInitialMode("quote");
+          setSalesOpen(true);
         }}
       />
     </div>

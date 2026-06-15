@@ -138,7 +138,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
           </h1>
         </div>
 
-        <div className="bg-white/90 dark:bg-murzak-navy/90 backdrop-blur-2xl rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-10 lg:p-16 shadow-3xl border border-slate-100 dark:border-white/5">
+        <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-2xl rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-10 lg:p-16 shadow-3xl border border-slate-100 dark:border-white/5">
           {step === 1 ? (
             <div className="space-y-6 sm:space-y-8 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">

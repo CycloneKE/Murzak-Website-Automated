@@ -4,6 +4,7 @@ import {
   ArrowRight, ArrowUpRight, ServerCrash, Table2, UserX, Coins, Network,
 } from 'lucide-react';
 import { Page } from '../types';
+import { Button } from '../components/ui/Button';
 
 interface Props {
   onNavigate: (page: Page) => void;
@@ -72,7 +73,7 @@ const Solutions: React.FC<Props> = ({ onNavigate }) => {
           {symptoms.map((s) => (
             <div
               key={s.pain}
-              className="group grid md:grid-cols-[1fr_1.3fr_auto] items-center gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-7 lg:p-9 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]"
+              className="group grid md:grid-cols-[1fr_1.3fr_auto] items-center gap-6 rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 lg:p-9 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]"
             >
               <div className="flex items-start gap-4">
                 <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan">{s.icon}</span>
@@ -98,12 +99,12 @@ const Solutions: React.FC<Props> = ({ onNavigate }) => {
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white">Don't see your exact problem?</h2>
           <p className="mt-4 text-lg text-white/85 font-medium">Tell us in plain words. We'll tell you honestly whether we can help — and what it costs.</p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => onNavigate('contact')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-murzak-navy px-8 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-xl">
+            <Button variant="onDark" onClick={() => onNavigate('contact')}>
               Talk to us <ArrowRight size={18} />
-            </button>
-            <button onClick={() => onNavigate('pricing')} className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 px-8 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all">
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => onNavigate('pricing')}>
               Build a plan
-            </button>
+            </Button>
           </div>
         </div>
       </section>

@@ -2,6 +2,7 @@
 import React from 'react';
 import { ArrowRight, MapPin, Heart, Wrench, Phone, Mail, Clock, Server, Boxes, Code2, ArrowUpRight } from 'lucide-react';
 import { NavProps } from '../types';
+import { Button } from '../components/ui/Button';
 
 const SUPPORT_EMAIL = 'support@murzaktech.com';
 
@@ -86,7 +87,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               { icon: <Boxes size={20} />, t: 'Business systems', s: 'Hosted ERPNext, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
               { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
             ].map((c) => (
-              <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]">
+              <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{c.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed mb-5">{c.s}</p>
@@ -106,7 +107,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
             {values.map((v) => (
-              <div key={v.t} className="rounded-3xl border border-white/10 bg-white/[0.03] p-7">
+              <div key={v.t} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{v.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{v.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{v.s}</p>
@@ -130,16 +131,16 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                 business day — and you’ll be talking to the people who actually run your systems.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                <button onClick={() => onNavigate('contact')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-cyan text-murzak-navy px-7 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-cyan/20">
+                <Button onClick={() => onNavigate('contact')}>
                   <Phone size={17} /> Send us a message
-                </button>
+                </Button>
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-7 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all">
                   Email us
                 </a>
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.03] p-8 sm:p-10 space-y-7">
+            <div className="rounded-[2.5rem] border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 sm:p-10 space-y-7">
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-2xl bg-murzak-cyan/15 text-murzak-cyan"><Mail size={18} /></div>
                 <div>
@@ -174,12 +175,12 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white">Let's talk about your business.</h2>
           <p className="mt-4 text-lg text-white/85 font-medium">No pitch, no pressure — just a straight conversation about what would actually help.</p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => onNavigate('contact')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-murzak-navy px-8 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-xl">
+            <Button variant="onDark" onClick={() => onNavigate('contact')}>
               <Phone size={17} /> Talk to us
-            </button>
-            <button onClick={() => onNavigate('pricing')} className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 px-8 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all">
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => onNavigate('pricing')}>
               Build a plan <ArrowRight size={17} />
-            </button>
+            </Button>
           </div>
         </div>
       </section>

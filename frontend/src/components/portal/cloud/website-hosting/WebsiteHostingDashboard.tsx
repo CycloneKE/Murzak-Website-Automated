@@ -861,7 +861,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                         {r.fullDomain}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
-                        Provider: {r.provider || "Hostinger"}
+                        Provider: {r.provider || "Murzak Cloud"}
                       </p>
                       {r.notes ? (
                         <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
@@ -1071,7 +1071,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             <input
               value={externalForm.registrar}
               onChange={(e) => setExternalForm((p) => ({ ...p, registrar: e.target.value }))}
-              placeholder="e.g. Hostinger, Namecheap, GoDaddy"
+              placeholder="e.g. Truehost, Namecheap, GoDaddy"
               className={inputClass}
             />
           </div>

@@ -25,7 +25,8 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Hanken Grotesk', 'Inter', 'sans-serif'],
+        display: ['Bricolage Grotesque', 'Hanken Grotesk', 'sans-serif'],
       },
       animation: {
         float: 'float 8s ease-in-out infinite',

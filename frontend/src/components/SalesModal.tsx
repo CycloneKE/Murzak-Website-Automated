@@ -1,11 +1,10 @@
 
-import React, { useState, useEffect, initialMode } from 'react';
-import { 
-  X, ArrowRight, CheckCircle2, RefreshCw, 
-  Terminal, Package, Bus, Briefcase, 
+import React, { useState, useEffect } from 'react';
+import {
+  X, ArrowRight, CheckCircle2, RefreshCw,
+  Terminal, Package, Briefcase,
   User, Mail, Building, Send, ChevronLeft, AlertCircle
 } from 'lucide-react';
-import { logLeadToCRM, generateReferenceId } from '../services/erpnext';
 import { createClientRequest } from "../services/requests";
 
 interface SalesModalProps {
@@ -27,9 +26,9 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
     name: '',
     email: '',
     company: '',
-    interest: 'Logistics Engine', // For Demo
+    interest: 'Business systems (ERP)', // For Demo
     scope: '', // For Quote
-    budget: 'Enterprise' // For Quote
+    budget: 'SME' // For Quote
   });
 
   useEffect(() => {
@@ -76,13 +75,13 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
       const message =
         mode === "demo"
           ? [
-              "Demo request from Client-On Site",
-              `Interest: ${formData.interest}`,
+              "Demo request from the website",
+              `Interested in: ${formData.interest}`,
               `Message: ${formData.scope?.trim() ? formData.scope.trim() : "(none)"}`,
             ].join("\n")
           : [
-              "Quote request from Client-On Site",
-              `Entity scale: ${formData.budget}`,
+              "Quote request from the website",
+              `Company size: ${formData.budget}`,
               `Requirements: ${formData.scope.trim()}`,
             ].join("\n");
 
@@ -134,16 +133,16 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
            <div className="relative z-10">
               <h2 className="text-3xl lg:text-5xl font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-cyan">With Us.</span></h2>
               <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                Nairobi Engineering Hub <br /> Active Engagement Node
+                Nairobi software &amp; cloud team <br /> Real people, usually replying same day
               </p>
            </div>
            <div className="relative z-10 mt-6 md:mt-0 hidden sm:block">
              <div className="space-y-4">
                 <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-cyan">
-                   <CheckCircle2 size={16} /> Regional Data Hosting
+                   <CheckCircle2 size={16} /> Hosted &amp; supported in Kenya
                 </div>
                 <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-cyan">
-                   <CheckCircle2 size={16} /> Technical Sovereignty
+                   <CheckCircle2 size={16} /> Billed in KES, M-Pesa ready
                 </div>
              </div>
            </div>
@@ -156,19 +155,23 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
                 <CheckCircle2 size={40} />
               </div>
-              <h3 className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4 uppercase">Request Received.</h3>
+              <h3 className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
-                Handshake complete. Reference ID: <span className="text-murzak-cyan font-black">{refId}</span>. Our lead architect will reach out to schedule a technical sync.
+                Your reference is <span className="text-murzak-cyan font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
               </p>
               <button onClick={onClose} className="bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-10 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">Done</button>
             </div>
           ) : mode === 'select' ? (
             <div className="space-y-8 animate-fade-in">
               <div className="flex justify-between items-center mb-10">
-                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Select Your Interest</h3>
-                <button onClick={onClose}
-                  className="flex justify-between items-center mb-6 sm:mb-10">
-                    <X className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+                <h3 className="text-xs font-black text-slate-500 uppercase tracking-[0.3em]">How can we help?</h3>
+                <button
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="text-slate-400 hover:text-murzak-cyan transition-colors"
+                >
+                  <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                </button>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -179,8 +182,8 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                   <div className="w-14 h-14 bg-murzak-cyan/10 text-murzak-cyan rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Package size={28} />
                   </div>
-                  <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">Request a Demo</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">See our Logistics, Mobility, or Cloud systems in action via screen-share.</p>
+                  <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">See a Demo</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Watch ERPNext, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
                 <button 
@@ -191,11 +194,11 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Briefcase size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">Get a Quote</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Request pricing and a technical roadmap for your custom project or software build.</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
                 </button>
                 
               </div>
-              <p className="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 mt-8">Nairobi standard response time: Under 4 hours</p>
+              <p className="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 mt-8">Nairobi-based · we usually reply the same business day</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
@@ -237,9 +240,9 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
 
               {mode === 'demo' ? (
                 <div className="space-y-1">
-                   <label className={labelClasses}>What should we demonstrate?</label>
+                   <label className={labelClasses}>What should we show you?</label>
                    <div className="grid grid-cols-2 gap-4">
-                      {['Logistics Engine', 'Mobility Engine', 'Cloud Hosting', 'ERP Architecture'].map(item => (
+                      {['Business systems (ERP)', 'POS & Inventory', 'Cloud Hosting', 'Custom software'].map(item => (
                         <button key={item} type="button" onClick={() => setFormData({...formData, interest: item})} 
                         className={`p-3 sm:p-4 rounded-xl border text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center transition-all ${
                           formData.interest === item
@@ -259,7 +262,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     {errors.scope && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.scope}</p>}
                   </div>
                   <div className="space-y-1">
-                    <label className={labelClasses}>Entity Scale</label>
+                    <label className={labelClasses}>Company size</label>
                     <div className="flex gap-4">
                        {['Startup', 'SME', 'Enterprise'].map(b => (
                          <button key={b} type="button" onClick={() => setFormData({...formData, budget: b})} 

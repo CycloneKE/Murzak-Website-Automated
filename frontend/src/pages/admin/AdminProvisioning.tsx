@@ -28,7 +28,7 @@ function Dot({ ok }: { ok: boolean }) {
 }
 
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+  <div className={`bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );

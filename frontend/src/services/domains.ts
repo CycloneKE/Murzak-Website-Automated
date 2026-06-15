@@ -1,6 +1,6 @@
 // Domain availability + pricing. Tries the backend registrar proxy first
 // (POST /api/domains/check) and falls back to a deterministic local simulation
-// so the upsell flow works before the Hostinger domain API is wired in.
+// so the upsell flow works before the upstream domain/registrar API is wired in.
 
 export type TldOption = {
   tld: string; // e.g. ".co.ke"

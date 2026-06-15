@@ -195,7 +195,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
       setUploadedName("");
       setErrors((prev) => ({ ...prev, draft: "" }));
     } catch (err: any) {
-      setErrors((prev) => ({...prev, submit: err?.message || "Transmission failed",
+      setErrors((prev) => ({...prev, submit: err?.message || "Couldn't send your message. Please try again.",
     }));
     } finally {
       setIsSubmitting(false);
@@ -264,7 +264,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
             </div>
             <div>
               <h3 className="text-base sm:text-lg font-black tracking-tight text-white dark:text-white">
-                Engineer Sync — Portal Chat
+                Chat with support
               </h3>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
                 Signed in as {email}

@@ -23,7 +23,6 @@ import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 
 import { Page, User } from "./types";
-import { authService } from "./services/auth";
 import { logPageView } from "./services/firebase";
 
 // ---- Map Page keys -> URL paths ----
@@ -100,59 +99,45 @@ const App: React.FC = () => {
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [booting, setBooting] = useState(true);
 
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved === "dark";
-    return true; // dark-first brand default
-  });
+  // Dark-only: the marketing pages render light text on the fixed dark site
+  // backdrop, so a light theme leaves the header, gradients and hero copy
+  // unreadable. Light mode was removed; the app is committed to the dark brand.
 
+  // Single authoritative session hydration. /api/auth/me reads the server-side
+  // session (httpOnly cookie); on any failure we reset to logged-out so a stale
+  // client state can never keep the portal open after the server says otherwise.
   useEffect(() => {
-    const existingUser = authService.getSession();
-    if (existingUser) {
-      setUser(existingUser);
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  useEffect(() => {
-  (async () => {
-    try {
-      const res = await fetch("/api/me", { credentials: "include" });
-      const data = await res.json();
-      if (data?.user) setUser(data.user);
-    } catch {}
-    })();
-  }, []);
-
-  useEffect(() => {
-    const hydrate = async () => {
+    let mounted = true;
+    (async () => {
       try {
         const res = await fetch("/api/auth/me", { credentials: "include" });
-        const data = await res.json();
-
-        if (data.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (!mounted) return;
+        if (res.ok && data.ok && data.user) {
           setUser(data.user);
+          setIsLoggedIn(true);
+        } else {
+          setUser(null);
+          setIsLoggedIn(false);
         }
-      } catch (e) {
-        console.warn("Session restore failed");
+      } catch {
+        if (mounted) {
+          setUser(null);
+          setIsLoggedIn(false);
+        }
       } finally {
-        setBooting(false);
+        if (mounted) setBooting(false);
       }
+    })();
+    return () => {
+      mounted = false;
     };
-
-    hydrate();
   }, []);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (isDarkMode) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDarkMode]);
+    window.document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
+  }, []);
 
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
   useEffect(() => {
@@ -170,7 +155,6 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activePage]);
 
-  const toggleTheme = () => setIsDarkMode((v) => !v);
 
   const onNavigate = (pageOrPath: Page | string) => {
     // If a full path (e.g. "/pricing#pricing-plans") is passed, use it directly
@@ -190,8 +174,14 @@ const App: React.FC = () => {
     navigate("/portal/overview");
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    // Tear down the server-side session (and its cookie) first, so a refresh
+    // can't silently re-authenticate from a still-valid session.
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } catch {
+      /* even if the network call fails, still clear local state below */
+    }
     setUser(null);
     setIsLoggedIn(false);
     navigate("/");
@@ -233,15 +223,13 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
-      <InteractiveBackground isDarkMode={isDarkMode} />
+      <InteractiveBackground isDarkMode={true} />
 
       <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-deep backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {!hideChrome && (
           <Header
             activePage={activePage}
             onNavigate={onNavigate}
-            isDarkMode={isDarkMode}
-            toggleTheme={toggleTheme}
             isLoggedIn={isLoggedIn}
             onOpenSales={() => setIsSalesModalOpen(true)}
           />
@@ -269,12 +257,10 @@ const App: React.FC = () => {
                 path="/portal/*"
                 element={
                   <RequireAuth user={user}>
-                  <Portal 
-                    user={user} 
-                    onLogout={handleLogout} 
+                  <Portal
+                    user={user}
+                    onLogout={handleLogout}
                     onNavigate={onNavigate}
-                    isDarkMode={isDarkMode}
-                    toggleTheme={toggleTheme}
                     onUserUpdate={handleLogin}
                   />
                   </RequireAuth>

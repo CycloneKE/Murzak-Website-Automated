@@ -33,6 +33,12 @@ function pull(block, key) {
   return m[2] !== undefined ? m[2] : Number(m[3]);
 }
 
+// matches  export const NAME = 1234  (top-level numeric constant)
+function pullConst(text, name) {
+  const m = text.match(new RegExp(`${name}\\s*=\\s*([0-9]+)`));
+  return m ? Number(m[1]) : undefined;
+}
+
 function main() {
   const text = fs.readFileSync(SRC, "utf8");
 
@@ -81,6 +87,10 @@ function main() {
     bandwidthTb: pull(capBlock, "bandwidthTb"),
     sellableRamMb: pull(capBlock, "sellableRamMb"),
     sellableDiskGb: pull(capBlock, "sellableDiskGb"),
+    // Per-self-serve-order caps (top-level consts in the same file) so the
+    // backend order guard reads the SAME numbers the configurator enforces.
+    selfServeOrderRamCapMb: pullConst(text, "SELF_SERVE_ORDER_RAM_CAP_MB"),
+    selfServeOrderDiskCapGb: pullConst(text, "SELF_SERVE_ORDER_DISK_CAP_GB"),
   };
 
   const snapshot = {

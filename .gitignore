@@ -1,0 +1,28 @@
+# ───────────────────────────────────────────────────────────────
+# Secrets — NEVER commit. Templates (*.env.example) are kept.
+# Patterns without a leading slash apply in every directory, so this
+# also covers backend/.env, frontend/.env, and any future location.
+# ───────────────────────────────────────────────────────────────
+.env
+*.env
+.env.*
+!.env.example
+!*.env.example
+
+# Service-account / key material
+*serviceAccount*.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+*.secret
+
+# Dependencies / build output (don't track these either)
+node_modules/
+dist/
+
+# Skill tooling (installed locally, not part of the app)
+.agents/
+skills-lock.json

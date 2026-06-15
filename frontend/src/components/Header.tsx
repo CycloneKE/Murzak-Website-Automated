@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Menu, X, Sun, Moon, User, LogIn } from "lucide-react";
+import { Menu, X, User, LogIn } from "lucide-react";
 import { Page, NavItem } from "../types";
 import Logo from "./Logo";
 
 interface HeaderProps {
   activePage: Page;
   onNavigate: (page: Page) => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
   isLoggedIn: boolean;
   onOpenSales?: () => void;
 }
@@ -16,8 +14,6 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({
   activePage,
   onNavigate,
-  isDarkMode,
-  toggleTheme,
   isLoggedIn,
   onOpenSales,
 }) => {
@@ -118,17 +114,6 @@ const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 ml-auto">
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 sm:p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 text-murzak-navy dark:text-white transition-all"
-              >
-                {isDarkMode ? (
-                  <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
-                ) : (
-                  <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-                )}
-              </button>
-
               <div className="hidden sm:flex items-center gap-2 lg:gap-4">
                 {isLoggedIn ? (
                   <button

@@ -216,7 +216,7 @@ const AdminInbox: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Left: Threads */}
-        <div className="lg:col-span-2 bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
+        <div className="lg:col-span-2 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-white/10">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan">
@@ -297,7 +297,7 @@ const AdminInbox: React.FC = () => {
         </div>
 
         {/* Right: Thread */}
-        <div className="lg:col-span-3 bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
+        <div className="lg:col-span-3 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-white/10">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">
