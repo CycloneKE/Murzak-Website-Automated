@@ -1,0 +1,135 @@
+name: Security Audit & SAST
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  schedule:
+    - cron: '0 0 * * 0' # Run weekly at midnight on Sunday
+
+jobs:
+  npm-audit:
+    name: NPM Audit (Backend & Frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm run install:all
+
+      - name: Audit Backend
+        working-directory: ./backend
+        run: npm audit --audit-level=high
+
+      - name: Audit Frontend
+        working-directory: ./frontend
+        run: npm audit --audit-level=high
+
+  backend-tests:
+    name: Backend Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run Backend Tests
+        working-directory: ./backend
+        # Mocked throughout (no Redis/Frappe/PayPal creds needed): provisioning
+        # state machine + the B1 payment-verified-activation gate.
+        run: npm test
+
+  e2e-tests:
+    name: Frontend E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        working-directory: ./frontend
+        # Chromium only in CI to keep this fast; run the full 3-browser matrix
+        # locally (npx playwright test) before a release if you need it.
+        run: npx playwright install --with-deps chromium
+
+      - name: Start backend (mocked Frappe, dev mode — no real creds needed)
+        working-directory: ./backend
+        env:
+          NODE_ENV: development
+          PORT: 3001
+          SESSION_SECRET: ci-e2e-secret-not-used-in-production
+          MOCK_FRAPPE: 'true'
+        run: |
+          nohup node server.js > backend.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/api/auth/me > /dev/null; then
+              echo "Backend is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend did not become ready in time." >&2
+          cat backend.log || true
+          exit 1
+
+      - name: Run E2E Tests
+        working-directory: ./frontend
+        run: npx playwright test --project=chromium
+
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+  # To integrate SonarQube, uncomment the block below and ensure
+  # SONAR_TOKEN is set in your repository secrets.
+  #
+  # sonarqube:
+  #   name: SonarQube Scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - name: SonarQube Scan
+  #       uses: sonarsource/sonarqube-scan-action@master
+  #       env:
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

@@ -123,7 +123,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form noValidate onSubmit={handleSubmit} className="space-y-5">
                 {serverError && (
                   <div className="p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-[11px] font-bold flex items-center gap-2">
                     <AlertCircle size={14} /> {serverError}

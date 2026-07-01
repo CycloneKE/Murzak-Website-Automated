@@ -181,12 +181,12 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       {/* Main Pricing Grid — now BELOW the CTA landing */}
       <section id="pricing-plans" ref={gridRef} className="relative scroll-mt-24 py-12 sm:py-20 lg:py-24 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 xl:px-24">
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Choose a plan</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Choose your solution</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-navy dark:text-white">
-            Four tiers. Configure the rest.
+            Infrastructure & SaaS
           </h2>
           <p className="mt-4 text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium">
-            Start with a tier, then add exactly the services you need in the configurator.
+            Start with a core product, then add exactly the services you need in the configurator.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-8 items-stretch relative z-10">
@@ -195,10 +195,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             return (
               <article 
                 key={plan.name}
-                className={`flex flex-col bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] border transition-all duration-500 relative cursor-pointer group shadow-sm ${
+                className={`flex flex-col glass-card rounded-[2rem] sm:rounded-[2.5rem] relative cursor-pointer group ${
                   isSelected 
-                    ? 'border-murzak-cyan ring-[4px] sm:ring-[8px] ring-murzak-cyan/5 scale-[1.02] z-10 shadow-2xl' 
-                    : 'border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 hover:scale-[0.99]'
+                    ? 'border-murzak-cyan ring-[4px] sm:ring-[8px] ring-murzak-cyan/10 scale-[1.02] z-10 shadow-[0_0_40px_rgba(46,166,255,0.15)]' 
+                    : 'hover:border-white/20 hover:-translate-y-1'
                 }`}
                 onClick={() => setSelectedPlans([plan.name])}
               >
@@ -213,20 +213,20 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                 </div>
 
                 <div className="p-6 sm:p-8 flex-grow flex flex-col">
-                  <h3 className="text-lg sm:text-xl font-black text-murzak-navy dark:text-white mb-1 tracking-tight">{plan.name}</h3>
+                  <h3 className="text-lg sm:text-xl font-black text-white mb-1 tracking-tight">{plan.name}</h3>
                   <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-murzak-cyan mb-3">{plan.bestFor}</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     {plan.pricePrefix && (
                       <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-400">{plan.pricePrefix}</span>
                     )}
-                    <div className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white">{plan.price}</div>
+                    <div className="text-xl sm:text-2xl font-black text-white">{plan.price}</div>
                     <div className="text-slate-500 text-[7px] sm:text-[8px] font-black uppercase tracking-widest">{plan.period}</div>
                   </div>
                   <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 leading-snug mb-4 sm:mb-6">{plan.description}</p>
                   
                   <ul className="space-y-2 sm:space-y-3 mb-6 sm:mb-8 flex-grow">
                     {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 leading-tight">
+                      <li key={i} className="flex items-start gap-2 text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-300 leading-tight">
                         <Check size={12} className="text-murzak-cyan flex-shrink-0 mt-0.5 w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         {feature}
                       </li>
@@ -240,8 +240,8 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                     }}
                     className={`w-full py-4 sm:py-5 lg:py-6 rounded-xl font-black text-[9px] sm:text-[10px] lg:text-[11px] uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 ${
                       isSelected 
-                        ? 'bg-murzak-cyan text-murzak-navy shadow-lg shadow-murzak-cyan/20' 
-                        : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-400'
+                        ? 'bg-murzak-cyan text-murzak-navy shadow-[0_0_20px_rgba(46,166,255,0.3)]' 
+                        : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
                   >
                     {plan.cta} <ArrowRight size={14} />
@@ -258,10 +258,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Included, not extra</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-navy dark:text-white">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-white">
               “Managed” means we actually do the work.
             </h2>
-            <p className="mt-5 text-base sm:text-lg text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+            <p className="mt-5 text-base sm:text-lg text-slate-400 font-medium leading-relaxed">
               Every paid plan comes fully set up and looked after. No hidden setup fees, no “that’s an add-on” surprises for the essentials.
             </p>
           </div>
@@ -274,10 +274,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               { icon: <Smartphone size={20} />, t: 'M-Pesa & KES billing', s: 'Pay in shillings by M-Pesa STK push or card. No forex math.' },
               { icon: <Headphones size={20} />, t: 'Nairobi support', s: 'Real people in your time zone, usually replying the same business day.' },
             ].map((c) => (
-              <div key={c.t} className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7">
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
-                <h3 className="text-lg font-black text-murzak-navy dark:text-white mb-2">{c.t}</h3>
-                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
+              <div key={c.t} className="glass-panel rounded-3xl p-7 hover:-translate-y-1 transition-transform">
+                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5 shadow-[0_0_15px_rgba(46,166,255,0.15)]">{c.icon}</div>
+                <h3 className="text-lg font-black text-white mb-2">{c.t}</h3>
+                <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{c.s}</p>
               </div>
             ))}
           </div>
@@ -294,7 +294,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">No surprises</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-navy dark:text-white">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-white">
               How billing actually works.
             </h2>
           </div>
@@ -304,11 +304,11 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               { n: '02', icon: <Sparkles size={20} />, t: 'See the total in shillings', s: 'Every service shows its price as you add it and the total updates live — what the configurator shows is exactly what you pay at checkout.' },
               { n: '03', icon: <ArrowRight size={20} />, t: 'Add or upgrade anytime', s: 'Need more later? Add services from your portal as a clearly-priced add-on. Outgrow the plan and we migrate you with no downtime.' },
             ].map((step) => (
-              <div key={step.n} className="relative rounded-3xl border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 lg:p-8">
+              <div key={step.n} className="glass-panel relative rounded-3xl p-7 lg:p-8 hover:-translate-y-1 transition-transform">
                 <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-slate-300 dark:text-white/15">{step.n}</span>
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{step.icon}</div>
-                <h3 className="text-lg font-black text-murzak-navy dark:text-white mb-2">{step.t}</h3>
-                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{step.s}</p>
+                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5 shadow-[0_0_15px_rgba(46,166,255,0.15)]">{step.icon}</div>
+                <h3 className="text-lg font-black text-white mb-2">{step.t}</h3>
+                <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{step.s}</p>
               </div>
             ))}
           </div>
@@ -316,7 +316,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       </section>
 
       {/* FAQ */}
-      <section className="py-16 sm:py-24 bg-slate-50 dark:bg-murzak-surface/30 border-y border-slate-200 dark:border-white/5 relative z-20">
+      <section className="py-16 sm:py-24 bg-murzak-surface/30 border-y border-white/5 relative z-20">
         <Faq items={faqItems} />
       </section>
 

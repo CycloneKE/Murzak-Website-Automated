@@ -244,13 +244,13 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
             Secure <br /><span className="text-murzak-cyan">settlement.</span>
           </h1>
         </div>
-        <div className="bg-white/95 dark:bg-murzak-navy/95 backdrop-blur-3xl rounded-[4rem] border border-slate-200 dark:border-white/5 shadow-3xl overflow-hidden min-h-[500px] flex flex-col transition-all duration-500">
+        <div className="glass-card shadow-2xl overflow-hidden min-h-[500px] flex flex-col transition-all duration-500 border border-white/10">
           {step === 'form' ? (
             <div className="flex flex-col lg:flex-row h-full">
-              <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-white/5 p-8 lg:p-12 space-y-4">
+              <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-white/10 p-8 lg:p-12 space-y-4 bg-black/10">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Settlement Rail</h3>
                 {methods.map((m) => (
-                  <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'bg-murzak-cyan/10 border-murzak-cyan' : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-white/5'}`}>
+                  <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-cyan shadow-[0_0_15px_rgba(46,166,255,0.2)]' : 'bg-transparent border-transparent hover:bg-white/5'}`}>
                     <div className={`${method === m.id ? 'text-murzak-cyan' : 'text-slate-400'}`}>{m.icon}</div>
                     <div>
                       <span className={`block text-xs font-black uppercase tracking-tight ${method === m.id ? 'text-murzak-navy dark:text-white' : 'text-slate-500'}`}>{m.label}</span>
@@ -286,7 +286,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                         <input 
                           type="tel" 
                           placeholder="e.g. 0712 345 678" 
-                          className={`w-full bg-slate-50 dark:bg-white/5 border ${errors.phoneNumber ? 'border-red-500' : 'border-slate-200 dark:border-white/10'} rounded-2xl px-8 py-5 text-xl font-black text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan`} 
+                          className={`w-full glass-input rounded-2xl px-8 py-5 text-xl font-black text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan ${errors.phoneNumber ? 'border-red-500 ring-1 ring-red-500/50' : ''}`}
                           value={phoneNumber} 
                           onChange={(e) => { setPhoneNumber(e.target.value); if(errors.phoneNumber) setErrors({...errors, phoneNumber: ''}); }} 
                         />
@@ -322,7 +322,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                       amountUsd={Number(invoice?.paypalAmountUsd || 0)}
                     />
                   )}
-                  <div className="pt-6 border-t border-slate-200 dark:border-white/5 flex flex-col sm:flex-row justify-between items-center gap-8">
+                  <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center gap-8">
                     <span className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter">
                       {loadingInvoice ? "Loading..." : `KES ${Number(invoice?.amount || 0).toLocaleString()}`}
                     </span>

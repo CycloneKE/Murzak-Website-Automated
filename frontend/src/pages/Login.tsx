@@ -7,7 +7,7 @@ import { firebaseEnabled, getGoogleIdToken } from '../services/firebase';
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, returnTo?: string) => void;
   onNavigate: (page: Page) => void;
   initialPlan?: string | null;
   defaultMode?: 'login' | 'signup';
@@ -124,8 +124,8 @@ interface LoginProps {
 
     if (!formData.password.trim()) {
       errs.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errs.password = 'Minimum 6 characters';
+    } else if (formData.password.length < 8) {
+      errs.password = 'Minimum 8 characters';
     }
 
     if (mode === 'signup') {
@@ -189,6 +189,15 @@ const attachPendingSelection = async (currentUser?: User) => {
   localStorage.removeItem("murzak_plan_selection_pending");
   sessionStorage.removeItem("murzak_upgrade_intent");
   sessionStorage.removeItem("murzak_upgrade_mode");
+
+  // Find if an unpaid invoice was just generated
+  if (data?.invoices && Array.isArray(data.invoices)) {
+    const unpaidInvoice = data.invoices.find((inv: any) => inv.status === "Unpaid");
+    if (unpaidInvoice) {
+      return unpaidInvoice.invoiceNo || unpaidInvoice.name;
+    }
+  }
+  return null;
 };
 
 const handleSubmit = async (e: React.FormEvent) => {
@@ -212,35 +221,36 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Login failed");
+      if (!res.ok) {
+        if (data?.error === "Account has no password set." || data?.error?.includes("Google")) {
+          throw new Error("This account uses Google sign-in. Please click 'Continue with Google'.");
+        }
+        throw new Error(data?.error || "Login failed");
+      }
 
-      // set app user first (so portal can render immediately)
-      onLogin(data.user);
-
-      // then try attach (upgrade mismatches are allowed inside attachPendingSelection now)
       try {
-        await attachPendingSelection(data.user);
+        const generatedInvoiceId = await attachPendingSelection(data.user);
+        if (generatedInvoiceId) {
+          onLogin(data.user, `/payment/${generatedInvoiceId}`);
+          return;
+        }
       } catch (e: any) {
         const msg = e?.message || "Unable to attach your selected plan/services.";
         console.warn("Attach pending selection failed:", msg);
-
-        // NOTE: do NOT clear the pending selection here. attachPendingSelection()
-        // already clears it on definitive failures (plan limit/mismatch). Keeping it
-        // for any other (transient/network/5xx) error lets the Portal offer a retry
-        // instead of silently losing the customer's configured plan.
-
         // Navigate using react-router state so Portal can show it immediately
         navigate("/portal/overview", { state: { attachError: msg } });
+        // update user without navigating from onLogin since we already navigated
+        onLogin(data.user, "/portal/overview");
         return;
       }
 
       const selected = JSON.parse(localStorage.getItem("murzak_selected_plan") || "null");
       if (selected?.plan === "Test" && selected?.email) {
-        onNavigate("/portal");
+        onLogin(data.user, "/portal");
         return;
       }
 
-      onNavigate(returnTo);
+      onLogin(data.user, returnTo);
       return;
     }
 
@@ -269,20 +279,23 @@ const handleSubmit = async (e: React.FormEvent) => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Signup failed");
 
-    onLogin(data.user);
-
     try {
-      await attachPendingSelection(data.user);
+      const generatedInvoiceId = await attachPendingSelection(data.user);
+      if (generatedInvoiceId) {
+        onLogin(data.user, `/payment/${generatedInvoiceId}`);
+        return;
+      }
     } catch (e: any) {
       const msg = e?.message || "Unable to attach your selected plan/services.";
       sessionStorage.setItem("murzak_pending_attach_error", msg);
       console.warn("Attach pending selection failed:", msg);
 
-      onNavigate("/portal/overview");
+      navigate("/portal/overview");
+      onLogin(data.user, "/portal/overview");
       return;      
     }
 
-    onNavigate(returnTo);
+    onLogin(data.user, returnTo);
   } catch (err: any) {
     console.error(err);
     setError(err.message || "Request failed");
@@ -309,18 +322,21 @@ const handleGoogle = async () => {
     if (!res.ok) throw new Error(data?.error || "Google sign-in failed");
 
     // Mirror the password-login success path.
-    onLogin(data.user);
-
     try {
-      await attachPendingSelection(data.user);
+      const generatedInvoiceId = await attachPendingSelection(data.user);
+      if (generatedInvoiceId) {
+        onLogin(data.user, `/payment/${generatedInvoiceId}`);
+        return;
+      }
     } catch (e: any) {
       const msg = e?.message || "Unable to attach your selected plan/services.";
       console.warn("Attach pending selection failed:", msg);
       navigate("/portal/overview", { state: { attachError: msg } });
+      onLogin(data.user, "/portal/overview");
       return;
     }
 
-    onNavigate(returnTo);
+    onLogin(data.user, returnTo);
   } catch (err: any) {
     // Popup-closed / cancelled shouldn't read as a hard error.
     const code = err?.code || "";
@@ -415,7 +431,7 @@ const handleReset = async (e: React.FormEvent) => {
           </h1>
         </div>
 
-        <form onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className=" bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl lg:backdrop-blur-2xl p-5 sm:p-8 lg:p-14
+        <form noValidate onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className=" bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl lg:backdrop-blur-2xl p-5 sm:p-8 lg:p-14
            rounded-[2.25rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl lg:shadow-3xl border border-slate-100 dark:border-white/5 space-y-6 sm:space-y-8">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-xs font-bold text-center flex items-center justify-center gap-2">

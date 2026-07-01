@@ -72,6 +72,14 @@ if (process.env.NODE_ENV === "production") {
     console.error(`FATAL: missing required env vars in production: ${missing.join(", ")}`);
     process.exit(1);
   }
+
+  // These dev-only escape hatches bypass real auth / real Frappe data. A stray
+  // `true` copied from a dev .env must never boot in production.
+  const devFlags = ["DEV_AUTO_LOGIN", "MOCK_FRAPPE"].filter((k) => process.env[k] === "true");
+  if (devFlags.length) {
+    console.error(`FATAL: dev-only flag(s) set to true in production: ${devFlags.join(", ")}`);
+    process.exit(1);
+  }
 }
 
 
@@ -273,6 +281,27 @@ app.use(
 
 function requireAuth(req, res, next) {
   if (!req.session?.user) {
+    // Log the path only — never the cookie header (session tokens in logs).
+    console.log("requireAuth: no session user for", req.path);
+  }
+
+  if (process.env.DEV_AUTO_LOGIN === "true") {
+    if (!req.session.user) {
+      req.session.user = {
+        id: "dev-user@example.com",
+        name: "Dev User",
+        email: "dev-user@example.com",
+        plan: "Business",
+        accountStatus: "Active",
+        hasActiveTrial: false,
+        services: [],
+        invoices: []
+      };
+    }
+    return next();
+  }
+
+  if (!req.session?.user) {
     return res.status(401).json({ error: "Not authenticated." });
   }
   next();
@@ -320,6 +349,39 @@ const FRAPPE_BASE_URL = process.env.FRAPPE_BASE_URL;
 const FRAPPE_AUTH = `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`;
 
 function frappeClient() {
+  if (process.env.MOCK_FRAPPE === 'true') {
+    return {
+      get: async (url, config) => {
+        if (url.includes('Web Account Service')) {
+          return {
+            data: {
+              data: [{
+                name: 'srv-mock',
+                service: 'POS Base Package',
+                status: 'Active',
+                tier: 'Starter',
+                billing_cycle: 'Monthly'
+              }]
+            }
+          };
+        }
+        if (url.includes('Web Account')) return { data: { data: [] } };
+        if (url.includes('Test Plan Invoice')) return { data: { data: [] } };
+        if (url.includes('Portal Invoice/')) return { data: { data: { name: 'INV-MOCK', web_account: config?.params?.filters ? undefined : 'MOCK_ACCOUNT', status: 'Unpaid', amount_due: 99, invoice_services: '[]', child_services_count: 1 } } };
+        if (url.includes('Portal Invoice')) return { data: { data: [{ name: 'INV-MOCK', status: 'Unpaid', amount_due: 99, invoice_services: '[]', child_services_count: 1 }] } };
+        if (url.includes('Web Account Service')) return { data: { data: [] } };
+        return { data: { data: [] } };
+      },
+      post: async (url, data) => {
+        if (url.includes('Web Account')) return { data: { data: { name: 'wa-' + Date.now() } } };
+        if (url.includes('Portal Invoice')) return { data: { data: { name: 'inv-' + Date.now() } } };
+        return { data: { data: { name: 'doc-' + Date.now() } } };
+      },
+      put: async (url, data) => {
+        return { data: { data: { name: url } } };
+      }
+    };
+  }
   return axios.create({
     baseURL: FRAPPE_BASE_URL,
     headers: {
@@ -475,60 +537,6 @@ function buildInvoiceServiceRows(selectedServices) {
   }));
 }
 
-app.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
-  try {
-    const { newPlan } = req.body || {};
-    if (!newPlan) return res.status(400).json({ error: "Missing newPlan." });
-
-    const client = frappeClient();
-
-    const webAccountName = req.session?.user?.web_account || req.session?.user?.webAccountName;
-    if (!webAccountName) return res.status(401).json({ error: "Missing web account in session." });
-
-    const record = await fetchWebAccount(client, webAccountName);
-    const currentPlan = record?.plan || "None";
-
-    if (currentPlan === "None") {
-      // no plan yet → treat as apply plan normally
-      await applyPlanAndCreateInvoice(client, webAccountName, newPlan, { force: true, creditKes: 0 });
-      const invoices = await fetchInvoicesForUser(client, webAccountName);
-      const fresh = await fetchWebAccount(client, webAccountName);
-      return res.json({ ok: true, user: buildUserPayload({ record: fresh, invoices }) });
-    }
-
-    if (currentPlan === newPlan) {
-      return res.status(400).json({ error: `You are already on ${newPlan}. Add services instead.` });
-    }
-
-    // Optional: credit based on latest paid subscription invoice
-    const latestPaid = await findLatestPaidSubscriptionInvoice(client, webAccountName);
-    const creditKes = latestPaid ? computeProratedCreditKes(latestPaid) : 0;
-
-    // Upgrade: set plan to newPlan and create invoice (minus credit)
-    await applyPlanAndCreateInvoice(client, webAccountName, newPlan, { force: true, creditKes });
-
-    // IMPORTANT: keep services, but set them Awaiting Payment until new plan paid
-    // (You can decide to wipe or keep; you wanted keep files + likely reset services)
-    // Here we keep services but mark them awaiting unless you want to clear them:
-    const refreshed = await fetchWebAccount(client, webAccountName);
-    const rows = asArray(refreshed?.[WEB_ACCOUNT_SERVICES_FIELD]).map((r) =>
-      normalizeChildRow({ ...r, status: SERVICE_STATUS_AWAITING })
-    );
-    await updateWebAccountServices(client, webAccountName, rows);
-
-    const invoices = await fetchInvoicesForUser(client, webAccountName);
-    const fresh = await fetchWebAccount(client, webAccountName);
-    const selectedServices = await fetchSelectedServicesForUser(client, webAccountName);
-
-    const user = buildUserPayload({ record: fresh, invoices, selectedServices });
-    req.session.user = user;
-
-    return res.json({ ok: true, creditKes, user });
-  } catch (err) {
-    console.error("UPGRADE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to upgrade subscription." });
-  }
-});
 
 async function fetchWebAccount(client, webAccountName) {
   const res = await client.get(`/api/resource/${WEB_ACCOUNT_DOCTYPE}/${encodeURIComponent(webAccountName)}`);
@@ -1965,143 +1973,7 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
   }
 });
 
-app.delete("/api/account/services/:serviceId", requireAuth, async (req, res) => {
-  try {
-    const serviceId = String(req.params.serviceId || "").trim();
-    const { confirmText } = req.body || {};  
 
-    if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
-
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const client = frappeClient();
-    const record = await fetchWebAccount(client, webAccountName);
-
-    const existingRows = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
-
-    const row = existingRows.find((r) => String(r?.[CHILD_SERVICE_ID_FIELD] || "").trim() === serviceId);
-    if (!row) return res.status(404).json({ error: "Service not found on your account." });
-
-    const status = String(row?.[CHILD_STATUS_FIELD] || "").toLowerCase();
-    const isPaid = status.includes("active") || status.includes("paid");
-
-    if (isPaid && String(confirmText || "").trim() !== "DELETE") {
-      return res.status(409).json({
-        error: "This is a paid service. Type DELETE to confirm removal.",
-        requiresConfirm: true,
-      });
-    }
-
-    // 1) Remove from Web Account selected services
-    const filtered = existingRows.filter(
-      (r) => String(r?.[CHILD_SERVICE_ID_FIELD] || "").trim() !== serviceId
-    );
-
-    await updateWebAccountServices(client, webAccountName, filtered);
-
-    // 2) Remove from addon_service_ids on parent, if present
-    let currentAddonIds = [];
-    try {
-      currentAddonIds = JSON.parse(record?.addon_service_ids || "[]");
-    } catch {
-      currentAddonIds = [];
-    }
-
-    const filteredAddonIds = (Array.isArray(currentAddonIds) ? currentAddonIds : [])
-      .map((id) => String(id || "").trim())
-      .filter((id) => !!id && id !== serviceId);
-
-    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
-      addon_service_ids: JSON.stringify(filteredAddonIds),
-    });
-
-    // 3) Remove from unpaid invoices and recalculate add-on totals
-    await reconcileServiceDeletionAgainstInvoices(client, webAccountName, serviceId);
-
-    const svcName = row?.[CHILD_SERVICE_NAME_FIELD] || serviceId;
-    const svcTier = row?.[CHILD_TIER_FIELD] || "";
-
-    await logPortalUpdate(client, webAccountName, {
-      type: "info",
-      engineer: "Murzak System",
-      content: `Service removed: ${svcName}${svcTier ? ` (${svcTier})` : ""}.`,
-    });
-
-    // 4) Refresh session payload
-    const invoices = await fetchInvoicesForUser(client, webAccountName);
-    const selectedServices = await fetchSelectedServicesForUser(client, webAccountName);
-    const fresh = await fetchWebAccount(client, webAccountName);
-
-    const user = buildUserPayload({ record: fresh, invoices, selectedServices });
-    req.session.user = user;
-
-    return res.json({ ok: true, user });
-  } catch (err) {
-    console.error("DELETE SERVICE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to delete service." });
-  }
-});
-
-app.post("/api/account/services/update", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-
-    const { plan, selectedServices } = req.body;
-    if (!plan) return res.status(400).json({ error: "Missing plan." });
-    if (!Array.isArray(selectedServices)) return res.status(400).json({ error: "selectedServices must be an array." });
-
-    assertWithinPlanLimit(plan, selectedServices);
-
-    const client = frappeClient();
-
-    // Read parent doc so we can update its child table safely
-    const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
-    const account = accRes.data?.data || {};
-
-    // Build child rows (status default Awaiting Payment)
-    const childRows = selectedServices.map((s) => ({
-      doctype: WEB_ACCOUNT_SERVICE_CHILD_DOCTYPE,
-      [CHILD_SERVICE_ID_FIELD]: s.serviceId,
-      [CHILD_SERVICE_NAME_FIELD]: s.serviceName || "",
-      [CHILD_TIER_FIELD]: s.tier || "",
-      [CHILD_DOMAIN_CHOICE_FIELD]: s.domainChoice || "",
-      [CHILD_STATUS_FIELD]: s.status || "Awaiting Payment",
-    }));
-
-    // Update Web Account: plan + services table
-    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
-      plan,
-      [WEB_ACCOUNT_SERVICES_FIELD]: childRows,
-    });
-
-    const ids = selectedServices.map(s => s.serviceId).filter(Boolean);
-    await logPortalUpdate(client, webAccountName, {
-      type: "technical",
-      engineer: "Murzak System",
-      content: `Services updated (${ids.length}): ${ids.join(", ")}`,
-    });
-
-    // Upsert invoice snapshot (and amount)
-    await applyPlanAndCreateInvoice(client, webAccountName, plan, selectedServices);
-
-    // Return fresh payload bits
-    const invoices = await fetchInvoicesForUser(client, webAccountName);
-    const selected = await fetchSelectedServicesForUser(client, webAccountName);
-
-    // refresh session user (so portal updates without reload)
-    const userRec = (await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`)).data?.data;
-    const userPayload = buildUserPayload({ record: userRec, invoices, selectedServices: selected });
-    req.session.user = userPayload;
-
-    return res.json({ ok: true, selectedServices: selected, invoices, user: userPayload });
-  } catch (err) {
-    console.error("SERVICES UPDATE ERROR:", err.response?.data || err.message);
-    const code = err.statusCode || 500;
-    return res.status(code).json({ error: err.message || "Failed to update services." });
-  }
-});
 
 function normalizeInvoiceServiceRow(r) {
   return {
@@ -2238,65 +2110,7 @@ async function reconcileServiceDeletionAgainstInvoices(client, webAccountName, s
   }
 }
 
-app.post("/api/billing/activate-services", requireAuth, async (req, res) => {
-  try {
-    const { invoiceDocName } = req.body;
 
-    const result = await activateServicesForInvoice({
-      req,
-      invoiceDocName,
-      frappeClient,
-      PORTAL_INVOICE_SERVICES_FIELD,
-      CHILD_SERVICE_ID_FIELD,
-      WEB_ACCOUNT_SERVICES_FIELD,
-      CHILD_STATUS_FIELD,
-      fetchInvoicesForUser,
-      fetchSelectedServicesForUser,
-      buildUserPayload,
-    });
-
-    return res.json(result);
-  } catch (err) {
-    console.error("ACTIVATE SERVICES ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: "Failed to activate services." });
-  }
-});
-
-app.get("/api/billing/invoice/:docName", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-
-    const { docName } = req.params;
-    if (!docName) return res.status(400).json({ error: "Missing docName." });
-
-    const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(docName)}`);
-    const inv = invRes.data?.data;
-    if (!inv) return res.status(404).json({ error: "Invoice not found." });
-
-    if (inv.web_account !== webAccountName) {
-      return res.status(403).json({ error: "Invoice not yours." });
-    }
-
-    return res.json({
-      ok: true,
-      invoice: {
-        docName: inv.name,
-        invoiceNo: inv.invoice_no || inv.name,
-        amount: Number(inv.amount || 0),
-        paypalAmountUsd: convertKesToPaypalAmount(inv.amount),
-        status: inv.status,
-        type: inv.type,
-        plan: inv.plan,
-        date: inv.invoice_date,
-      },
-    });
-  } catch (err) {
-    console.error("GET INVOICE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to fetch invoice." });
-  }
-});
 
 // ----------------------------------------
 // --- M-PESA STK PUSH (Safaricom Daraja) ---
@@ -2345,110 +2159,6 @@ function normalizeMpesaPhone(raw) {
 }
 
 // Initiate STK Push
-app.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { phoneNumber, invoiceDocName } = req.body || {};
-
-    if (!phoneNumber || !invoiceDocName) {
-      return res.status(400).json({ error: "Missing phoneNumber or invoiceDocName." });
-    }
-
-    const phone = normalizeMpesaPhone(phoneNumber);
-    if (!phone) {
-      return res.status(400).json({ error: "Invalid M-Pesa phone number. Use format 07xx or 01xx." });
-    }
-
-    if (!process.env.MPESA_CONSUMER_KEY || !process.env.MPESA_CONSUMER_SECRET) {
-      console.error("MPESA MISSING ENV: MPESA_CONSUMER_KEY / MPESA_CONSUMER_SECRET not set.");
-      return res.status(503).json({ error: "M-Pesa payment is not configured. Please use PayPal or contact support." });
-    }
-
-    const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
-    const inv = invRes.data?.data;
-
-    if (!inv) return res.status(404).json({ error: "Invoice not found." });
-    if (inv.web_account !== webAccountName) return res.status(403).json({ error: "Invoice not yours." });
-    if (String(inv.status || "").toLowerCase() === "paid") {
-      return res.status(409).json({ error: "Invoice is already paid." });
-    }
-
-    // Free / zero-amount invoices push the small verification charge so the
-    // trial is activated against a real M-Pesa transaction ("for free").
-    const amountKes = Math.ceil(effectiveChargeKes(inv.amount));
-    if (amountKes <= 0) return res.status(400).json({ error: "Invoice amount must be greater than 0." });
-
-    const mpesaEnv = (process.env.MPESA_ENV || "sandbox").toLowerCase();
-    const darajaBase =
-      mpesaEnv === "production"
-        ? "https://api.safaricom.co.ke"
-        : "https://sandbox.safaricom.co.ke";
-
-    const shortcode   = process.env.MPESA_SHORTCODE;
-    const passkey     = process.env.MPESA_PASSKEY;
-    const callbackUrl = process.env.MPESA_CALLBACK_URL;
-
-    if (!shortcode || !passkey || !callbackUrl) {
-      console.error("MPESA MISSING ENV: MPESA_SHORTCODE / MPESA_PASSKEY / MPESA_CALLBACK_URL");
-      return res.status(503).json({ error: "M-Pesa payment is not fully configured. Please contact support." });
-    }
-
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-T:.Z]/g, "")
-      .slice(0, 14);
-
-    const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
-    const token = await getMpesaAccessToken();
-
-    const stkPayload = {
-      BusinessShortCode: shortcode,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: amountKes,
-      PartyA: phone,
-      PartyB: shortcode,
-      PhoneNumber: phone,
-      CallBackURL: callbackUrl,
-      AccountReference: inv.invoice_no || invoiceDocName,
-      TransactionDesc: `Murzak ${inv.invoice_no || invoiceDocName}`,
-    };
-
-    const stkResp = await axios.post(
-      `${darajaBase}/mpesa/stkpush/v1/processrequest`,
-      stkPayload,
-      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
-    );
-
-    const stkData = stkResp.data || {};
-
-    if (stkData.ResponseCode !== "0") {
-      console.error("STK PUSH FAILED:", stkData);
-      return res.status(502).json({
-        error: stkData.ResponseDescription || stkData.errorMessage || "STK push failed.",
-      });
-    }
-
-    // Persist checkoutRequestID so the callback can match it
-    await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-      mpesa_checkout_request_id: stkData.CheckoutRequestID,
-    });
-
-    return res.json({
-      ok: true,
-      checkoutRequestID: stkData.CheckoutRequestID,
-      merchantRequestID: stkData.MerchantRequestID,
-      message: "STK push sent. Please check your phone and enter your M-Pesa PIN.",
-    });
-  } catch (err) {
-    console.error("MPESA STK PUSH ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to initiate M-Pesa payment." });
-  }
-});
 
 // Extract a named value from the M-Pesa CallbackMetadata.Item array.
 function mpesaMetaValue(body, name) {
@@ -2461,125 +2171,8 @@ function mpesaMetaValue(body, name) {
 // Safaricom does not sign callbacks, so we defend the endpoint with an unguessable
 // shared-secret token embedded in the callback URL (?token=...) and verify the
 // amount paid against the invoice before activating anything.
-app.post("/api/billing/mpesa/callback", async (req, res) => {
-  try {
-    // 1) Shared-secret check. FAIL CLOSED: in production an unconfigured secret
-    //    would leave this endpoint open to forged payment confirmations.
-    const expectedToken = process.env.MPESA_CALLBACK_SECRET;
-    if (!expectedToken) {
-      if (process.env.NODE_ENV === "production") {
-        console.error("MPESA CALLBACK: rejected — MPESA_CALLBACK_SECRET not configured.");
-        return res.status(503).json({ ResultCode: 1, ResultDesc: "Callback not configured" });
-      }
-    } else {
-      const provided = String(req.query.token || req.headers["x-callback-token"] || "");
-      if (provided !== expectedToken) {
-        console.warn("MPESA CALLBACK: rejected — bad/missing token from", req.ip);
-        return res.status(401).json({ ResultCode: 1, ResultDesc: "Unauthorized" });
-      }
-    }
-
-    const body = req.body?.Body?.stkCallback || req.body;
-    const resultCode = Number(body?.ResultCode ?? 1);
-    const checkoutRequestID = String(body?.CheckoutRequestID || "").trim();
-
-    // Always respond 200 immediately (Safaricom spec requirement)
-    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-
-    if (resultCode !== 0 || !checkoutRequestID) {
-      console.warn("MPESA CALLBACK: payment not successful or missing ID", { resultCode, checkoutRequestID });
-      return;
-    }
-
-    const client = frappeClient();
-    const searchRes = await client.get("/api/resource/Portal Invoice", {
-      params: {
-        filters: JSON.stringify([["mpesa_checkout_request_id", "=", checkoutRequestID]]),
-        fields: JSON.stringify(["name", "web_account", "status", "amount"]),
-        limit_page_length: 1,
-      },
-    });
-
-    const inv = searchRes.data?.data?.[0];
-    if (!inv?.name) {
-      console.warn("MPESA CALLBACK: no invoice found for checkoutRequestID:", checkoutRequestID);
-      return;
-    }
-
-    if (String(inv.status || "").toLowerCase() === "paid") {
-      console.log("MPESA CALLBACK: invoice already paid:", inv.name);
-      return;
-    }
-
-    // 2) Verify the amount actually paid matches what we billed.
-    //    Reject if the amount is missing or below the billed amount (fail closed).
-    const paidAmount = Number(mpesaMetaValue(body, "Amount") || 0);
-    const expectedAmount = Math.ceil(effectiveChargeKes(inv.amount));
-    if (expectedAmount > 0 && (!(paidAmount > 0) || paidAmount < expectedAmount)) {
-      console.error("MPESA CALLBACK: amount missing or underpaid — rejected", {
-        invoice: inv.name, paidAmount, expectedAmount,
-      });
-      return;
-    }
-
-    // 3) Record the receipt number for reconciliation (best-effort).
-    const receipt = mpesaMetaValue(body, "MpesaReceiptNumber");
-    if (receipt) {
-      try {
-        await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(inv.name)}`, {
-          mpesa_receipt_number: String(receipt),
-        });
-      } catch (e) {
-        console.warn("MPESA CALLBACK: could not store receipt number:", e.response?.data || e.message);
-      }
-    }
-
-    await activateServicesForInvoice({
-      req: { session: { webAccount: inv.web_account, user: { id: inv.web_account } } },
-      invoiceDocName: inv.name,
-      // Trusted rail: the callback verified the shared secret and that the paid
-      // amount meets the invoice's expected charge before reaching this point.
-      paymentVerified: true,
-      frappeClient,
-      PORTAL_INVOICE_SERVICES_FIELD,
-      CHILD_SERVICE_ID_FIELD,
-      WEB_ACCOUNT_SERVICES_FIELD,
-      CHILD_STATUS_FIELD,
-      fetchInvoicesForUser,
-      fetchSelectedServicesForUser,
-      buildUserPayload,
-    });
-
-    console.log("MPESA CALLBACK: services activated for invoice:", inv.name);
-  } catch (err) {
-    console.error("MPESA CALLBACK ERROR:", err.response?.data || err.message);
-  }
-});
 
 // Poll payment status — frontend polls this after sending STK push
-app.get("/api/billing/mpesa/status/:invoiceDocName", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { invoiceDocName } = req.params;
-    const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
-    const inv = invRes.data?.data;
-
-    if (!inv) return res.status(404).json({ error: "Invoice not found." });
-    if (inv.web_account !== webAccountName) return res.status(403).json({ error: "Invoice not yours." });
-
-    return res.json({
-      ok: true,
-      status: inv.status,
-      paid: String(inv.status || "").toLowerCase() === "paid",
-    });
-  } catch (err) {
-    console.error("MPESA STATUS ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to check payment status." });
-  }
-});
 
 // ----------------------------------------
 // --- PAYPAL WEBHOOK (out-of-band truth) ---
@@ -2744,170 +2337,6 @@ app.post("/api/paypal/webhook", async (req, res) => {
 
 // --- REGISTER ---
 // -------------
-app.post("/api/register", authLimiter, async (req, res) => {
-  try {
-    const name = req.body.name ?? req.body.accountHolderName;
-    const company = req.body.company ?? req.body.entityName;
-    const emailRaw = req.body.email ?? req.body.workEmail;
-    const password = req.body.password;
-    const purpose = req.body.purpose ?? "";
-    const sourceCode = req.body.sourceCode ?? "";
-
-    const email = (emailRaw || "").toLowerCase().trim();
-
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
-    }
-    if (!password || String(password).length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters." });
-    }
-
-    const sessionPlan = req.session.pendingPlan;
-    const bodyPlan = req.body.plan ?? "None";
-    let resolvedPlan = sessionPlan || bodyPlan || "None";
-
-    const bodyServices = normalizeSelectedServices(req.body.selectedServices);
-    const sessionServices = normalizeSelectedServices(req.session.pendingServices);
-    const resolvedServices = bodyServices.length ? bodyServices : sessionServices;
-
-    if (!name || !company || !email || !password) {
-      return res.status(400).json({ error: "Missing required fields." });
-    }
-
-    assertWithinPlanLimit(resolvedPlan, resolvedServices);
-    assertOrderWithinCapacity(resolvedServices);
-
-    const client = frappeClient();
-
-    // --- Claim Test Plan Invoice by email (1 email = 1 trial) ---
-    const trialLookup = await client.get("/api/resource/Test Plan Invoice", {
-      params: {
-        filters: JSON.stringify([
-          ["web_account_email", "=", email],
-          ["status", "in", ["New", "Trial Pending", "Active"]],
-        ]),
-        fields: JSON.stringify(["name", "status"]),
-        limit_page_length: 1,
-        order_by: "modified desc",
-      },
-    });
-
-    const existingTrial = trialLookup.data?.data?.[0];
-    if (existingTrial?.name) {
-      resolvedPlan = "Test"; // override whatever came from session/body
-    }
-
-    // 1) Check if email already exists
-    const query = await client.get("/api/resource/Web Account", {
-      params: {
-        filters: JSON.stringify([["work_email", "=", email]]),
-        fields: JSON.stringify(["name"]),
-        limit_page_length: 1,
-      },
-    });
-
-    if (query.data?.data?.length) {
-      return res.status(409).json({ error: "Email already in use." });
-    }
-
-    // 2) Hash password
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    // 3) Create Web Account doc. The existence check above is racy on its own
-    //    (two concurrent submits both pass it), so we ALSO rely on a unique index
-    //    on Web Account.work_email and treat a duplicate-insert as 409 — making
-    //    registration idempotent under double-submit / concurrent requests.
-    let createResp;
-    try {
-      createResp = await client.post("/api/resource/Web Account", {
-        account_holder_name: name,
-        entity_name: company,
-        work_email: email.toLowerCase().trim(),
-        password_hash: passwordHash,
-        purpose,
-        source_code: sourceCode,
-
-        // persist plan at creation (recommended)
-        plan: resolvedPlan,
-        account_status: "Active",
-        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(
-          resolvedServices.map((s) => ({ ...s, status: s.status || "Awaiting Payment" }))
-        ),
-      });
-    } catch (e) {
-      const dup =
-        e?.response?.status === 409 ||
-        /duplicate|already exists|unique/i.test(`${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`);
-      if (dup) return res.status(409).json({ error: "Email already in use." });
-      throw e;
-    }
-
-    const docName = createResp.data?.data?.name;
-    if (!docName) {
-      return res.status(500).json({ error: "Registration failed: missing doc id." });
-    }
-
-    // If a trial existed, link it to this Web Account (optional but recommended)
-    if (existingTrial?.name) {
-      await client.put(`/api/resource/Test Plan Invoice/${existingTrial.name}`, {
-        web_account: docName,
-        status: "Trial Pending", // keep pending until activation, or set "Active" if you activate instantly
-      });
-    }
-
-    // 4) Create invoice if needed. Paid plans → a subscription invoice; the free
-    //    trial → a KES-1 verification invoice the user pays to start the 36h trial.
-    if (resolvedPlan !== "Test") {
-      await applyPlanAndCreateInvoice(client, docName, resolvedPlan, resolvedServices);
-    } else {
-      await setupTrialVerification(client, docName);
-    }
-
-    // 5) Fetch invoices for portal display
-    const invoices = await fetchInvoicesForUser(client, docName);
-    const selectedServices = await fetchSelectedServicesForUser(client, docName);
-
-    // 6) Read back record fields we care about (so payload is consistent)
-    const record = {
-      name: docName,
-      account_holder_name: name,
-      entity_name: company,
-      work_email: email,
-      purpose,
-      source_code: sourceCode,
-      plan: resolvedPlan,
-      account_status: "Active",
-    };
-
-    const userPayload = buildUserPayload({ record, planOverride: resolvedPlan, invoices, selectedServices });
-
-    req.session.user = userPayload;
-    req.session.webAccount = userPayload.id;
-    req.session.pendingPlan = null; // clear pending plan
-    req.session.pendingServices = null;
-
-    // Send email verification link (best-effort, non-blocking).
-    try {
-      pruneTokenStore(emailVerifyTokens);
-      const vToken = crypto.randomBytes(32).toString("hex");
-      emailVerifyTokens.set(hashToken(vToken), {
-        docName,
-        email,
-        expires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      });
-      const verifyUrl = `${appBaseUrl(req)}/api/auth/verify-email?token=${vToken}`;
-      await sendVerificationEmail({ to: email, clientName: name, verifyUrl });
-    } catch (mailErr) {
-      console.error("REGISTER VERIFY EMAIL ERROR:", mailErr.message);
-    }
-
-    return res.json({ ok: true, id: docName, user: userPayload });
-  } catch (err) {
-    console.error("REGISTER ERROR:", err.response?.data || err.message);
-    const status = err.statusCode || 500;
-    return res.status(status).json({ error: status >= 500 ? "Registration failed." : err.message });
-  }
-});
 
 app.post("/api/plan/select-with-services", (req, res) => {
   try {
@@ -2933,172 +2362,6 @@ app.post("/api/plan/select-with-services", (req, res) => {
 // ----------
 // --- LOGIN ---
 // ----------
-app.post("/api/login", authLimiter, async (req, res) => {
-  try {
-    const emailRaw = req.body.email;
-    const password = req.body.password;
-
-    const email = (emailRaw || "").toLowerCase().trim();
-    if (!email || !password) return res.status(400).json({ error: "Missing email or password." });
-
-    // Account-keyed brute-force lockout (defends against IP-rotating attacks
-    // that spread guesses across many IPs against one account).
-    const lock = await loginThrottle.check(email);
-    if (lock.locked) {
-      res.set("Retry-After", String(lock.retryAfterSeconds));
-      return res.status(429).json({
-        error: "Too many failed attempts for this account. Please try again later or reset your password.",
-      });
-    }
-
-    const client = frappeClient();
-
-    // Find account by email FIRST
-    const query = await client.get("/api/resource/Web Account", {
-      params: {
-        filters: JSON.stringify([["work_email", "=", email]]),
-        fields: JSON.stringify([
-          "name",
-          "work_email",
-          "password_hash",
-          "account_holder_name",
-          "entity_name",
-          "purpose",
-          "source_code",
-          "plan",
-          "account_status",
-          WEB_ACCOUNT_SERVICES_FIELD,
-        ]),
-        limit_page_length: 1,
-      },
-    });
-
-    const record = query.data?.data?.[0];
-    if (!record) {
-      await loginThrottle.recordFailure(email);
-      return res.status(401).json({ error: "Login failed. Please check your credentials." });
-    }
-
-    const match = record.password_hash
-      ? await bcrypt.compare(password, record.password_hash)
-      : false;
-    if (!match) {
-      await loginThrottle.recordFailure(email);
-      return res.status(401).json({ error: "Login failed. Please check your credentials." });
-    }
-
-    // Successful credential check — clear the failure counter.
-    await loginThrottle.reset(email);
-
-    const docName = record.name;
-
-    // --- Claim Test Plan on login (safety net) AFTER record exists---
-    try {
-      const emailNorm = (email || "").trim().toLowerCase();
-
-      const trialLookup = await client.get("/api/resource/Test Plan Invoice", {
-        params: {
-          filters: JSON.stringify([
-            ["web_account_email", "=", emailNorm],
-            ["status", "in", ["New", "Trial Pending", "Active"]],
-          ]),
-          fields: JSON.stringify(["name", "status", "web_account"]),
-          limit_page_length: 1,
-          order_by: "modified desc",
-        },
-      });
-
-      const existingTrial = trialLookup.data?.data?.[0];
-
-      if (existingTrial?.name) {
-        // Update account plan if needed
-        if (record.plan !== "Test") {
-          await client.put(`/api/resource/Web Account/${docName}`, {
-            plan: "Test",
-          });
-          record.plan = "Test"; // keep your in-memory record consistent for payload
-        }
-
-        // Link trial -> account if not linked
-        if (!existingTrial.web_account) {
-          await client.put(`/api/resource/Test Plan Invoice/${existingTrial.name}`, {
-            web_account: docName,
-          });
-        }
-
-        // Ensure the KES-1 verification invoice exists (idempotent) so the trial
-        // isn't a dead-end — the portal prompts the user to verify and start.
-        if (String(existingTrial.status || "").toLowerCase() !== "active") {
-          await setupTrialVerification(client, docName);
-        }
-      }
-    } catch (e) {
-      console.warn("LOGIN TRIAL CLAIM WARN:", e.response?.data || e.message);
-    }
-
-    // Apply pending plan/services (pricing -> login flow)
-    const pendingPlan = req.session.pendingPlan;
-    const pendingServices = normalizeSelectedServices(req.session.pendingServices);
-
-    let planOverride = null;
-
-    if (pendingPlan) {
-      assertWithinPlanLimit(pendingPlan, pendingServices);
-
-      // persist web account services as Awaiting Payment
-      await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
-        plan: pendingPlan,
-        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(
-          pendingServices.map((s) => ({ ...s, status: "Awaiting Payment" }))
-        ),
-        account_status: record.account_status || "Active",
-      });
-
-      // update/create invoice (upsert)
-      if (pendingPlan !== "Test") {
-        await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
-      }
-
-      planOverride = pendingPlan;
-      record.plan = pendingPlan;
-      req.session.pendingPlan = null;
-      req.session.pendingServices = null;
-    }    
-    // Fetch invoices for portal display
-    const invoices = await fetchInvoicesForUser(client, record.name);
-    const selectedServices = await fetchSelectedServicesForUser(client, docName);
-
-    const userPayload = buildUserPayload({
-      record: {
-        ...record,
-        plan: planOverride || record.plan,
-      },
-      planOverride: planOverride || null,
-      invoices,
-      selectedServices,
-    });
-
-    // Regenerate the session ID on privilege change to prevent session fixation.
-    return req.session.regenerate((regenErr) => {
-      if (regenErr) {
-        console.error("LOGIN SESSION REGEN ERROR:", regenErr);
-        return res.status(500).json({ error: "Login failed." });
-      }
-      req.session.user = userPayload;
-      req.session.webAccount = userPayload.id;
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error("LOGIN SESSION SAVE ERROR:", saveErr);
-          return res.status(500).json({ error: "Login failed." });
-        }
-        return res.json({ ok: true, user: userPayload });
-      });
-    });
-  } catch (err) {
-    console.error("LOGIN ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Login failed." });
-  }
-});
 
 // ----------
 // --- GOOGLE SIGN-IN ---
@@ -3108,503 +2371,41 @@ app.post("/api/login", authLimiter, async (req, res) => {
 // Web Account by verified email and establish the SAME Express session the
 // password flow uses. Frappe + the session cookie remain the source of truth;
 // Firebase is only the identity provider.
-app.post("/api/auth/google", authLimiter, async (req, res) => {
-  try {
-    if (!firebaseAdmin.isConfigured()) {
-      console.warn("GOOGLE AUTH unavailable:", firebaseAdmin.configError());
-      return res.status(503).json({ error: "Google sign-in is not available right now." });
-    }
-
-    const idToken = req.body?.idToken;
-    let decoded;
-    try {
-      decoded = await firebaseAdmin.verifyIdToken(idToken);
-    } catch (e) {
-      console.warn("GOOGLE AUTH token verify failed:", e.code || e.message);
-      return res.status(401).json({ error: "Could not verify Google sign-in. Please try again." });
-    }
-
-    const email = (decoded.email || "").toLowerCase().trim();
-    if (!email || decoded.email_verified !== true) {
-      return res.status(401).json({ error: "Your Google account has no verified email." });
-    }
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ error: "Invalid email from Google." });
-    }
-
-    const displayName =
-      (decoded.name && String(decoded.name).trim()) || email.split("@")[0];
-
-    const client = frappeClient();
-
-    // 1) Find existing Web Account by verified email.
-    const query = await client.get("/api/resource/Web Account", {
-      params: {
-        filters: JSON.stringify([["work_email", "=", email]]),
-        fields: JSON.stringify([
-          "name",
-          "work_email",
-          "account_holder_name",
-          "entity_name",
-          "purpose",
-          "source_code",
-          "plan",
-          "account_status",
-          WEB_ACCOUNT_SERVICES_FIELD,
-        ]),
-        limit_page_length: 1,
-      },
-    });
-
-    let record = query.data?.data?.[0] || null;
-
-    // 2) First-time Google user → provision a passwordless Web Account.
-    if (!record) {
-      const createResp = await client.post("/api/resource/Web Account", {
-        account_holder_name: displayName,
-        entity_name: displayName,
-        work_email: email,
-        // No password_hash: this is a federated (Google-only) account. The
-        // password login path already treats a missing hash as "no match".
-        purpose: "",
-        source_code: "",
-        plan: "None",
-        account_status: "Active",
-      });
-      const docName = createResp.data?.data?.name;
-      if (!docName) {
-        return res.status(500).json({ error: "Sign-in failed: could not create account." });
-      }
-      record = {
-        name: docName,
-        work_email: email,
-        account_holder_name: displayName,
-        entity_name: displayName,
-        purpose: "",
-        source_code: "",
-        plan: "None",
-        account_status: "Active",
-      };
-    }
-
-    const docName = record.name;
-
-    // 3) Apply any pending plan/services chosen before sign-in (mirrors /api/login).
-    const pendingPlan = req.session.pendingPlan;
-    const pendingServices = normalizeSelectedServices(req.session.pendingServices);
-    let planOverride = null;
-
-    if (pendingPlan) {
-      assertWithinPlanLimit(pendingPlan, pendingServices);
-      await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
-        plan: pendingPlan,
-        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(
-          pendingServices.map((s) => ({ ...s, status: "Awaiting Payment" }))
-        ),
-        account_status: record.account_status || "Active",
-      });
-      if (pendingPlan !== "Test") {
-        await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
-      }
-      planOverride = pendingPlan;
-      record.plan = pendingPlan;
-      req.session.pendingPlan = null;
-      req.session.pendingServices = null;
-    }
-
-    const invoices = await fetchInvoicesForUser(client, docName);
-    const selectedServices = await fetchSelectedServicesForUser(client, docName);
-
-    const userPayload = buildUserPayload({
-      record: { ...record, plan: planOverride || record.plan },
-      planOverride: planOverride || null,
-      invoices,
-      selectedServices,
-    });
-
-    // Regenerate the session ID on login to prevent session fixation.
-    return req.session.regenerate((regenErr) => {
-      if (regenErr) {
-        console.error("GOOGLE AUTH SESSION REGEN ERROR:", regenErr);
-        return res.status(500).json({ error: "Sign-in failed." });
-      }
-      req.session.user = userPayload;
-      req.session.webAccount = userPayload.id;
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error("GOOGLE AUTH SESSION SAVE ERROR:", saveErr);
-          return res.status(500).json({ error: "Sign-in failed." });
-        }
-        return res.json({ ok: true, user: userPayload });
-      });
-    });
-  } catch (err) {
-    console.error("GOOGLE AUTH ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Sign-in failed." });
-  }
-});
 
 // ----------
 // --- FORGOT PASSWORD ---
 // ----------
 // Always responds 200 with a generic message to avoid leaking which emails exist.
-app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
-  const genericOk = {
-    ok: true,
-    message: "If an account exists for that email, a reset link has been sent.",
-  };
-  try {
-    const email = (req.body.email || "").toLowerCase().trim();
-    if (!isValidEmail(email)) return res.json(genericOk); // don't reveal validity
-
-    const client = frappeClient();
-    const query = await client.get("/api/resource/Web Account", {
-      params: {
-        filters: JSON.stringify([["work_email", "=", email]]),
-        fields: JSON.stringify(["name", "work_email", "account_holder_name"]),
-        limit_page_length: 1,
-      },
-    });
-    const record = query.data?.data?.[0];
-
-    if (record?.name) {
-      pruneTokenStore(passwordResetTokens);
-      const token = crypto.randomBytes(32).toString("hex");
-      passwordResetTokens.set(hashToken(token), {
-        docName: record.name,
-        email,
-        expires: Date.now() + 60 * 60 * 1000, // 1 hour
-      });
-
-      const resetUrl = `${appBaseUrl(req)}/login?reset=${token}`;
-      try {
-        await sendPasswordResetEmail({
-          to: email,
-          clientName: record.account_holder_name,
-          resetUrl,
-        });
-      } catch (mailErr) {
-        console.error("FORGOT PASSWORD EMAIL ERROR:", mailErr.message);
-      }
-    }
-
-    return res.json(genericOk);
-  } catch (err) {
-    console.error("FORGOT PASSWORD ERROR:", err.response?.data || err.message);
-    return res.json(genericOk); // still generic
-  }
-});
 
 // ----------
 // --- RESET PASSWORD ---
 // ----------
-app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
-  try {
-    const token = String(req.body.token || "");
-    const password = String(req.body.password || "");
-
-    if (!token) return res.status(400).json({ error: "Missing reset token." });
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters." });
-    }
-
-    pruneTokenStore(passwordResetTokens);
-    const entry = passwordResetTokens.get(hashToken(token));
-    if (!entry || entry.expires < Date.now()) {
-      return res.status(400).json({ error: "This reset link is invalid or has expired." });
-    }
-
-    const password_hash = await bcrypt.hash(password, 12);
-    const client = frappeClient();
-    await client.put(`/api/resource/Web Account/${encodeURIComponent(entry.docName)}`, {
-      password_hash,
-    });
-
-    // Single-use: invalidate the token after success.
-    passwordResetTokens.delete(hashToken(token));
-
-    return res.json({ ok: true, message: "Your password has been reset. You can now log in." });
-  } catch (err) {
-    console.error("RESET PASSWORD ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Could not reset password. Please try again." });
-  }
-});
 
 // ----------
 // --- CHANGE PASSWORD (logged in) ---
 // ----------
-app.post("/api/auth/change-password", requireAuth, authLimiter, async (req, res) => {
-  try {
-    const docName = req.session?.webAccount || req.session?.user?.id;
-    if (!docName) return res.status(401).json({ error: "Not authenticated." });
-
-    const currentPassword = String(req.body.currentPassword || "");
-    const newPassword = String(req.body.newPassword || "");
-
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: "New password must be at least 8 characters." });
-    }
-
-    const client = frappeClient();
-    const recRes = await client.get(
-      `/api/resource/Web Account/${encodeURIComponent(docName)}`,
-      { params: { fields: JSON.stringify(["name", "password_hash"]) } }
-    );
-    const record = recRes.data?.data;
-    if (!record?.password_hash) {
-      return res.status(400).json({ error: "Account has no password set." });
-    }
-
-    const match = await bcrypt.compare(currentPassword, record.password_hash);
-    if (!match) return res.status(401).json({ error: "Current password is incorrect." });
-
-    const password_hash = await bcrypt.hash(newPassword, 12);
-    await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
-      password_hash,
-    });
-
-    return res.json({ ok: true, message: "Password updated successfully." });
-  } catch (err) {
-    console.error("CHANGE PASSWORD ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Could not update password." });
-  }
-});
 
 // ----------
 // --- VERIFY EMAIL ---
 // ----------
 // Best-effort: marks email_verified on the Web Account if the field exists in the
 // doctype. Login is not blocked on verification to avoid locking out existing users.
-app.get("/api/auth/verify-email", async (req, res) => {
-  try {
-    const token = String(req.query.token || "");
-    pruneTokenStore(emailVerifyTokens);
-    const entry = token && emailVerifyTokens.get(hashToken(token));
-    if (!entry || entry.expires < Date.now()) {
-      return res.redirect("/login?verify=invalid");
-    }
-
-    const client = frappeClient();
-    try {
-      await client.put(`/api/resource/Web Account/${encodeURIComponent(entry.docName)}`, {
-        email_verified: 1,
-      });
-    } catch (e) {
-      // Field may not exist yet in the Frappe doctype; log and continue.
-      console.warn("VERIFY EMAIL: could not persist email_verified:", e.response?.data || e.message);
-    }
-
-    emailVerifyTokens.delete(hashToken(token));
-    return res.redirect("/login?verify=success");
-  } catch (err) {
-    console.error("VERIFY EMAIL ERROR:", err.response?.data || err.message);
-    return res.redirect("/login?verify=invalid");
-  }
-});
 
 // ------------------------
 // INVOICE DELETE (SOFT)
 // ------------------------
 const { sendInvoiceDeletedEmail } = require("./utils/mailer");
 
-app.post("/api/invoices/:invoiceNo/delete", requireAuth, async (req, res) => {
-  try {
-    const { invoiceNo } = req.params;
-    const webAccountName = req.session?.user?.id || req.session?.webAccountName;
-
-    if (!webAccountName) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const client = frappeClient();
-
-    // Helper function to lookup in a doctype
-    async function lookupDoc(doctype) {
-      const response = await client.get(`/api/resource/${doctype}`, {
-        params: {
-          filters: JSON.stringify([["web_account", "=", webAccountName]]),
-          or_filters: JSON.stringify([
-            ["name", "=", invoiceNo],
-            ["invoice_no", "=", invoiceNo],
-          ]),
-          fields: JSON.stringify([
-            "name",
-            "invoice_no",
-            "web_account_email",
-            "client_name"
-          ]),
-          limit_page_length: 1,
-        },
-      });
-
-      return response.data?.data?.[0] || null;
-    }
-
-    // Try first doctype
-    let doc = await lookupDoc("Portal Invoice");
-    let doctypeUsed = "Portal Invoice";
-
-    // If not found → try second doctype
-    if (!doc) {
-      doc = await lookupDoc("Test Plan Invoice");
-      doctypeUsed = "Test Plan Invoice";
-    }
-
-    if (!doc) {
-      return res.status(404).json({ error: "Invoice not found in any doctype." });
-    }
-
-    const now = new Date();
-    const mysqlDatetime = now.toISOString().slice(0, 19).replace("T", " ");
-
-    // Soft delete
-    await client.put(
-      `/api/resource/${doctypeUsed}/${encodeURIComponent(doc.name)}`,
-      {
-        status: "Deleted",
-        deleted_at: mysqlDatetime,
-        deleted_by: webAccountName,
-      }
-    );
-
-    if (doc.web_account_email) {
-      await sendInvoiceDeletedEmail({
-        to: doc.web_account_email,
-        clientName: doc.client_name || "",
-        invoiceNo: doc.invoice_no || doc.name,
-      });
-      console.log("DELETE INVOICE:", doc.invoice_no || doc.name);
-    }
-
-    return res.json({
-      ok: true,
-      deleted: doc.invoice_no || doc.name,
-      doctype: doctypeUsed,
-    });
-
-  } catch (err) {
-    console.error("INVOICE DELETE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to delete invoice." });
-  }
-});
 
 // -----------------------------
 // DOWNLOAD SINGLE INVOICE (PDF)
 // -----------------------------
-app.get("/api/invoices/:docName/download", async (req, res) => {
-  try {
-    const { docName } = req.params;
-
-    const webAccountName =
-      req.session?.webAccount || req.session?.user?.id || req.session?.user?.name;
-
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated" });
-
-    const client = frappeClient();
-
-    // 1) Load the exact invoice doc by docName
-    const invResp = await client.get(
-      `/api/resource/Portal Invoice/${encodeURIComponent(docName)}`
-    );
-
-    const inv = invResp.data?.data;
-    if (!inv) return res.status(404).json({ error: "Invoice not found." });
-
-    // 2) Ownership check
-    if (inv.web_account !== webAccountName || inv.status === "Deleted") {
-      return res.status(404).json({ error: "Invoice not found." });
-    }
-
-    // 3) Render PDF using the same docName
-    const pdfResp = await client.get("/api/method/frappe.utils.print_format.download_pdf", {
-      params: {
-        doctype: "Portal Invoice",
-        name: docName,
-        format: "Murzak Portal Invoice",
-        no_letterhead: 0,
-      },
-      responseType: "arraybuffer",
-    });
-
-    const filename = `${inv.invoice_no || docName}.pdf`;
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(Buffer.from(pdfResp.data));
-  } catch (err) {
-    console.error("INVOICE DOWNLOAD ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to download invoice." });
-  }
-});
 
 const archiver = require("archiver");
 
 // ------------------------------------
 // DOWNLOAD ALL INVOICES (ZIP OF PDFs)
 // ------------------------------------
-app.get("/api/invoices/download-all", async (req, res) => {
-  try {
-    const webAccountName =
-      req.session?.user?.id || req.session?.user?.name || req.session?.webAccountName;
-
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated" });
-
-    const client = frappeClient();
-
-    // 1) Fetch all invoices for this user (exclude deleted)
-    const invoicesRes = await client.get("/api/resource/Portal Invoice", {
-      params: {
-        filters: JSON.stringify([
-          ["web_account", "=", webAccountName],
-          ["status", "!=", "Deleted"],
-        ]),
-        fields: JSON.stringify(["name", "invoice_no"]),
-        limit_page_length: 200,
-        order_by: "creation desc",
-      },
-    });
-
-    const rows = invoicesRes.data?.data || [];
-    if (!rows.length) return res.status(404).json({ error: "No invoices found." });
-
-    // 2) Prepare ZIP stream
-    const zipName = `invoices-${webAccountName}.zip`;
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="${zipName}"`);
-
-    const archive = archiver("zip", { zlib: { level: 9 } });
-    archive.on("error", (e) => {
-      console.error("ZIP ERROR:", e);
-      // if headers already sent, just end
-      try { res.status(500).end(); } catch {}
-    });
-
-    archive.pipe(res);
-
-    // 3) For each invoice, fetch PDF and append into ZIP
-    for (const r of rows) {
-      const docName = r.name;
-      const invoiceNo = r.invoice_no || docName;
-
-      const pdfResp = await client.get("/api/method/frappe.utils.print_format.download_pdf", {
-        params: {
-          doctype: "Portal Invoice",
-          name: docName,
-          format: "Murzak Portal Invoice",
-          no_letterhead: 0,
-        },
-        responseType: "arraybuffer",
-      });
-
-      archive.append(Buffer.from(pdfResp.data), { name: `${invoiceNo}.pdf` });
-    }
-
-    await archive.finalize();
-  } catch (err) {
-    console.error("DOWNLOAD ALL ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to download invoices." });
-  }
-});
 
 // --- CLIENT MESSAGES / REQUESTS --- 
 app.post("/api/requests", publicFormLimiter, async (req, res) => {
@@ -3651,352 +2452,19 @@ app.post("/api/requests", publicFormLimiter, async (req, res) => {
 });
 
 // --- PORTAL USER CHAT: create thread ---
-app.post("/api/portal/requests", requireAuth, async (req, res) => {
-  try {
-    const { message, pageUrl, attachments } = req.body;
 
-    // Identity comes from the session, never the request body.
-    const email = String(req.session?.user?.email || "").trim();
-
-    if (!email || !message) {
-      return res.status(400).json({ error: "Missing required fields." });
-    }
-
-    const client = frappeClient();
-    const webAcc = await getWebAccountByEmail(client, email);
-    const portalUserId = webAcc?.name || null;
-
-    const payload = {
-      portal_user: portalUserId,
-      email: email,
-      full_name: webAcc?.account_holder_name || email,
-      company_name: webAcc?.entity_name || "",
-      subject: "Technical Sync Request",
-      status: "New",
-      source: "Portal",
-      last_message_at: mysqlDatetimeUTC(),
-      page_url: pageUrl || "",
-      messages: [
-        {
-          sender_type: "User",
-          sender: email,
-          message: message,
-          attachments: attachments || "",
-        },
-      ],
-    };
-
-    const createResp = await client.post("/api/resource/Portal Users Requests", payload);
-    return res.json({ ok: true, id: createResp.data?.data?.name });
-  } catch (err) {
-    console.error("PORTAL REQUEST CREATE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to create request." });
-  }
-});
-
-app.get("/api/portal/requests/my-thread", requireAuth, async (req, res) => {
-  try {
-    const client = frappeClient();
-    // Always the session user's own thread — ignore any query email.
-    const email = String(req.session?.user?.email || "").trim();
-    if (!email) return res.status(400).json({ error: "Missing email." });
-
-    // find newest thread for user
-    const listResp = await client.get("/api/resource/Portal Users Requests", {
-      params: {
-        fields: JSON.stringify(["name"]),
-        filters: JSON.stringify([["email", "=", email]]),
-        order_by: "modified desc",
-        limit_page_length: 1,
-      },
-    });
-
-    const rows = listResp.data?.data || [];
-    if (rows.length) {
-      return res.json({ ok: true, id: rows[0].name, existed: true });
-    }
-
-    // no thread yet
-    return res.json({ ok: true, id: null, existed: false });
-  } catch (err) {
-    console.error("MY THREAD ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to get thread." });
-  }
-});
 
 // Unread chat badge for portal user
-app.get("/api/portal/requests/unread-count", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-
-    const client = frappeClient();
-
-    // Find user's email (from session user is easiest)
-    const email = String(req.session?.user?.email || "").trim();
-    if (!email) return res.json({ ok: true, count: 0 });
-
-    // Pull threads for this email; only those waiting on user
-    const r = await client.get("/api/resource/Portal Users Requests", {
-      params: {
-        fields: JSON.stringify(["name", "status", "last_message_at", "user_last_read_at"]),
-        filters: JSON.stringify([
-          ["email", "=", email],
-          ["status", "=", "Waiting on User"],
-        ]),
-        order_by: "last_message_at desc",
-        limit_page_length: 200,
-      },
-    });
-
-    const rows = Array.isArray(r.data?.data) ? r.data.data : [];
-
-    const count = rows.filter((t) => {
-      const last = t.last_message_at ? new Date(t.last_message_at) : null;
-      const read = t.user_last_read_at ? new Date(t.user_last_read_at) : null;
-      if (!last) return false;
-      if (!read) return true;
-      return last.getTime() > read.getTime();
-    }).length;
-
-    return res.json({ ok: true, count });
-  } catch (err) {
-    console.error("UNREAD COUNT ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to fetch unread count." });
-  }
-});
 
 // --- PORTAL USER CHAT: get thread (with messages) ---
-app.get("/api/portal/requests/:id", requireAuth, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { id } = req.params;
-
-    const resp = await client.get(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`);
-    const doc = resp.data?.data;
-    if (!doc) return res.status(404).json({ error: "Thread not found." });
-
-    // Authorization: only the thread owner may read it.
-    const email = String(req.session?.user?.email || "").trim().toLowerCase();
-    if (!email || String(doc.email || "").trim().toLowerCase() !== email) {
-      return res.status(403).json({ error: "Not allowed." });
-    }
-
-    return res.json({ ok: true, data: doc });
-  } catch (err) {
-    console.error("PORTAL REQUEST READ ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load messages." });
-  }
-});
 
 // --- PORTAL USER CHAT: append message (RELIABLE) ---
-app.post("/api/portal/requests/:id/messages", requireAuth, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { id } = req.params;
-    const { message, attachments } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ error: "Missing required fields." });
-    }
 
-    // 1) confirm thread exists
-    const current = await client.get(
-      `/api/resource/Portal Users Requests/${encodeURIComponent(id)}`
-    );
-    const doc = current.data?.data;
-    if (!doc) return res.status(404).json({ error: "Thread not found." });
 
-    // Authorization: only the thread owner may post to it.
-    const email = String(req.session?.user?.email || "").trim().toLowerCase();
-    if (!email || String(doc.email || "").trim().toLowerCase() !== email) {
-      return res.status(403).json({ error: "Not allowed." });
-    }
 
-    // 2) insert child row — sender identity is derived from the session,
-    //    NEVER from the request body (prevents Admin impersonation).
-    await client.post("/api/method/frappe.client.insert", {
-      doc: {
-        doctype: "Portal Users Request Messages",
-        parent: id,
-        parenttype: "Portal Users Requests",
-        parentfield: "messages",
-        sender_type: "User",
-        sender: req.session.user.email,
-        message,
-        attachments: attachments || "",
-        sent_at: mysqlDatetimeUTC(),
-      },
-    });
-
-    // 3) update parent “last_message_at” safely (MySQL format)
-    await client.put(
-      `/api/resource/Portal Users Requests/${encodeURIComponent(id)}`,
-      {
-        last_message_at: mysqlDatetimeUTC(),
-        status: "Waiting on Admin",
-      }
-    );
-
-    return res.json({ ok: true, id });
-  } catch (err) {
-    console.error("PORTAL REQUEST MSG ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to send message." });
-  }
-});
-
-app.get("/api/admin/threads", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-
-    const resp = await client.get("/api/resource/Portal Users Requests", {
-      params: {
-        fields: JSON.stringify([
-          "name",
-          "email",
-          "full_name",
-          "status",
-        ]),
-        order_by: "modified desc",
-        limit_page_length: 100,
-      },
-    });
-
-    return res.json({ ok: true, data: resp.data?.data || [] });
-  } catch (err) {
-    console.error("ADMIN THREADS ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load threads." });
-  }
-});
-
-app.get("/api/admin/threads/:id", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { id } = req.params;
-
-    const resp = await client.get(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`);
-    return res.json({ ok: true, data: resp.data?.data });
-  } catch (err) {
-    console.error("ADMIN THREAD READ ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load thread." });
-  }
-});
-
-app.post("/api/admin/threads/:id/reply", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { id } = req.params;
-    const { message, attachments } = req.body;
-
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: "Message is required." });
-    }
-
-    await client.post("/api/method/frappe.client.insert", {
-      doc: {
-        doctype: "Portal Users Request Messages",
-        parent: id,
-        parenttype: "Portal Users Requests",
-        parentfield: "messages",
-        sender_type: "Admin",
-        sender: req.session.user.email,
-        message: message.trim(),
-        attachments: attachments || "",
-        sent_at: mysqlDatetimeUTC(),
-      },
-    });
-
-    await client.put(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`, {
-      last_message_at: mysqlDatetimeUTC(),
-      status: "Waiting on User",
-    });
-
-    const thread = (await client.get(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`)).data?.data;
-
-    if (thread?.portal_user) {
-      await logPortalUpdate(client, thread.portal_user, {
-        type: "info",
-        engineer: "Murzak Tech",
-        content: "New message from Murzak Tech.",
-        is_chat: true,
-      });
-    }
-
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("ADMIN REPLY ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to send reply." });
-  }
-});
-
-app.post("/api/portal/requests/:id/mark-read", requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-
-    const client = frappeClient();
-
-    const doc = (await client.get(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`)).data?.data;
-    if (!doc) return res.status(404).json({ error: "Thread not found." });
-
-    // Safety: only allow marking own thread read
-    const email = String(req.session?.user?.email || "").trim();
-    if (!email || String(doc.email || "").trim() !== email) {
-      return res.status(403).json({ error: "Not allowed." });
-    }
-
-    await client.put(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`, {
-      user_last_read_at: mysqlDatetimeUTC(), // your mysql datetime helper
-    });
-
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("MARK READ ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to mark read." });
-  }
-});
 
 // Upload files
-app.post("/api/portal/upload", requireAuth, upload.single("file"), async (req, res) => {
-  try {
-    console.log("UPLOAD HIT:", {
-      hasFile: !!req.file,
-      name: req.file?.originalname,
-      size: req.file?.size,
-      mimetype: req.file?.mimetype,
-      user: req.session?.user?.email,
-    });
-
-    if (!req.file) return res.status(400).json({ error: "No file uploaded." });
-
-    const FormData = require("form-data");
-    const client = frappeClient();
-
-    const form = new FormData();
-    form.append("file", req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
-    form.append("is_private", "1");
-
-    const up = await client.post("/api/method/upload_file", form, {
-      headers: form.getHeaders(),
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity,
-    });
-
-    const raw = up.data?.message?.file_url || "";
-    const fileUrl = raw.startsWith("http") ? raw : `${process.env.FRAPPE_BASE_URL}${raw}`;
-
-    if (!fileUrl) return res.status(500).json({ error: "Upload succeeded but no file_url returned." });
-
-    return res.json({ ok: true, file_url: fileUrl });
-  } catch (err) {
-    console.error("UPLOAD ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Upload failed." });
-  }
-});
 
 // Object-level authorization for a private Frappe file. We look the File doc up
 // by its url and confirm it is attached to a record the session user owns.
@@ -4038,57 +2506,6 @@ async function userOwnsPrivateFile(client, fileUrl, session) {
   }
 }
 
-app.get("/api/portal/files", requireAuth, async (req, res) => {
-  try {
-    const fileUrl = (req.query.url || "").toString();
-    if (!fileUrl) return res.status(400).send("Missing url");
-
-    // SSRF guard: only allow relative Frappe file paths — never arbitrary
-    // absolute URLs (which would let the privileged token hit internal/external
-    // hosts) and never path-traversal. Files live under /files or /private/files.
-    let pathOnly = fileUrl;
-    try {
-      // If a full URL slipped in, keep only its path and validate the host.
-      if (/^https?:\/\//i.test(fileUrl)) {
-        const u = new URL(fileUrl);
-        const baseHost = new URL(process.env.FRAPPE_BASE_URL).host;
-        if (u.host !== baseHost) return res.status(400).send("Invalid file url");
-        pathOnly = u.pathname;
-      }
-    } catch {
-      return res.status(400).send("Invalid file url");
-    }
-
-    if (
-      !/^\/(private\/files|files)\//.test(pathOnly) ||
-      pathOnly.includes("..")
-    ) {
-      return res.status(400).send("Invalid file path");
-    }
-
-    const client = frappeClient();
-
-    // Object-level authz: private files must belong to the session user.
-    // Public /files/ are world-readable in Frappe, so no check is needed there.
-    if (pathOnly.startsWith("/private/files/")) {
-      const allowed = await userOwnsPrivateFile(client, pathOnly, req.session);
-      if (!allowed) return res.status(403).send("Not allowed");
-    }
-
-    const target = `${process.env.FRAPPE_BASE_URL}${pathOnly}`;
-
-    const r = await client.get(target, { responseType: "stream" });
-
-    // pass through content type + force download if you want
-    res.setHeader("Content-Type", r.headers["content-type"] || "application/octet-stream");
-    if (r.headers["content-disposition"]) res.setHeader("Content-Disposition", r.headers["content-disposition"]);
-
-    r.data.pipe(res);
-  } catch (e) {
-    console.error("FILE PROXY ERROR:", e.response?.data || e.message);
-    res.status(500).send("Failed to fetch file");
-  }
-});
 
 // --- PORTAL UPDATES (notifications) ---
 const PORTAL_UPDATE_DOCTYPE = "Portal Update";
@@ -4138,7 +2555,7 @@ async function fetchUpdatesForUser(client, webAccountName) {
     type: u.type || "info",
     engineer: u.engineer || "Murzak Tech",
     content: u.content || "",
-    timestamp: u.creation || u.created_at || mysqlDatetimeEAT(),
+    timestamp: u.creation || u.created_at || mysqlDatetimeUTC(),
     acknowledged: !!u.acknowledged,
   }));
 }
@@ -4168,139 +2585,9 @@ app.post("/api/updates/ack", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/api/portal/updates", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
 
-    const client = frappeClient();
 
-    const r = await client.get("/api/resource/Portal Update", {
-      params: {
-        filters: JSON.stringify([
-          ["web_account", "=", webAccountName],
-          ["is_deleted", "=", 0], // ✅ requires custom field
-        ]),
-        fields: JSON.stringify([
-          "name",
-          "type",
-          "engineer",
-          "content",
-          "acknowledged",
-          "created_at",
-          "is_chat",
-        ]),
-        order_by: "created_at desc",
-        limit_page_length: 200,
-      },
-    });
 
-    const rows = Array.isArray(r.data?.data) ? r.data.data : [];
-
-    const updates = rows.map((u) => ({
-      id: u.name,
-      type: u.type || "info",
-      engineer: u.engineer || "Murzak Tech",
-      content: u.content || "",
-      acknowledged: !!u.acknowledged,
-      timestamp: u.creation || u.created_at || mysqlDatetimeUTC(),
-      is_chat: !!u.is_chat,
-    }));
-
-    return res.json({ ok: true, updates });
-  } catch (err) {
-    console.error("FETCH UPDATES ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load updates." });
-  }
-});
-
-app.post("/api/portal/updates/ack", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    const { id } = req.body || {};
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-    if (!id) return res.status(400).json({ error: "Missing id." });
-
-    const client = frappeClient();
-    const doc = (await client.get(`/api/resource/Portal Update/${encodeURIComponent(id)}`)).data?.data;
-    if (!doc || doc.web_account !== webAccountName) return res.status(403).json({ error: "Not allowed." });
-
-    await client.put(`/api/resource/Portal Update/${encodeURIComponent(id)}`, { acknowledged: 1 });
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("ACK UPDATE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to acknowledge update." });
-  }
-});
-
-app.post("/api/portal/updates/delete", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    const { id } = req.body || {};
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-    if (!id) return res.status(400).json({ error: "Missing id." });
-
-    const client = frappeClient();
-
-    const doc = (await client.get(`/api/resource/Portal Update/${encodeURIComponent(id)}`)).data?.data;
-    if (!doc || doc.web_account !== webAccountName) return res.status(403).json({ error: "Not allowed." });
-
-    await client.put(`/api/resource/Portal Update/${encodeURIComponent(id)}`, {
-      is_deleted: 1,
-      status: "Deleted",
-    });
-
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("DELETE UPDATE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to delete update." });
-  }
-});
-
-app.post("/api/portal/updates/bulk-delete", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    const { ids } = req.body || {};
-
-    if (!webAccountName) return res.status(401).json({ error: "No session account." });
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: "Missing ids." });
-    }
-
-    const client = frappeClient();
-
-    let deleted = 0;
-    let skipped = 0;
-
-    for (const idRaw of ids) {
-      const id = String(idRaw || "").trim();
-      if (!id) continue;
-
-      // Safety: ensure update belongs to this user before mutating
-      const docRes = await client.get(
-        `/api/resource/Portal Update/${encodeURIComponent(id)}`
-      );
-      const doc = docRes.data?.data;
-
-      if (!doc || doc.web_account !== webAccountName) {
-        skipped++;
-        continue;
-      }
-
-      await client.put(`/api/resource/Portal Update/${encodeURIComponent(id)}`, {
-        is_deleted: 1,
-        status: "Deleted",
-      });
-
-      deleted++;
-    }
-
-    return res.json({ ok: true, deleted, skipped });
-  } catch (err) {
-    console.error("BULK DELETE UPDATE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to bulk delete updates." });
-  }
-});
 
 // --- WEBSITE HOSTING ---
 const HOSTING_SERVICE_ID = "biz-web-hosting";
@@ -4323,6 +2610,15 @@ async function getActiveHostingServiceForUser(client, webAccountName) {
   }
 
   return svc;
+}
+
+// White-label guard: customer-facing payloads must never name the upstream
+// vendor (registrar/host). Old rows may still carry it, so sanitize on read.
+const UPSTREAM_VENDOR_NAMES = /hostinger|coolify/i;
+function toCustomerProvider(provider) {
+  const p = String(provider || "").trim();
+  if (!p || UPSTREAM_VENDOR_NAMES.test(p)) return "Murzak Cloud";
+  return p;
 }
 
 async function fetchHostingDomainPurchaseRequests(client, webAccountName) {
@@ -4355,7 +2651,7 @@ async function fetchHostingDomainPurchaseRequests(client, webAccountName) {
     fullDomain: row.full_domain,
     status: row.status,
     notes: row.notes || "",
-    provider: row.provider || "Hostinger",
+    provider: toCustomerProvider(row.provider),
     isPrimary: !!row.is_primary,
     createdAt: row.creation,
   }));
@@ -4742,7 +3038,7 @@ async function fetchHostingDomains(client, webAccountName) {
     status: row.status,
     isPrimary: !!row.is_primary,
     source: row.source,
-    provider: row.provider || null,
+    provider: row.provider ? toCustomerProvider(row.provider) : null,
     sslStatus: row.ssl_status || "none",
     createdAt: row.creation,
   }));
@@ -4950,419 +3246,13 @@ async function ensureHostingSiteStorageAllocation(client, hostingSiteName, { tie
 }
 
 
-app.get("/api/hosting/dashboard", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-    const client = frappeClient();
-    const svc = await getActiveHostingServiceForUser(client, webAccountName);
 
-    const site = await fetchHostingSite(client, webAccountName);
-    const activeSite = await fetchHostingSite(client, webAccountName);
-    const registerNewDomainRequests = await fetchHostingDomainPurchaseRequests(client, webAccountName);
-    const murzakSubdomains = await fetchHostingMurzakSubdomains(client, webAccountName);
-    const externalDomains = await fetchHostingExternalDomains(client, webAccountName);
-    const requests = await fetchHostingSupportRequests(client, webAccountName);
 
-    let files = [];
-    let deployments = [];
-    let activity = [];
 
-    if (activeSite?.id) {
-      await recalculateHostingStorageUsage(client, activeSite.id);
-      await ensureHostingSiteStorageAllocation(client, activeSite.id, {
-        tier: activeSite.tier || svc.tier || "",
-        planName: activeSite.planName || svc.serviceName || "",
-      });
 
-    await recalculateHostingStorageUsage(client, activeSite.id);
-    const refreshedSite = await fetchHostingSite(client, webAccountName);
 
-      files = await fetchHostingFiles(client, webAccountName, activeSite.id);
-      deployments = await fetchHostingDeployments(client, webAccountName, activeSite.id);
-      activity = await fetchHostingActivity(client, webAccountName, activeSite.id);
 
-      return res.json({
-        ok: true,
-        payload: {
-          service: {
-            serviceId: svc.serviceId,
-            serviceName: svc.serviceName || "Website Hosting",
-            tier: svc.tier || "Medium",
-            status: "active",
-            domainChoice: svc.domainChoice || null,
-          },
-          hostingStatus: refreshedSite?.status || "pending",
-          activeSite: refreshedSite,
-          registerNewDomainRequests,
-          murzakSubdomains: await fetchHostingSubdomains(client, webAccountName, activeSite.id),
-          externalDomains,
-          requests,
-          files,
-          deployments,
-          activity,
-        },
-      });
-    }
-
-    return res.json({
-      ok: true,
-      payload: {
-        service: {
-          serviceId: svc.serviceId,
-          serviceName: svc.serviceName || "Website Hosting",
-          tier: svc.tier || "Medium",
-          status: "active",
-          domainChoice: svc.domainChoice || null,
-        },
-        hostingStatus: site?.status || "pending",
-        activeSite: site,
-        registerNewDomainRequests,
-        murzakSubdomains,
-        externalDomains,
-        requests,
-        files: [],
-        deployments: [],
-        activity: [],
-      },
-    });
-  } catch (err) {
-    console.error("HOSTING DASHBOARD ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to load hosting dashboard.",
-    });
-  }
-});
-
-app.post("/api/hosting/domain-purchase-requests", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { requestedName, requestedTld, notes } = req.body || {};
-
-    const cleanName = String(requestedName || "").trim().toLowerCase();
-    const cleanTld = String(requestedTld || "").trim().toLowerCase();
-    const fullDomain = `${cleanName}${cleanTld}`;
-
-    if (!cleanName) return res.status(400).json({ error: "Domain name is required." });
-    if (!cleanTld.startsWith(".")) return res.status(400).json({ error: "Invalid TLD." });
-
-    const client = frappeClient();
-    const svc = await getActiveHostingServiceForUser(client, webAccountName);
-
-    if (String(svc.domainChoice || "").trim() !== "Register New Domain") {
-      return res.status(400).json({ error: "Your hosting service is not configured for Register New Domain." });
-    }
-
-    const created = await client.post("/api/resource/Hosting Domain Purchase Request", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      requested_name: cleanName,
-      requested_tld: cleanTld,
-      full_domain: fullDomain,
-      status: "pending",
-      provider: "Hostinger",
-      notes: String(notes || "").trim(),
-      is_primary: 1,
-    });
-
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "domain",
-      primaryHost: fullDomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for domain purchase request: ${fullDomain}`,
-    });    
-
-    return res.json({ ok: true, request: created.data?.data || null });
-  } catch (err) {
-    console.error("DOMAIN PURCHASE REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit domain request." });
-  }
-});
-
-app.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { requestedLabel, targetType, targetValue, notes } = req.body || {};
-
-    const cleanLabel = String(requestedLabel || "").trim().toLowerCase();
-    if (!cleanLabel) return res.status(400).json({ error: "Subdomain label is required." });
-
-    const fullSubdomain = `${cleanLabel}.murzaktech.com`;
-
-    const client = frappeClient();
-    const svc = await getActiveHostingServiceForUser(client, webAccountName);
-
-    if (String(svc.domainChoice || "").trim() !== "Use Murzak Subdomain") {
-      return res.status(400).json({ error: "Your hosting service is not configured for Use Murzak Subdomain." });
-    }
-
-    const created = await client.post("/api/resource/Hosting Murzak Subdomain", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      requested_label: cleanLabel,
-      full_subdomain: fullSubdomain,
-      status: "pending",
-      target_type: String(targetType || "folder").trim(),
-      target_value: String(targetValue || "").trim(),
-      notes: String(notes || "").trim(),
-      is_primary: 1,
-    });
-
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "murzak_subdomain",
-      primaryHost: fullSubdomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for Murzak subdomain request: ${fullSubdomain}`,
-    });    
-
-    return res.json({ ok: true, subdomain: created.data?.data || null });
-  } catch (err) {
-    console.error("MURZAK SUBDOMAIN ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit subdomain request." });
-  }
-});
-
-app.post("/api/hosting/external-domains", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { domainName, registrar, notes } = req.body || {};
-
-    const cleanDomain = String(domainName || "").trim().toLowerCase();
-    if (!cleanDomain) return res.status(400).json({ error: "Domain name is required." });
-
-    const client = frappeClient();
-    const svc = await getActiveHostingServiceForUser(client, webAccountName);
-
-    if (String(svc.domainChoice || "").trim() !== "Bring My Domain") {
-      return res.status(400).json({ error: "Your hosting service is not configured for Bring My Domain." });
-    }
-
-    const created = await client.post("/api/resource/Hosting External Domain Connection", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      domain_name: cleanDomain,
-      registrar: String(registrar || "").trim(),
-      status: "pending",
-      verification_notes: String(notes || "").trim(),
-      is_primary: 1,
-    });
-
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "external_domain",
-      primaryHost: cleanDomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for external domain connection: ${cleanDomain}`,
-    });
-
-    return res.json({ ok: true, externalDomain: created.data?.data || null });
-  } catch (err) {
-    console.error("EXTERNAL DOMAIN ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit domain connection request." });
-  }
-});
-
-app.post("/api/hosting/subdomains", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { subdomainLabel, parentHost, targetType, targetValue, notes } = req.body || {};
-
-    const cleanLabel = String(subdomainLabel || "").trim().toLowerCase();
-    const cleanParent = String(parentHost || "").trim().toLowerCase();
-
-    if (!cleanLabel) return res.status(400).json({ error: "Subdomain label is required." });
-    if (!cleanParent) return res.status(400).json({ error: "Parent host is required." });
-
-    const client = frappeClient();
-    await getActiveHostingServiceForUser(client, webAccountName);
-
-    const activeSite = await fetchHostingSite(client, webAccountName);
-    if (!activeSite || activeSite.status !== "active") {
-      return res.status(400).json({ error: "Hosting site is not active yet." });
-    }
-
-    const fullSubdomain = `${cleanLabel}.${cleanParent}`;
-
-    const created = await client.post("/api/resource/Hosting Subdomain", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      parent_host: cleanParent,
-      subdomain_label: cleanLabel,
-      full_subdomain: fullSubdomain,
-      target_type: String(targetType || "folder").trim(),
-      target_value: String(targetValue || "").trim(),
-      status: "pending",
-      notes: String(notes || "").trim(),
-    });
-
-    await client.post("/api/resource/Hosting Activity Log", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      event_type: "subdomain_requested",
-      title: "Subdomain request submitted",
-      description: fullSubdomain,
-    });
-
-    return res.json({
-      ok: true,
-      subdomain: created.data?.data || null,
-    });
-  } catch (err) {
-    console.error("HOSTING SUBDOMAIN ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to create subdomain request.",
-    });
-  }
-});
-
-app.post("/api/hosting/domains/request", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { requestedName, requestedTld, requestType, notes } = req.body || {};
-
-    const cleanName = String(requestedName || "").trim().toLowerCase();
-    const cleanTld = String(requestedTld || "").trim().toLowerCase();
-    const cleanType = String(requestType || "register").trim();
-
-    if (!cleanName) return res.status(400).json({ error: "Domain name is required." });
-    if (!cleanTld.startsWith(".")) return res.status(400).json({ error: "Invalid domain extension." });
-
-    const client = frappeClient();
-    await ensureUserOwnsHostingService(client, webAccountName);
-
-    const domains = await fetchHostingDomains(client, webAccountName);
-    const domainRequests = await fetchHostingDomainRequests(client, webAccountName);
-    const entitlement = computeIncludedDomainEntitlement(domains, domainRequests);
-
-    const fullDomain = `${cleanName}${cleanTld}`;
-    const isIncluded = entitlement.canRequestIncludedDomain;
-    const requiresPayment = !isIncluded;
-
-    const created = await client.post("/api/resource/Hosting Domain Request", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      requested_name: cleanName,
-      requested_tld: cleanTld,
-      full_domain: fullDomain,
-      request_type: cleanType,
-      is_included: isIncluded ? 1 : 0,
-      requires_payment: requiresPayment ? 1 : 0,
-      status: requiresPayment ? "awaiting_payment" : "pending",
-      notes: String(notes || "").trim(),
-    });
-
-    return res.json({
-      ok: true,
-      request: created.data?.data || null,
-      message: isIncluded
-        ? "Included domain request submitted."
-        : "Additional domain request submitted. Payment may be required before activation.",
-    });
-  } catch (err) {
-    console.error("DOMAIN REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit domain request." });
-  }
-});
-
-app.post("/api/hosting/subdomains/request", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { parentDomain, subdomainPrefix, targetType, targetValue } = req.body || {};
-
-    const cleanParent = String(parentDomain || "").trim().toLowerCase();
-    const cleanPrefix = String(subdomainPrefix || "").trim().toLowerCase();
-    const cleanTargetType = String(targetType || "folder").trim().toLowerCase();
-    const cleanTargetValue = String(targetValue || "").trim();
-
-    if (!cleanParent) return res.status(400).json({ error: "Parent domain is required." });
-    if (!cleanPrefix) return res.status(400).json({ error: "Subdomain prefix is required." });
-
-    const client = frappeClient();
-    await ensureUserOwnsHostingService(client, webAccountName);
-
-    const fullSubdomain = `${cleanPrefix}.${cleanParent}`;
-
-    const created = await client.post("/api/resource/Hosting Subdomain", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      parent_domain: cleanParent,
-      subdomain_prefix: cleanPrefix,
-      full_subdomain: fullSubdomain,
-      target_type: cleanTargetType,
-      target_value: cleanTargetValue,
-      status: "pending",
-    });
-
-    return res.json({
-      ok: true,
-      subdomain: created.data?.data || null,
-      message: "Subdomain request submitted.",
-    });
-  } catch (err) {
-    console.error("SUBDOMAIN REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit subdomain request." });
-  }
-});
-
-app.post("/api/hosting/requests", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { category, title, description } = req.body || {};
-
-    const cleanCategory = String(category || "support").trim();
-    const cleanTitle = String(title || "").trim();
-    const cleanDescription = String(description || "").trim();
-
-    if (!cleanTitle) return res.status(400).json({ error: "Title is required." });
-    if (!cleanDescription) return res.status(400).json({ error: "Description is required." });
-
-    const client = frappeClient();
-    await ensureUserOwnsHostingService(client, webAccountName);
-
-    const created = await client.post("/api/resource/Hosting Support Request", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      category: cleanCategory,
-      title: cleanTitle,
-      description: cleanDescription,
-      status: "open",
-    });
-
-    return res.json({
-      ok: true,
-      request: created.data?.data || null,
-      message: "Support request submitted.",
-    });
-  } catch (err) {
-    console.error("HOSTING REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to submit request." });
-  }
-});
 
 
 function ensureSafeFileName(name = "") {
@@ -5396,136 +3286,9 @@ function toDisplayHostingPath(relativePath = "") {
 }
 
 
-app.post("/api/hosting/files/upload", requireAuth, upload.single("file"), async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded." });
-    }
-
-    const { uploadCategory = "deployment", notes = "" } = req.body || {};
-
-    const client = frappeClient();
-    await getActiveHostingServiceForUser(client, webAccountName);
-
-    const activeSite = await fetchHostingSite(client, webAccountName);
-    if (!activeSite || activeSite.status !== "active") {
-      return res.status(400).json({ error: "Hosting site is not active yet." });
-    }
-
-    const fileSizeMb = Number((req.file.size / (1024 * 1024)).toFixed(2));
-    const currentUsed = Number(activeSite.storageUsedMb || 0);
-    const limit = Number(activeSite.storageLimitMb || 0);
-
-    if (limit > 0 && currentUsed + fileSizeMb > limit) {
-      return res.status(400).json({ error: "Storage full. Upload exceeds your hosting allocation." });
-    }
-
-    const dir = buildHostingUploadDir(webAccountName, activeSite.id);
-    await fsp.mkdir(dir, { recursive: true });
-
-    const safeName = `${Date.now()}_${ensureSafeFileName(req.file.originalname)}`;
-    const relativePath = buildHostingRelativePath(webAccountName, activeSite.id, safeName);
-    const absPath = buildHostingAbsolutePath(relativePath);
-
-    await fsp.mkdir(path.dirname(absPath), { recursive: true });
-    await fsp.writeFile(absPath, req.file.buffer);
-
-    const created = await client.post("/api/resource/Hosting File", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      file_name: req.file.originalname,
-      file_path: relativePath,
-      file_size_mb: fileSizeMb,
-      file_type: req.file.mimetype || "",
-      upload_category: String(uploadCategory || "deployment").trim(),
-      status: "uploaded",
-      is_active_build: 0,
-      notes: String(notes || "").trim(),
-    });
-
-    const updatedUsage = await recalculateHostingStorageUsage(client, activeSite.id);
-
-    await client.post("/api/resource/Hosting Activity Log", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      event_type: "file_uploaded",
-      title: "File uploaded",
-      description: `${req.file.originalname} uploaded successfully.`,
-    });
-
-    return res.json({
-      ok: true,
-      file: created.data?.data || null,
-      storageUsedMb: updatedUsage,
-    });
-  } catch (err) {
-    console.error("HOSTING FILE UPLOAD ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to upload file.",
-    });
-  }
-});
-
-app.post("/api/hosting/deployments/request", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
-
-    const { sourceFile = "", deploymentType = "manual", notes = "" } = req.body || {};
-
-    const client = frappeClient();
-    await getActiveHostingServiceForUser(client, webAccountName);
-
-    const activeSite = await fetchHostingSite(client, webAccountName);
-    if (!activeSite || activeSite.status !== "active") {
-      return res.status(400).json({ error: "Hosting site is not active yet." });
-    }
-
-    const created = await client.post("/api/resource/Hosting Deployment", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      source_file: String(sourceFile || "").trim(),
-      deployment_type: String(deploymentType || "manual").trim(),
-      status: "pending",
-      target_path: activeSite.documentRoot || "",
-      notes: String(notes || "").trim(),
-    });
-
-    await client.post("/api/resource/Hosting Activity Log", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      hosting_site: activeSite.id,
-      event_type: "deployment_requested",
-      title: "Deployment requested",
-      description: sourceFile
-        ? `Deployment requested using ${sourceFile}`
-        : "Deployment requested.",
-    });
-
-    return res.json({
-      ok: true,
-      deployment: created.data?.data || null,
-    });
-  } catch (err) {
-    console.error("HOSTING DEPLOYMENT ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to request deployment.",
-    });
-  }
-});
 
 // --- LOGOUT ---
-app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.json({ ok: true });
-  });
-});
 
 async function getWebAccountByEmail(client, email) {
   const resp = await client.get("/api/resource/Web Account", {
@@ -5547,157 +3310,185 @@ app.get("/api/me", (req, res) => {
   res.json({ ok: true, user: req.session.user });
 });
 
-app.get("/api/auth/me", async (req, res) => {
-  try {
-    const webAccountName =
-      req.session?.webAccount ||
-      req.session?.user?.id ||
-      req.session?.user?.name;
-
-    if (!webAccountName) {
-      return res.status(401).json({ ok: false });
-    }
-
-    const client = frappeClient();
-
-    const recordRes = await client.get(
-      `/api/resource/Web Account/${encodeURIComponent(webAccountName)}`
-    );
-
-    const invoices = await fetchInvoicesForUser(client, webAccountName);
-    const selectedServices = await fetchSelectedServicesForUser(client, webAccountName);
-
-    const user = buildUserPayload({
-      record: recordRes.data.data,
-      invoices,
-      selectedServices,
-    });
-
-    // keep session fresh
-    req.session.user = user;
-    req.session.webAccount = webAccountName;
-
-    return res.json({ ok: true, user });
-  } catch (err) {
-    console.error("AUTH ME ERROR:", err.response?.data || err.message);
-    return res.status(401).json({ ok: false });
-  }
-});
 
 // ---- Provisioning (admin) ----
 // List provisioning jobs, optionally filtered by status.
-app.get("/api/admin/provisioning/jobs", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { status } = req.query;
-    const filters = status ? [["status", "=", String(status)]] : [];
-    const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
-      params: {
-        filters: JSON.stringify(filters),
-        fields: JSON.stringify([
-          "name", "web_account", "invoice", "service_id", "service_name",
-          "category", "lane", "status", "attempts", "ram_mb", "gated",
-          "external_ref", "error", "next_run_at", "modified",
-        ]),
-        order_by: "modified desc",
-        limit_page_length: 200,
-      },
-    });
-    return res.json({ ok: true, data: resp.data?.data || [] });
-  } catch (err) {
-    console.error("ADMIN PROVISIONING LIST ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load provisioning jobs." });
-  }
-});
 
 // Trigger a single runner pass on demand (does nothing the loop wouldn't, but
 // lets an admin push the queue without waiting for the interval).
-app.post("/api/admin/provisioning/run", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const result = await provisioningRunner.processQueue(frappeClient());
-    return res.json({ ok: true, ...result });
-  } catch (err) {
-    console.error("ADMIN PROVISIONING RUN ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to run provisioning queue." });
-  }
-});
 
 // Re-queue a failed / needs_human job for another runner attempt.
-app.post("/api/admin/provisioning/jobs/:id/retry", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const { id } = req.params;
-    await client.put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(id)}`, {
-      status: "queued",
-      attempts: 0,
-      next_run_at: null,
-      error: "",
-    });
-    return res.json({ ok: true, name: id });
-  } catch (err) {
-    console.error("ADMIN PROVISIONING RETRY ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to re-queue job." });
-  }
-});
 
 // Capacity overview: targets + per-target reserved RAM + open scale-out requests.
-app.get("/api/admin/provisioning/capacity", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const client = frappeClient();
-    const reserved = await provisioningTargets.reservedByTarget(client);
-    const targetsView = provisioningTargets.listTargets().map((t) => ({
-      id: t.id,
-      status: t.status,
-      sellableRamMb: t.sellableRamMb,
-      reservedRamMb: reserved[t.id] || 0,
-      limitRamMb: provisioningTargets.targetLimitMb(t),
-    }));
-    let requests = [];
-    try {
-      const r = await client.get(`/api/resource/${encodeURIComponent(CAPACITY_REQUEST_DOCTYPE)}`, {
-        params: {
-          fields: JSON.stringify(["name", "status", "requested_ram_mb", "reason", "autoscale", "modified"]),
-          order_by: "modified desc",
-          limit_page_length: 50,
-        },
-      });
-      requests = r.data?.data || [];
-    } catch {
-      /* Capacity Request doctype may not be installed yet */
-    }
-    return res.json({ ok: true, targets: targetsView, requests });
-  } catch (err) {
-    console.error("ADMIN CAPACITY ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to load capacity overview." });
-  }
-});
 
 // Go-live readiness checklist (what's configured after adding env vars).
-app.get("/api/admin/provisioning/readiness", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const { getReadiness } = require("./services/provisioning/readiness");
-    const result = await getReadiness(frappeClient());
-    return res.json({ ok: true, ...result });
-  } catch (err) {
-    console.error("ADMIN READINESS ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to compute readiness." });
-  }
-});
 
 // Dispatcher health: mode (poll/bullmq/off) and, in bullmq mode, queue counts.
-app.get("/api/admin/provisioning/queue", requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const h = await provisioningQueue.health();
-    return res.json({ ok: true, ...h });
-  } catch (err) {
-    console.error("ADMIN QUEUE HEALTH ERROR:", err.message);
-    return res.status(500).json({ error: "Failed to read queue health." });
-  }
-});
 
 // ---- Frontend Routes (SPA fallback) ----
 // Important: This must be AFTER API routes.
 // Any route not matched above will return the React app.
+
+// ==========================================
+// MOUNT EXTRACTED ROUTES
+// ==========================================
+const routeContext = {
+  express,
+  session,
+  bcrypt,
+  axios,
+  bodyParser,
+  path,
+  FormData,
+  multer,
+  cors,
+  helmet,
+  rateLimit,
+  crypto,
+  firebaseAdmin,
+  passwordResetTokens,
+  emailVerifyTokens,
+  hashToken,
+  pruneTokenStore,
+  appBaseUrl,
+  ALLOWED_UPLOAD_EXT,
+  upload,
+  createPaypalRouter,
+  TRIAL_SANDBOX_SERVICE_ID,
+  provisioningRunner,
+  provisioningQueue,
+  provisioningTargets,
+  fs,
+  fsp,
+  app,
+  frontendDistPath,
+  allowedOrigins,
+  SESSION_SECRET,
+  sessionStore,
+  redisClient,
+  loginThrottle,
+  authLimiter,
+  apiLimiter,
+  publicFormLimiter,
+  domainCheckLimiter,
+  requireAuth,
+  requireAdmin,
+  isValidEmail,
+  mysqlDatetimeUTC,
+  FRAPPE_BASE_URL,
+  FRAPPE_AUTH,
+  frappeClient,
+  buildUserPayload,
+  SERVICE_ID_TO_PLAN,
+  normalizeChildRow,
+  computeProratedCreditKes,
+  normalizeSelectedServices,
+  buildWebAccountServiceRows,
+  buildInvoiceServiceRows,
+  fetchWebAccount,
+  updateWebAccountServices,
+  hasPaidSubscriptionForPlan,
+  findOpenInvoice,
+  computeInvoiceAmount,
+  computeAddonInvoiceAmount,
+  upsertPortalInvoice,
+  assertWithinPlanLimit,
+  allowedAddonTiersForPlan,
+  formatSelectedServices,
+  PLAN_PRICING,
+  ADDON_PRICING_BY_SERVICE_ID,
+  PLAN_NAME_TO_KEY,
+  WEB_ACCOUNT_DOCTYPE,
+  WEB_ACCOUNT_SERVICE_CHILD_DOCTYPE,
+  WEB_ACCOUNT_SERVICES_FIELD,
+  CHILD_SERVICE_ID_FIELD,
+  CHILD_SERVICE_NAME_FIELD,
+  CHILD_TIER_FIELD,
+  CHILD_DOMAIN_CHOICE_FIELD,
+  CHILD_STATUS_FIELD,
+  SERVICE_STATUS_ACTIVE,
+  SERVICE_STATUS_AWAITING,
+  PORTAL_INVOICE_SERVICE_CHILD_DOCTYPE,
+  PORTAL_INVOICE_SERVICES_FIELD,
+  INVOICE_SERVICES_JSON_FIELD,
+  INVOICE_SERVICES_COUNT_FIELD,
+  PLAN_LIMITS,
+  asArray,
+  DOMAIN_TLD_PRICES,
+  normalizeDomainLabel,
+  stableHash,
+  hostingerAvailability,
+  mergeServicesById,
+  findExistingUnpaidSubscriptionInvoice,
+  findLatestPaidSubscriptionInvoice,
+  applyPlanAndCreateInvoice,
+  setupTrialVerification,
+  expireStaleTrials,
+  fetchInvoicesForUser,
+  fetchSelectedServicesForUser,
+  normalizeInvoiceServiceRow,
+  normalizeInvoiceStatus,
+  isInvoicePaidLike,
+  isInvoiceDeletedLike,
+  isInvoiceUnpaidLike,
+  convertKesToPaypalAmount,
+  reconcileServiceDeletionAgainstInvoices,
+  assertOrderWithinCapacity,
+  _mpesaTokenCache,
+  getMpesaAccessToken,
+  normalizeMpesaPhone,
+  mpesaMetaValue,
+  suspendServicesForInvoice,
+  archiver,
+  userOwnsPrivateFile,
+  PORTAL_UPDATE_DOCTYPE,
+  logPortalUpdate,
+  fetchUpdatesForUser,
+  HOSTING_SERVICE_ID,
+  getActiveHostingServiceForUser,
+  fetchHostingDomainPurchaseRequests,
+  fetchHostingMurzakSubdomains,
+  fetchHostingExternalDomains,
+  fetchHostingSite,
+  fetchHostingFiles,
+  fetchHostingDeployments,
+  fetchHostingActivity,
+  fetchHostingSubdomains,
+  fetchHostingSupportRequests,
+  recalculateHostingStorageUsage,
+  getHostingStorageAllocationMb,
+  ensureUserOwnsHostingService,
+  fetchHostingDomains,
+  fetchHostingDomainRequests,
+  computeIncludedDomainEntitlement,
+  createHostingActivityLog,
+  findExistingHostingSiteByHost,
+  ensurePendingHostingSiteForRequest,
+  activateHostingSite,
+  finalizeMurzakSubdomainProvisioning,
+  ensureHostingSiteStorageAllocation,
+  ensureSafeFileName,
+  buildHostingUploadDir,
+  buildHostingRelativePath,
+  buildHostingAbsolutePath,
+  toDisplayHostingPath,
+  getWebAccountByEmail,
+  PROVISIONING_JOB_DOCTYPE,
+  CAPACITY_REQUEST_DOCTYPE
+};
+
+app.use(require('./routes/authRoutes')(routeContext));
+app.use(require('./routes/portalRoutes')(routeContext));
+app.use(require('./routes/hostingRoutes')(routeContext));
+app.use(require('./routes/billingRoutes')(routeContext));
+app.use(require('./routes/adminRoutes')(routeContext));
+
+// Unmatched API routes get a JSON 404, not the SPA's index.html — a wrong URL
+// in a client or webhook config should fail loudly, not parse HTML.
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ error: "Not found." });
+});
+
 app.get("*", (req, res) => {
   res.sendFile(path.join(frontendDistPath, "index.html"));
 });

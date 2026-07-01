@@ -604,9 +604,9 @@ export default function PlanServicesModal({
                 </span>
               </button>
 
-              <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-0`}>
-                <div className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-murzak-surface/60 shadow-xl overflow-hidden">
-                  <div className="bg-murzak-gradient px-5 py-4">
+              <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-6`}>
+                <div className="glass-card shadow-2xl overflow-hidden border border-white/10">
+                  <div className="bg-gradient-to-r from-murzak-violet/20 to-murzak-cyan/20 px-5 py-4 border-b border-white/10 backdrop-blur-sm">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/80">Your plan</div>
                     <div className="text-sm font-black text-white mt-0.5">{planLabel || planCode}</div>
                   </div>
@@ -623,7 +623,7 @@ export default function PlanServicesModal({
                         {selectedList.map((s) => {
                           const svc = services.find((x) => x.id === s.serviceId);
                           return (
-                            <li key={s.serviceId} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3.5">
+                            <li key={s.serviceId} className="glass-panel p-3.5 mb-2 rounded-2xl">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <div className="text-[12px] font-black text-murzak-navy dark:text-white leading-tight">{s.serviceName}</div>
@@ -691,11 +691,17 @@ export default function PlanServicesModal({
                                 {row.used} / {row.cap} {row.unit}
                               </span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+                            <div className="h-1.5 rounded-full bg-black/40 overflow-hidden shadow-inner">
                               <div
-                                className={`h-full rounded-full transition-all ${row.over ? "bg-red-500" : "bg-murzak-cyan"}`}
+                                className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
+                                  row.over 
+                                    ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" 
+                                    : "bg-murzak-cyan shadow-[0_0_10px_rgba(46,166,255,0.5)]"
+                                }`}
                                 style={{ width: `${row.pct}%` }}
-                              />
+                              >
+                                <div className="absolute inset-0 bg-white/20 w-full animate-shimmer" />
+                              </div>
                             </div>
                           </div>
                         ))}

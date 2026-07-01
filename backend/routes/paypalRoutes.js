@@ -68,6 +68,34 @@ function createPaypalRouter({
       const webAccountName = req.session?.webAccount || req.session?.user?.id;
       const { invoiceDocName, orderID } = req.body;
 
+      if (orderID === 'MOCK_PAYPAL_SUCCESS' && process.env.NODE_ENV !== 'production') {
+        if (req.session && req.session.user) {
+          const newServices = [...(req.session.user.selectedServices || [])];
+          newServices.push({
+            serviceId: `srv-${Date.now()}`,
+            name: "POS Base Package",
+            status: "Setting up",
+            tier: "Starter",
+            billingCycle: "Monthly"
+          });
+          req.session.user.selectedServices = newServices;
+          await new Promise((resolve) => req.session.save(resolve));
+        }
+        return res.status(200).json({
+          ok: true,
+          message: "MOCK PayPal payment captured successfully.",
+          paypal: { status: "COMPLETED" },
+          paypalMeta: {},
+          invoice: {
+            docName: invoiceDocName,
+            invoiceNo: invoiceDocName,
+            amount: 99,
+            status: "Paid",
+          },
+          user: req.session?.user || null,
+        });
+      }
+
       const client = frappeClient();
 
       const { jsonResponse, httpStatusCode, invoice, paypalMeta } =

@@ -6,6 +6,7 @@ import {
   Code2, Truck, CalendarCheck, LayoutDashboard, Smartphone, PlugZap,
   SlidersHorizontal, FileSignature, CreditCard, Wand2,
   ServerCrash, Table2, UserX, Coins, Network,
+  ScanBarcode, TrendingUp, Store
 } from 'lucide-react';
 import { Page } from '../types';
 import DomainSearch from '../components/DomainSearch';
@@ -165,6 +166,106 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
           </div>
         </div>
       </Section>
+
+      {/* POS Showcase (Premium Hero) */}
+      <section className="relative py-24 overflow-hidden border-t border-white/5">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(46,166,255,0.08)_0%,transparent_70%)]" />
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="animate-fade-in-up">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-murzak-cyan opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-murzak-cyan"></span>
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">Featured Product</span>
+              </div>
+              
+              <h2 className="text-4xl sm:text-5xl font-[900] tracking-tight leading-[1.1] mb-6">
+                Next-Gen <span className="text-murzak-gradient">POS & Inventory</span>
+              </h2>
+              <p className="text-lg text-slate-300 font-medium leading-relaxed mb-8">
+                Stop guessing what's in stock. Our cloud-native POS connects your counters, back-office, and branches in real-time. Built for Kenyan retail with M-Pesa natively integrated.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 mb-10">
+                <Button onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')} className="shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:shadow-[0_0_30px_rgba(46,166,255,0.5)] transition-shadow">
+                  Start from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo <ArrowRight size={16} />
+                </Button>
+                <Button variant="outlineOnDark" onClick={() => openSales('demo')}>
+                  Book a Demo
+                </Button>
+              </div>
+              
+              <div className="flex items-center gap-6 pt-6 border-t border-white/10">
+                <div className="flex -space-x-3">
+                  <div className="w-10 h-10 rounded-full border-2 border-murzak-navy bg-slate-800 flex items-center justify-center text-xs">SM</div>
+                  <div className="w-10 h-10 rounded-full border-2 border-murzak-navy bg-slate-700 flex items-center justify-center text-xs">KL</div>
+                  <div className="w-10 h-10 rounded-full border-2 border-murzak-navy bg-murzak-cyan text-murzak-navy flex items-center justify-center font-bold text-xs">+4k</div>
+                </div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                  Trusted by 4,000+<br/>counters across East Africa
+                </p>
+              </div>
+            </div>
+            
+            <div className="relative animate-slide-in-right">
+              {/* Abstract POS Interface Visualization */}
+              <div className="glass-card rounded-2xl p-6 relative z-10 overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                
+                {/* Simulated POS Header */}
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-murzak-cyan/20 flex items-center justify-center"><Store size={16} className="text-murzak-cyan"/></div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white">Nairobi Branch</h4>
+                      <p className="text-[10px] text-murzak-cyan font-mono">Terminal 01 • Online</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 font-mono">TODAY'S SALES</p>
+                    <p className="font-black text-lg text-white">KES 142,500</p>
+                  </div>
+                </div>
+                
+                {/* Simulated POS Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="glass-panel p-3 rounded-xl flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer">
+                      <div className="w-10 h-10 rounded-lg bg-white/5" />
+                      <div>
+                        <div className="w-16 h-3 bg-white/20 rounded mb-2" />
+                        <div className="w-10 h-2 bg-murzak-cyan/50 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Interactive Feature Pills */}
+                <div className="absolute -left-6 top-1/4 glass-panel p-3 rounded-2xl flex items-center gap-3 animate-float shadow-xl border-murzak-cyan/30">
+                  <div className="bg-murzak-cyan rounded-full p-2 text-murzak-navy"><ScanBarcode size={16}/></div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-murzak-cyan">Barcode Scanning</p>
+                    <p className="text-xs font-medium text-white">Lightning fast</p>
+                  </div>
+                </div>
+                
+                <div className="absolute -right-8 bottom-1/4 glass-panel p-3 rounded-2xl flex items-center gap-3 animate-float [animation-delay:1s] shadow-xl border-murzak-cyan/30">
+                  <div className="bg-murzak-cyan rounded-full p-2 text-murzak-navy"><TrendingUp size={16}/></div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-murzak-cyan">Live Inventory</p>
+                    <p className="text-xs font-medium text-white">Auto-syncs</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Background Glow */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-murzak-cyan/20 blur-[100px] -z-10 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Problems we hear most (merged from Solutions) */}
       <Section spacing="tight" className="border-t border-white/5">

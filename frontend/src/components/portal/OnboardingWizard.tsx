@@ -19,11 +19,12 @@ interface Props {
   user: User;
   onClose: () => void;
   onChooseServices: () => void;
-  onGoTab: (tab: "overview" | "cloud" | "billing" | "sync" | "profile") => void;
+  onOpenSupport: () => void;
+  onGoTab: (tab: "overview" | "cloud" | "billing" | "profile") => void;
 }
 
 /** A cosy, celebratory first-run onboarding for the client portal. Frontend-only. */
-export default function OnboardingWizard({ isOpen, user, onClose, onChooseServices, onGoTab }: Props) {
+export default function OnboardingWizard({ isOpen, user, onClose, onChooseServices, onOpenSupport, onGoTab }: Props) {
   const [step, setStep] = useState(0); // 0 welcome · 1 goal · 2 checklist · 3 celebrate
   const [goal, setGoal] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
     return [
       { id: "account", icon: <Check size={16} />, title: "Account created", done: true, action: null as null | (() => void), cta: "" },
       custom
-        ? { id: "services", icon: <Code2 size={16} />, title: "Tell us about your custom build", done: false, action: () => onGoTab("sync"), cta: "Message us" }
+        ? { id: "services", icon: <Code2 size={16} />, title: "Tell us about your custom build", done: false, action: onOpenSupport, cta: "Message us" }
         : { id: "services", icon: <Server size={16} />, title: "Choose your services", done: hasServices, action: onChooseServices, cta: "Configure" },
       { id: "pay", icon: <CreditCard size={16} />, title: "Make your first payment", done: hasPaid, action: () => onGoTab("billing"), cta: "Go to billing" },
       {
@@ -71,7 +72,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
         icon: <Headphones size={16} />,
         title: "Say hi to your support team",
         done: saidHi,
-        action: () => { try { localStorage.setItem("murzak_said_hi", "1"); } catch { /* ignore */ } onGoTab("sync"); },
+        action: () => { try { localStorage.setItem("murzak_said_hi", "1"); } catch { /* ignore */ } onOpenSupport(); },
         cta: "Message us",
       },
     ];

@@ -75,7 +75,7 @@ const fieldStyle = {
   input: {
     "font-size": "18px",
     "font-weight": "700",
-    color: "#0f172a",
+    color: "#ffffff",
   },
   ".invalid": {
     color: "#ef4444",
@@ -168,7 +168,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
             </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+          <div className="glass-panel p-5 rounded-2xl">
             <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Invoice amount
             </div>
@@ -185,7 +185,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
                 Name on Card
               </label>
-              <div className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-6 py-5">
+              <div className="w-full glass-input rounded-2xl px-6 py-5">
                 <PayPalNameField />
               </div>
             </div>
@@ -194,7 +194,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
                 Card Number
               </label>
-              <div className="relative w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-16 py-5">
+              <div className="relative w-full glass-input rounded-2xl px-16 py-5">
                 <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
                 <PayPalNumberField />
               </div>
@@ -205,7 +205,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
                   Expiry
                 </label>
-                <div className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-8 py-5">
+                <div className="w-full glass-input rounded-2xl px-8 py-5">
                   <PayPalExpiryField />
                 </div>
               </div>
@@ -214,7 +214,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
                   CVC
                 </label>
-                <div className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-8 py-5">
+                <div className="w-full glass-input rounded-2xl px-8 py-5">
                   <PayPalCVVField />
                 </div>
               </div>

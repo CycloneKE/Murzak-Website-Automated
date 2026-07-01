@@ -97,6 +97,7 @@ const App: React.FC = () => {
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [booting, setBooting] = useState(true);
+  const [isBackendDown, setIsBackendDown] = useState(false);
 
   // Dark-only: the marketing pages render light text on the fixed dark site
   // backdrop, so a light theme leaves the header, gradients and hero copy
@@ -113,6 +114,7 @@ const App: React.FC = () => {
         const data = await res.json().catch(() => ({}));
         if (!mounted) return;
         if (res.ok && data.ok && data.user) {
+          console.log("APP.TSX /API/AUTH/ME USER:", JSON.stringify(data.user));
           setUser(data.user);
           setIsLoggedIn(true);
         } else {
@@ -131,6 +133,17 @@ const App: React.FC = () => {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const handleApiError = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.status === 502 || customEvent.detail?.status === 503) {
+        setIsBackendDown(true);
+      }
+    };
+    window.addEventListener('api-gateway-error', handleApiError);
+    return () => window.removeEventListener('api-gateway-error', handleApiError);
   }, []);
 
   useEffect(() => {
@@ -167,10 +180,15 @@ const App: React.FC = () => {
     navigate(path);
   };
 
-  const handleLogin = (u: User) => {
+  const handleLogin = (u: User, returnTo?: string) => {
     setUser(u);
     setIsLoggedIn(true);
-    navigate("/portal/overview");
+    navigate(returnTo || "/portal/overview");
+  };
+
+  const handleUserUpdate = (u: User) => {
+    setUser(u);
+    setIsLoggedIn(true);
   };
 
   const handleLogout = async () => {
@@ -217,7 +235,19 @@ const App: React.FC = () => {
   const hideChrome = isPortalRoute || location.pathname === "/login" || isPaymentRoute;
 
   if (booting) {
-    return <div className="h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden bg-murzak-deep">
+        <InteractiveBackground isDarkMode={true} />
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(46,166,255,0.2)] animate-glow-pulse mb-6">
+            <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-cyan animate-spin"></div>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+            Authenticating...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -261,7 +291,7 @@ const App: React.FC = () => {
                     user={user}
                     onLogout={handleLogout}
                     onNavigate={onNavigate}
-                    onUserUpdate={handleLogin}
+                    onUserUpdate={handleUserUpdate}
                   />
                   </RequireAuth>
                 }/>
@@ -288,6 +318,28 @@ const App: React.FC = () => {
 
         {!hideChrome && <Footer onNavigate={onNavigate} />}
       </div>
+
+      {isBackendDown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="bg-gray-900 border border-red-900/50 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center mx-4">
+            <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Service Temporarily Unavailable</h2>
+            <p className="text-gray-400 mb-6">
+              Our backend systems are currently undergoing maintenance or experiencing high traffic. Please try again in a few minutes.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-murzak-green hover:bg-murzak-green/90 text-black font-semibold py-3 px-6 rounded-lg transition-colors w-full"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      )}
       
       <SalesModal isOpen={isSalesModalOpen} onClose={() => setIsSalesModalOpen(false)} />
     </div>
