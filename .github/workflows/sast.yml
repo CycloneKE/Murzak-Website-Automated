@@ -123,6 +123,10 @@ jobs:
           PORT: 3001
           SESSION_SECRET: ci-e2e-secret-not-used-in-production
           MOCK_FRAPPE: 'true'
+          # The Vite dev server (Playwright webServer) proxies /api to :3001
+          # but preserves the browser Origin header; the fail-closed CORS
+          # allow-list must include it or every POST is rejected.
+          ALLOWED_ORIGINS: http://localhost:5173
         run: |
           nohup node server.js > backend.log 2>&1 &
           for i in $(seq 1 30); do

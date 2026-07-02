@@ -154,7 +154,11 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return cb(null, true);
       }
-      return cb(new Error("Not allowed by CORS"));
+      // 403, not a generic 500 — a CORS denial must be identifiable from the
+      // client (it once masqueraded as "Something went wrong" and cost a debug).
+      const err = new Error("Not allowed by CORS");
+      err.statusCode = 403;
+      return cb(err);
     },
     credentials: true,
   })
