@@ -7,14 +7,14 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/provisioning.test.js",
+    "test": "node test/provisioning.test.js && node test/billing.test.js && node test/routesContext.test.js && node test/renewal.test.js",
     "gen:catalog": "node scripts/generate-catalog-snapshot.js"
   },
   "dependencies": {
     "@paypal/paypal-server-sdk": "^2.2.0",
     "archiver": "^7.0.1",
     "axios": "^1.13.4",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "body-parser": "^1.20.4",
     "bullmq": "^5.78.1",
     "connect-redis": "^9.0.0",
@@ -28,7 +28,13 @@
     "helmet": "^8.2.0",
     "ioredis": "^5.11.1",
     "multer": "^2.0.2",
-    "nodemailer": "^8.0.1",
+    "nodemailer": "^9.0.3",
     "redis": "^6.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.7",
+    "@babel/generator": "^7.29.7",
+    "@babel/parser": "^7.29.7",
+    "@babel/traverse": "^7.29.7"
   }
 }

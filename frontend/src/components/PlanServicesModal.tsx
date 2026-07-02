@@ -13,6 +13,10 @@ import {
   ServiceCategory,
   formatKes,
   isQuoteOnly,
+  isManagedSetup,
+  exceedsSelfServeCap,
+  SELF_SERVE_ORDER_RAM_CAP_MB,
+  SELF_SERVE_ORDER_DISK_CAP_GB,
   type ServiceItem,
 } from "../config/serviceCatalog";
 
@@ -175,6 +179,21 @@ export default function PlanServicesModal({
     return { monthly, setup, domainYearly };
   }, [selectedList, services]);
 
+  // ---- capacity guard ----
+  // A single self-serve order can't consume more than one shared tenant's worth
+  // of the box; beyond the cap it's a dedicated/Enterprise conversation.
+  const selectedSvcItems = useMemo<ServiceItem[]>(
+    () =>
+      selectedList
+        .map((s) => services.find((x) => x.id === s.serviceId))
+        .filter(Boolean) as ServiceItem[],
+    [selectedList, services]
+  );
+  const capacity = useMemo(() => exceedsSelfServeCap(selectedSvcItems), [selectedSvcItems]);
+  const overCap = !quoteMode && capacity.over;
+  const ramPct = Math.min(100, Math.round((capacity.ramMb / SELF_SERVE_ORDER_RAM_CAP_MB) * 100));
+  const diskPct = Math.min(100, Math.round((capacity.diskGb / SELF_SERVE_ORDER_DISK_CAP_GB) * 100));
+
   // reset on open / plan switch — seed with any pre-selected services (from the advisor)
   useEffect(() => {
     if (!isOpen) return;
@@ -268,7 +287,7 @@ export default function PlanServicesModal({
       return next;
     });
 
-  const canContinue = selectedList.length > 0;
+  const canContinue = selectedList.length > 0 && !overCap;
 
   const persistSelection = () => {
     const upgradeIntent = sessionStorage.getItem("murzak_upgrade_intent") === "1";
@@ -292,6 +311,19 @@ export default function PlanServicesModal({
 
   const handleContinue = () => {
     setError("");
+    if (overCap) {
+      // The capacity meter already shows the red "needs dedicated capacity"
+      // warning, so don't flash a duplicate error. Persist the selection first
+      // so the sales/quote flow has the exact stack the user configured.
+      if (onProceedEnterpriseQuote) {
+        persistSelection();
+        onProceedEnterpriseQuote();
+      } else {
+        setError("This configuration needs dedicated capacity — remove a service or contact sales.");
+        setSummaryOpen(true);
+      }
+      return;
+    }
     if (!canContinue) {
       setError("Add at least one service to continue.");
       setSummaryOpen(true);
@@ -422,6 +454,11 @@ export default function PlanServicesModal({
                           <div className="text-base sm:text-lg font-black text-murzak-navy dark:text-white mt-1 leading-tight">
                             {svc.name}
                           </div>
+                          {isManagedSetup(svc) && (
+                            <span className="inline-flex items-center gap-1 mt-2 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest">
+                              <Server size={11} /> Managed setup
+                            </span>
+                          )}
                           <div className="mt-2 flex items-baseline gap-2 flex-wrap">
                             {quote ? (
                               <span className="text-lg font-black text-murzak-cyan">Custom quote</span>
@@ -567,9 +604,9 @@ export default function PlanServicesModal({
                 </span>
               </button>
 
-              <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-0`}>
-                <div className="rounded-3xl border border-slate-200 dark:border-white/10 bg-white dark:bg-murzak-surface/60 shadow-xl overflow-hidden">
-                  <div className="bg-murzak-gradient px-5 py-4">
+              <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-6`}>
+                <div className="glass-card shadow-2xl overflow-hidden border border-white/10">
+                  <div className="bg-gradient-to-r from-murzak-violet/20 to-murzak-cyan/20 px-5 py-4 border-b border-white/10 backdrop-blur-sm">
                     <div className="text-[10px] font-black uppercase tracking-widest text-white/80">Your plan</div>
                     <div className="text-sm font-black text-white mt-0.5">{planLabel || planCode}</div>
                   </div>
@@ -586,7 +623,7 @@ export default function PlanServicesModal({
                         {selectedList.map((s) => {
                           const svc = services.find((x) => x.id === s.serviceId);
                           return (
-                            <li key={s.serviceId} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-3.5">
+                            <li key={s.serviceId} className="glass-panel p-3.5 mb-2 rounded-2xl">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
                                   <div className="text-[12px] font-black text-murzak-navy dark:text-white leading-tight">{s.serviceName}</div>
@@ -636,6 +673,47 @@ export default function PlanServicesModal({
                       </div>
                     )}
 
+                    {/* capacity meter — keeps a single shared order within the box.
+                        Shows BOTH RAM and disk; either dimension can trip overCap. */}
+                    {!quoteMode && selectedList.length > 0 && (
+                      <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                          Capacity
+                        </div>
+                        {[
+                          { label: "RAM", used: (capacity.ramMb / 1024).toFixed(1), cap: (SELF_SERVE_ORDER_RAM_CAP_MB / 1024).toFixed(0), unit: "GB", pct: ramPct, over: capacity.ramOver },
+                          { label: "Disk", used: capacity.diskGb, cap: SELF_SERVE_ORDER_DISK_CAP_GB, unit: "GB", pct: diskPct, over: capacity.diskOver },
+                        ].map((row) => (
+                          <div key={row.label} className="mb-2.5 last:mb-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{row.label}</span>
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${row.over ? "text-red-500" : "text-slate-500 dark:text-slate-400"}`}>
+                                {row.used} / {row.cap} {row.unit}
+                              </span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-black/40 overflow-hidden shadow-inner">
+                              <div
+                                className={`h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
+                                  row.over 
+                                    ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" 
+                                    : "bg-murzak-cyan shadow-[0_0_10px_rgba(46,166,255,0.5)]"
+                                }`}
+                                style={{ width: `${row.pct}%` }}
+                              >
+                                <div className="absolute inset-0 bg-white/20 w-full animate-shimmer" />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {overCap && (
+                          <div className="mt-3 text-[10px] font-bold text-red-500 flex items-start gap-2 leading-relaxed">
+                            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                            This build needs dedicated capacity. Remove a service, or continue to a dedicated quote.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {quoteMode && selectedList.length > 0 && (
                       <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10 text-[11px] font-bold text-slate-500 dark:text-slate-400">
                         We’ll size dedicated capacity and send you a tailored quote.
@@ -648,23 +726,30 @@ export default function PlanServicesModal({
                       </div>
                     )}
 
-                    {/* CTA */}
+                    {/* CTA — enabled once something is selected; an over-capacity
+                        build routes to a dedicated quote instead of checkout. */}
                     <button
                       type="button"
                       onClick={handleContinue}
-                      disabled={!canContinue}
+                      disabled={selectedList.length === 0}
                       className={`mt-5 w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                        canContinue
-                          ? "bg-murzak-cyan text-murzak-navy hover:scale-[1.02] shadow-lg shadow-murzak-cyan/20"
-                          : "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
+                        selectedList.length === 0
+                          ? "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
+                          : "bg-murzak-cyan text-murzak-navy hover:scale-[1.02] shadow-lg shadow-murzak-cyan/20"
                       }`}
                     >
-                      {quoteMode ? "Proceed to quote" : "Continue to checkout"} <ArrowRight size={16} />
+                      {overCap ? "Get a dedicated quote" : quoteMode ? "Proceed to quote" : "Continue to checkout"} <ArrowRight size={16} />
                     </button>
 
                     <p className="text-[10px] font-bold text-slate-400 leading-relaxed mt-3 text-center">
                       You’ll log in next so we can attach this to your account. No charge yet.
                     </p>
+
+                    {selectedSvcItems.some(isManagedSetup) && (
+                      <p className="text-[10px] font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
+                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team — live within a short setup window, not instantly.
+                      </p>
+                    )}
 
                     {/* managed vs DIY reassurance */}
                     <div className="mt-5 pt-5 border-t border-slate-200 dark:border-white/10 space-y-2.5">

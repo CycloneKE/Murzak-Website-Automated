@@ -3,6 +3,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Distinctive display face for all headings; body stays Hanken Grotesk.
+     Applied globally so headlines pick it up without per-element classes. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+  }
+}
+
 /* Universal site backdrop, painted on the body canvas so it sits behind ALL
    transparent content without stacking-order issues. Layers (top → bottom):
    tactical dot-grid · dark veil to mute the image · the image · solid base. */
@@ -36,5 +44,40 @@ body {
   /* Gradient outline (use on a wrapper; inner element gets the solid bg). */
   .ring-murzak-gradient {
     background-image: linear-gradient(135deg, #7C3AED 0%, #2EA6FF 100%);
+  }
+  
+  /* Glassmorphism Utilities */
+  .glass-panel {
+    background: rgba(15, 22, 51, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .glass-card {
+    background: rgba(15, 22, 51, 0.6);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.3s ease;
+  }
+  
+  .glass-card:hover {
+    border-color: rgba(46, 166, 255, 0.3);
+    box-shadow: 0 8px 32px -8px rgba(46, 166, 255, 0.15);
+    transform: translateY(-2px);
+  }
+  
+  .glass-input {
+    background: rgba(5, 8, 22, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    transition: all 0.2s ease;
+  }
+  
+  .glass-input:focus {
+    border-color: #2EA6FF;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(46, 166, 255, 0.2);
   }
 }

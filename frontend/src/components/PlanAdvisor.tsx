@@ -50,7 +50,7 @@ function recommend(need: NeedKey, size: SizeKey): Recommendation {
     }
     return size === "mid"
       ? { plan: "Business", serviceIds: ["biz-erp-configured", "biz-email"], reason: "A configured ERPNext, migrated for you, with team email fits a 10–50 person operation." }
-      : { plan: "Business", serviceIds: ["biz-erp-light", "biz-pos-inventory"], reason: "Managed ERPNext and POS get a small team running quickly." };
+      : { plan: "Business", serviceIds: ["biz-pos-inventory"], reason: "Managed POS and inventory gets a small team or shop running quickly." };
   }
 
   if (need === "email") {

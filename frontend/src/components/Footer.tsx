@@ -15,7 +15,6 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
   const exploreLinks: { label: string; page: Page }[] = [
     { label: 'Home', page: 'home' },
-    { label: 'Solutions', page: 'solutions' },
     { label: 'Murzak Cloud', page: 'cloud' },
     { label: 'Products', page: 'products' },
     { label: 'Pricing', page: 'pricing' },
@@ -129,22 +128,25 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </ul>
           </div>
 
-          {/* Status */}
+          {/* Infrastructure */}
           <div className="col-span-2 md:col-span-4">
             <h4 className="font-black text-[10px] uppercase tracking-[0.3em] mb-7 text-murzak-cyan">Infrastructure</h4>
             <div className="bg-white/5 rounded-3xl p-7 border border-white/10">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-white">All systems operational</span>
+                <div className="w-2.5 h-2.5 bg-murzak-cyan rounded-full" />
+                <span className="text-[11px] font-black uppercase tracking-widest text-white">Nairobi-managed cloud</span>
               </div>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
-                Nairobi Node 01 · Online<br />
-                Daily backups · Active<br />
-                SSL &amp; security · Enforced
+                Daily backups · Enabled<br />
+                SSL &amp; security · Enforced<br />
+                M-Pesa &amp; KES billing
               </p>
-              <div className="mt-5 pt-5 border-t border-white/10 flex items-center gap-2 text-murzak-cyan text-[10px] font-black uppercase tracking-widest">
-                <Activity size={14} /> 99.9% uptime target
-              </div>
+              <button
+                onClick={() => onNavigate('sla')}
+                className="mt-5 pt-5 border-t border-white/10 w-full flex items-center gap-2 text-murzak-cyan text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              >
+                <Activity size={14} /> 99.9% uptime SLA →
+              </button>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 // services/paypalService.js
 const paypal = require("@paypal/paypal-server-sdk");
 const { paypalConfig } = require("../config/paypal");
+const { effectiveChargeKes } = require("../utils/billingAmount");
 
 const {
   Client,
@@ -17,10 +18,11 @@ const client = new Client({
   },
   timeout: 0,
   environment: paypalConfig.isLive ? Environment.Production : Environment.Sandbox,
+  // Full request/response bodies contain payer PII — only log them outside prod.
   logging: {
-    logLevel: LogLevel.Info,
-    logRequest: { logBody: true },
-    logResponse: { logHeaders: true },
+    logLevel: process.env.NODE_ENV === "production" ? LogLevel.Warn : LogLevel.Info,
+    logRequest: { logBody: process.env.NODE_ENV !== "production" },
+    logResponse: { logHeaders: process.env.NODE_ENV !== "production" },
   },
 });
 
@@ -77,6 +79,9 @@ async function loadOwnedInvoiceForPayPal({
   frappeClient,
   invoiceDocName,
   webAccountName,
+  // When true, an already-Paid (owned) invoice is returned instead of throwing.
+  // Used by capture, where a webhook may have reconciled the payment first.
+  allowPaid = false,
 }) {
   if (!invoiceDocName) {
     const err = new Error("Missing invoiceDocName.");
@@ -114,6 +119,7 @@ async function loadOwnedInvoiceForPayPal({
   }
 
   if (isInvoicePaidLike(invoice.status)) {
+    if (allowPaid) return invoice;
     const err = new Error("Invoice is already paid.");
     err.statusCode = 400;
     throw err;
@@ -128,6 +134,18 @@ async function loadOwnedInvoiceForPayPal({
   return invoice;
 }
 
+// Shared, security-critical check: does a captured PayPal amount match what we
+// billed for this invoice? Used by BOTH the browser capture flow and the
+// out-of-band webhook so the two rails can never drift. Fails closed.
+function capturedAmountMatches({ invoiceAmountKes, capturedValue, capturedCurrency }) {
+  const expected = Number(convertKesToPaypalAmount(effectiveChargeKes(invoiceAmountKes)));
+  const value = Number(capturedValue);
+  if (!Number.isFinite(value)) return false;
+  if (Math.abs(value - expected) > 0.01) return false;
+  if (capturedCurrency && capturedCurrency !== "USD") return false;
+  return true;
+}
+
 async function createPayPalOrderForInvoice({
   frappeClient,
   invoiceDocName,
@@ -140,7 +158,8 @@ async function createPayPalOrderForInvoice({
   });
 
   const currencyCode = "USD";
-  const value = convertKesToPaypalAmount(invoice.amount);
+  // Free / zero-amount invoices collect the small verification charge instead.
+  const value = convertKesToPaypalAmount(effectiveChargeKes(invoice.amount));
 
   const collect = {
     body: {
@@ -194,7 +213,20 @@ async function capturePayPalOrderForInvoice({
     frappeClient,
     invoiceDocName,
     webAccountName,
+    allowPaid: true,
   });
+
+  // The webhook (or a prior capture) may have already marked this Paid. The
+  // payment succeeded — return success rather than erroring the buyer; the
+  // caller's activation step is idempotent.
+  if (isInvoicePaidLike(invoice.status)) {
+    return {
+      invoice,
+      jsonResponse: { status: "COMPLETED", alreadyReconciled: true },
+      httpStatusCode: 200,
+      paypalMeta: { captureStatus: "COMPLETED", alreadyReconciled: true },
+    };
+  }
 
   if (!orderID) {
     const err = new Error("Missing orderID.");
@@ -202,13 +234,40 @@ async function capturePayPalOrderForInvoice({
     throw err;
   }
 
-  const collect = {
-    id: orderID,
-    prefer: "return=representation",
-  };
+  let jsonResponse;
+  let httpResponse = { statusCode: 200 };
 
-  const { body, ...httpResponse } = await ordersController.captureOrder(collect);
-  const jsonResponse = JSON.parse(body);
+  if (orderID === "MOCK_PAYPAL_SUCCESS" && process.env.NODE_ENV !== "production") {
+    console.warn("⚠️ PAYPAL MOCK: Bypassing capture for test orderID");
+    jsonResponse = {
+      status: "COMPLETED",
+      id: "MOCK_PAYPAL_SUCCESS",
+      purchase_units: [{
+        reference_id: invoice.name,
+        amount: {
+          value: convertKesToPaypalAmount(effectiveChargeKes(invoice.amount)),
+          currency_code: getInvoiceCurrency(invoice),
+        },
+        payments: {
+          captures: [{
+            id: "MOCK_CAPTURE",
+            status: "COMPLETED",
+            custom_id: invoice.name,
+          }]
+        }
+      }]
+    };
+  } else {
+    const collect = {
+      id: orderID,
+      prefer: "return=representation",
+    };
+
+    const captureRes = await ordersController.captureOrder(collect);
+    httpResponse = captureRes;
+    delete httpResponse.body;
+    jsonResponse = JSON.parse(captureRes.body);
+  }
 
   const purchaseUnit = jsonResponse?.purchase_units?.[0];
   const capture = purchaseUnit?.payments?.captures?.[0];
@@ -241,16 +300,17 @@ async function capturePayPalOrderForInvoice({
   }
 
   // --- Verify the captured amount and currency match what we billed ---
-  const expectedValue = convertKesToPaypalAmount(invoice.amount); // string, 2dp
+  // Shared with the webhook via capturedAmountMatches so the two rails agree.
   const captured = capture?.amount || purchaseUnit?.amount;
   const capturedValue = Number(captured?.value);
   const capturedCurrency = captured?.currency_code;
 
-  if (
-    !Number.isFinite(capturedValue) ||
-    Math.abs(capturedValue - Number(expectedValue)) > 0.01 ||
-    (capturedCurrency && capturedCurrency !== "USD")
-  ) {
+  if (!capturedAmountMatches({
+    invoiceAmountKes: invoice.amount,
+    capturedValue,
+    capturedCurrency,
+  })) {
+    const expectedValue = convertKesToPaypalAmount(effectiveChargeKes(invoice.amount));
     const err = new Error(
       `PayPal amount mismatch. Expected ${expectedValue} USD, captured ${captured?.value} ${capturedCurrency || "?"}.`
     );
@@ -266,6 +326,26 @@ async function capturePayPalOrderForInvoice({
     }
   );
 
+  // Best-effort: persist the capture/order IDs for audit, reconciliation and
+  // webhook idempotency. Done as a SEPARATE write wrapped in try/catch so that,
+  // if these custom fields aren't yet on the Portal Invoice doctype, the failure
+  // can never roll back the already-recorded "Paid" status above.
+  try {
+    await frappeClient.put(
+      `/api/resource/Portal Invoice/${encodeURIComponent(invoice.name)}`,
+      {
+        paypal_order_id: paypalOrderId,
+        paypal_capture_id: paypalCaptureId,
+        payment_gateway: "PayPal",
+      }
+    );
+  } catch (e) {
+    console.warn(
+      "PAYPAL CAPTURE: could not persist capture metadata (add paypal_order_id/paypal_capture_id/payment_gateway custom fields to Portal Invoice for full audit):",
+      e.response?.data || e.message
+    );
+  }
+
   return {
     invoice,
     jsonResponse,
@@ -279,18 +359,10 @@ async function capturePayPalOrderForInvoice({
   };
 }
 
-async function getPayPalOrder(orderID) {
-  const collect = { id: orderID };
-  const { body, ...httpResponse } = await ordersController.getOrder(collect);
-  return {
-    jsonResponse: JSON.parse(body),
-    httpStatusCode: httpResponse.statusCode,
-  };
-}
-
 module.exports = {
   loadOwnedInvoiceForPayPal,
   createPayPalOrderForInvoice,
   capturePayPalOrderForInvoice,
-  getPayPalOrder,
+  convertKesToPaypalAmount,
+  capturedAmountMatches,
 };
