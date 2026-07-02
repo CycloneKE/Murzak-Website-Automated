@@ -1567,15 +1567,47 @@ async function setupTrialVerification(client, webAccountName) {
 }
 
 // Expire active trials past their trial_end: mark the Test Plan Invoice "Expired"
-// and suspend the trial sandbox service. Best-effort; silent if Frappe is down.
+// and suspend the trial sandbox service. Also nudges trials ENDING SOON (12h
+// window, once per process — an occasional duplicate after a restart is fine).
+// Best-effort; silent if Frappe is down.
+const { sendTrialEndingSoonEmail, sendTrialExpiredEmail } = require("./utils/mailer");
+const trialReminderSent = new Set();
 async function expireStaleTrials() {
   try {
     const client = frappeClient();
     const nowSql = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+    // Ending-soon nudge: active trials whose end falls inside the next 12h.
+    try {
+      const soonSql = new Date(Date.now() + 12 * 3600 * 1000).toISOString().slice(0, 19).replace("T", " ");
+      const soonRes = await client.get("/api/resource/Test Plan Invoice", {
+        params: {
+          filters: JSON.stringify([
+            ["status", "=", "Active"],
+            ["trial_end", ">", nowSql],
+            ["trial_end", "<", soonSql],
+          ]),
+          fields: JSON.stringify(["name", "web_account_email", "contact_name", "trial_end"]),
+          limit_page_length: 50,
+        },
+      });
+      for (const t of soonRes.data?.data || []) {
+        if (!t.web_account_email || trialReminderSent.has(t.name)) continue;
+        trialReminderSent.add(t.name);
+        sendTrialEndingSoonEmail({
+          to: t.web_account_email,
+          clientName: t.contact_name,
+          endsAt: String(t.trial_end),
+        }).catch((e) => console.warn("TRIAL REMINDER EMAIL WARN:", t.name, e.message));
+      }
+    } catch {
+      /* reminder pass is best-effort */
+    }
+
     const res = await client.get("/api/resource/Test Plan Invoice", {
       params: {
         filters: JSON.stringify([["status", "=", "Active"], ["trial_end", "<", nowSql]]),
-        fields: JSON.stringify(["name", "web_account"]),
+        fields: JSON.stringify(["name", "web_account", "web_account_email", "contact_name"]),
         limit_page_length: 50,
       },
     });
@@ -1583,6 +1615,12 @@ async function expireStaleTrials() {
     for (const t of expired) {
       try {
         await client.put(`/api/resource/Test Plan Invoice/${encodeURIComponent(t.name)}`, { status: "Expired" });
+        if (t.web_account_email) {
+          sendTrialExpiredEmail({
+            to: t.web_account_email,
+            clientName: t.contact_name,
+          }).catch((e) => console.warn("TRIAL EXPIRED EMAIL WARN:", t.name, e.message));
+        }
         if (t.web_account) {
           const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(t.web_account)}`);
           const rows = asArray(accRes.data?.data?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
@@ -3333,6 +3371,15 @@ app.get("/api/me", (req, res) => {
 // MOUNT EXTRACTED ROUTES
 // ==========================================
 const routeContext = {
+  // Payment/billing critical: these four were missing after the route
+  // extraction, leaving them undefined inside the routers (STK push 500,
+  // M-Pesa callback crash post-payment, silent reset-email failure).
+  activateServicesForInvoice,
+  effectiveChargeKes,
+  isVerificationOnly,
+  sendInvoiceDeletedEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
   express,
   session,
   bcrypt,
@@ -3548,6 +3595,32 @@ const server = app.listen(PORT, () => {
     const everyMs = Math.max(60000, Number(process.env.TRIAL_EXPIRY_INTERVAL_MS || 15 * 60 * 1000));
     setTimeout(() => { expireStaleTrials(); }, 30000).unref();
     setInterval(() => { expireStaleTrials(); }, everyMs).unref();
+  }
+
+  // Renewal billing sweep: creates the month-2+ subscription invoices (and,
+  // opt-in, enforces the grace window). RENEWAL_ENABLED=false to disable.
+  {
+    const { sweepRenewals, renewalConfig } = require("./services/renewalService");
+    const cfg = renewalConfig();
+    if (cfg.enabled) {
+      const renewalDeps = {
+        frappeClient,
+        PLAN_PRICING,
+        PORTAL_INVOICE_SERVICES_FIELD,
+        WEB_ACCOUNT_SERVICES_FIELD,
+        CHILD_SERVICE_ID_FIELD,
+        CHILD_SERVICE_NAME_FIELD,
+        CHILD_TIER_FIELD,
+        CHILD_DOMAIN_CHOICE_FIELD,
+        CHILD_STATUS_FIELD,
+        buildInvoiceServiceRows,
+        logPortalUpdate,
+      };
+      const run = () => sweepRenewals(renewalDeps).catch((e) => console.warn("[renewal] sweep error:", e.message));
+      setTimeout(run, 90000).unref();
+      setInterval(run, cfg.intervalMs).unref();
+      console.log(`[renewal] sweep scheduled every ${Math.round(cfg.intervalMs / 60000)}m (cycle ${cfg.cycleDays}d, grace ${cfg.graceDays}d, suspend=${cfg.suspendEnabled})`);
+    }
   }
 });
 

@@ -117,9 +117,58 @@ ${verifyUrl}
   await sendMail({ to, subject, text, html });
 }
 
+function portalUrl() {
+  return (process.env.APP_BASE_URL || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
+}
+
+// ---- Trial lifecycle (started / ending soon / expired) ----
+
+async function sendTrialStartedEmail({ to, clientName, hours, endsAt }) {
+  const subject = `Your ${hours}h Murzak trial is live`;
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox is live — you have ${hours} hours to explore, ending ${endsAt}.
+
+Log in and start testing: ${portalUrl()}
+
+Tip: anything you set up during the trial can be kept — pick a plan before it ends and we convert your sandbox, data and all.
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
+async function sendTrialEndingSoonEmail({ to, clientName, endsAt }) {
+  const subject = "Your Murzak trial ends soon — keep your work";
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox ends ${endsAt}. After that it is paused.
+
+To keep everything you've set up, choose a plan before it ends: ${portalUrl()}
+
+Questions? Just reply to this email.
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
+async function sendTrialExpiredEmail({ to, clientName }) {
+  const subject = "Your Murzak trial has ended — your data is safe";
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox has ended and is now paused. Your data is held for 7 days.
+
+Pick a plan within that window and we restore your sandbox exactly as you left it: ${portalUrl()}
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
 module.exports = {
   sendInvoiceDeletedEmail,
   sendMail,
   sendPasswordResetEmail,
   sendVerificationEmail,
+  sendTrialStartedEmail,
+  sendTrialEndingSoonEmail,
+  sendTrialExpiredEmail,
 };

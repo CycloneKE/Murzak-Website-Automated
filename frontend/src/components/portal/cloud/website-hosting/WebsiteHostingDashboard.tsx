@@ -310,6 +310,10 @@ const WebsiteHostingDashboard: React.FC = () => {
     file: null as File | null,
   });
 
+  // Usage-triggered upsell: one-click "more storage" request once usage crosses
+  // the threshold. Files a normal hosting support request the team already sees.
+  const [storageUpsell, setStorageUpsell] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
   const loadDashboard = async () => {
     try {
       setLoading(true);
@@ -1431,6 +1435,43 @@ const WebsiteHostingDashboard: React.FC = () => {
                 : "No Limit"}
             </span>
           </div>
+
+          {!isUnlimitedStorage && storagePercent !== null && storagePercent >= 80 && (
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
+              <AlertCircle size={18} className="text-amber-500 shrink-0" />
+              <p className="flex-grow text-sm font-bold text-amber-600 dark:text-amber-300">
+                You've used {storagePercent}% of your {formatMb(storageLimit)} storage.
+                {storageUpsell === "sent"
+                  ? " Request received — our team will reach out with upgrade options."
+                  : " Add more before uploads start failing."}
+              </p>
+              {storageUpsell !== "sent" && (
+                <button
+                  type="button"
+                  disabled={storageUpsell === "sending"}
+                  onClick={async () => {
+                    setStorageUpsell("sending");
+                    try {
+                      await createHostingSupportRequest({
+                        category: "upgrade",
+                        title: "Storage upgrade request",
+                        description: `Automatic request from the storage meter: site is at ${storagePercent}% of ${formatMb(storageLimit)} (${formatMb(storageUsed)} used). Please advise on the next storage tier.`,
+                      });
+                      setStorageUpsell("sent");
+                    } catch {
+                      setStorageUpsell("error");
+                    }
+                  }}
+                  className={primaryBtnClass + " whitespace-nowrap"}
+                >
+                  {storageUpsell === "sending" ? "Sending…" : "Request more storage"}
+                </button>
+              )}
+              {storageUpsell === "error" && (
+                <p className="text-xs font-bold text-red-500">Could not send — try again or use the Requests tab.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

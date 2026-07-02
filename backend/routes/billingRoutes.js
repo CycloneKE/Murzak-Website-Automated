@@ -22,6 +22,7 @@ module.exports = function(ctx) {
     computeProratedCreditKes,
     convertKesToPaypalAmount,
     effectiveChargeKes,
+    isVerificationOnly,
     fetchInvoicesForUser,
     fetchSelectedServicesForUser,
     fetchWebAccount,
@@ -319,17 +320,32 @@ router.get("/api/billing/invoice/:docName", requireAuth, async (req, res) => {
         error: "Invoice not yours."
       });
     }
+    // Line items so the payment page can show WHAT is being bought, and the
+    // effective charge so a KES-0 verification invoice displays the KES 1 the
+    // rail actually collects (never charge an amount the page didn't show).
+    const services = (Array.isArray(inv[PORTAL_INVOICE_SERVICES_FIELD]) ? inv[PORTAL_INVOICE_SERVICES_FIELD] : [])
+      .map(row => ({
+        serviceId: row?.[CHILD_SERVICE_ID_FIELD] || "",
+        serviceName: row?.[CHILD_SERVICE_NAME_FIELD] || "",
+        tier: row?.[CHILD_TIER_FIELD] || "",
+        status: row?.[CHILD_STATUS_FIELD] || ""
+      }))
+      .filter(s => s.serviceId || s.serviceName);
+    const chargeKes = effectiveChargeKes(inv.amount);
     return res.json({
       ok: true,
       invoice: {
         docName: inv.name,
         invoiceNo: inv.invoice_no || inv.name,
         amount: Number(inv.amount || 0),
-        paypalAmountUsd: convertKesToPaypalAmount(inv.amount),
+        chargeKes,
+        verificationOnly: isVerificationOnly(inv.amount),
+        paypalAmountUsd: convertKesToPaypalAmount(chargeKes),
         status: inv.status,
         type: inv.type,
         plan: inv.plan,
-        date: inv.invoice_date
+        date: inv.invoice_date,
+        services
       }
     });
   } catch (err) {
@@ -596,7 +612,10 @@ router.get("/api/billing/mpesa/status/:invoiceDocName", requireAuth, async (req,
     return res.json({
       ok: true,
       status: inv.status,
-      paid: String(inv.status || "").toLowerCase() === "paid"
+      paid: String(inv.status || "").toLowerCase() === "paid",
+      // Surface the M-Pesa receipt (recorded by the callback) so the success
+      // screen can show the customer their confirmation code.
+      receipt: inv.mpesa_receipt_number || null
     });
   } catch (err) {
     console.error("MPESA STATUS ERROR:", err.response?.data || err.message);

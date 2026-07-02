@@ -3,6 +3,7 @@
 const { runProvisioningForInvoice } = require("./provisioning/provisioningService");
 const { getServiceMeta } = require("./provisioning/catalog");
 const { STATUS_SETTING_UP, STATUS_ACTIVE } = require("./provisioning/constants");
+const { sendTrialStartedEmail } = require("../utils/mailer");
 
 // Managed SaaS (premium: ERPNext/POS/CRM…) is configured by the team, so on
 // payment it lands in "Setting up" until provisioning completes; light volume
@@ -31,7 +32,7 @@ async function activateTrialIfApplicable(client, inv, webAccountName) {
           ["web_account", "=", webAccountName],
           ["status", "in", ["New", "Trial Pending", "Active"]],
         ]),
-        fields: JSON.stringify(["name", "trial_hours", "status"]),
+        fields: JSON.stringify(["name", "trial_hours", "status", "web_account_email", "contact_name"]),
         limit_page_length: 1,
         order_by: "modified desc",
       },
@@ -47,6 +48,15 @@ async function activateTrialIfApplicable(client, inv, webAccountName) {
       trial_start: sqlNow(start),
       trial_end: sqlNow(end),
     });
+    // Kick off the trial lifecycle: welcome email with the hard end time.
+    if (trial.web_account_email) {
+      sendTrialStartedEmail({
+        to: trial.web_account_email,
+        clientName: trial.contact_name,
+        hours,
+        endsAt: end.toUTCString(),
+      }).catch((e) => console.warn("TRIAL STARTED EMAIL WARN:", e.message));
+    }
   } catch (e) {
     console.warn("TRIAL ACTIVATION WARN:", e.response?.data || e.message);
   }
