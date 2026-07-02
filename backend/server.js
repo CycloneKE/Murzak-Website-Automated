@@ -3340,6 +3340,11 @@ async function getWebAccountByEmail(client, email) {
   return rows.length ? rows[0] : null;
 }
 
+// --- HEALTH (unauthenticated liveness probe: CI, uptime monitors, LBs) ---
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
+});
+
 // --- ME (session check) ---
 app.get("/api/me", (req, res) => {
   if (!req.session?.user) {
