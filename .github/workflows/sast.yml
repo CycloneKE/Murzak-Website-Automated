@@ -2,9 +2,13 @@ name: Security Audit & SAST
 
 on:
   push:
-    branches: [ "main", "master" ]
+    # market-readiness-hardening included so CI runs pre-merge: pull_request
+    # events don't start workflows that have never existed on the default
+    # branch, but push events run the workflow from the pushed ref itself.
+    branches: [ "main", "master", "market-readiness-hardening" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * 0' # Run weekly at midnight on Sunday
 
