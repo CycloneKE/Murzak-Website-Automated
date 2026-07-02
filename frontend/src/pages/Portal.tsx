@@ -765,6 +765,22 @@ const renderCloudSystemsGrid = () => null;
     );
   }, [localInvoices]);
 
+  // First payable subscription invoice (new plan OR renewal) — drives the
+  // portal-wide "invoice due" banner with a direct Pay CTA.
+  const dueSubscriptionInvoice = useMemo(() => {
+    return (localInvoices || []).find((inv: any) => {
+      const type = String(inv?.type || "").toLowerCase();
+      const status = String(inv?.status || "").toLowerCase();
+      return (
+        type.includes("subscription") &&
+        !!inv?.docName &&
+        (status === "unpaid" || status === "pending" || status === "overdue")
+      );
+    });
+  }, [localInvoices]);
+
+  const accountSuspended = String(user?.accountStatus || "").toLowerCase() === "suspended";
+
   const subscriptionIsPaid = useMemo(() => {
     // If plan is free (Test/Enterprise custom), treat as not eligible for addons here
     if (planCode === "Test") return false;
@@ -2099,6 +2115,76 @@ const renderCloudSystemsGrid = () => null;
             <Menu className="w-5 h-5" />
           </button>
         </header>
+
+        {/* Billing / trial status banner — one slot, highest-priority state wins.
+            (The trial states were computed but unrendered after the portal
+            redesign; this restores the verify-to-start prompt.) */}
+        {(() => {
+          const banner = (tone: "red" | "amber" | "cyan", icon: React.ReactNode, text: React.ReactNode, cta?: { label: string; onClick: () => void }) => {
+            const tones = {
+              red: "border-red-500/30 bg-red-500/10",
+              amber: "border-amber-400/30 bg-amber-400/10",
+              cyan: "border-murzak-cyan/30 bg-murzak-cyan/10",
+            } as const;
+            return (
+              <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
+                <div className="shrink-0">{icon}</div>
+                <p className="flex-grow text-sm font-bold text-murzak-navy dark:text-white leading-relaxed">{text}</p>
+                {cta && (
+                  <button
+                    type="button"
+                    onClick={cta.onClick}
+                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
+                  >
+                    {cta.label} <ArrowRight size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          };
+
+          if (accountSuspended && dueSubscriptionInvoice) {
+            return banner(
+              "red",
+              <AlertCircle size={22} className="text-red-500" />,
+              <>Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away — your data is safe.</>,
+              { label: "Pay & restore", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
+            );
+          }
+          if (needsTrialVerify && trialVerifyInvoice?.docName) {
+            return banner(
+              "cyan",
+              <Zap size={22} className="text-murzak-cyan" />,
+              <>Your free trial is ready. A one-time KES 1 verification confirms your payment method and starts your 36-hour sandbox immediately.</>,
+              { label: "Verify & start trial", onClick: () => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`) }
+            );
+          }
+          if (trialExpired) {
+            return banner(
+              "amber",
+              <Timer size={22} className="text-amber-500" />,
+              <>Your trial has ended and the sandbox is paused. Your data is held for 7 days — choose a plan to restore it exactly as you left it.</>,
+              { label: "Choose a plan", onClick: () => navigate("/pricing") }
+            );
+          }
+          if (dueSubscriptionInvoice) {
+            return banner(
+              "amber",
+              <Receipt size={22} className="text-amber-500" />,
+              <>Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due — KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.</>,
+              { label: "Pay now", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
+            );
+          }
+          if (trialActive && trialEndStr) {
+            return banner(
+              "cyan",
+              <CheckCircle2 size={22} className="text-murzak-cyan" />,
+              <>Trial sandbox live — ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
+              { label: "Choose a plan", onClick: () => navigate("/pricing") }
+            );
+          }
+          return null;
+        })()}
 
         <div className="max-w-7xl mx-auto">
           <Routes>
