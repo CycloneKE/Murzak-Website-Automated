@@ -270,7 +270,7 @@ const App: React.FC = () => {
               <Route path="/" element={<Home onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/services" element={<Navigate to="/products" replace />} />
               <Route path="/cloud" element={<Cloud onNavigate={onNavigate} isLoading={isPageLoading} />} />
-              <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} />} />
+              <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} isLoggedIn={isLoggedIn} user={user} onUserUpdate={handleUserUpdate} />} />
               {/* Solutions merged into Products — redirect legacy links. */}
               <Route path="/solutions" element={<Navigate to="/products" replace />} />
               <Route path="/products" element={<Products onNavigate={onNavigate} isLoading={isPageLoading} />} />

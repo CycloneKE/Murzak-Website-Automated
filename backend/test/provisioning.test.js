@@ -19,7 +19,7 @@ function section(name) { console.log(`\n# ${name}`); }
 
 // ---- Mock Frappe REST client (multi-doctype, list + single-doc) ----
 function makeStore(initialJobs = []) {
-  const docs = { "Provisioning Job": {}, "Capacity Request": {} };
+  const docs = { "Provisioning Job": {}, "Capacity Request": {}, "Portal Users Requests": {}, "Web Account": {} };
   let seq = 0;
   for (const d of initialJobs) {
     const name = d.name || `SEED-${++seq}`;
@@ -47,7 +47,7 @@ function makeStore(initialJobs = []) {
     post: async (url, payload) => {
       const { dt } = parse(url);
       seq++;
-      const name = (dt === "Capacity Request" ? "CAP-" : "PRV-") + seq;
+      const name = (dt === "Capacity Request" ? "CAP-" : dt === "Portal Users Requests" ? "REQ-" : "PRV-") + seq;
       docs[dt][name] = { ...payload, name };
       return { data: { data: { name } } };
     },

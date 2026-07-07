@@ -27,12 +27,15 @@ import { PLAN_META, formatKes, planForService, type PlanCode } from "../config/s
 import { Button } from "../components/ui/Button";
 
 interface PricingProps {
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: Page | string) => void;
   onSelectPlan?: (plan: string, returnTo?: string) => void;
   isLoading?: boolean;
+  isLoggedIn?: boolean;
+  user?: User | null;
+  onUserUpdate?: (user: User) => void;
 }
 
-const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading }) => {
+const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, isLoggedIn, user, onUserUpdate }) => {
   const [selectedPlans, setSelectedPlans] = useState<string[]>(['None']); 
   const gridRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
@@ -58,16 +61,28 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading }
   }, [location.hash]);
 
   // Deep-link from elsewhere (e.g. a Products card): /pricing?configure=<serviceId>
-  // opens the configurator on the right plan with that product pre-selected, so
-  // the chosen product isn't lost on the way to checkout.
+  // opens the configurator on the right plan with that product pre-selected.
+  // Also handles /pricing?mode=add-services&plan=Business from Portal.
   useEffect(() => {
-    const productId = new URLSearchParams(location.search).get("configure");
-    if (!productId) return;
-    const plan = planForService(productId);
-    if (plan && plan !== "Enterprise") {
-      setPreselectIds([productId]);
+    const searchParams = new URLSearchParams(location.search);
+    const productId = searchParams.get("configure");
+    const mode = searchParams.get("mode");
+    const plan = searchParams.get("plan") as PlanCode | null;
+
+    if (mode === "add-services" && plan && plan !== "Enterprise") {
       setServicesPlanCode(plan);
       setServicesPlanLabel(PLAN_META[plan].label);
+      setServicesOpen(true);
+      navigate("/pricing", { replace: true });
+      return;
+    }
+
+    if (!productId) return;
+    const prodPlan = planForService(productId);
+    if (prodPlan && prodPlan !== "Enterprise") {
+      setPreselectIds([productId]);
+      setServicesPlanCode(prodPlan);
+      setServicesPlanLabel(PLAN_META[prodPlan].label);
       setServicesOpen(true);
     }
     // Strip the param so a refresh/back doesn't reopen the modal.
@@ -360,13 +375,52 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         planLabel={servicesPlanLabel}
         preselectServiceIds={preselectIds}
         onClose={() => setServicesOpen(false)}
-        onProceedLogin={() => {
-          setServicesOpen(false);
-          onNavigate("login"); // after login, portal should attach selection to user
+        onProceedLogin={async () => {
+          if (!isLoggedIn) {
+            setServicesOpen(false);
+            onNavigate("login");
+            return;
+          }
+
+          // User is already logged in, so we attach the selection directly
+          const pendingRaw = localStorage.getItem("murzak_plan_selection_pending");
+          if (!pendingRaw) return;
+          const pending = JSON.parse(pendingRaw);
+
+          try {
+            const res = await fetch("/api/plan/attach-selection", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                planKey: pending.plan || "None",
+                selectedServices: pending.selectedServices || [],
+                upgradeIntent: !!pending.upgradeIntent,
+                upgradeMode: pending.upgradeMode || "",
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data?.message || data?.error || "Failed to attach selection.");
+            }
+            if (data?.user && onUserUpdate) onUserUpdate(data.user);
+            localStorage.removeItem("murzak_plan_selection_pending");
+            setServicesOpen(false);
+            
+            // If the backend generated an invoice for checkout, navigate to payment
+            if (data.invoiceId) {
+              onNavigate(`/payment/${data.invoiceId}`);
+            } else {
+              onNavigate("/portal/billing");
+            }
+          } catch (e: any) {
+            console.error("Failed to attach selection directly:", e);
+            alert(e.message || "Failed to attach selection.");
+          }
         }}
         onProceedPortal={() => {
           setServicesOpen(false);
-          onNavigate("portal"); // optional route
+          onNavigate("/portal");
         }}
         onProceedEnterpriseQuote={() => {
           // Over-capacity self-serve build → dedicated capacity conversation.

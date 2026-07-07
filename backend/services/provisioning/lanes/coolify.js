@@ -82,6 +82,31 @@ async function provision(job, opts) {
   const c = cfg(opts);
   const client = http(opts);
   const name = resourceName(job);
+
+  // 1. Idempotency Check: does it already exist?
+  // If the runner crashed after creation but before Frappe update, we must recover.
+  try {
+    const listRes = await client.get("/api/v1/services");
+    const existing = (listRes.data?.data || []).find((s) => s.name === name);
+    if (existing) {
+      const uuid = existing.uuid || existing.id || name;
+      return {
+        externalRef: String(uuid),
+        access: {
+          lane: "coolify",
+          target: opts?.target?.id || "box-1",
+          resource: name,
+          manageUrl: c.baseUrl.replace(/\/+$/, ""),
+          uuid: String(uuid),
+        },
+        log: `coolify: recovered existing service "${name}" (uuid=${uuid}) on ${opts?.target?.id || "box-1"}`,
+      };
+    }
+  } catch (e) {
+    // Ignore list errors and try to create; if it fails on POST we'll catch it there.
+    console.warn(`[coolify] idempotency GET failed for ${name}: ${e.message}`);
+  }
+
   const payload = {
     project_uuid: c.project,
     server_uuid: c.server,

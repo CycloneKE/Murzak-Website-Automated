@@ -186,6 +186,37 @@ router.post("/api/admin/provisioning/jobs/:id/retry", requireAuth, requireAdmin,
   }
 });
 
+// Manually resolve a job (for manual lanes or unrecoverable errors)
+router.post("/api/admin/provisioning/jobs/:id/resolve", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const { id } = req.params;
+    const { external_ref, access } = req.body;
+    
+    // Fetch the job first to get web_account and service_id
+    const jobRes = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(id)}`);
+    const job = jobRes.data?.data;
+    if (!job) return res.status(404).json({ error: "Job not found." });
+
+    // Update job to active
+    await client.put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(id)}`, {
+      status: "active",
+      external_ref: external_ref || "",
+      access: JSON.stringify(access || {}).slice(0, 1000),
+      error: ""
+    });
+
+    // Flip the web account service from Setting up -> Active
+    const { markAccountServiceActive } = require("../services/provisioning/runner");
+    await markAccountServiceActive(client, job.web_account, job.service_id);
+
+    return res.json({ ok: true, name: id });
+  } catch (err) {
+    console.error("ADMIN PROVISIONING RESOLVE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to resolve job." });
+  }
+});
+
 // Capacity overview: targets + per-target reserved RAM + open scale-out requests.
 
 // Capacity overview: targets + per-target reserved RAM + open scale-out requests.

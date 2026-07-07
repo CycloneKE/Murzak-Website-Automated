@@ -104,6 +104,7 @@ const fsp = fs.promises;
 
 const app = express();
 app.set("trust proxy", 1);
+// START
 const PORT = process.env.PORT || 3001;
 
 // ---- Paths ----
@@ -146,21 +147,27 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .map((s) => s.trim())
   .filter(Boolean);
 app.use(
-  cors({
-    origin(origin, cb) {
-      // Same-origin / server-to-server requests have no Origin header.
-      if (!origin) return cb(null, true);
-      // FAIL CLOSED: with no allow-list, deny all cross-origin (prod is same-origin).
-      if (allowedOrigins.includes(origin)) {
-        return cb(null, true);
-      }
-      // 403, not a generic 500 — a CORS denial must be identifiable from the
-      // client (it once masqueraded as "Something went wrong" and cost a debug).
-      const err = new Error("Not allowed by CORS");
-      err.statusCode = 403;
-      return cb(err);
-    },
-    credentials: true,
+  cors(function corsOptionsDelegate(req, cb) {
+    const origin = req.headers.origin;
+    // No Origin header: server-to-server, curl, some same-origin GETs.
+    if (!origin) return cb(null, { origin: true, credentials: true });
+
+    // Browsers send Origin on ALL POSTs — including same-origin ones — so a
+    // request from the very site this app serves must always pass, or an empty
+    // allow-list would 403 every login/payment POST in production. Compare the
+    // Origin against this request's own scheme+host (trust proxy is set, so
+    // req.protocol honors X-Forwarded-Proto).
+    const sameOrigin = origin === `${req.protocol}://${req.headers.host}`;
+    if (sameOrigin || allowedOrigins.includes(origin)) {
+      return cb(null, { origin: true, credentials: true });
+    }
+
+    // FAIL CLOSED for everything else. 403, not a generic 500 — a CORS denial
+    // must be identifiable from the client (it once masqueraded as "Something
+    // went wrong" and cost a debug).
+    const err = new Error("Not allowed by CORS");
+    err.statusCode = 403;
+    return cb(err);
   })
 );
 
@@ -354,36 +361,134 @@ const FRAPPE_AUTH = `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_AP
 
 function frappeClient() {
   if (process.env.MOCK_FRAPPE === 'true') {
+    // In-memory document store — shared across all mock client instances so the
+    // provisioning runner (which gets a fresh client per tick) sees the same data.
+    if (!global.__mockFrappeStore) {
+      global.__mockFrappeStore = {};
+      // Seed a Web Account so provisioning / billing flows have something to read.
+      global.__mockFrappeStore['Web Account'] = [
+        {
+          name: 'MOCK_ACCOUNT', account_holder_name: 'Admin User',
+          work_email: 'dev-user@example.com', plan: 'Business',
+          password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
+          account_status: 'Active', 
+          selected_services: JSON.stringify([{
+            serviceId: "test-erpnext-demo", name: "Premium ERP", planId: "business", status: "Active"
+          }])
+        },
+        {
+          name: 'CLIENT_ACCOUNT', account_holder_name: 'Normal Client',
+          work_email: 'client@example.com', plan: 'Business',
+          password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
+          account_status: 'Active', 
+          selected_services: JSON.stringify([{
+            serviceId: "volume-web", name: "Client Site", planId: "business", status: "Active"
+          }])
+        }
+      ];
+      console.log('[mock-frappe] in-memory store initialised');
+    }
+    const store = global.__mockFrappeStore;
+    const ensure = (dt) => { if (!store[dt]) store[dt] = []; };
+
+    /** Simple filter matcher: supports [field, "=", val] and [field, "in", [...]] */
+    const matchFilters = (doc, filters) => {
+      if (!filters || !filters.length) return true;
+      return filters.every(([field, op, val]) => {
+        const v = doc[field];
+        if (op === '=') return v === val;
+        if (op === '!=' ) return v !== val;
+        if (op === 'in') return Array.isArray(val) && val.includes(v);
+        if (op === 'like') return String(v || '').includes(String(val).replace(/%/g, ''));
+        return true;
+      });
+    };
+
     return {
       get: async (url, config) => {
-        if (url.includes('Web Account Service')) {
-          return {
-            data: {
-              data: [{
-                name: 'srv-mock',
-                service: 'POS Base Package',
-                status: 'Active',
-                tier: 'Starter',
-                billing_cycle: 'Monthly'
-              }]
+        // Detect doctype from URL: /api/resource/Provisioning%20Job/PRV-00001 or /api/resource/Provisioning%20Job
+        const resourceMatch = url.match(/\/api\/resource\/([^/?]+)(?:\/([^/?]+))?/);
+        if (resourceMatch) {
+          const doctype = decodeURIComponent(resourceMatch[1]);
+          const docName = resourceMatch[2] ? decodeURIComponent(resourceMatch[2]) : null;
+          ensure(doctype);
+
+          if (docName) {
+            // Single document GET
+            const doc = store[doctype].find(d => d.name === docName);
+            if (!doc) {
+              const err = new Error(`${doctype} ${docName} not found`);
+              err.response = { status: 404 }; throw err;
             }
-          };
+            return { data: { data: { ...doc } } };
+          }
+
+          // List GET with optional filters
+          let rows = store[doctype];
+          const params = config?.params || {};
+          if (params.filters) {
+            const f = typeof params.filters === 'string' ? JSON.parse(params.filters) : params.filters;
+            rows = rows.filter(d => matchFilters(d, f));
+          }
+          const limit = params.limit_page_length != null ? Number(params.limit_page_length) : 20;
+          if (limit > 0) rows = rows.slice(0, limit);
+          // Field projection
+          if (params.fields) {
+            const fields = typeof params.fields === 'string' ? JSON.parse(params.fields) : params.fields;
+            rows = rows.map(d => {
+              const out = {};
+              fields.forEach(f => { out[f] = d[f]; });
+              return out;
+            });
+          }
+          return { data: { data: rows } };
         }
-        if (url.includes('Web Account')) return { data: { data: [] } };
-        if (url.includes('Test Plan Invoice')) return { data: { data: [] } };
-        if (url.includes('Portal Invoice/')) return { data: { data: { name: 'INV-MOCK', web_account: config?.params?.filters ? undefined : 'MOCK_ACCOUNT', status: 'Unpaid', amount_due: 99, invoice_services: '[]', child_services_count: 1 } } };
-        if (url.includes('Portal Invoice')) return { data: { data: [{ name: 'INV-MOCK', status: 'Unpaid', amount_due: 99, invoice_services: '[]', child_services_count: 1 }] } };
-        if (url.includes('Web Account Service')) return { data: { data: [] } };
         return { data: { data: [] } };
       },
+
       post: async (url, data) => {
-        if (url.includes('Web Account')) return { data: { data: { name: 'wa-' + Date.now() } } };
-        if (url.includes('Portal Invoice')) return { data: { data: { name: 'inv-' + Date.now() } } };
+        const resourceMatch = url.match(/\/api\/resource\/([^/?]+)/);
+        if (resourceMatch) {
+          const doctype = decodeURIComponent(resourceMatch[1]);
+          ensure(doctype);
+          // Auto-generate a name
+          const seq = String(store[doctype].length + 1).padStart(5, '0');
+          const prefix = doctype === 'Provisioning Job' ? 'PRV' :
+                         doctype === 'Capacity Request' ? 'CAP' :
+                         doctype === 'Portal Invoice'   ? 'INV' :
+                         doctype === 'Web Account'      ? 'WA'  : 'DOC';
+          const name = data?.name || `${prefix}-MOCK-${seq}`;
+          // Check unique job_key
+          if (data?.job_key && store[doctype].some(d => d.job_key === data.job_key)) {
+            const err = new Error('DuplicateEntryError: duplicate job_key');
+            err.response = { status: 409, data: { _error_message: 'duplicate' } }; throw err;
+          }
+          const doc = { ...data, name, doctype, creation: new Date().toISOString(), modified: new Date().toISOString() };
+          store[doctype].push(doc);
+          console.log(`[mock-frappe] created ${doctype}/${name}`);
+          return { data: { data: doc } };
+        }
         return { data: { data: { name: 'doc-' + Date.now() } } };
       },
+
       put: async (url, data) => {
+        const resourceMatch = url.match(/\/api\/resource\/([^/?]+)\/([^/?]+)/);
+        if (resourceMatch) {
+          const doctype = decodeURIComponent(resourceMatch[1]);
+          const docName = decodeURIComponent(resourceMatch[2]);
+          ensure(doctype);
+          const idx = store[doctype].findIndex(d => d.name === docName);
+          if (idx >= 0) {
+            store[doctype][idx] = { ...store[doctype][idx], ...data, modified: new Date().toISOString() };
+            return { data: { data: store[doctype][idx] } };
+          }
+          // Upsert if not found (e.g. Web Account rows written by runner)
+          const doc = { name: docName, doctype, ...data, modified: new Date().toISOString() };
+          store[doctype].push(doc);
+          return { data: { data: doc } };
+        }
         return { data: { data: { name: url } } };
-      }
+      },
     };
   }
   return axios.create({
@@ -1812,7 +1917,7 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
     );
 
     const currentPlan = String(accRes.data?.data?.plan || "None").trim();
-    const existingRows = accRes.data?.data?.selected_services || [];
+    const existingRows = asArray(accRes.data?.data?.selected_services);
 
     const includedCountExisting = (existingRows || []).filter((r) => {
       const sid = String(r?.service_id || r?.[CHILD_SERVICE_ID_FIELD] || "").trim();

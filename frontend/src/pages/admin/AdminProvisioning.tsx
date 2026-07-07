@@ -4,7 +4,7 @@ import {
   Server, Database, Activity, ShieldCheck,
 } from "lucide-react";
 import {
-  getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob,
+  getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob, resolveJob,
   Readiness, QueueHealth, Capacity, ProvisioningJob,
 } from "../../services/adminProvisioning";
 
@@ -49,6 +49,11 @@ const AdminProvisioning: React.FC = () => {
   const [error, setError] = useState<string>("");
   const [notice, setNotice] = useState<string>("");
 
+  const [resolveModalJob, setResolveModalJob] = useState<string>("");
+  const [resolveRef, setResolveRef] = useState<string>("");
+  const [resolveAccess, setResolveAccess] = useState<string>("");
+  const [resolving, setResolving] = useState<boolean>(false);
+
   const refresh = useCallback(async (status = statusFilter) => {
     setLoading(true);
     setError("");
@@ -91,6 +96,24 @@ const AdminProvisioning: React.FC = () => {
     } catch (e: any) {
       setError(e?.message || "Failed to re-queue job.");
     } finally { setRetryingId(""); }
+  };
+
+  const onResolveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResolving(true); setError(""); setNotice("");
+    try {
+      let accessObj = {};
+      if (resolveAccess.trim()) {
+        try { accessObj = JSON.parse(resolveAccess); }
+        catch { throw new Error("Access JSON is invalid."); }
+      }
+      await resolveJob(resolveModalJob, { external_ref: resolveRef, access: accessObj });
+      setNotice(`Resolved ${resolveModalJob} manually.`);
+      setResolveModalJob("");
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to resolve job.");
+    } finally { setResolving(false); }
   };
 
   const required = readiness?.checks.filter((c) => c.level === "required") || [];
@@ -305,10 +328,20 @@ const AdminProvisioning: React.FC = () => {
                       </td>
                       <td className="p-4 text-right">
                         {canRetry && (
-                          <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
-                            {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => {
+                              setResolveModalJob(j.name);
+                              setResolveRef("");
+                              setResolveAccess("");
+                            }} type="button"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+                              Resolve Manually
+                            </button>
+                            <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
+                              {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -319,6 +352,35 @@ const AdminProvisioning: React.FC = () => {
           )}
         </div>
       </Card>
+
+      {resolveModalJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-navy/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative">
+            <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">Job: {resolveModalJob}</p>
+            
+            <form onSubmit={onResolveSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
+                <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan" />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Access Credentials (JSON)</label>
+                <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan font-mono text-[11px]" />
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition">Cancel</button>
+                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition disabled:opacity-50">
+                  {resolving ? "Resolving..." : "Mark Active"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -29,8 +29,11 @@ const backups = require("./backups");
 const edge = require("./edge");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
+const mock = require("./lanes/mock");
 
-const DEFAULT_LANES = { coolify, bench };
+const DEFAULT_LANES = mock.isEnabled()
+  ? { coolify: mock, bench: mock }
+  : { coolify, bench };
 
 const enc = encodeURIComponent;
 const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
@@ -109,8 +112,36 @@ async function claimJob(client, name, runnerId, targetId) {
   return true;
 }
 
+async function createEscalationTicket(client, job, reason) {
+  if (!job.web_account) return;
+  try {
+    let email = job.web_account;
+    try {
+      const res = await client.get(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(job.web_account)}`);
+      if (res.data?.data?.user_email) email = res.data.data.user_email;
+    } catch (e) { /* best-effort */ }
+
+    const payload = {
+      portal_user: job.web_account,
+      email: email,
+      subject: `Provisioning Delayed: ${job.service_name || job.service_id || job.name}`,
+      status: "Waiting on Admin",
+      source: "Portal",
+      messages: [{
+        sender_type: "Admin",
+        sender: "System Automation",
+        message: `Provisioning for ${job.service_name || job.service_id || job.name} requires human intervention. Our engineers have been notified and are actively working on it.\n\nInternal diagnostic: ${reason}`
+      }]
+    };
+    await client.post("/api/resource/Portal Users Requests", payload);
+  } catch (err) {
+    console.error(`[provisioning] Failed to create escalation ticket for ${job.name}: ${err.message}`);
+  }
+}
+
 async function escalate(client, job, reason) {
   await updateJob(client, job.name, { status: "needs_human", error: String(reason).slice(0, 500) });
+  await createEscalationTicket(client, job, reason);
   return { name: job.name, outcome: "needs_human", reason };
 }
 
@@ -248,6 +279,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
           attempts,
           error: `Failed after ${attempts} attempt(s): ${e.message}`.slice(0, 500),
         });
+        await createEscalationTicket(client, job, `Failed after ${attempts} attempt(s): ${e.message}`);
         return { name: job.name, outcome: "needs_human", attempts, reason: e.message };
       }
       const wait = backoffSec(attempts);
@@ -375,4 +407,5 @@ module.exports = {
   processQueue,
   startRunner,
   stopRunner,
+  markAccountServiceActive,
 };

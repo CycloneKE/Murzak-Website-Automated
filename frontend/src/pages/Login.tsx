@@ -66,8 +66,10 @@ interface LoginProps {
     const selected = JSON.parse(localStorage.getItem("murzak_selected_plan") || "null");
     if (selected?.plan !== "Test") return;
 
-    // Force signup
-    setMode("signup");
+    // Force signup only if not explicitly logging in
+    if (defaultMode !== "login") {
+      setMode("signup");
+    }
 
     // Prefill from whatever we already stored
     setFormData((prev) => ({

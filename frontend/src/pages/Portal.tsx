@@ -37,7 +37,8 @@ import {
   Bell,
   UserCircle,
   Settings,
-  Receipt
+  Receipt,
+  Database
 } from "lucide-react";
 
 
@@ -144,6 +145,39 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [activeLogServiceId, setActiveLogServiceId] = useState<string | null>(null);
+
+  const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
+  const [requestingDeveloper, setRequestingDeveloper] = useState(false);
+  const [developerUpsellError, setDeveloperUpsellError] = useState("");
+
+  const handleDeveloperUpsell = async () => {
+    if (!developerUpsellSvc) return;
+    setRequestingDeveloper(true); setDeveloperUpsellError("");
+    try {
+      const s = selectedServices.find(x => x.serviceId === developerUpsellSvc);
+      const svcName = s ? s.name : developerUpsellSvc;
+      const res = await fetch("/api/portal/requests", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          subject: `Developer Access Request: ${svcName}`,
+          message: `I would like to upgrade my managed service (${svcName}) to the Developer Tier to get Administrator UI, DB access, and Jailed SSH access. Please arrange this upgrade.`,
+          pageUrl: window.location.href,
+          attachments: ""
+        })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || "Failed to submit request.");
+      setDeveloperUpsellSvc(null);
+      setPlanAttachBanner("Developer access request submitted! Our team will follow up via the Support tab shortly.");
+    } catch (e: any) {
+      setDeveloperUpsellError(e.message || "Something went wrong.");
+    } finally {
+      setRequestingDeveloper(false);
+    }
+  };
 
   useEffect(() => {
     const handleGlobalK = (e: KeyboardEvent) => {
@@ -695,8 +729,11 @@ const renderCloudSystemsGrid = () => null;
   }, []);
 
   const goToAddServices = () => {
-    // This should open pricing and directly open services modal for CURRENT plan
-    // You can read query params in Pricing.tsx to auto-open modal (recommended).
+    if (planCode === "Test") {
+      // Test plan allows 1 service. If they want to add more, they must upgrade.
+      onNavigate(`/pricing#pricing-plans` as any);
+      return;
+    }
     const qp = new URLSearchParams();
     qp.set("returnTo", "/portal/billing");
     qp.set("mode", "add-services");
@@ -1293,15 +1330,25 @@ const renderCloudSystemsGrid = () => null;
                     </div>
 
                     <div className="flex items-center gap-3 self-end sm:self-auto">
-                      {s.status === "Active" ? (
-                        <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Active
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> Awaiting Payment
-                        </span>
-                      )}
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-navy dark:bg-white/10 text-white border border-slate-200 dark:border-white/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(46,166,255,0.15)] group-hover:shadow-[0_0_20px_rgba(46,166,255,0.3)]">
+                          <Terminal className="w-3 h-3 text-murzak-cyan" /> Developer Access
+                        </button>
+                        
+                        {s.status === "Active" ? (
+                          <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Active
+                          </span>
+                        ) : s.status === "Setting Up" || s.status === "Provisioning" ? (
+                          <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div> Setting Up
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> {s.status || "Pending"}
+                          </span>
+                        )}
+                      </div>
                       
                       <button
                         type="button"
@@ -2337,6 +2384,71 @@ const renderCloudSystemsGrid = () => null;
               >
                 Replace services
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Developer Upsell Modal */}
+      {developerUpsellSvc && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-murzak-navy/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-cyan/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
+            
+            <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition z-10 text-slate-500">
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="relative z-10">
+              <div className="inline-flex p-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-6">
+                <Terminal className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-navy dark:text-white mb-2">Unlock Developer Tier</h3>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+                Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
+              </p>
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Terminal className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Jailed SSH Access</h4>
+                    <p className="text-xs text-slate-500">Secure shell access directly into your service environment.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Database className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Direct DB Connection</h4>
+                    <p className="text-xs text-slate-500">Read/Write access to your isolated MariaDB instance.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Shield className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Full Frappe Administrator</h4>
+                    <p className="text-xs text-slate-500">Create custom doctypes, server scripts, and UI tweaks.</p>
+                  </div>
+                </div>
+              </div>
+
+              {developerUpsellError && (
+                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {developerUpsellError}
+                </div>
+              )}
+
+              <button 
+                onClick={handleDeveloperUpsell} 
+                disabled={requestingDeveloper}
+                className="w-full px-6 py-4 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
+              </button>
+              <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest mt-4">
+                Submitting creates a high-priority ticket with our engineering team.
+              </p>
             </div>
           </div>
         </div>

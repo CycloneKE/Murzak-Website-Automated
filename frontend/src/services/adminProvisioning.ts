@@ -90,3 +90,15 @@ export const listJobs = (status?: string) =>
 export const runQueue = () => post<{ ok: boolean; processed: number; results: any[] }>("/api/admin/provisioning/run");
 export const retryJob = (name: string) =>
   post<{ ok: boolean; name: string }>(`/api/admin/provisioning/jobs/${encodeURIComponent(name)}/retry`);
+export const resolveJob = (name: string, payload: { external_ref: string; access: any }) => {
+  return fetch(`/api/admin/provisioning/jobs/${encodeURIComponent(name)}/resolve`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then(async (res) => {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+    return data;
+  });
+};
