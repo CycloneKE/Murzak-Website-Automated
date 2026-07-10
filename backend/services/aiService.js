@@ -214,7 +214,7 @@ CRITICAL UPSELL INSTRUCTION: When you check a server's status, pay close attenti
     let response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: process.env.OPENROUTER_MODEL || "google/gemini-pro",
+        model: process.env.OPENROUTER_MODEL || "google/gemini-pro-1.5",
         messages: messages,
         tools: tools,
         tool_choice: "auto"
