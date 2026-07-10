@@ -6,10 +6,12 @@ interface MetricCardProps {
   icon: React.ReactNode;
   trend?: string;
   trendUp?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
   key?: React.Key;
 }
 
-export default function MetricCard({ title, value, icon, trend, trendUp }: MetricCardProps) {
+export default function MetricCard({ title, value, icon, trend, trendUp, actionLabel, onAction }: MetricCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -62,6 +64,16 @@ export default function MetricCard({ title, value, icon, trend, trendUp }: Metri
         <div className="text-3xl font-black text-white">
           {typeof value === 'number' ? displayValue : value}
         </div>
+        {actionLabel && onAction && (
+          <div className="mt-4">
+            <button 
+              onClick={onAction}
+              className="px-4 py-2 bg-murzak-cyan text-murzak-navy font-bold text-[10px] uppercase tracking-widest rounded-xl hover:scale-105 transition-transform"
+            >
+              {actionLabel}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

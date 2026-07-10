@@ -84,6 +84,7 @@ if (process.env.NODE_ENV === "production") {
 
 
 const createPaypalRouter = require("./routes/paypalRoutes");
+const createAiRouter = require("./routes/aiRoutes");
 const { activateServicesForInvoice } = require("./services/billingActivationService");
 const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmount");
 const { assertOrderWithinCapacity } = require("./services/orderCapacity");
@@ -245,6 +246,16 @@ const apiLimiter = rateLimit({
 });
 app.use("/api/", apiLimiter);
 
+// AI Limiter: 50 requests per hour per IP to protect OpenRouter tokens
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Murzaker is resting. Please try again later (Rate limit exceeded)." },
+});
+app.use("/api/ai", aiLimiter);
+
 // Tight per-IP limiter for UNAUTHENTICATED endpoints that write to / query Frappe
 // (contact requests, trial signups, domain lookups). Blunts spam/abuse that the
 // broad apiLimiter is too loose to stop. Generous enough for real humans.
@@ -289,6 +300,8 @@ app.use(
     },
   })
 );
+
+app.use("/api/ai", createAiRouter({ requireAuth, frappeClient }));
 
 function requireAuth(req, res, next) {
   if (!req.session?.user) {

@@ -60,7 +60,9 @@ import ServiceHealthCard, { ServiceHealth } from "../components/portal/ServiceHe
 import TopologyMap from "../components/portal/TopologyMap";
 import CommandPalette, { CommandAction } from "../components/portal/CommandPalette";
 import LogConsole from "../components/portal/LogConsole";
-
+import ConciergeWidget from "../components/ConciergeWidget";
+import ResourceUtilizationCard from "../components/portal/ResourceUtilizationCard";
+import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../config/serviceCatalog";
 import { type SelectedServiceView, type ServiceStatus } from "../types";
 
@@ -1033,7 +1035,7 @@ const renderCloudSystemsGrid = () => null;
       },
       {
         title: "Monthly Spend",
-        value: `KES ${Number(localInvoices[0]?.amount || 0).toLocaleString()}`,
+        value: `KES ${Number(localInvoices.length > 0 && localInvoices[0]?.amount ? localInvoices[0].amount : 0).toLocaleString()}`,
         icon: <DollarSign size={20} />
       },
       {
@@ -1046,7 +1048,9 @@ const renderCloudSystemsGrid = () => null;
       {
         title: "Next Invoice",
         value: nextInvoiceLabel(),
-        icon: <CreditCard size={20} />
+        icon: <CreditCard size={20} />,
+        actionLabel: nextInvoiceLabel() === "Due Now" ? "Pay Now" : undefined,
+        onAction: nextInvoiceLabel() === "Due Now" ? () => onTabClick("billing") : undefined
       }
     ];
 
@@ -1100,9 +1104,15 @@ const renderCloudSystemsGrid = () => null;
             </div>
             
             <div className="flex flex-wrap gap-4">
-              <button onClick={() => onTabClick("cloud")} className="px-6 py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2">
-                <Terminal className="w-4 h-4" /> Open Console
-              </button>
+              {healthServices.filter(s => s.status === 'online').slice(0, 2).map((s) => (
+                <button 
+                  key={`quick-${s.id}`}
+                  onClick={() => onTabClick("cloud")} 
+                  className="px-6 py-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan font-black text-[10px] uppercase tracking-widest border border-murzak-cyan/20 hover:bg-murzak-cyan hover:text-murzak-navy hover:shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
+                >
+                  <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
+                </button>
+              ))}
               <button onClick={() => setIsContactOpen(true)} className="px-6 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                 <Headphones className="w-4 h-4" /> Get Support
               </button>
@@ -1157,6 +1167,12 @@ const renderCloudSystemsGrid = () => null;
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* New Insights Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <SecurityOverviewCard />
+              <ResourceUtilizationCard />
             </div>
 
             {/* General Upload */}
@@ -2452,6 +2468,11 @@ const renderCloudSystemsGrid = () => null;
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Concierge Widget - Only show if user has active service */}
+      {user.plan !== "None" && user.selectedServices && user.selectedServices.length > 0 && (
+        <ConciergeWidget />
       )}
     </div>
   );
