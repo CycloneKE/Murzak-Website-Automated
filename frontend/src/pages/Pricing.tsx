@@ -14,7 +14,7 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react';
-import { Page } from '../types';
+import { Page, User } from '../types';
 import { SkeletonHero, SkeletonGrid } from '../components/Skeleton';
 import OptimizedImage from '../components/OptimizedImage';
 import { useLocation, useNavigate } from "react-router-dom";

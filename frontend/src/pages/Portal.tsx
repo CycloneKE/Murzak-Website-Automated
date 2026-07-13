@@ -1327,7 +1327,7 @@ const renderCloudSystemsGrid = () => null;
                           <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Active
                           </span>
-                        ) : s.status === "Setting Up" || s.status === "Provisioning" ? (
+                        ) : s.status === "Setting up" ? (
                           <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div> Setting Up
                           </span>
