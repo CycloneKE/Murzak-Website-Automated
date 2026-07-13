@@ -89,7 +89,7 @@ const { activateServicesForInvoice } = require("./services/billingActivationServ
 const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmount");
 const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
-const { getServiceMeta } = require("./services/provisioning/catalog");
+const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -716,18 +716,6 @@ function computeInvoiceAmount(planKey, selectedServices = []) {
   // later: sum addons by service pricing model
 }
 
-function computeAddonInvoiceAmount(selectedServices = [], includedRemaining = 0) {
-  const norm = normalizeSelectedServices(selectedServices);
-
-  const freeCount = Math.max(0, Number(includedRemaining || 0));
-  const chargeable = norm.slice(freeCount);
-
-  return chargeable.reduce(
-    (sum, s) => sum + Number(ADDON_PRICING_BY_SERVICE_ID[s.serviceId] || 0),
-    0
-  );
-}
-
 async function upsertPortalInvoice({ client, webAccountName, type, planKey, amount, servicesJson, invoiceDate }) {
   const open = await findOpenInvoice(client, webAccountName, type);
 
@@ -810,23 +798,6 @@ const PLAN_PRICING = {
   Test: 0,
 };
 
-const ADDON_PRICING_BY_SERVICE_ID = {
-  // example; fill with real values
-  "starter-email": 2000,
-  "starter-storage": 1500,
-  "starter-hrpay": 5000,
-  "starter-erp-light": 8000,
-  "starter-db-light": 6000,
-
-  "biz-web-hosting": 12000,
-  "biz-crm-helpdesk": 15000,
-  "biz-accounting": 12000,
-  "biz-db-medium": 18000,
-  "biz-email-large": 6000,
-  "biz-pos-inventory": 20000,
-  "biz-webapps": 15000,
-  "biz-docs": 18000,
-};
 
 const PLAN_NAME_TO_KEY = {
   "Test Setup": "Test",
@@ -1141,7 +1112,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     const webAccountName = req.session?.webAccount || req.session?.user?.id;
     if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-    const { services, includedRemaining } = req.body || {};
+    const { services } = req.body || {};
     if (!Array.isArray(services) || services.length === 0) {
       return res.status(400).json({ error: "No add-on services selected." });
     }
@@ -1164,9 +1135,11 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
 
     const norm = normalizeSelectedServices(services);
 
-    // Optional: ensure all are priced
+    // Every add-on must be a real, priced catalog service — no fabricated
+    // pricing for something not in the catalog snapshot.
     for (const s of norm) {
-      if (!ADDON_PRICING_BY_SERVICE_ID[s.serviceId]) {
+      const meta = getServiceMeta(s.serviceId);
+      if (!meta || !(Number(meta.monthlyKes) > 0)) {
         return res.status(400).json({ error: `Add-on pricing not configured for service: ${s.serviceId}` });
       }
     }
@@ -1186,12 +1159,10 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
       .filter((s) => s.serviceId);
     assertOrderWithinCapacity([...existingSelection, ...norm]);
 
-    const amount = computeAddonInvoiceAmount(norm, includedRemaining);
-
-    // If everything fits in free included slots, we don't create an Addon invoice.
-    if (amount <= 0) {
-      return res.json({ ok: true, message: "Added within included slots. No add-on invoice created." });
-    }
+    // Add-ons are always priced à la carte — there are no free plan-included
+    // slots (matches the configurator/checkout, which never offers a free
+    // service). The per-service pricing check above guarantees this is > 0.
+    const amount = sumSelectedServicesMonthlyKes(norm);
 
     const today = new Date().toISOString().slice(0, 10);
 
@@ -1239,8 +1210,8 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
 
       const mergedServices = Array.from(mergedMap.values());
 
-      // For open unpaid add-on invoice, all rows should be chargeable add-ons
-      const mergedAmount = computeAddonInvoiceAmount(mergedServices, 0);
+      // For open unpaid add-on invoice, all rows are chargeable add-ons
+      const mergedAmount = sumSelectedServicesMonthlyKes(mergedServices);
 
       const mergedRows = buildInvoiceServiceRows(
         mergedServices.map((s) => ({
@@ -1572,8 +1543,11 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
     });
   }
 
-  // Create invoice only if amount > 0
-  let amount = PLAN_PRICING[planKey] ?? 0;
+  // Create invoice only if amount > 0. Bill the sum of what was actually
+  // selected (the catalog snapshot — same source the configurator totals
+  // from), not a flat per-plan-tier price: a Starter customer with one
+  // KES 1,200/mo service must be charged KES 1,200, not a flat plan rate.
+  let amount = sumSelectedServicesMonthlyKes(selectedServices);
   if (amount <= 0) return { ok: true, skipped: true, reason: "zero_amount" };
 
   // Apply credit if any (upgrade flow)
@@ -2263,7 +2237,7 @@ async function reconcileServiceDeletionAgainstInvoices(client, webAccountName, s
     };
 
     if (isAddonInvoice) {
-      payload.amount = computeAddonInvoiceAmount(filteredServices, 0);
+      payload.amount = sumSelectedServicesMonthlyKes(filteredServices);
     }
 
     await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceName)}`, payload);
@@ -3564,13 +3538,11 @@ const routeContext = {
   hasPaidSubscriptionForPlan,
   findOpenInvoice,
   computeInvoiceAmount,
-  computeAddonInvoiceAmount,
   upsertPortalInvoice,
   assertWithinPlanLimit,
   allowedAddonTiersForPlan,
   formatSelectedServices,
   PLAN_PRICING,
-  ADDON_PRICING_BY_SERVICE_ID,
   PLAN_NAME_TO_KEY,
   WEB_ACCOUNT_DOCTYPE,
   WEB_ACCOUNT_SERVICE_CHILD_DOCTYPE,

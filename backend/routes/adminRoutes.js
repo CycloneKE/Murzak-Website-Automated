@@ -110,6 +110,22 @@ router.post("/api/admin/threads/:id/reply", requireAuth, requireAdmin, async (re
   }
 });
 
+// ---- Infrastructure quick-links (admin) ----
+// Redirects for staff troubleshooting: Hostinger's own hPanel (which has a
+// built-in browser SSH terminal — we don't run our own shell broker onto the
+// shared box) and Frappe's Helpdesk ticketing module. URLs are configurable
+// since we don't have the exact hPanel/VPS URL or confirmation the Helpdesk
+// app is installed; sane defaults are used otherwise.
+router.get("/api/admin/infra-links", requireAuth, requireAdmin, async (req, res) => {
+  const frappeBase = (process.env.FRAPPE_BASE_URL || "").replace(/\/+$/, "");
+  return res.json({
+    ok: true,
+    hostingerUrl: process.env.HOSTINGER_HPANEL_URL || "https://hpanel.hostinger.com",
+    frappeTicketingUrl: process.env.FRAPPE_HELPDESK_URL || (frappeBase ? `${frappeBase}/helpdesk` : ""),
+    frappeDeskUrl: frappeBase ? `${frappeBase}/app/hd-ticket` : "",
+  });
+});
+
 // ---- Provisioning (admin) ----
 // List provisioning jobs, optionally filtered by status.
 router.get("/api/admin/provisioning/jobs", requireAuth, requireAdmin, async (req, res) => {
@@ -122,7 +138,7 @@ router.get("/api/admin/provisioning/jobs", requireAuth, requireAdmin, async (req
     const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
       params: {
         filters: JSON.stringify(filters),
-        fields: JSON.stringify(["name", "web_account", "invoice", "service_id", "service_name", "category", "lane", "status", "attempts", "ram_mb", "gated", "external_ref", "error", "next_run_at", "modified"]),
+        fields: JSON.stringify(["name", "web_account", "invoice", "service_id", "service_name", "category", "lane", "target", "status", "attempts", "ram_mb", "gated", "external_ref", "error", "next_run_at", "started_at", "runner_id", "log", "access", "backup_status", "edge_status", "modified"]),
         order_by: "modified desc",
         limit_page_length: 200
       }
@@ -132,6 +148,13 @@ router.get("/api/admin/provisioning/jobs", requireAuth, requireAdmin, async (req
       data: resp.data?.data || []
     });
   } catch (err) {
+    // Running without the Provisioning Job doctype is a supported degraded
+    // state (notify-only; the readiness panel flags it) — report "no jobs",
+    // not a 500. Same 404/417 convention as provisioningService/readiness.
+    const code = err.response?.status;
+    if (code === 404 || code === 417) {
+      return res.json({ ok: true, data: [], doctypeMissing: true });
+    }
     console.error("ADMIN PROVISIONING LIST ERROR:", err.response?.data || err.message);
     return res.status(500).json({
       error: "Failed to load provisioning jobs."

@@ -119,6 +119,23 @@ export default function PlanServicesModal({
   const [activeCat, setActiveCat] = useState<ServiceCategory | "All">("All");
   const contentRef = useRef<HTMLDivElement | null>(null);
   const scrollYRef = useRef(0);
+  const catRowRef = useRef<HTMLDivElement | null>(null);
+  // Category tabs overflow horizontally with the scrollbar hidden — these
+  // drive edge fades + arrow buttons so "more categories" is discoverable
+  // instead of a swipe no one knows to try (mobile has no scrollbar at all).
+  const [catCanScrollLeft, setCatCanScrollLeft] = useState(false);
+  const [catCanScrollRight, setCatCanScrollRight] = useState(false);
+
+  const updateCatScrollState = () => {
+    const el = catRowRef.current;
+    if (!el) return;
+    setCatCanScrollLeft(el.scrollLeft > 4);
+    setCatCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  const scrollCatRow = (dir: -1 | 1) => {
+    catRowRef.current?.scrollBy({ left: dir * 180, behavior: "smooth" });
+  };
 
   const services = useMemo<ServiceItem[]>(() => {
     if (!planCode) return [];
@@ -131,6 +148,16 @@ export default function PlanServicesModal({
     for (const s of services) if (!seen.includes(s.category)) seen.push(s.category);
     return seen;
   }, [services]);
+
+  useEffect(() => {
+    updateCatScrollState();
+    const el = catRowRef.current;
+    if (!el) return;
+    const onResize = () => updateCatScrollState();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length]);
 
   // Apply search + category filter, then group by category for display.
   const grouped = useMemo<{ category: ServiceCategory; items: ServiceItem[] }[]>(() => {
@@ -389,30 +416,66 @@ export default function PlanServicesModal({
                     className="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan"
                   />
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <button
-                    onClick={() => setActiveCat("All")}
-                    className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-                      activeCat === "All"
-                        ? "bg-murzak-cyan text-murzak-navy"
-                        : "border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-murzak-cyan"
-                    }`}
+                <div className="relative">
+                  <div
+                    ref={catRowRef}
+                    onScroll={updateCatScrollState}
+                    className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
-                    <LayoutGrid size={14} /> All ({services.length})
-                  </button>
-                  {categories.map((cat) => (
                     <button
-                      key={cat}
-                      onClick={() => setActiveCat(cat)}
+                      onClick={() => setActiveCat("All")}
                       className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-                        activeCat === cat
+                        activeCat === "All"
                           ? "bg-murzak-cyan text-murzak-navy"
                           : "border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-murzak-cyan"
                       }`}
                     >
-                      {CATEGORY_ICON[cat]} {cat}
+                      <LayoutGrid size={14} /> All ({services.length})
                     </button>
-                  ))}
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setActiveCat(cat)}
+                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                          activeCat === cat
+                            ? "bg-murzak-cyan text-murzak-navy"
+                            : "border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:border-murzak-cyan"
+                        }`}
+                      >
+                        {CATEGORY_ICON[cat]} {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Edge fades + arrows — the row has no visible scrollbar, so
+                      without these the cut-off categories look like the end of
+                      the list rather than a swipeable/scrollable row. */}
+                  {catCanScrollLeft && (
+                    <>
+                      <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-8 bg-gradient-to-r from-white dark:from-murzak-deep to-transparent" />
+                      <button
+                        type="button"
+                        aria-label="Scroll categories left"
+                        onClick={() => scrollCatRow(-1)}
+                        className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-navy border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
+                      >
+                        <ChevronDown size={12} className="rotate-90" />
+                      </button>
+                    </>
+                  )}
+                  {catCanScrollRight && (
+                    <>
+                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-white dark:from-murzak-deep to-transparent" />
+                      <button
+                        type="button"
+                        aria-label="Scroll categories right"
+                        onClick={() => scrollCatRow(1)}
+                        className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-navy border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
+                      >
+                        <ChevronDown size={12} className="-rotate-90" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 

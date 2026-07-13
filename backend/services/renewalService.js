@@ -15,6 +15,7 @@
 // cut-off; enable it once the renewal email flow is proven.
 
 const { sendMail } = require("../utils/mailer");
+const { sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -111,7 +112,6 @@ Pay with M-Pesa or card: ${url}
 async function sweepRenewals(deps) {
   const {
     frappeClient,
-    PLAN_PRICING,
     PORTAL_INVOICE_SERVICES_FIELD,
     WEB_ACCOUNT_SERVICES_FIELD,
     CHILD_SERVICE_ID_FIELD,
@@ -168,12 +168,6 @@ async function sweepRenewals(deps) {
         if (!account) continue;
 
         const plan = account.plan || lastPaid.plan;
-        const amount = PLAN_PRICING[plan] ?? 0;
-        // Test/Enterprise/None have no self-serve monthly price — never auto-bill them.
-        if (!(amount > 0)) continue;
-        if (String(account.account_status || "").toLowerCase() === "cancelled") continue;
-
-        const today = new Date().toISOString().slice(0, 10);
         const serviceRows = (Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
           .map((r) => ({
             serviceId: r?.[CHILD_SERVICE_ID_FIELD],
@@ -183,6 +177,17 @@ async function sweepRenewals(deps) {
             status: r?.[CHILD_STATUS_FIELD] || "Active",
           }))
           .filter((s) => s.serviceId);
+
+        // Bill the sum of what's actually on the account (catalog snapshot —
+        // same source the configurator/checkout price from), not a flat
+        // per-plan-tier rate. Test/Enterprise/None have no self-serve price
+        // (their services aren't in the volume/premium catalog) — never
+        // auto-bill them.
+        const amount = sumSelectedServicesMonthlyKes(serviceRows);
+        if (!(amount > 0)) continue;
+        if (String(account.account_status || "").toLowerCase() === "cancelled") continue;
+
+        const today = new Date().toISOString().slice(0, 10);
 
         const invoiceNo = `REN-${today.replace(/-/g, "")}-${String(webAccount).slice(-6)}`;
         const created = await client.post("/api/resource/Portal Invoice", {

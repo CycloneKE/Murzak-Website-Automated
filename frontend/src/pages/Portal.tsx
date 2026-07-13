@@ -651,39 +651,13 @@ const renderCloudSystemsGrid = () => null;
 
 
   const applyAddonsSelection = async ({
-    covered,
     chargeable,
   }: {
-    covered: any[];
     chargeable: any[];
   }) => {
     try {
-      // 1) Add covered services directly to account
-      if (covered.length > 0) {
-        const res = await fetch("/api/services/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            services: covered.map((s) => ({
-              serviceId: s.id,
-              serviceName: s.name,
-              tier: s.tier,
-              domainChoice: "",
-            })),
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || "Failed to add included services.");
-
-        if (data?.user) {
-          onUserUpdate(data.user);
-          setLocalInvoices(data.user.invoices || []);
-        }
-      }
-
-      // 2) Create invoice + attach chargeable add-ons
+      // Create invoice + attach the selected add-ons (always billed — there
+      // are no free plan-included slots, matching checkout).
       if (chargeable.length > 0) {
         await createAddonInvoice(chargeable);
 
@@ -730,17 +704,16 @@ const renderCloudSystemsGrid = () => null;
     return m;
   }, []);
 
+  // Same destination as every other "Add Services" entry point in the portal
+  // (openAddonsModal) — Test plan is the one real exception: it allows a
+  // single trial service with no add-on mechanism, so growing means picking
+  // a real plan on the public Pricing page, not buying an add-on.
   const goToAddServices = () => {
     if (planCode === "Test") {
-      // Test plan allows 1 service. If they want to add more, they must upgrade.
       onNavigate(`/pricing#pricing-plans` as any);
       return;
     }
-    const qp = new URLSearchParams();
-    qp.set("returnTo", "/portal/billing");
-    qp.set("mode", "add-services");
-    qp.set("plan", planCode);
-    onNavigate(`/pricing?${qp.toString()}#pricing-plans` as any);
+    openAddonsModal("overview");
   };
 
   const goToUpgrade = () => {
@@ -844,7 +817,6 @@ const renderCloudSystemsGrid = () => null;
     setAddonsError("");
 
     const payload = {
-      includedRemaining: remainingSlots,
       services: selectedAddons.map((s: any) => ({
         serviceId: s.id,
         serviceName: s.name,
@@ -2264,7 +2236,6 @@ const renderCloudSystemsGrid = () => null;
       <AddonsModal
         isOpen={addonsOpen}
         planLabel={user.plan}
-        includedRemaining={remainingSlots}
         disabledReason={addonsDisabledReason}
         addons={addonCandidates}
         onClose={() => {

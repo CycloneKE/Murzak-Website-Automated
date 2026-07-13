@@ -7,17 +7,15 @@ import type { ServiceItem } from "../config/serviceCatalog";
 type Props = {
   isOpen: boolean;
   planLabel: string;
-  includedRemaining: number; // free slots remaining on plan
   disabledReason?: string | null; // e.g. "Pay subscription first"
   addons: ServiceItem[];
   onClose: () => void;
-  onApplySelection: (args: { covered: ServiceItem[]; chargeable: ServiceItem[] }) => Promise<void>;
+  onApplySelection: (args: { chargeable: ServiceItem[] }) => Promise<void>;
 };
 
 export default function AddonsModal({
   isOpen,
   planLabel,
-  includedRemaining,
   disabledReason,
   addons,
   onClose,
@@ -35,40 +33,21 @@ export default function AddonsModal({
     return selectedOrder.map((id) => map.get(id)).filter(Boolean) as ServiceItem[];
   }, [addons, selectedOrder]);
 
+  // Every selected add-on is billed at its real catalog price — matching the
+  // initial checkout, which never offers a free service.
   const selectedDisplay = useMemo(() => {
-    const freeCount = Math.max(0, includedRemaining);
-    return selectedList.map((s, idx) => {
-      const price = Number(s?.pricing?.monthlyKes || 0);
-      const isFree = idx < freeCount;
-      return {
-        id: s.id,
-        name: s.name,
-        tier: s.tier,
-        category: s.category,
-        price,
-        isFree,
-        displayPrice: isFree ? 0 : price,
-      };
-    });
-  }, [selectedList, includedRemaining]);
-
-  const coveredByPlan = useMemo(() => {
-    const freeCount = Math.max(0, includedRemaining);
-    return selectedList.slice(0, freeCount);
-  }, [selectedList, includedRemaining]);
-
-  const chargeableAddons = useMemo(() => {
-    const freeCount = Math.max(0, includedRemaining);
-    return selectedList.slice(freeCount);
-  }, [selectedList, includedRemaining]);
+    return selectedList.map((s) => ({
+      id: s.id,
+      name: s.name,
+      tier: s.tier,
+      category: s.category,
+      price: Number(s?.pricing?.monthlyKes || 0),
+    }));
+  }, [selectedList]);
 
   const total = useMemo(() => {
-    // Only charge after includedRemaining is exceeded
-    const freeCount = Math.max(0, includedRemaining);
-    const sorted = [...selectedList]; // keep selection order doesn’t matter for now
-    const chargeable = sorted.slice(freeCount);
-    return chargeable.reduce((sum, s) => sum + Number(s?.pricing?.monthlyKes || 0), 0);
-  }, [selectedList, includedRemaining]);
+    return selectedList.reduce((sum, s) => sum + Number(s?.pricing?.monthlyKes || 0), 0);
+  }, [selectedList]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -172,7 +151,7 @@ useLayoutEffect(() => {
     }
     try {
       setSubmitting(true);
-      await onApplySelection({ covered: coveredByPlan, chargeable: chargeableAddons });
+      await onApplySelection({ chargeable: selectedList });
       onClose();
       setSelectedOrder([]);
     } catch (e: any) {
@@ -286,14 +265,9 @@ return createPortal(
     <div className="sticky top-4 space-y-4">
       {/* Selected list */}
       <div className="rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-            Selected
-          </p>
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-            Free: {Math.max(0, includedRemaining)}
-          </p>
-        </div>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+          Selected
+        </p>
 
         {selectedDisplay.length === 0 ? (
           <p className="mt-4 text-[10px] font-bold text-slate-500 dark:text-slate-400">
@@ -304,11 +278,7 @@ return createPortal(
             {selectedDisplay.map((row, idx) => (
               <div
                 key={row.id}
-                className={`rounded-2xl border p-4 ${
-                  row.isFree
-                    ? "border-murzak-cyan/20 bg-murzak-cyan/10"
-                    : "border-slate-200 dark:border-white/10 bg-white/70 dark:bg-black/10"
-                }`}
+                className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-black/10 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -318,16 +288,11 @@ return createPortal(
                     <p className="text-sm font-black text-murzak-navy dark:text-white mt-1 truncate">
                       {row.name}
                     </p>
-                    {row.isFree && (
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">
-                        Covered by plan
-                      </p>
-                    )}
                   </div>
 
                   <div className="shrink-0 text-right">
                     <p className="text-sm font-black text-murzak-cyan">
-                      KES {Number(row.displayPrice || 0).toLocaleString()}
+                      KES {Number(row.price || 0).toLocaleString()}
                     </p>
                     <button
                       type="button"
@@ -394,7 +359,7 @@ return createPortal(
         KES {total.toLocaleString()}
       </p>
       <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-        Selected: {selectedList.length} • Free: {Math.max(0, includedRemaining)}
+        Selected: {selectedList.length}
       </p>
     </div>
 
@@ -426,7 +391,7 @@ return createPortal(
               {row.name}
             </p>
             <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-              {row.isFree ? "KES 0 (Covered)" : `KES ${Number(row.displayPrice || 0).toLocaleString()}`}
+              KES {Number(row.price || 0).toLocaleString()}
             </p>
           </div>
           <button

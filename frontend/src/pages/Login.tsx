@@ -196,7 +196,7 @@ const attachPendingSelection = async (currentUser?: User) => {
   if (data?.invoices && Array.isArray(data.invoices)) {
     const unpaidInvoice = data.invoices.find((inv: any) => inv.status === "Unpaid");
     if (unpaidInvoice) {
-      return unpaidInvoice.invoiceNo || unpaidInvoice.name;
+      return unpaidInvoice.docName || unpaidInvoice.name;
     }
   }
   return null;

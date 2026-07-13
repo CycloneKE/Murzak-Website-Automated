@@ -3,8 +3,10 @@
  *
  * The customer-facing service catalog lives in the frontend
  * (frontend/src/config/serviceCatalog.ts) and is the single source of truth.
- * The backend needs a *lean* view of it for provisioning — id -> name, category,
- * capacityClass and resource footprint (ramMb/diskGb) — to route and size jobs.
+ * The backend needs a *lean* view of it for provisioning and billing — id ->
+ * name, category, capacityClass, resource footprint (ramMb/diskGb) and retail
+ * price (monthlyKes/setupKes) — to route/size jobs and price invoices without
+ * duplicating (and drifting from) the catalog.
  *
  * Rather than hand-duplicate (and drift), this script parses the TS file and
  * emits backend/data/serviceCatalogSnapshot.json. Re-run it whenever the catalog
@@ -63,6 +65,9 @@ function main() {
     const capacityClass = pull(block, "capacityClass");
     const ramMb = pull(block, "ramMb");
     const diskGb = pull(block, "diskGb");
+    const pricingModel = pull(block, "model");
+    const monthlyKes = pull(block, "monthlyKes");
+    const setupKes = pull(block, "setupKes");
 
     // Skip anything that isn't a real catalog service (must at least name itself).
     if (!name || !category || !capacityClass) continue;
@@ -74,6 +79,9 @@ function main() {
       capacityClass,
       ramMb: ramMb == null ? null : Number(ramMb),
       diskGb: diskGb == null ? null : Number(diskGb),
+      pricingModel: pricingModel || null,
+      monthlyKes: monthlyKes == null ? 0 : Number(monthlyKes),
+      setupKes: setupKes == null ? 0 : Number(setupKes),
     };
   }
 

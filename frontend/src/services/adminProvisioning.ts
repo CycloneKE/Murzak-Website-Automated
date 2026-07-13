@@ -59,7 +59,17 @@ export interface ProvisioningJob {
   external_ref?: string;
   error?: string;
   next_run_at?: string;
+  started_at?: string;
+  runner_id?: string;
+  log?: string;
+  access?: string;
   modified?: string;
+}
+
+export interface InfraLinks {
+  hostingerUrl: string;
+  frappeTicketingUrl: string;
+  frappeDeskUrl: string;
 }
 
 async function get<T>(url: string): Promise<T> {
@@ -80,6 +90,7 @@ async function post<T>(url: string): Promise<T> {
   return data as T;
 }
 
+export const getInfraLinks = () => get<InfraLinks & { ok: boolean }>("/api/admin/infra-links");
 export const getReadiness = () => get<Readiness & { ok: boolean }>("/api/admin/provisioning/readiness");
 export const getQueueHealth = () => get<QueueHealth & { ok: boolean }>("/api/admin/provisioning/queue");
 export const getCapacity = () => get<Capacity & { ok: boolean }>("/api/admin/provisioning/capacity");
