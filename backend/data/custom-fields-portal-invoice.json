@@ -1,0 +1,45 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "payment_meta_section",
+    "fieldtype": "Section Break",
+    "label": "Payment Gateway",
+    "insert_after": "amount",
+    "collapsible": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "payment_gateway",
+    "label": "Payment Gateway",
+    "fieldtype": "Select",
+    "options": "\nPayPal\nM-Pesa\nManual",
+    "read_only": 1,
+    "in_standard_filter": 1,
+    "insert_after": "payment_meta_section",
+    "description": "Which rail settled this invoice. Set by the backend on capture."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "paypal_order_id",
+    "label": "PayPal Order ID",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "no_copy": 1,
+    "insert_after": "payment_gateway"
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "paypal_capture_id",
+    "label": "PayPal Capture ID",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "no_copy": 1,
+    "in_standard_filter": 1,
+    "insert_after": "paypal_order_id",
+    "description": "PayPal capture id, persisted for reconciliation/audit. Idempotency is enforced in app code (an already-Paid invoice is never re-captured), so this is intentionally NOT a DB-unique field — most invoices (unpaid / M-Pesa) leave it blank."
+  }
+]

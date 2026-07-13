@@ -19,7 +19,7 @@ function section(name) { console.log(`\n# ${name}`); }
 
 // ---- Mock Frappe REST client (multi-doctype, list + single-doc) ----
 function makeStore(initialJobs = []) {
-  const docs = { "Provisioning Job": {}, "Capacity Request": {} };
+  const docs = { "Provisioning Job": {}, "Capacity Request": {}, "Portal Users Requests": {}, "Web Account": {} };
   let seq = 0;
   for (const d of initialJobs) {
     const name = d.name || `SEED-${++seq}`;
@@ -47,7 +47,7 @@ function makeStore(initialJobs = []) {
     post: async (url, payload) => {
       const { dt } = parse(url);
       seq++;
-      const name = (dt === "Capacity Request" ? "CAP-" : "PRV-") + seq;
+      const name = (dt === "Capacity Request" ? "CAP-" : dt === "Portal Users Requests" ? "REQ-" : "PRV-") + seq;
       docs[dt][name] = { ...payload, name };
       return { data: { data: { name } } };
     },
@@ -209,6 +209,23 @@ const okLane = {
   const missingClient = { get: async () => { const e = new Error("nf"); e.response = { status: 404 }; throw e; }, post: async () => { const e = new Error("nf"); e.response = { status: 404 }; throw e; }, put: async () => ({}) };
   r = await svc.enqueueProvisioningForInvoice({ client: missingClient, webAccount: "WA", invoiceDocName: "INV4", serviceIds: ["starter-web-hosting"] });
   ok(r.doctypeMissing === true, "doctype not installed -> doctypeMissing flag (notify still works)");
+
+  // The findExistingJob check passes (empty), but the unique job_key index rejects
+  // the insert (lost enqueue race) -> treated as idempotent skip, not an error.
+  const dupClient = {
+    get: async () => ({ data: { data: [] } }),
+    post: async () => {
+      const e = new Error("Duplicate entry");
+      e.response = { status: 409, data: { exception: "frappe.exceptions.DuplicateEntryError: job_key" } };
+      throw e;
+    },
+    put: async () => ({}),
+  };
+  r = await svc.enqueueProvisioningForInvoice({ client: dupClient, webAccount: "WA", invoiceDocName: "INV5", serviceIds: ["starter-web-hosting"] });
+  ok(
+    r.created.length === 0 && r.skipped.some((x) => x.reason === "already queued (unique)"),
+    "unique job_key violation on insert -> idempotent skip (no double-create, no error)"
+  );
 
   section("dispatcher mode selection (no Redis needed)");
   const savedRunner = process.env.PROVISIONING_RUNNER_ENABLED;

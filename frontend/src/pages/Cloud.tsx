@@ -5,6 +5,7 @@ import {
   Activity, Headphones, Smartphone,
 } from 'lucide-react';
 import { NavProps } from '../types';
+import { Button } from '../components/ui/Button';
 
 const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
   const whatYouCanHost = [
@@ -36,12 +37,12 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
             billed in shillings. You get the result; we handle the servers.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <button onClick={() => onNavigate('pricing')} className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-cyan text-murzak-navy px-7 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-cyan/20">
-              Build my plan <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button onClick={() => onNavigate('test-request')} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-7 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all">
+            <Button onClick={() => onNavigate('pricing')}>
+              Build my plan <ArrowRight size={18} />
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => onNavigate('test-request')}>
               Try it free for 36h
-            </button>
+            </Button>
           </div>
           <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-400">No card required · Live in a day</p>
         </div>
@@ -56,7 +57,7 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             {whatYouCanHost.map((c) => (
-              <div key={c.t} className="flex items-start gap-5 rounded-3xl border border-white/10 bg-white/[0.03] p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]">
+              <div key={c.t} className="flex items-start gap-5 rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]">
                 <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan">{c.icon}</span>
                 <div>
                   <h3 className="text-lg font-black text-white mb-1.5">{c.t}</h3>
@@ -77,7 +78,7 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {managed.map((c) => (
-              <div key={c.t} className="rounded-3xl border border-white/10 bg-white/[0.03] p-7">
+              <div key={c.t} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
                 <h3 className="text-base font-black text-white mb-2">{c.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{c.s}</p>
@@ -111,12 +112,12 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white">Move your hosting somewhere it's handled.</h2>
           <p className="mt-4 text-lg text-white/85 font-medium">Build a plan in two minutes, or try it free for 36 hours first.</p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => onNavigate('pricing')} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-murzak-navy px-8 py-4 font-black text-sm uppercase tracking-widest hover:scale-[1.03] transition-all shadow-xl">
+            <Button variant="onDark" onClick={() => onNavigate('pricing')}>
               Build my plan <ArrowRight size={18} />
-            </button>
-            <button onClick={() => onNavigate('test-request')} className="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-white/40 px-8 py-4 font-black text-sm uppercase tracking-widest text-white hover:bg-white/10 transition-all">
+            </Button>
+            <Button variant="outlineOnDark" onClick={() => onNavigate('test-request')}>
               Start free trial
-            </button>
+            </Button>
           </div>
         </div>
       </section>

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   RefreshCw, Play, RotateCcw, CheckCircle2, XCircle, AlertCircle,
-  Server, Database, Activity, ShieldCheck,
+  Server, Database, Activity, ShieldCheck, Terminal, X,
 } from "lucide-react";
 import {
-  getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob,
+  getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob, resolveJob,
   Readiness, QueueHealth, Capacity, ProvisioningJob,
 } from "../../services/adminProvisioning";
 
@@ -28,7 +28,7 @@ function Dot({ ok }: { ok: boolean }) {
 }
 
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+  <div className={`bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );
@@ -48,6 +48,13 @@ const AdminProvisioning: React.FC = () => {
   const [retryingId, setRetryingId] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [notice, setNotice] = useState<string>("");
+
+  const [resolveModalJob, setResolveModalJob] = useState<string>("");
+  const [resolveRef, setResolveRef] = useState<string>("");
+  const [resolveAccess, setResolveAccess] = useState<string>("");
+  const [resolving, setResolving] = useState<boolean>(false);
+
+  const [consoleJob, setConsoleJob] = useState<ProvisioningJob | null>(null);
 
   const refresh = useCallback(async (status = statusFilter) => {
     setLoading(true);
@@ -91,6 +98,24 @@ const AdminProvisioning: React.FC = () => {
     } catch (e: any) {
       setError(e?.message || "Failed to re-queue job.");
     } finally { setRetryingId(""); }
+  };
+
+  const onResolveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResolving(true); setError(""); setNotice("");
+    try {
+      let accessObj = {};
+      if (resolveAccess.trim()) {
+        try { accessObj = JSON.parse(resolveAccess); }
+        catch { throw new Error("Access JSON is invalid."); }
+      }
+      await resolveJob(resolveModalJob, { external_ref: resolveRef, access: accessObj });
+      setNotice(`Resolved ${resolveModalJob} manually.`);
+      setResolveModalJob("");
+      await refresh();
+    } catch (e: any) {
+      setError(e?.message || "Failed to resolve job.");
+    } finally { setResolving(false); }
   };
 
   const required = readiness?.checks.filter((c) => c.level === "required") || [];
@@ -304,12 +329,28 @@ const AdminProvisioning: React.FC = () => {
                           : <span className="text-[10px] text-slate-400">—</span>}
                       </td>
                       <td className="p-4 text-right">
-                        {canRetry && (
-                          <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
-                            {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => setConsoleJob(j)} type="button"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+                            <Terminal className="w-3.5 h-3.5" /> Console
                           </button>
-                        )}
+                          {canRetry && (
+                            <>
+                              <button onClick={() => {
+                                setResolveModalJob(j.name);
+                                setResolveRef("");
+                                setResolveAccess("");
+                              }} type="button"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+                                Resolve Manually
+                              </button>
+                              <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
+                                {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -319,6 +360,89 @@ const AdminProvisioning: React.FC = () => {
           )}
         </div>
       </Card>
+
+      {resolveModalJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-navy/40 backdrop-blur-sm">
+          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative">
+            <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">Job: {resolveModalJob}</p>
+            
+            <form onSubmit={onResolveSubmit} className="space-y-4">
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
+                <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan" />
+              </div>
+              <div>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Access Credentials (JSON)</label>
+                <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan font-mono text-[11px]" />
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition">Cancel</button>
+                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition disabled:opacity-50">
+                  {resolving ? "Resolving..." : "Mark Active"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {consoleJob && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-navy/40 backdrop-blur-sm">
+          <div className="w-full max-w-3xl max-h-[85vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
+              <div className="flex items-center text-gray-300 text-sm min-w-0">
+                <Terminal className="w-4 h-4 mr-2 shrink-0" />
+                <span className="truncate">
+                  {consoleJob.service_name || consoleJob.service_id} — {consoleJob.name}
+                </span>
+                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded text-[10px] uppercase ${jobStatusClasses(consoleJob.status)}`}>
+                  {consoleJob.status || "unknown"}
+                </span>
+              </div>
+              <button className="text-gray-500 hover:text-white transition-colors p-1 shrink-0" onClick={() => setConsoleJob(null)}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 text-xs text-gray-300 leading-relaxed space-y-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-gray-400">
+                <span>account: <span className="text-gray-200">{consoleJob.web_account || "—"}</span></span>
+                <span>lane/target: <span className="text-gray-200">{consoleJob.lane || "—"} · {consoleJob.target || "box-1"}</span></span>
+                <span>attempts: <span className="text-gray-200">{consoleJob.attempts ?? 0}</span></span>
+                <span>runner: <span className="text-gray-200">{consoleJob.runner_id || "—"}</span></span>
+                <span>started: <span className="text-gray-200">{consoleJob.started_at || "—"}</span></span>
+                <span>next run: <span className="text-gray-200">{consoleJob.next_run_at || "—"}</span></span>
+              </div>
+
+              <div>
+                <p className="text-gray-500 uppercase text-[10px] mb-1">Runner log</p>
+                {consoleJob.log ? (
+                  <pre className="whitespace-pre-wrap break-words text-gray-300">{consoleJob.log}</pre>
+                ) : (
+                  <p className="text-gray-600">No log recorded yet — {consoleJob.status === "queued" ? "still queued." : "nothing written by the runner."}</p>
+                )}
+              </div>
+
+              {consoleJob.error && (
+                <div>
+                  <p className="text-gray-500 uppercase text-[10px] mb-1">Error</p>
+                  <pre className="whitespace-pre-wrap break-words text-orange-400">{consoleJob.error}</pre>
+                </div>
+              )}
+
+              {consoleJob.access && (
+                <div>
+                  <p className="text-gray-500 uppercase text-[10px] mb-1">Access (shown to customer)</p>
+                  <pre className="whitespace-pre-wrap break-words text-emerald-400">{consoleJob.access}</pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

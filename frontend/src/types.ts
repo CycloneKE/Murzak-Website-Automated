@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment';
@@ -61,6 +60,28 @@ export interface User {
   updates: ProjectUpdate[];
   sourceCode?: string;
   evaluationGoal?: string;
+  /** Services attached to the account (from the configurator/portal selection). */
+  selectedServices?: Array<{
+    serviceId: string;
+    serviceName?: string;
+    tier?: string;
+    status?: string;
+    [k: string]: unknown;
+  }>;
+  /** Convenience list of selected add-on service ids. */
+  addonServiceIds?: string[];
 }
 
 export type ScrollTarget = "pricing-plans" | null;
+
+export type ServiceStatus = 'Active' | 'Setting up' | 'Awaiting Payment';
+
+export type SelectedServiceView = {
+  serviceId: string;
+  name: string;
+  tier?: string;
+  category?: string;
+  domainChoice?: string;
+  status: ServiceStatus;
+  isAddon: boolean;
+};

@@ -33,14 +33,19 @@ import {
   Lock,
   Plus,
   Crown,
-  Sun,
-  Moon
+  Calendar,
+  Bell,
+  UserCircle,
+  Settings,
+  Receipt,
+  Database
 } from "lucide-react";
+
 
 import { User, Page, ProjectUpdate } from "../types";
 import Logo from "../components/Logo";
 import Contact from "../pages/Contact";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2, Loader2, ArrowUpCircle } from "lucide-react";
 import { deleteInvoice } from "../services/invoices";
 import { downloadInvoicePdf, downloadAllInvoicesZip } from "../services/invoicesDownload";
 import AdminTabs from "./admin/AdminTabs";
@@ -49,27 +54,32 @@ import { deleteService } from "../services/account";
 import WebsiteHostingDashboard from "../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ChangePasswordCard from "../components/portal/ChangePasswordCard";
 import OnboardingWizard from "../components/portal/OnboardingWizard";
-
+import MetricCard from "../components/portal/MetricCard";
+import ActivityTimeline, { TimelineEvent } from "../components/portal/ActivityTimeline";
+import ServiceHealthCard, { ServiceHealth } from "../components/portal/ServiceHealthCard";
+import TopologyMap from "../components/portal/TopologyMap";
+import CommandPalette, { CommandAction } from "../components/portal/CommandPalette";
+import LogConsole from "../components/portal/LogConsole";
+import ConciergeWidget from "../components/ConciergeWidget";
+import ResourceUtilizationCard from "../components/portal/ResourceUtilizationCard";
+import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../config/serviceCatalog";
+import { type SelectedServiceView, type ServiceStatus } from "../types";
 
-type Tab = "overview" | "sync" | "cloud" | "billing" | "profile" | "roadmap";
+type Tab = "overview" | "cloud" | "billing" | "profile";
 
 interface PortalProps {
   user: User;
   onLogout: () => void;
   onNavigate: (page: Page) => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
   onUserUpdate: (user: User) => void;
 }
 
 const isTab = (v: string | undefined): v is Tab =>
   v === "overview" ||
-  v === "sync" ||
   v === "cloud" ||
   v === "billing" ||
-  v === "profile" ||
-  v === "roadmap";
+  v === "profile";
 
 function normalizePlanToCode(plan: string | undefined | null): PlanCode {
   const p = (plan || "None").toLowerCase();
@@ -89,17 +99,9 @@ function allowedAddonTiers(plan: PlanCode): Array<string> {
   return [];
 }
 
-type SelectedServiceView = {
-  serviceId: string;
-  name: string;
-  tier?: string;
-  category?: string;
-  domainChoice?: string;
-  status: "Active" | "Awaiting Payment";
-  isAddon: boolean;
-};
 
-const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, isDarkMode, toggleTheme, onUserUpdate }) => {
+
+const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdate }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -143,6 +145,52 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, isDarkMode,
   // First-run onboarding (once per account, persisted to localStorage).
   const onboardKey = `murzak_onboarded_${user?.id || user?.email || "anon"}`;
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [activeLogServiceId, setActiveLogServiceId] = useState<string | null>(null);
+
+  const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
+  const [requestingDeveloper, setRequestingDeveloper] = useState(false);
+  const [developerUpsellError, setDeveloperUpsellError] = useState("");
+
+  const handleDeveloperUpsell = async () => {
+    if (!developerUpsellSvc) return;
+    setRequestingDeveloper(true); setDeveloperUpsellError("");
+    try {
+      const s = selectedServices.find(x => x.serviceId === developerUpsellSvc);
+      const svcName = s ? s.name : developerUpsellSvc;
+      const res = await fetch("/api/portal/requests", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          subject: `Developer Access Request: ${svcName}`,
+          message: `I would like to upgrade my managed service (${svcName}) to the Developer Tier to get Administrator UI, DB access, and Jailed SSH access. Please arrange this upgrade.`,
+          pageUrl: window.location.href,
+          attachments: ""
+        })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(data.error || "Failed to submit request.");
+      setDeveloperUpsellSvc(null);
+      setPlanAttachBanner("Developer access request submitted! Our team will follow up via the Support tab shortly.");
+    } catch (e: any) {
+      setDeveloperUpsellError(e.message || "Something went wrong.");
+    } finally {
+      setRequestingDeveloper(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleGlobalK = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalK);
+    return () => window.removeEventListener("keydown", handleGlobalK);
+  }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!localStorage.getItem(onboardKey)) setShowOnboarding(true);
@@ -165,6 +213,25 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, isDarkMode,
     user.accountStatus === "Evaluating" ||
     user.accountStatus === "Provisioning";
 
+  // Trial (KES-1 verification flow) state, derived from the invoices the portal
+  // already receives: the unpaid verification invoice the user pays to START,
+  // and the trial itself once active/expired.
+  const trialVerifyInvoice = (localInvoices || []).find(
+    (i: any) =>
+      String(i?.type || "").toLowerCase() === "trial verification" &&
+      String(i?.status || "").toLowerCase() !== "paid"
+  );
+  const trialInvoice = (localInvoices || []).find(
+    (i: any) => String(i?.type || "").toLowerCase() === "trial"
+  );
+  const trialStatus = String(trialInvoice?.status || "").toLowerCase();
+  const trialActive = trialStatus === "active";
+  const trialExpired = trialStatus === "expired";
+  const trialEndStr = trialInvoice?.meta?.trialEnd
+    ? new Date(String(trialInvoice.meta.trialEnd).replace(" ", "T")).toLocaleString()
+    : null;
+  const needsTrialVerify = isTestUser && !!trialVerifyInvoice && !trialActive;
+
   const activeTab: Tab = useMemo(() => {
     const last = location.pathname.split("/").filter(Boolean).pop();
     return isTab(last) ? last : "overview";
@@ -180,72 +247,7 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, isDarkMode,
     return sp.get("service") || null;
   }, [location.search]);
 
-const renderCloudSystemsGrid = () => (
-  <>
-    {selectedServices.length === 0 ? (
-      <div className="text-center py-20 bg-slate-50/50 dark:bg-white/5 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10">
-        <Server className="mx-auto w-10 h-10 text-slate-300 mb-5 opacity-60" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-          No systems found yet.
-        </p>
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        {selectedServices.map((s) => {
-          const locked = s.status !== "Active";
-          return (
-            <button
-              key={s.serviceId}
-              onClick={() => {
-                // Locked = awaiting payment → send them to Billing to clear it (not a dead-end).
-                if (locked) {
-                  navigate(`/portal/billing`);
-                  return;
-                }
-                navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
-              }}
-              className={`text-left rounded-[2.25rem] p-6 sm:p-8 border transition-all relative overflow-hidden group hover:scale-[1.01] ${
-                locked
-                  ? "bg-orange-500/[0.04] border-orange-500/30"
-                  : "bg-murzak-cyan/5 border-murzak-cyan/30"
-              }`}
-            >
-              <div className="absolute top-0 right-0 p-6 opacity-10">
-                {locked ? <Lock className="w-16 h-16" /> : <Zap className="w-16 h-16" />}
-              </div>
-
-              <div className="relative z-10">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  {s.category || "Service"} {s.tier ? `• ${s.tier}` : ""}
-                </p>
-
-                <h3 className="text-lg sm:text-xl font-black text-murzak-navy dark:text-white mt-2">
-                  {s.name}
-                </h3>
-
-                <div className="mt-4 flex items-center justify-between">
-                  {locked ? (
-                    <span className="px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest">
-                      Awaiting Payment
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">
-                      Active
-                    </span>
-                  )}
-
-                  <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan flex items-center gap-2">
-                    {locked ? "Pay now" : "Open"} <ArrowRight className="w-4 h-4" />
-                  </span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    )}
-  </>
-);
+const renderCloudSystemsGrid = () => null;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -282,15 +284,41 @@ const renderCloudSystemsGrid = () => (
   }, []);
 
   useEffect(() => {
-  const msg = (location.state as any)?.attachError;
-  if (!msg) return;
+    const msg = (location.state as any)?.attachError;
+    if (!msg) return;
+    setPlanAttachBanner(msg);
+    
+    // Clear it from history so refresh doesn't show it again
+    window.history.replaceState({}, document.title);
 
-  setPlanAttachBanner(String(msg));
+    const t = window.setTimeout(() => setPlanAttachBanner(""), 10000);
+    return () => window.clearTimeout(t);
+  }, [location.state]);
 
-  // optional auto-hide after 10s
-  const t = window.setTimeout(() => setPlanAttachBanner(""), 10000);
-  return () => window.clearTimeout(t);
-}, [location.key]);
+  // Poll for provisioning status if any service is "Setting up"
+  useEffect(() => {
+    const hasProvisioning = user?.selectedServices?.some(s => s.status === "Setting up");
+    if (!hasProvisioning) return;
+
+    let mounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (!res.ok || !mounted) return;
+        const data = await res.json();
+        if (data.ok && data.user) {
+          onUserUpdate(data.user);
+        }
+      } catch (e) {
+        // ignore network errors during poll
+      }
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [user?.selectedServices, onUserUpdate]);
 
   useEffect(() => {
     (async () => {
@@ -318,13 +346,9 @@ const renderCloudSystemsGrid = () => (
 
   useEffect(() => {
     void refreshChatUnread();
-  }, []);
-
-  useEffect(() => {
-    if (activeTab !== "sync") return;
     const t = setInterval(() => { void refreshChatUnread(); }, 25000);
     return () => clearInterval(t);
-  }, [activeTab]);
+  }, []);
 
   const handleAcknowledge = async (id: string) => {
     try {
@@ -350,20 +374,10 @@ const renderCloudSystemsGrid = () => (
 
   const unacknowledgedCount = localUpdates.filter((u) => !u.acknowledged).length;
 
+
+
   const allMenuItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-5 h-5" /> },
-    {
-      id: "sync",
-      label: isAdmin ? "Inbox" : "Updates & support",
-      icon: (
-        <div className="relative">
-          <MessageSquare className="w-5 h-5" />
-          {(unacknowledgedCount > 0 || unreadChatCount > 0) && (
-            <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-murzak-cyan rounded-full border-2 border-white dark:border-murzak-navy animate-pulse" />
-          )}
-        </div>
-      ),
-    },
     { id: "cloud", label: "My Systems", icon: <Server className="w-5 h-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
     { id: "profile", label: "My Account", icon: <UserIcon className="w-5 h-5" /> },
@@ -431,13 +445,15 @@ const renderCloudSystemsGrid = () => (
     return (Array.isArray(raw) ? raw : []).map((s) => {
       const serviceId = String(s.serviceId || s.service_id || "").trim();
       const svc = catalogLookup.get(s.serviceId);
-      const name = s.serviceName || s.service_name || svc?.name || serviceId;
+      const name = s.name || s.serviceName || s.service_name || svc?.name || serviceId;
       const tier = s.tier || svc?.tier;
       const category = svc?.category;
       const statusRaw = String(s.status || "").toLowerCase();
 
-      const status: "Active" | "Awaiting Payment" =
-        statusRaw.includes("active") || statusRaw.includes("paid")
+      const status: ServiceStatus =
+        statusRaw.includes("setting up") || statusRaw.includes("provision") || statusRaw.includes("configuring")
+          ? "Setting up"
+          : statusRaw.includes("active") || statusRaw.includes("paid")
           ? "Active"
           : "Awaiting Payment";
 
@@ -457,6 +473,30 @@ const renderCloudSystemsGrid = () => (
       };
     });
   }, [user, catalogLookup, addonServiceIds]);
+
+  const commandActions = useMemo<CommandAction[]>(() => {
+    const actions: CommandAction[] = [
+      { id: "nav-overview", title: "Go to Overview", subtitle: "Dashboard home", icon: <LayoutDashboard className="w-4 h-4" />, onSelect: () => onTabClick("overview") },
+      { id: "nav-systems", title: "Go to My Systems", subtitle: "View active services and servers", icon: <Server className="w-4 h-4" />, onSelect: () => onTabClick("cloud") },
+      { id: "nav-billing", title: "Go to Billing", subtitle: "Manage invoices and payment methods", icon: <CreditCard className="w-4 h-4" />, onSelect: () => onTabClick("billing") },
+      { id: "nav-profile", title: "Go to Profile", subtitle: "Account settings", icon: <UserIcon className="w-4 h-4" />, onSelect: () => onTabClick("profile") },
+      { id: "action-support", title: "Contact Support", subtitle: "Get help from our Nairobi team", icon: <Headphones className="w-4 h-4" />, onSelect: () => setIsContactOpen(true) },
+      { id: "action-deploy", title: "Deploy New Service", subtitle: "Add a new system to your infrastructure", icon: <Plus className="w-4 h-4" />, onSelect: () => openAddonsModal("overview") },
+    ];
+    selectedServices.forEach(s => {
+      actions.push({
+        id: `sys-${s.serviceId}`,
+        title: `Manage ${s.name}`,
+        subtitle: `${s.category} System`,
+        icon: <Terminal className="w-4 h-4" />,
+        onSelect: () => {
+          onTabClick("cloud");
+          navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
+        }
+      });
+    });
+    return actions;
+  }, [selectedServices, navigate]);
 
   const explicitAddonCount = useMemo(() => {
     return selectedServices.filter((s) => s.isAddon).length;
@@ -609,46 +649,15 @@ const renderCloudSystemsGrid = () => (
       .sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
   }, [planCode]);
 
-  useEffect(() => {
-  console.log("user.addonServiceIds", (user as any)?.addonServiceIds);
-  console.log("selectedServices raw", (user as any)?.selectedServices);
-  console.log("localInvoices", localInvoices);
-}, [user, localInvoices]);
 
   const applyAddonsSelection = async ({
-    covered,
     chargeable,
   }: {
-    covered: any[];
     chargeable: any[];
   }) => {
     try {
-      // 1) Add covered services directly to account
-      if (covered.length > 0) {
-        const res = await fetch("/api/services/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            services: covered.map((s) => ({
-              serviceId: s.id,
-              serviceName: s.name,
-              tier: s.tier,
-              domainChoice: "",
-            })),
-          }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || "Failed to add included services.");
-
-        if (data?.user) {
-          onUserUpdate(data.user);
-          setLocalInvoices(data.user.invoices || []);
-        }
-      }
-
-      // 2) Create invoice + attach chargeable add-ons
+      // Create invoice + attach the selected add-ons (always billed — there
+      // are no free plan-included slots, matching checkout).
       if (chargeable.length > 0) {
         await createAddonInvoice(chargeable);
 
@@ -683,7 +692,9 @@ const renderCloudSystemsGrid = () => (
   };
 
   const activeServices = selectedServices.filter((s) => s.status === "Active");
-  const pendingServices = selectedServices.filter((s) => s.status !== "Active");
+  // Only TRUE awaiting-payment services trigger the "payment required" banner —
+  // "Setting up" services are paid and being configured, not unpaid.
+  const pendingServices = selectedServices.filter((s) => s.status === "Awaiting Payment");
 
   const serviceIdToPlan = useMemo(() => {
     const m = new Map<string, PlanCode>();
@@ -693,14 +704,16 @@ const renderCloudSystemsGrid = () => (
     return m;
   }, []);
 
+  // Same destination as every other "Add Services" entry point in the portal
+  // (openAddonsModal) — Test plan is the one real exception: it allows a
+  // single trial service with no add-on mechanism, so growing means picking
+  // a real plan on the public Pricing page, not buying an add-on.
   const goToAddServices = () => {
-    // This should open pricing and directly open services modal for CURRENT plan
-    // You can read query params in Pricing.tsx to auto-open modal (recommended).
-    const qp = new URLSearchParams();
-    qp.set("returnTo", "/portal/billing");
-    qp.set("mode", "add-services");
-    qp.set("plan", planCode);
-    onNavigate(`/pricing?${qp.toString()}#pricing-plans` as any);
+    if (planCode === "Test") {
+      onNavigate(`/pricing#pricing-plans` as any);
+      return;
+    }
+    openAddonsModal("overview");
   };
 
   const goToUpgrade = () => {
@@ -750,17 +763,35 @@ const renderCloudSystemsGrid = () => (
   // --------------------------
   // Billing helpers (front-end)
   // --------------------------
+  // Real recurring cost: sum the catalog monthly price of the account's ACTIVE
+  // services (was hardcoded 5000/25000 magic numbers per plan).
   const monthlyBurnKes = useMemo(() => {
-    if ((user.plan || "").includes("Starter")) return 5000;
-    if ((user.plan || "").includes("Business")) return 25000;
-    return 0;
-  }, [user.plan]);
+    return selectedServices
+      .filter((s) => s.status === "Active")
+      .reduce((sum, s) => sum + (catalogLookup.get(s.serviceId)?.pricing?.monthlyKes || 0), 0);
+  }, [selectedServices, catalogLookup]);
 
   const hasUnpaidSubscriptionInvoice = useMemo(() => {
     return (localInvoices || []).some(
       (inv) => (inv?.type || "").toLowerCase().includes("subscription") && inv.status !== "Paid"
     );
   }, [localInvoices]);
+
+  // First payable subscription invoice (new plan OR renewal) — drives the
+  // portal-wide "invoice due" banner with a direct Pay CTA.
+  const dueSubscriptionInvoice = useMemo(() => {
+    return (localInvoices || []).find((inv: any) => {
+      const type = String(inv?.type || "").toLowerCase();
+      const status = String(inv?.status || "").toLowerCase();
+      return (
+        type.includes("subscription") &&
+        !!inv?.docName &&
+        (status === "unpaid" || status === "pending" || status === "overdue")
+      );
+    });
+  }, [localInvoices]);
+
+  const accountSuspended = String(user?.accountStatus || "").toLowerCase() === "suspended";
 
   const subscriptionIsPaid = useMemo(() => {
     // If plan is free (Test/Enterprise custom), treat as not eligible for addons here
@@ -786,7 +817,6 @@ const renderCloudSystemsGrid = () => (
     setAddonsError("");
 
     const payload = {
-      includedRemaining: remainingSlots,
       services: selectedAddons.map((s: any) => ({
         serviceId: s.id,
         serviceName: s.name,
@@ -917,7 +947,7 @@ const renderCloudSystemsGrid = () => (
     if (user.accountStatus === "Provisioning" && provisionProgress < 100) {
       return (
         <div className="space-y-12 animate-fade-in">
-          <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
+          <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
             <div className="max-w-4xl relative z-10">
               <div className="inline-flex items-center gap-3 bg-murzak-cyan/10 text-murzak-cyan px-4 py-2 rounded-full border border-murzak-cyan/20 mb-8">
                 <Activity className="w-4 h-4 animate-pulse" />
@@ -951,354 +981,232 @@ const renderCloudSystemsGrid = () => (
       );
     }
 
+    const onlineServiceCount = selectedServices.filter(s => s.status === 'Active').length;
+    const hasDegradedService = selectedServices.some(s => s.status !== 'Active' && s.status !== 'Setting up');
+
+    // Next-invoice estimate uses the same 30-day billing cycle the backend
+    // already assumes for prorated credit (see computeProratedCreditKes in
+    // server.js) — a real derivation from the last paid invoice's date, not a
+    // hardcoded countdown.
+    function nextInvoiceLabel(): string {
+      const latest = localInvoices[0];
+      if (!latest) return "—";
+      if (latest.status === "Unpaid" || latest.status === "Overdue") return "Due Now";
+      const paidDate = new Date(latest.date);
+      if (Number.isNaN(paidDate.getTime())) return "—";
+      const daysSincePaid = Math.floor((Date.now() - paidDate.getTime()) / 86400000);
+      const daysRemaining = Math.max(0, 30 - daysSincePaid);
+      return daysRemaining === 0 ? "Due Now" : `${daysRemaining} Days`;
+    }
+
+    const metricCards = [
+      {
+        title: "Active Services",
+        value: onlineServiceCount,
+        icon: <Server size={20} />
+      },
+      {
+        title: "Monthly Spend",
+        value: `KES ${Number(localInvoices.length > 0 && localInvoices[0]?.amount ? localInvoices[0].amount : 0).toLocaleString()}`,
+        icon: <DollarSign size={20} />
+      },
+      {
+        title: "Service Status",
+        value: selectedServices.length ? `${onlineServiceCount}/${selectedServices.length} Online` : "—",
+        icon: <Activity size={20} />,
+        trend: selectedServices.length ? (hasDegradedService ? "Attention needed" : "Healthy") : undefined,
+        trendUp: !hasDegradedService
+      },
+      {
+        title: "Next Invoice",
+        value: nextInvoiceLabel(),
+        icon: <CreditCard size={20} />,
+        actionLabel: nextInvoiceLabel() === "Due Now" ? "Pay Now" : undefined,
+        onAction: nextInvoiceLabel() === "Due Now" ? () => onTabClick("billing") : undefined
+      }
+    ];
+
+    const timelineEvents: TimelineEvent[] = localUpdates.slice(0, 5).map((u, i) => ({
+      id: u.id,
+      type: u.content.toLowerCase().includes('payment') ? 'payment' : u.content.toLowerCase().includes('support') ? 'support' : 'system',
+      title: u.engineer,
+      description: u.content,
+      timestamp: "Recent",
+      status: "success"
+    }));
+    
+    // Add a default welcome event if none
+    if (timelineEvents.length === 0) {
+      timelineEvents.push({
+        id: "welcome",
+        type: "account",
+        title: "Account Created",
+        description: "Welcome to Murzak Technologies. Your account is ready.",
+        timestamp: "Just now",
+        status: "success"
+      });
+    }
+
+    const healthServices: ServiceHealth[] = selectedServices.map(s => ({
+      id: s.serviceId,
+      name: s.name,
+      type: s.category || "Service",
+      status: s.status === "Active" ? "online" : s.status === "Setting up" ? "provisioning" : "warning",
+    }));
+
     return (
-      <div className="space-y-8 animate-fade-in">
-        {/* Top row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Node / CTA */}
-          <div className="lg:col-span-2 bg-murzak-navy text-white p-6 sm:p-10 rounded-[2.25rem] sm:rounded-[3.5rem] border border-white/10 shadow-3xl relative overflow-hidden group">
-            <div className="absolute -bottom-10 -right-10 opacity-10 rotate-12 transition-transform duration-1000 group-hover:rotate-45 group-hover:scale-110">
-              <Timer className="w-32 h-32 sm:w-44 sm:h-44 lg:w-60 lg:h-60" />
-            </div>
-            <div className="relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 mb-8">
-                {isTestUser ? (
-                  <Clock className="w-4 h-4 text-murzak-cyan" />
-                ) : (
-                  <Shield className="w-4 h-4 text-murzak-cyan" />
-                )}
-                <span className="text-[9px] font-black uppercase tracking-widest">
-                  {isTestUser ? "Free trial" : "Subscription active"}
+      <div className="space-y-8 animate-fade-in pb-12">
+        {/* Welcome Hero */}
+        <div className="glass-card rounded-[3rem] p-10 relative overflow-hidden group border border-white/10">
+          <div className="absolute inset-0 bg-gradient-to-r from-murzak-navy to-transparent opacity-90 dark:opacity-50"></div>
+          <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 bg-[url('/portal-hero-bg.png')] bg-cover mix-blend-overlay blur-sm transition-transform duration-1000 group-hover:scale-105"></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 mb-6 backdrop-blur-md">
+                <Crown className="w-4 h-4 text-murzak-cyan" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                  {user.plan} Plan
                 </span>
               </div>
-
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
-                Everything's <br />
-                <span className="text-murzak-cyan">up and running.</span>
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tighter uppercase leading-[0.9] text-white">
+                Welcome back,<br />
+                <span className="text-murzak-cyan">{(user.name || "User").split(' ')[0]}</span>.
               </h2>
-
-              <p className="text-xs sm:text-sm font-bold text-slate-300 mb-10 max-w-sm leading-relaxed opacity-90">
-                {user.evaluationGoal ? (
-                  <>What you're working on:{" "}
-                    <span className="text-murzak-cyan underline decoration-murzak-cyan/30 underline-offset-4">
-                      {user.evaluationGoal}
-                    </span>.
-                  </>
-                ) : (
-                  <>You're on the <span className="text-murzak-cyan">{user.plan}</span> plan. Manage your systems, billing and support all from here.</>
-                )}
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={() => onTabClick("cloud")}
-                  className="bg-murzak-cyan text-murzak-navy px-8 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
-                >
-                  Open my systems <ArrowRight className="w-4 h-4" />
-                </button>
-
-                <button
-                  onClick={() => onTabClick("sync")}
-                  className="px-8 py-4 rounded-xl border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3 backdrop-blur-md"
-                >
-                  Talk to support <Headphones className="w-4 h-4" />
-                </button>
-              </div>
             </div>
-          </div>
-
-          {/* Activity */}
-          <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl
-                           border border-slate-200 dark:border-white/10 p-10 rounded-[3.5rem] flex flex-col justify-between gap-8">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recent Activity</h3>
-            <div className="space-y-4">
-              {localUpdates.slice(0, 2).map((u) => (
-                <div
-                  key={u.id}
-                  className="p-4 bg-slate-200 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5"
+            
+            <div className="flex flex-wrap gap-4">
+              {healthServices.filter(s => s.status === 'online').slice(0, 2).map((s) => (
+                <button 
+                  key={`quick-${s.id}`}
+                  onClick={() => onTabClick("cloud")} 
+                  className="px-6 py-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan font-black text-[10px] uppercase tracking-widest border border-murzak-cyan/20 hover:bg-murzak-cyan hover:text-murzak-navy hover:shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
                 >
-                  <p className="text-[9px] font-black text-murzak-cyan uppercase tracking-widest mb-1">
-                    {u.engineer}
-                  </p>
-                  <p className="text-[10px] font-bold text-murzak-navy dark:text-slate-300 line-clamp-2">
-                    {u.content}
-                  </p>
-                </div>
+                  <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
+                </button>
               ))}
+              <button onClick={() => setIsContactOpen(true)} className="px-6 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+                <Headphones className="w-4 h-4" /> Get Support
+              </button>
             </div>
-            <button
-              onClick={() => onTabClick("sync")}
-              className="text-murzak-cyan font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:gap-4 transition-all"
-            >
-              View all updates <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
-        {/* Services + Upload row */}
+        {/* Metric Cards Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {metricCards.map((metric, i) => (
+            <MetricCard key={i} {...metric} />
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Selected services */}
-          <div className="lg:col-span-2 bg-white/60 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl border border-murzak-cyan/15 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
-            {planAttachBanner && (
-              <div className="mb-5 p-4 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-500 flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest">
-                    Selection not applied
-                  </p>
-                  <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 mt-1 leading-snug">
-                    {planAttachBanner}
-                  </p>
+          {/* Main Dashboard Area */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* System Health */}
+            <div className="glass-panel p-8 rounded-[3rem] border border-white/10">
+              <div className="flex items-center justify-between mb-8">
+                <div>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-white">System Health</h3>
+                  <p className="text-[10px] font-medium text-slate-400 mt-1">Live status of your active infrastructure</p>
                 </div>
+                <button onClick={() => onTabClick("cloud")} className="text-murzak-cyan hover:text-white transition-colors p-2">
+                  <ArrowRight size={20} />
+                </button>
               </div>
-            )}
-            <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  Selected Services
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  <span>
-                    Plan: <span className="text-murzak-cyan">{user.plan}</span>
-                  </span>
 
-                  <span className="opacity-60">•</span>
- 
-                  <span className="flex items-center gap-2">
-                    <span>Slots:</span>
-                    <span className="text-murzak-cyan">
-                      {planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}
-                    </span>
-
-                    {addonCount > 0 && (
-                      <span className="px-2 py-1 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 text-murzak-cyan text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
-                        +{addonCount}
-                      </span>
-                    )}
-                  </span>
+              {healthServices.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {healthServices.map(service => (
+                    <ServiceHealthCard 
+                      key={service.id} 
+                      service={service} 
+                      onAction={(action, id) => {
+                        if (action === "manage") {
+                          onTabClick("cloud");
+                          navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
+                        }
+                      }} 
+                    />
+                  ))}
                 </div>
-              </div>
-
-              <div className="w-full">
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
-                <button
-                  onClick={() => openAddonsModal ("overview")}
-                  className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Add Services
-                </button>
-
-                <button
-                  onClick={goToUpgrade}
-                  className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-murzak-cyan/30 bg-murzak-cyan/10 text-murzak-cyan font-black text-[9px] uppercase tracking-widest hover:border-murzak-cyan hover:bg-murzak-cyan/15 transition-all flex items-center gap-2"
-                >
-                  <Crown className="w-4 h-4" /> Upgrade
-                </button>
-                
-                {hasReachedPlanLimit && (
-                  <div className="hidden sm:flex flex-1 min-w-[320px] p-4 rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/10 text-murzak-navy dark:text-murzak-cyan items-start gap-3">
-                    <AlertCircle className="w-4 h-4 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest">
-                        Maximum services reached
-                      </p>
-                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 mt-1">
-                        You’ve used all included slots for {user.plan}. Add-ons can be purchased separately, or upgrade your plan.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {/* Mobile: compact warning below, wider so it doesn't force button height */}
-              {hasReachedPlanLimit && (
-                <div className="sm:hidden mt-3 p-3 rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/10 text-murzak-navy dark:text-murzak-cyan flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 mt-0.5" />
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest">
-                      Max. services reached
-                    </p>
-                    <p className="text-[9px] font-bold text-slate-600 dark:text-slate-300 mt-1 leading-snug">
-                      All free slots used. Add-ons are now billed separately.
-                    </p>
-                  </div>
+              ) : (
+                <div className="text-center py-12 rounded-[2rem] border border-dashed border-white/10 bg-white/5">
+                  <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">No Active Services</p>
+                  <p className="text-[10px] text-slate-500 max-w-xs mx-auto mb-6">You don't have any infrastructure running yet.</p>
+                  <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all inline-flex items-center gap-2">
+                    <Plus className="w-4 h-4" /> Deploy Services
+                  </button>
                 </div>
               )}
             </div>
+
+            {/* New Insights Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <SecurityOverviewCard />
+              <ResourceUtilizationCard />
             </div>
 
-            {selectedServices.length === 0 ? (
-              <div className="text-center py-14 bg-slate-50/50 dark:bg-white/5 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                  No services selected yet.
-                </p>
-                <button
-                  onClick={goToAddServices}
-                  className="mt-6 px-6 py-3 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all inline-flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Choose Services
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {selectedServices.map((s) => (
-                  <div
-                    key={s.serviceId}
-                    className={`rounded-[1.75rem] border p-5 transition-all ${
-                      s.status === "Active"
-                        ? "bg-murzak-cyan/5 border-murzak-cyan/30"
-                        : "bg-white/60 dark:bg-white/5 border-slate-200 dark:border-white/10"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-murzak-cyan/90">
-                          {s.category || "Service"} {s.tier ? `• ${s.tier}` : ""}
-                        </p>
-                        <button
-                          type="button"
-                          disabled={s.status !== "Active"}
-                          onClick={() => {
-                            if (s.status !== "Active") return;
-                            onTabClick("cloud");
-                            navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
-                          }}
-                          className={`text-left text-sm sm:text-base font-black mt-2 ${
-                            s.status === "Active" ? "hover:underline" : "cursor-not-allowed"
-                          } text-murzak-navy dark:text-white`}
-                        >
-                          {s.name}
-                        </button>                        
-                        {s.domainChoice ? (
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">
-                            Domain: {s.domainChoice}
-                          </p>
-                        ) : null}
-                      </div>
-
-                      <div className="shrink-0 flex flex-col items-end gap-3">
-                      {s.status === "Active" ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest">
-                            Active
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onRequestDelete(s, "overview")}
-                            className="p-2 rounded-xl border border-slate-200/70 dark:border-white/10 text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
-                            aria-label={`Delete ${s.name}`}
-                            title="Delete service"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
-                          Awaiting Payment
-                        </span>
-                        <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => onTabClick("billing")}
-                          className="px-3 py-2.5 sm:px-5 sm:py-3 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy
-                            font-black text-[9px] sm:text-[10px] uppercase tracking-widest hover:scale-[1.02] sm:hover:scale-105 transition-all"
-                          >
-                            Pay Now
-                        </button>                        
-
-                        <button
-                          type="button"
-                          onClick={() => onRequestDelete(s)}
-                          className="p-2 rounded-xl border border-slate-200/70 dark:border-white/10 text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
-                          aria-label={`Delete ${s.name}`}
-                          title="Delete service"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>  
-                      </div>
-                      </> 
-                      )}                   
-                    </div>                    
-                  </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {pendingServices.length > 0  && (
-              <div className="mt-6 p-4 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-500 flex items-start gap-3">
-                <AlertCircle className="w-4 h-4 mt-0.5" />
+            {/* General Upload */}
+            <div className="glass-panel p-8 rounded-[3rem] border border-white/10">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest">
-                    Payment required
-                  </p>
-                  <p className="text-[10px] font-bold text-orange-200/90 dark:text-orange-200/80">
-                    Some services are locked until you clear your outstanding subscription invoice.
-                  </p>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-white">Project Files</h3>
+                  <p className="text-[10px] font-medium text-slate-400 mt-1">Upload assets for engineers</p>
                 </div>
+                <label className="cursor-pointer px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest transition-all inline-flex items-center gap-2">
+                  <UploadCloud className="w-4 h-4" />
+                  {uploading ? "Uploading..." : "Upload"}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      handleGeneralUpload(f);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                </label>
               </div>
-            )}
-          </div>
-
-          {/* General upload */}
-          <div className="bg-murzak-navy text-white p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] border border-white/10 shadow-lg sm:shadow-xl">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-              General Upload
-            </p>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-3">
-              Upload project files for engineers to review.
-            </p>
-
-            <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
-              <label className="w-full cursor-pointer flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all">
-                <UploadCloud className="w-4 h-4" />
-                {uploading ? "Uploading..." : "Upload File"}
-                <input
-                  type="file"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    handleGeneralUpload(f);
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </label>
-
+              
               {uploadErr && (
-                <div className="mt-4 text-[10px] font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
+                <div className="mb-4 text-[10px] font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" /> {uploadErr}
                 </div>
               )}
 
-              {uploadedFiles.length > 0 && (
-                <div className="mt-5">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-300 mb-3">
-                    Recent uploads
-                  </p>
-                  <div className="space-y-2">
-                    {uploadedFiles.map((f) => (
-                      <a
-                        key={f.url}
-                        href={f.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition text-[10px] font-bold"
-                      >
-                        {f.name}
-                      </a>
-                    ))}
-                  </div>
+              {uploadedFiles.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {uploadedFiles.map((f) => (
+                    <a
+                      key={f.url}
+                      href={f.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="glass-card p-3 rounded-xl flex items-center gap-2 hover:border-murzak-cyan/50 transition-colors group"
+                    >
+                      <div className="p-2 bg-white/5 rounded-lg group-hover:bg-murzak-cyan/10 group-hover:text-murzak-cyan transition-colors">
+                        <Download size={14} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-300 truncate">{f.name}</span>
+                    </a>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-[10px] font-bold text-slate-500 text-center py-6">No files uploaded yet.</p>
               )}
             </div>
+          </div>
 
-            <button
-              onClick={() => onTabClick("sync")}
-              className="mt-6 w-full px-5 py-4 rounded-2xl border border-white/15 bg-white/5 hover:bg-white/10 transition font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
-            >
-              Send a message to support <ArrowRight className="w-4 h-4" />
-            </button>
+          {/* Sidebar */}
+          <div className="space-y-8">
+            {/* Activity Timeline */}
+            <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full">
+              <h3 className="text-[12px] font-black uppercase tracking-widest text-white mb-8">Activity Hub</h3>
+              <ActivityTimeline events={timelineEvents} />
+            </div>
           </div>
         </div>
       </div>
@@ -1306,51 +1214,88 @@ const renderCloudSystemsGrid = () => (
   };
 
   const renderBilling = () => (
-    <div className="space-y-12 animate-fade-in max-w-6xl mx-auto">
+    <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-12">
       <div className="flex justify-between items-end mb-4 px-2">
         <div>
-          <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-none">
-            Billing
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">
+            Billing & Plans
           </h2>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-4">
-            Your plan, invoices and payments — all in shillings
+            Manage your subscription, services and invoices
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Plan + services */}
-        <div className="lg:col-span-2 bg-murzak-navy text-white p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl border border-white/10 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 sm:p-6 lg:p-8 opacity-10 group-hover:scale-125 transition-transform">
-            <DollarSign className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20" />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Left Column: Plan + Actions */}
+        <div className="xl:col-span-2 space-y-8">
+          
+          {/* Plan Card */}
+          <div className="glass-card rounded-[3rem] p-8 sm:p-10 relative overflow-hidden group border border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-murzak-navy to-murzak-navy/90 z-0"></div>
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
+            
+            <div className="absolute top-8 right-8 opacity-10 group-hover:scale-110 transition-transform duration-700 z-0">
+              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
+            </div>
+
+            <div className="relative z-10 flex flex-col md:flex-row gap-8 justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/20 mb-6 backdrop-blur-md">
+                  <div className={`w-2 h-2 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                    {user.accountStatus} Subscription
+                  </span>
+                </div>
+
+                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-white">
+                  {user.plan}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-8">
+                  Monthly Billing • Next cycle in 14 days
+                </p>
+
+                <div className="flex gap-4">
+                  <button onClick={goToUpgrade} className="px-6 py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2">
+                    <ArrowUpCircle className="w-4 h-4" /> Change Plan
+                  </button>
+                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-white/10 text-white border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+                    <Plus className="w-4 h-4" /> Add Services
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md self-start min-w-[200px]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Monthly Burn</p>
+                <p className="text-3xl font-black text-murzak-cyan tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
+                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Slots used</span>
+                  <span className="text-[10px] font-black text-white">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="relative z-10">
-            <p className="text-[10px] font-black text-murzak-cyan uppercase tracking-widest mb-8">
-              Active Subscription
-            </p>
-
-            <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter mb-2 uppercase">
-              {user.plan}
+          {/* Included Services List */}
+          <div className="glass-panel rounded-[3rem] p-8 sm:p-10 border border-white/10">
+            <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-white mb-8 flex items-center gap-3">
+              <Server className="w-5 h-5 text-murzak-cyan" /> Provisioned Services
             </h3>
 
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">
-              Status: {user.accountStatus}
-            </p>
-
-            <div className="rounded-[1.75rem] bg-white border border-slate-200 dark:bg-white/10 dark:border-white/10 p-5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-murzak-cyan dark:text-slate-300">
-                Included Services
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {selectedServices.length === 0 ? (
-                  <p className="text-[10px] font-bold text-slate-300/70">
-                    No services selected yet.
+            <div className="space-y-4">
+              {selectedServices.length === 0 ? (
+                <div className="text-center py-12 rounded-[2rem] border border-dashed border-white/10 bg-white/5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    No services attached to this plan yet.
                   </p>
-                ) : (
-                  selectedServices.map((s) => (
-                    <div key={s.serviceId} className="flex items-start gap-3">
+                </div>
+              ) : (
+                selectedServices.map((s) => (
+                  <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-murzak-cyan/30 transition-colors group">
+                    <div className="flex items-start sm:items-center gap-4">
+                      <div className={`p-3 rounded-2xl ${s.status === 'Active' ? 'bg-murzak-cyan/10 text-murzak-cyan' : 'bg-orange-500/10 text-orange-500'}`}>
+                        {s.status === 'Active' ? <Zap className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                      </div>
                       <div>
                         <button
                           type="button"
@@ -1360,237 +1305,195 @@ const renderCloudSystemsGrid = () => (
                             onTabClick("cloud");
                             navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
                           }}
-                          className={`text-left text-[10px] font-black ${
-                            s.status === "Active" ? "hover:underline" : "cursor-not-allowed"
-                          } text-murzak-navy dark:text-white`}
+                          className={`text-left text-sm font-black ${
+                            s.status === "Active" ? "hover:text-murzak-cyan" : "cursor-not-allowed"
+                          } text-murzak-navy dark:text-white transition-colors`}
                         >
                           {s.name}
                         </button>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-300 mt-1">
-                          {s.tier || "Tier"} {s.domainChoice ? `• Domain: ${s.domainChoice}` : ""}
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                          {s.category || "Service"} {s.tier ? `• ${s.tier}` : ""} {s.domainChoice ? `• Domain: ${s.domainChoice}` : ""}
                         </p>
                       </div>
-                      <div className="ml-auto flex items-center gap-2 shrink-0 justify-end">
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-navy dark:bg-white/10 text-white border border-slate-200 dark:border-white/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(46,166,255,0.15)] group-hover:shadow-[0_0_20px_rgba(46,166,255,0.3)]">
+                          <Terminal className="w-3 h-3 text-murzak-cyan" /> Developer Access
+                        </button>
+                        
                         {s.status === "Active" ? (
-                          <span className="px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 text-[8px] font-black uppercase tracking-widest whitespace-nowrap">
-                            Active
+                          <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> Active
+                          </span>
+                        ) : s.status === "Setting up" ? (
+                          <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div> Setting Up
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[8px] font-black uppercase tracking-widest whitespace-nowrap">
-                            Awaiting
+                          <span className="px-3 py-1.5 rounded-full bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div> {s.status || "Pending"}
                           </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => onRequestDelete(s, "billing")}
-                          className="p-2 rounded-xl border border-slate-200/70 dark:border-white/10 text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
-                          aria-label={`Delete ${s.name}`}
-                          title="Delete service"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>                      
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => onRequestDelete(s, "billing")}
+                        className="p-2.5 rounded-xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        title="Remove service"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-5 pt-5 border-t border-white/10 flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  Slots remaining
-                </span>
-                <span className="text-[10px] font-black text-murzak-cyan">
-                  {remainingSlots}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3 mt-6">
-              <button
-                onClick={() => openAddonsModal("billing")}
-                className="w-full bg-murzak-cyan text-murzak-navy rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" /> Add Services
-              </button>
-
-              <button
-                onClick={goToUpgrade}
-                className="w-full bg-white/5 border border-white/15 text-white rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-              >
-                <Crown className="w-4 h-4 text-murzak-cyan" /> Upgrade Plan
-              </button>
-
-              <div className="pt-4 border-t border-white/10">
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-black uppercase text-slate-400">Monthly Burn</span>
-                  <span className="text-xl font-black text-murzak-cyan">
-                    KES {monthlyBurnKes.toLocaleString()}
-                  </span>
-                </div>
-              </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
 
-        {/* Invoices */}
-        <div className="lg:col-span-1 bg-white/90 dark:bg-murzak-navy/85 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl border-2 border-murzak-navy/20">
-          <div className="flex flex-col sm:flex-row lg:flex-col gap-3 sm:gap-4 items-start sm:items-center lg:items-start justify-between mb-6 sm:mb-10">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-              Settlement History
-            </h3>
-            <button
-              onClick={async () => {
-                try {
-                  setDownloadingAll(true);
-                  await downloadAllInvoicesZip();
-                } catch (e: any) {
-                  alert(e?.message || "Failed to download invoices.");
-                } finally {
-                  setDownloadingAll(false);
-                }
-              }}
-              disabled={downloadingAll || localInvoices.length === 0}
-              className="text-[9px] font-black text-murzak-cyan uppercase tracking-widest flex items-center gap-2 disabled:opacity-60 sm:w-auto lg:w-full justify-start"
-            >
-              {downloadingAll ? "Preparing..." : "Download All"}{" "}
-              <Download className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex-grow space-y-4">
-            {localInvoices.map((inv) => (
-              <div
-                key={inv.id}
-                id={`inv-${inv.id}`}
-                data-service-id={(inv as any).serviceId || ""}
-                className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-start justify-between bg-slate-200 dark:bg-white/10 border border-slate-100 dark:border-white/10 p-4 sm:p-6 rounded-[1.75rem] sm:rounded-3xl gap-3 sm:gap-4"
+        {/* Right Column: Invoices */}
+        <div className="xl:col-span-1">
+          <div className="glass-panel rounded-[3rem] p-8 border border-white/10 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-3">
+                <Receipt className="w-5 h-5 text-murzak-cyan" /> Invoices
+              </h3>
+              <button
+                onClick={async () => {
+                  try {
+                    setDownloadingAll(true);
+                    await downloadAllInvoicesZip();
+                  } catch (e: any) {
+                    alert(e?.message || "Failed to download invoices.");
+                  } finally {
+                    setDownloadingAll(false);
+                  }
+                }}
+                disabled={downloadingAll || localInvoices.length === 0}
+                className="p-2 rounded-xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-murzak-cyan hover:border-murzak-cyan/30 hover:bg-murzak-cyan/10 transition-all disabled:opacity-50"
+                title="Download All"
               >
-                <div className="flex items-center gap-4">
+                {downloadingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[600px]">
+              {localInvoices.length === 0 ? (
+                <div className="text-center py-16">
+                  <Receipt className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-4 opacity-50" />
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    No transactions yet.
+                  </p>
+                </div>
+              ) : (
+                localInvoices.map((inv) => (
                   <div
-                    className={`p-3 sm:p-4 lg:p-3 rounded-xl sm:rounded-2xl ${
-                      inv.status === "Paid"
-                        ? "bg-green-500/10 text-green-500"
-                        : "bg-orange-500/10 text-orange-500"
-                    }`}
+                    key={inv.id}
+                    className="p-5 rounded-[1.75rem] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-murzak-cyan/20 transition-all group relative overflow-hidden"
                   >
-                    <CheckCircle2 className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      {inv.id}
-                    </p>
-                    <p className="text-sm font-bold text-murzak-navy dark:text-white">
-                      {(inv.type || "").toLowerCase().replace(/[^a-z]/g, "").includes("addon") ? "Add-on Invoice" : inv.type} • {inv.date}
-                    </p>
-                    {inv.plan ? (
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">
-                        Plan: {inv.plan}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
+                    {/* Status accent line */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${inv.status === 'Paid' ? 'bg-green-500/50' : 'bg-orange-500/50'}`}></div>
+                    
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                          {inv.date}
+                        </p>
+                        <p className="text-xs font-black text-murzak-navy dark:text-white">
+                          {(inv.type || "").toLowerCase().replace(/[^a-z]/g, "").includes("addon") ? "Add-on Invoice" : inv.type}
+                        </p>
+                        {inv.plan && (
+                          <p className="text-[9px] font-bold text-murzak-cyan uppercase tracking-widest mt-1">
+                            {inv.plan}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-lg font-black tracking-tighter">
+                          KES {Number(inv.amount || 0).toLocaleString()}
+                        </p>
+                        <span className={`inline-block mt-1 px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                          inv.status === 'Paid' 
+                            ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                            : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                        }`}>
+                          {inv.status === 'Paid' ? 'Settled' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="w-full sm:w-auto lg:w-full">
-                  {/* Row 1: Amount + Status */}
-                  <div className="flex items-center justify-between sm:justify-end lg:justify-between gap-3">
-                    <p className="text-lg sm:text-2xl lg:text-2xl font-black tracking-tighter">
-                      KES {Number(inv.amount || 0).toLocaleString()}
-                    </p>
-
-                    {inv.status !== "Paid" ? (
-                      <span className="px-3 py-1.5 bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
-                        Pending
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1.5 bg-green-500/10 text-green-500 border border-green-500/20 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
-                        Settled
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Row 2: Pay + Icons */}
-                  <div className="mt-3 flex items-center gap-2 w-full">
-                    {inv.status !== "Paid" ? (
+                    <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                      {inv.status !== "Paid" && (
+                        <button
+                          onClick={() => navigate(`/payment/${encodeURIComponent(inv.docName)}`)}
+                          className="flex-1 py-2.5 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all text-center"
+                        >
+                          Pay Now
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => navigate(`/payment/${encodeURIComponent(inv.docName)}`)}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy
-                          font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all"
+                        type="button"
+                        disabled={downloadingId === inv.id}
+                        onClick={async () => {
+                          try {
+                            setDownloadingId(inv.id);
+                            await downloadInvoicePdf(inv.docName);
+                          } catch (e: any) {
+                            alert(e?.message || "Failed to download invoice.");
+                          } finally {
+                            setDownloadingId(null);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition-all ${inv.status === 'Paid' ? 'flex-1 flex justify-center items-center gap-2' : ''}`}
                       >
-                        Pay Now
+                        {downloadingId === inv.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 text-slate-500" />
+                            {inv.status === 'Paid' && <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Download</span>}
+                          </>
+                        )}
                       </button>
-                    ) : (
-                      <div className="flex-1" />
-                    )}
 
-                    {/* Delete */}
-                    <button
-                      type="button"
-                      disabled={deletingId === inv.id}
-                      onClick={async () => {
-                        const ok = window.confirm(`Delete invoice ${inv.id}? It will be removed from your portal.`);
-                        if (!ok) return;
+                      <button
+                        type="button"
+                        disabled={deletingId === inv.id}
+                        onClick={async () => {
+                          const ok = window.confirm(`Delete invoice ${inv.id}?`);
+                          if (!ok) return;
 
-                        const prev = localInvoices;
-                        setDeletingId(inv.id);
-                        setLocalInvoices((xs) => xs.filter((x) => x.id !== inv.id));
+                          const prev = localInvoices;
+                          setDeletingId(inv.id);
+                          setLocalInvoices((xs) => xs.filter((x) => x.id !== inv.id));
 
-                        try {
-                          await deleteInvoice(inv.id);
-                        } catch (e: any) {
-                          setLocalInvoices(prev);
-                          alert(e?.message || "Failed to delete invoice.");
-                        } finally {
-                          setDeletingId(null);
-                        }
-                      }}
-                      className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all disabled:opacity-60"
-                      aria-label={`Delete invoice ${inv.id}`}
-                      title="Delete"
-                    >
-                      {deletingId === inv.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    {/* Download */}
-                    <button
-                      type="button"
-                      disabled={downloadingId === inv.id}
-                      onClick={async () => {
-                        try {
-                          setDownloadingId(inv.id);
-                          await downloadInvoicePdf(inv.docName);
-                        } catch (e: any) {
-                          alert(e?.message || "Failed to download invoice.");
-                        } finally {
-                          setDownloadingId(null);
-                        }
-                      }}
-                      className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition-all disabled:opacity-60"
-                      aria-label={`Download invoice ${inv.id}`}
-                      title="Download"
-                    >
-                      {downloadingId === inv.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                    </button>
+                          try {
+                            await deleteInvoice(inv.id);
+                          } catch (e: any) {
+                            setLocalInvoices(prev);
+                            alert(e?.message || "Failed to delete invoice.");
+                          } finally {
+                            setDeletingId(null);
+                          }
+                        }}
+                        className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all text-slate-500 hover:text-red-500"
+                      >
+                        {deletingId === inv.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-
-            {localInvoices.length === 0 && (
-              <div className="text-center py-20 bg-slate-50/50 dark:bg-white/5 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10">
-                <BarChart size={32} className="mx-auto text-slate-300 mb-4 opacity-50" />
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                  No transaction records found.
-                </p>
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1598,21 +1501,22 @@ const renderCloudSystemsGrid = () => (
   );
 
   const renderSyncHub = () => (
-    <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
+    <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-[900] tracking-tighter uppercase leading-none">Updates &amp; support</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Updates &amp; support</h2>
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-4">
             Messages from our Nairobi team — and your support thread
           </p>
         </div>
-        <div className="bg-murzak-cyan/10 text-murzak-cyan px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl border border-murzak-cyan/20 text-[9px] sm:text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
-          Usually replies same day
+        <div className="bg-murzak-cyan/10 text-murzak-cyan px-4 py-2 rounded-xl border border-murzak-cyan/20 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(46,166,255,0.15)] flex items-center gap-2">
+          <Clock className="w-4 h-4" /> Usually replies same day
         </div>
       </div>
 
+      {/* Main Support CTA */}
       <div
-        className="bg-murzak-navy text-white p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] border border-white/10 flex items-center justify-between gap-4 sm:gap-8 group cursor-pointer"
+        className="glass-card rounded-[3rem] p-8 sm:p-10 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-8 group cursor-pointer relative overflow-hidden"
         onClick={async () => {
           if (!user?.email) return;
 
@@ -1639,155 +1543,195 @@ const renderCloudSystemsGrid = () => (
           await refreshChatUnread();
         }}
       >
-        <div className="flex items-center gap-6">
-          <div className="p-3 sm:p-4 bg-white/10 rounded-xl sm:rounded-2xl relative">
-            <Headphones className="w-6 h-6" />
+        <div className="absolute inset-0 bg-gradient-to-r from-murzak-navy to-murzak-navy/90 z-0"></div>
+        <div className="absolute -right-24 top-1/2 -translate-y-1/2 w-64 h-64 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 z-0"></div>
+
+        <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
+          <div className="p-4 sm:p-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl relative shadow-lg group-hover:scale-110 transition-transform duration-500">
+            <Headphones className="w-8 h-8 text-white" />
             {unreadChatCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-murzak-cyan text-murzak-navy text-[10px] font-black flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 min-w-[24px] h-[24px] px-1 rounded-full bg-murzak-cyan text-murzak-navy text-[11px] font-black flex items-center justify-center shadow-[0_0_10px_rgba(46,166,255,0.5)] border-2 border-murzak-navy animate-pulse">
                 {unreadChatCount}
               </span>
             )}
           </div>
 
           <div>
-            <h4 className="text-base sm:text-lg lg:text-xl font-black tracking-tight">
+            <h4 className="text-xl sm:text-2xl font-black tracking-tight text-white group-hover:text-murzak-cyan transition-colors">
               Need a hand with something?
             </h4>
-            <p className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest">
-              Open your support thread with our team
+            <p className="text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest mt-1">
+              Open your support thread with our engineering team
             </p>
           </div>
         </div>
-        <ChevronRight className="w-6 h-6 text-murzak-cyan group-hover:translate-x-3 transition-transform" />
+
+        <div className="relative z-10 w-full md:w-auto flex justify-end">
+          <div className="p-4 rounded-full bg-white/5 border border-white/10 group-hover:bg-murzak-cyan/20 group-hover:border-murzak-cyan/50 transition-all duration-300">
+            <ChevronRight className="w-6 h-6 text-murzak-cyan group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
       </div>      
 
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <select
-            value={updatesSort}
-            onChange={(e) => setUpdatesSort(e.target.value as any)}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="alpha">A–Z</option>
-            <option value="type">Type</option>
-          </select>
-
-          <button
-            onClick={selectAll}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
-          >
-            Select all
-          </button>
-
-          <button
-            onClick={clearSelection}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 text-[10px] font-black uppercase tracking-widest"
-          >
-            Clear
-          </button>
-        </div>
-
-        <button
-          onClick={bulkDelete}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest"
-        >
-          <Trash2 className="w-4 h-4" /> Delete selected ({selectedIds.size})
-        </button>
-      </div>
-     
-      <div className="space-y-6">
-        {sortedUpdates.map((update) => {
-          const isOpen = expandedId === update.id;
-          const title = (update as any).title || `${update.engineer} — ${update.type}`;
-
-          return (
-            <div key={update.id} className="relative ...">
-              {/* row: checkbox + header + single delete */}
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.has(update.id)}
-                  onChange={() => toggleSelected(update.id)}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isOpen ? null : update.id)}
-                  className="flex-1 text-left"
-                >
-                  {/* collapsed title line */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">
-                      {title}
-                    </span>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      {new Date(update.timestamp).toLocaleDateString()} •{" "}
-                      {new Date(update.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => deleteOneUpdate(update.id)}
-                  className="p-2 rounded-lg hover:bg-red-500/10 text-red-500"
-                  title="Delete notification"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+      <div className="glass-panel rounded-[3rem] p-8 border border-white/10">
+        {/* Toolbar */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-2">
+            <Bell className="w-5 h-5 text-murzak-cyan" /> Notifications
+          </h3>
+          
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-grow sm:flex-grow-0">
+              <select
+                value={updatesSort}
+                onChange={(e) => setUpdatesSort(e.target.value as any)}
+                className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 focus:outline-none focus:border-murzak-cyan/50 focus:ring-1 focus:ring-murzak-cyan/50"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="alpha">A–Z</option>
+                <option value="type">By Type</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                <ChevronRight className="w-4 h-4 rotate-90" />
               </div>
+            </div>
 
-              {/* expanded details */}
-              {isOpen && (
-                <>
-                  <div className="mt-4">
-                    <p className="text-sm font-bold text-murzak-navy dark:text-white leading-relaxed">
-                      {update.content}
-                    </p>
+            <button
+              onClick={selectAll}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-colors"
+            >
+              Select all
+            </button>
+
+            <button
+              onClick={clearSelection}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-colors"
+            >
+              Clear
+            </button>
+            
+            <button
+              onClick={bulkDelete}
+              disabled={selectedIds.size === 0}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" /> Delete ({selectedIds.size})
+            </button>
+          </div>
+        </div>
+      
+        <div className="space-y-4">
+          {sortedUpdates.map((update) => {
+            const isOpen = expandedId === update.id;
+            const title = (update as any).title || `${update.engineer} — ${update.type}`;
+            const isUnread = !update.acknowledged;
+
+            return (
+              <div key={update.id} className={`glass-card rounded-[2rem] border transition-all duration-300 ${
+                isUnread ? 'border-murzak-cyan/30 shadow-[0_0_15px_rgba(46,166,255,0.1)]' : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]'
+              } ${isOpen ? 'p-6' : 'p-4'}`}>
+                {/* row: checkbox + header + single delete */}
+                <div className="flex items-center gap-4">
+                  <div className="relative flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(update.id)}
+                      onChange={() => toggleSelected(update.id)}
+                      className="w-5 h-5 rounded border-slate-300 dark:border-white/20 text-murzak-cyan focus:ring-murzak-cyan/50 cursor-pointer appearance-none bg-white dark:bg-white/10 checked:bg-murzak-cyan checked:border-murzak-cyan transition-all peer"
+                    />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-murzak-navy absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
                   </div>
 
-                  {!update.acknowledged ? (
-                    <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-white/10 mt-4">
-                      <button
-                        onClick={async () => {
-                          // persist ack
-                          await fetch("/api/portal/updates/ack", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            credentials: "include",
-                            body: JSON.stringify({ id: update.id }),
-                          });
-                          await refreshUpdates();
-                        }}
-                        className="bg-murzak-cyan text-murzak-navy px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest"
-                      >
-                        Mark as read <CheckCircle2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex justify-end pt-4 mt-4">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        Read
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isOpen ? null : update.id)}
+                    className="flex-1 text-left group"
+                  >
+                    {/* collapsed title line */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        {isUnread && <div className="w-2 h-2 rounded-full bg-murzak-cyan shadow-[0_0_8px_#2ea6ff] animate-pulse"></div>}
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${isUnread ? 'text-murzak-cyan' : 'text-slate-600 dark:text-slate-300'} group-hover:text-murzak-cyan transition-colors`}>
+                          {title}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-5 sm:ml-0">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(update.timestamp).toLocaleDateString()} •{" "}
+                        {new Date(update.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
+                  </button>
 
-        {sortedUpdates.length === 0 && (
-          <div className="text-center py-16 sm:py-24 bg-slate-50 dark:bg-white/5 rounded-[2.25rem] sm:rounded-[3.5rem] border border-dashed border-slate-200 dark:border-white/10">
-            <MessageSquare className="mx-auto w-12 h-12 text-slate-300 mb-6 opacity-50" />
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
-              No updates yet — we'll post here when there's news.
-            </p>
-          </div>
-        )}
+                  <button
+                    type="button"
+                    onClick={() => deleteOneUpdate(update.id)}
+                    className="p-2.5 rounded-xl hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors"
+                    title="Delete notification"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isOpen ? null : update.id)}
+                    className={`p-2 rounded-full hover:bg-white/10 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                  >
+                    <ChevronRight className="w-5 h-5 rotate-90" />
+                  </button>
+                </div>
+
+                {/* expanded details */}
+                <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-6' : 'grid-rows-[0fr] opacity-0'}`}>
+                  <div className="overflow-hidden pl-9 pr-14">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 leading-relaxed bg-white/50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/5">
+                      {update.content}
+                    </p>
+
+                    <div className="flex justify-end pt-5 mt-5 border-t border-slate-100 dark:border-white/10">
+                      {!update.acknowledged ? (
+                        <button
+                          onClick={async () => {
+                            // persist ack
+                            await fetch("/api/portal/updates/ack", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ id: update.id }),
+                            });
+                            await refreshUpdates();
+                          }}
+                          className="bg-murzak-cyan text-murzak-navy px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-[0_0_15px_rgba(46,166,255,0.3)] flex items-center gap-2"
+                        >
+                          Mark as read <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" /> Read
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {sortedUpdates.length === 0 && (
+            <div className="text-center py-20 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-white/10">
+              <div className="w-20 h-20 rounded-full bg-slate-200/50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
+                <Bell className="w-8 h-8 text-slate-400" />
+              </div>
+              <p className="text-[12px] font-black text-slate-500 uppercase tracking-widest">
+                No updates yet
+              </p>
+              <p className="text-[10px] font-bold text-slate-400 mt-2">
+                We'll notify you here when there's news about your systems.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1827,7 +1771,21 @@ const renderCloudSystemsGrid = () => (
         </div>
       </div>
 
-      {!cloudServiceId && renderCloudSystemsGrid()}
+      {!cloudServiceId && (
+        <div className="space-y-8">
+          <TopologyMap 
+            services={selectedServices} 
+            onNodeClick={(id) => {
+              const svc = selectedServices.find(s => s.serviceId === id);
+              if (svc?.status === "Awaiting Payment") {
+                navigate("/portal/billing");
+              } else {
+                setActiveLogServiceId(id);
+              }
+            }}
+          />
+        </div>
+      )}
 
       {cloudServiceId === "biz-web-hosting" && <WebsiteHostingDashboard />}
 
@@ -1835,7 +1793,7 @@ const renderCloudSystemsGrid = () => (
         const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);
         const isActive = svc?.status === "Active";
         return (
-          <div className="rounded-[2.25rem] border border-slate-200 dark:border-white/10 bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-xl p-7 sm:p-10">
+          <div className="rounded-[2.25rem] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 sm:p-10">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="p-3.5 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Server className="w-6 h-6" /></div>
@@ -1868,7 +1826,7 @@ const renderCloudSystemsGrid = () => (
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => onTabClick("sync")}
+                onClick={() => setIsContactOpen(true)}
                 className="px-6 py-3.5 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
               >
                 <Headphones className="w-4 h-4" /> Message support
@@ -1889,69 +1847,117 @@ const renderCloudSystemsGrid = () => (
   );
 
   const renderProfile = () => (
-    <div className="space-y-8 animate-fade-in max-w-5xl mx-auto">
-      <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Account Profile</h2>
+    <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Account Profile</h2>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-4">
+            Manage your personal information, security and active plans
+          </p>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
-        <div className="bg-white/55 dark:bg-murzak-navy/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8">
-            Personal Information
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+        {/* Personal Information */}
+        <div className="glass-card bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700 pointer-events-none">
+            <UserIcon className="w-24 h-24 text-murzak-cyan" />
+          </div>
+          
+          <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
+            <UserCircle className="w-5 h-5 text-murzak-cyan" /> Personal Information
           </h3>
-          <div className="space-y-6">
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Full Name</p>
-              <p className="text-base sm:text-lg lg:text-xl font-black break-words">{user.name}</p>
+          
+          <div className="space-y-8 relative z-10">
+            <div className="group/item">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Full Name
+              </p>
+              <p className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+                {user.name}
+              </p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Email Address</p>
-              <p className="text-base sm:text-lg lg:text-xl font-black break-words">{user.email}</p>
+            
+            <div className="group/item">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Email Address
+              </p>
+              <p className="text-lg sm:text-xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+                {user.email}
+              </p>
             </div>
-            <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Business Name</p>
-              <p className="text-base sm:text-lg lg:text-xl font-black break-words">{user.company}</p>
+            
+            <div className="group/item">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Business Name
+              </p>
+              <p className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+                {user.company}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-murzak-navy text-white p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] border border-white/10 shadow-lg sm:shadow-xl flex flex-col justify-between">
-          <div>
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">
-              Service Plan
+        {/* Service Plan */}
+        <div className="glass-card bg-murzak-navy text-white p-8 sm:p-10 rounded-[3rem] border border-white/10 shadow-xl flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-transparent to-murzak-cyan/5 z-0 pointer-events-none"></div>
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-cyan/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
+
+          <div className="relative z-10">
+            <h3 className="text-[12px] font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3">
+              <Shield className="w-5 h-5 text-murzak-cyan" /> Service Plan
             </h3>
-            <div className="flex items-center gap-4 mb-2">
-              <Shield className="text-murzak-cyan w-6 h-6" />
-              <p className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tighter">
+            
+            <div className="flex flex-col gap-2 mb-8">
+              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-white">
                 {user.plan || "None"}
               </p>
+              <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-md">
+                <div className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                  Status: {user.accountStatus}
+                </span>
+              </div>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Status: {user.accountStatus}
-            </p>
 
-            <div className="mt-6 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-300">
-                Services
-              </p>
-              <p className="text-[10px] font-bold text-slate-400 mt-2">
-                {selectedServices.length} selected • {remainingSlots} slots remaining
-              </p>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group-hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">
+                  Provisioned Services
+                </p>
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                  <Server className="w-4 h-4 text-white" />
+                </div>
+              </div>
+              
+              <div className="flex items-end gap-2">
+                <span className="text-3xl font-black">{selectedServices.length}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pb-1">
+                  Active
+                </span>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Available Slots</span>
+                <span className="text-[10px] font-black text-white">{remainingSlots}</span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-3 mt-6">
+          <div className="space-y-3 mt-8 relative z-10">
             <button
               onClick={() => {
                 setAddonsError("");
                 setAddonsOpen(true);
               }}
-              className="bg-murzak-cyan text-murzak-navy w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+              className="w-full bg-murzak-cyan text-murzak-navy rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(46,166,255,0.2)] flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Services
             </button>
 
             <button
               onClick={goToUpgrade}
-              className="bg-white/5 border border-white/15 text-white w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              className="w-full bg-white/5 border border-white/15 text-white rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:bg-white/10 transition-all backdrop-blur-md flex items-center justify-center gap-2"
             >
               <Crown className="w-4 h-4 text-murzak-cyan" /> Upgrade Plan
             </button>
@@ -1959,24 +1965,68 @@ const renderCloudSystemsGrid = () => (
         </div>
       </div>
 
-      <ChangePasswordCard />
-
-      <button
-        onClick={() => setShowOnboarding(true)}
-        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 text-murzak-navy dark:text-white font-black text-[10px] uppercase tracking-widest hover:border-murzak-cyan transition-all"
-      >
-        <Activity className="w-4 h-4 text-murzak-cyan" /> Replay the welcome tour
-      </button>
+      <div className="glass-panel p-8 sm:p-10 rounded-[3rem] border border-white/10">
+        <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-3">
+          <Settings className="w-5 h-5 text-murzak-cyan" /> Account Preferences
+        </h3>
+        
+        <div className="space-y-6">
+          <ChangePasswordCard />
+          
+          <div className="pt-8 mt-8 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-6">
+            <div>
+              <h4 className="text-sm font-black text-murzak-navy dark:text-white">Welcome Tour</h4>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Re-run the onboarding experience</p>
+            </div>
+            <button
+              onClick={() => setShowOnboarding(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 text-murzak-navy dark:text-white font-black text-[10px] uppercase tracking-widest hover:border-murzak-cyan hover:bg-murzak-cyan/5 transition-all"
+            >
+              <Activity className="w-4 h-4 text-murzak-cyan" /> Replay Tour
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
   const renderRoadmap = () => (
-    <div className="space-y-8 sm:space-y-12 animate-fade-in max-w-5xl mx-auto">
-      <div className="text-center py-20 bg-slate-50/50 dark:bg-white/5 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10">
-        <Navigation className="mx-auto w-10 h-10 text-slate-300 mb-5 opacity-60" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-          Roadmap module coming next.
-        </p>
+    <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
+        <div>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Product Roadmap</h2>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-4">
+            See what we're building and what's coming next
+          </p>
+        </div>
+      </div>
+
+      <div className="glass-card bg-murzak-navy text-white p-8 sm:p-12 lg:p-16 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group min-h-[400px] flex items-center justify-center text-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-murzak-navy to-murzak-navy/80 z-0"></div>
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
+        <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-500/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
+
+        <div className="relative z-10 max-w-lg mx-auto">
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-xl relative group-hover:scale-110 transition-transform duration-700">
+            <div className="absolute inset-0 border border-murzak-cyan/30 rounded-full animate-ping opacity-20"></div>
+            <Navigation className="w-10 h-10 sm:w-12 sm:h-12 text-murzak-cyan" />
+          </div>
+          
+          <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase mb-4 text-white">
+            Charting the Future
+          </h3>
+          
+          <p className="text-sm sm:text-base font-medium text-slate-400 leading-relaxed mb-10">
+            Our engineering team is hard at work building the next generation of enterprise tools. The roadmap module will launch here shortly with interactive feature voting and progress tracking.
+          </p>
+
+          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+            <div className="w-2 h-2 rounded-full bg-murzak-cyan shadow-[0_0_8px_#2ea6ff] animate-pulse"></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+              Module currently in development
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1985,16 +2035,12 @@ const renderCloudSystemsGrid = () => (
     switch (tab) {
       case "overview":
         return renderOverview();
-      case "sync":
-        return isAdmin ? <AdminTabs /> : renderSyncHub();
       case "cloud":
         return renderCloud();
       case "billing":
         return renderBilling();
       case "profile":
         return renderProfile();
-      case "roadmap":
-        return renderRoadmap();
       default:
         return renderOverview();
     }
@@ -2069,14 +2115,6 @@ const renderCloudSystemsGrid = () => (
             >
               <LogOut className="w-4 h-4" /> Log out
             </button>
-            <button
-              onClick={toggleTheme}
-              className="hidden lg:flex shrink-0 p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-murzak-navy dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
-              aria-label="Toggle theme"
-              title="Toggle theme"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
           </div>
       </aside>
 
@@ -2095,7 +2133,7 @@ const renderCloudSystemsGrid = () => (
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
           <div className="flex-grow">
             <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-navy dark:text-white tracking-tighter uppercase leading-none">
-              Welcome back, {user.name.split(" ")[0]}
+              Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
             <p className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] sm:tracking-[0.4em] mt-3 sm:mt-4">
               {user.company} • {isTestUser ? "Free trial" : `${user.plan} plan`} • Nairobi
@@ -2111,31 +2149,85 @@ const renderCloudSystemsGrid = () => (
           >
             <Menu className="w-5 h-5" />
           </button>
-          <button
-            onClick={toggleTheme}
-            className="lg:hidden fixed top-5 right-20 z-[140] p-3.5 bg-white dark:bg-murzak-navy rounded-xl shadow-lg
-              flex items-center justify-center border border-slate-100 dark:border-white/10
-              hover:bg-slate-100 dark:hover:bg-white/10 text-murzak-navy dark:text-white transition-all"
-            aria-label="Toggle theme"
-            title="Toggle theme"
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
-            ) : (
-              <Moon className="w-4 h-4 sm:w-5 sm:h-5" />
-            )}
-          </button>          
         </header>
+
+        {/* Billing / trial status banner — one slot, highest-priority state wins.
+            (The trial states were computed but unrendered after the portal
+            redesign; this restores the verify-to-start prompt.) */}
+        {(() => {
+          const banner = (tone: "red" | "amber" | "cyan", icon: React.ReactNode, text: React.ReactNode, cta?: { label: string; onClick: () => void }) => {
+            const tones = {
+              red: "border-red-500/30 bg-red-500/10",
+              amber: "border-amber-400/30 bg-amber-400/10",
+              cyan: "border-murzak-cyan/30 bg-murzak-cyan/10",
+            } as const;
+            return (
+              <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
+                <div className="shrink-0">{icon}</div>
+                <p className="flex-grow text-sm font-bold text-murzak-navy dark:text-white leading-relaxed">{text}</p>
+                {cta && (
+                  <button
+                    type="button"
+                    onClick={cta.onClick}
+                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
+                  >
+                    {cta.label} <ArrowRight size={14} />
+                  </button>
+                )}
+              </div>
+            );
+          };
+
+          if (accountSuspended && dueSubscriptionInvoice) {
+            return banner(
+              "red",
+              <AlertCircle size={22} className="text-red-500" />,
+              <>Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away — your data is safe.</>,
+              { label: "Pay & restore", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
+            );
+          }
+          if (needsTrialVerify && trialVerifyInvoice?.docName) {
+            return banner(
+              "cyan",
+              <Zap size={22} className="text-murzak-cyan" />,
+              <>Your free trial is ready. A one-time KES 1 verification confirms your payment method and starts your 36-hour sandbox immediately.</>,
+              { label: "Verify & start trial", onClick: () => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`) }
+            );
+          }
+          if (trialExpired) {
+            return banner(
+              "amber",
+              <Timer size={22} className="text-amber-500" />,
+              <>Your trial has ended and the sandbox is paused. Your data is held for 7 days — choose a plan to restore it exactly as you left it.</>,
+              { label: "Choose a plan", onClick: () => navigate("/pricing") }
+            );
+          }
+          if (dueSubscriptionInvoice) {
+            return banner(
+              "amber",
+              <Receipt size={22} className="text-amber-500" />,
+              <>Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due — KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.</>,
+              { label: "Pay now", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
+            );
+          }
+          if (trialActive && trialEndStr) {
+            return banner(
+              "cyan",
+              <CheckCircle2 size={22} className="text-murzak-cyan" />,
+              <>Trial sandbox live — ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
+              { label: "Choose a plan", onClick: () => navigate("/pricing") }
+            );
+          }
+          return null;
+        })()}
 
         <div className="max-w-7xl mx-auto">
           <Routes>
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={renderTab("overview")} />
-            <Route path="sync" element={renderTab("sync")} />
             <Route path="cloud" element={renderTab("cloud")} />
             <Route path="billing" element={renderTab("billing")} />
             <Route path="profile" element={renderTab("profile")} />
-            <Route path="roadmap" element={renderTab("roadmap")} />
             <Route path="admin" element={isAdmin ? <AdminTabs /> : <Navigate to="/portal/overview" replace />} />
             <Route path="*" element={<Navigate to="overview" replace />} />
           </Routes>
@@ -2144,7 +2236,6 @@ const renderCloudSystemsGrid = () => (
       <AddonsModal
         isOpen={addonsOpen}
         planLabel={user.plan}
-        includedRemaining={remainingSlots}
         disabledReason={addonsDisabledReason}
         addons={addonCandidates}
         onClose={() => {
@@ -2159,6 +2250,18 @@ const renderCloudSystemsGrid = () => (
         onClose={() => setIsContactOpen(false)}
         user={{ email: user?.email ?? "", fullName: user?.name ?? "" }}
       />
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        actions={commandActions}
+        user={user}
+      />
+      
+      <LogConsole 
+        serviceId={activeLogServiceId}
+        onClose={() => setActiveLogServiceId(null)}
+        services={selectedServices}
+      />
 
       <OnboardingWizard
         isOpen={showOnboarding}
@@ -2166,6 +2269,7 @@ const renderCloudSystemsGrid = () => (
         onClose={dismissOnboarding}
         onChooseServices={() => openAddonsModal("overview")}
         onGoTab={(tab) => onTabClick(tab)}
+        onOpenSupport={() => setIsContactOpen(true)}
       />
 
       {deleteTarget && (
@@ -2270,6 +2374,76 @@ const renderCloudSystemsGrid = () => (
             </div>
           </div>
         </div>
+      )}
+
+      {/* Developer Upsell Modal */}
+      {developerUpsellSvc && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-murzak-navy/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-cyan/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
+            
+            <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition z-10 text-slate-500">
+              <X className="w-5 h-5" />
+            </button>
+            
+            <div className="relative z-10">
+              <div className="inline-flex p-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-6">
+                <Terminal className="w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-navy dark:text-white mb-2">Unlock Developer Tier</h3>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+                Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
+              </p>
+              
+              <div className="space-y-4 mb-8">
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Terminal className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Jailed SSH Access</h4>
+                    <p className="text-xs text-slate-500">Secure shell access directly into your service environment.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Database className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Direct DB Connection</h4>
+                    <p className="text-xs text-slate-500">Read/Write access to your isolated MariaDB instance.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
+                  <Shield className="w-5 h-5 text-murzak-cyan shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Full Frappe Administrator</h4>
+                    <p className="text-xs text-slate-500">Create custom doctypes, server scripts, and UI tweaks.</p>
+                  </div>
+                </div>
+              </div>
+
+              {developerUpsellError && (
+                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {developerUpsellError}
+                </div>
+              )}
+
+              <button 
+                onClick={handleDeveloperUpsell} 
+                disabled={requestingDeveloper}
+                className="w-full px-6 py-4 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
+              </button>
+              <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest mt-4">
+                Submitting creates a high-priority ticket with our engineering team.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Concierge Widget - Only show if user has active service */}
+      {user.plan !== "None" && user.selectedServices && user.selectedServices.length > 0 && (
+        <ConciergeWidget />
       )}
     </div>
   );

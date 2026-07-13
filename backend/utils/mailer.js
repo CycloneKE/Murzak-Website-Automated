@@ -1,5 +1,20 @@
 const nodemailer = require("nodemailer");
 
+// Escape user-controlled values before interpolating into HTML email bodies.
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+// Reject header-injection attempts in recipient addresses (CR/LF/newlines).
+function assertCleanRecipient(to) {
+  if (typeof to !== "string" || /[\r\n]/.test(to)) {
+    throw new Error("Invalid email recipient.");
+  }
+  return to;
+}
+
 function makeTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -10,15 +25,20 @@ function makeTransporter() {
     throw new Error("SMTP env vars missing: SMTP_HOST/SMTP_USER/SMTP_PASS");
   }
 
+  const secure = port === 465; // 465 = implicit TLS; 587/25 = STARTTLS
   return nodemailer.createTransport({
     host,
     port,
-    secure: false, // STARTTLS on 587
+    secure,
+    // Force STARTTLS on non-implicit-TLS ports so credentials are never sent
+    // over a plaintext (downgraded) connection.
+    requireTLS: !secure,
     auth: { user, pass },
   });
 }
 
 async function sendInvoiceDeletedEmail({ to, clientName, invoiceNo }) {
+  assertCleanRecipient(to);
   const transporter = makeTransporter();
 
   const fromName = process.env.SMTP_FROM_NAME || "Murzak Technologies";
@@ -44,6 +64,7 @@ If this was a mistake, email us as soon as possible at ${supportEmail} and we wi
 }
 
 async function sendMail({ to, subject, text, html }) {
+  assertCleanRecipient(to);
   const transporter = makeTransporter();
   const fromName = process.env.SMTP_FROM_NAME || "Murzak Technologies";
   const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
@@ -69,7 +90,7 @@ ${resetUrl}
 If you did not request this, you can safely ignore this email or contact us at ${supportEmail}.
 
 — Murzak Technologies`;
-  const html = `<p>Hello ${clientName || "there"},</p>
+  const html = `<p>Hello ${escapeHtml(clientName || "there")},</p>
 <p>We received a request to reset the password for your Murzak Technologies account.</p>
 <p><a href="${resetUrl}" style="background:#0a66c2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Reset password</a></p>
 <p>This link is valid for 1 hour. If the button does not work, paste this URL into your browser:<br>
@@ -87,7 +108,7 @@ Welcome to Murzak Technologies! Please confirm your email address using the link
 ${verifyUrl}
 
 — Murzak Technologies`;
-  const html = `<p>Hello ${clientName || "there"},</p>
+  const html = `<p>Hello ${escapeHtml(clientName || "there")},</p>
 <p>Welcome to Murzak Technologies! Please confirm your email address:</p>
 <p><a href="${verifyUrl}" style="background:#0a66c2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Confirm email</a></p>
 <p>If the button does not work, paste this URL into your browser:<br>
@@ -96,9 +117,58 @@ ${verifyUrl}
   await sendMail({ to, subject, text, html });
 }
 
+function portalUrl() {
+  return (process.env.APP_BASE_URL || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
+}
+
+// ---- Trial lifecycle (started / ending soon / expired) ----
+
+async function sendTrialStartedEmail({ to, clientName, hours, endsAt }) {
+  const subject = `Your ${hours}h Murzak trial is live`;
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox is live — you have ${hours} hours to explore, ending ${endsAt}.
+
+Log in and start testing: ${portalUrl()}
+
+Tip: anything you set up during the trial can be kept — pick a plan before it ends and we convert your sandbox, data and all.
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
+async function sendTrialEndingSoonEmail({ to, clientName, endsAt }) {
+  const subject = "Your Murzak trial ends soon — keep your work";
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox ends ${endsAt}. After that it is paused.
+
+To keep everything you've set up, choose a plan before it ends: ${portalUrl()}
+
+Questions? Just reply to this email.
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
+async function sendTrialExpiredEmail({ to, clientName }) {
+  const subject = "Your Murzak trial has ended — your data is safe";
+  const text = `Hello ${clientName || "there"},
+
+Your trial sandbox has ended and is now paused. Your data is held for 7 days.
+
+Pick a plan within that window and we restore your sandbox exactly as you left it: ${portalUrl()}
+
+— Murzak Technologies`;
+  await sendMail({ to, subject, text });
+}
+
 module.exports = {
   sendInvoiceDeletedEmail,
   sendMail,
   sendPasswordResetEmail,
   sendVerificationEmail,
+  sendTrialStartedEmail,
+  sendTrialEndingSoonEmail,
+  sendTrialExpiredEmail,
 };

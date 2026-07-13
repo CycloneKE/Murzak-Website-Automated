@@ -67,10 +67,13 @@ async function getReadiness(client) {
     runnerOn ? `running in ${dispatcherMode} mode` : "dispatcher off (runner disabled)");
 
   // Lanes — required once the runner is on (otherwise jobs only escalate).
-  const coolOk = coolify.isConfigured();
-  const benchOk = bench.isConfigured();
-  add("lane_coolify", "Lane: Coolify (web/app/db)", coolOk, runnerOn ? "conditional" : "optional", coolOk ? "" : coolify.configError());
-  add("lane_bench", "Lane: Frappe bench (ERP/POS/CRM)", benchOk, runnerOn ? "conditional" : "optional", benchOk ? "" : bench.configError());
+  const mock = require("./lanes/mock");
+  const mockOn = mock.isEnabled();
+  const coolOk = mockOn || coolify.isConfigured();
+  const benchOk = mockOn || bench.isConfigured();
+  add("lane_coolify", "Lane: Coolify (web/app/db)", coolOk, runnerOn ? "conditional" : "optional", mockOn ? "mock mode" : coolOk ? "" : coolify.configError());
+  add("lane_bench", "Lane: Frappe bench (ERP/POS/CRM)", benchOk, runnerOn ? "conditional" : "optional", mockOn ? "mock mode" : benchOk ? "" : bench.configError());
+  if (mockOn) add("lane_mock", "Mock provisioning active", true, "optional", "builds are simulated — no real infrastructure");
   if (runnerOn) {
     add("lane_any", "At least one build lane configured", coolOk || benchOk, "conditional",
       coolOk || benchOk ? "" : "with no lane, every job escalates to needs_human");

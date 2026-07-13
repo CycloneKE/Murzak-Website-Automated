@@ -8,7 +8,6 @@ import InteractiveBackground from "./components/InteractiveBackground";
 import Home from "./pages/Home";
 import Cloud from "./pages/Cloud";
 import Pricing from "./pages/Pricing";
-import Solutions from "./pages/Solutions";
 import Products from "./pages/Products";
 import About from "./pages/About";
 import ContactPage from "./pages/ContactPage";
@@ -23,7 +22,6 @@ import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 
 import { Page, User } from "./types";
-import { authService } from "./services/auth";
 import { logPageView } from "./services/firebase";
 
 // ---- Map Page keys -> URL paths ----
@@ -99,60 +97,59 @@ const App: React.FC = () => {
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
   const [booting, setBooting] = useState(true);
+  const [isBackendDown, setIsBackendDown] = useState(false);
 
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved === "dark";
-    return true; // dark-first brand default
-  });
+  // Dark-only: the marketing pages render light text on the fixed dark site
+  // backdrop, so a light theme leaves the header, gradients and hero copy
+  // unreadable. Light mode was removed; the app is committed to the dark brand.
 
+  // Single authoritative session hydration. /api/auth/me reads the server-side
+  // session (httpOnly cookie); on any failure we reset to logged-out so a stale
+  // client state can never keep the portal open after the server says otherwise.
   useEffect(() => {
-    const existingUser = authService.getSession();
-    if (existingUser) {
-      setUser(existingUser);
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  useEffect(() => {
-  (async () => {
-    try {
-      const res = await fetch("/api/me", { credentials: "include" });
-      const data = await res.json();
-      if (data?.user) setUser(data.user);
-    } catch {}
-    })();
-  }, []);
-
-  useEffect(() => {
-    const hydrate = async () => {
+    let mounted = true;
+    (async () => {
       try {
         const res = await fetch("/api/auth/me", { credentials: "include" });
-        const data = await res.json();
-
-        if (data.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (!mounted) return;
+        if (res.ok && data.ok && data.user) {
+          console.log("APP.TSX /API/AUTH/ME USER:", JSON.stringify(data.user));
           setUser(data.user);
+          setIsLoggedIn(true);
+        } else {
+          setUser(null);
+          setIsLoggedIn(false);
         }
-      } catch (e) {
-        console.warn("Session restore failed");
+      } catch {
+        if (mounted) {
+          setUser(null);
+          setIsLoggedIn(false);
+        }
       } finally {
-        setBooting(false);
+        if (mounted) setBooting(false);
       }
+    })();
+    return () => {
+      mounted = false;
     };
-
-    hydrate();
   }, []);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (isDarkMode) {
-      root.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDarkMode]);
+    const handleApiError = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.status === 502 || customEvent.detail?.status === 503) {
+        setIsBackendDown(true);
+      }
+    };
+    window.addEventListener('api-gateway-error', handleApiError);
+    return () => window.removeEventListener('api-gateway-error', handleApiError);
+  }, []);
+
+  useEffect(() => {
+    window.document.documentElement.classList.add("dark");
+    localStorage.setItem("theme", "dark");
+  }, []);
 
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
   useEffect(() => {
@@ -170,7 +167,6 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [activePage]);
 
-  const toggleTheme = () => setIsDarkMode((v) => !v);
 
   const onNavigate = (pageOrPath: Page | string) => {
     // If a full path (e.g. "/pricing#pricing-plans") is passed, use it directly
@@ -184,14 +180,25 @@ const App: React.FC = () => {
     navigate(path);
   };
 
-  const handleLogin = (u: User) => {
+  const handleLogin = (u: User, returnTo?: string) => {
     setUser(u);
     setIsLoggedIn(true);
-    navigate("/portal/overview");
+    navigate(returnTo || "/portal/overview");
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleUserUpdate = (u: User) => {
+    setUser(u);
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = async () => {
+    // Tear down the server-side session (and its cookie) first, so a refresh
+    // can't silently re-authenticate from a still-valid session.
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } catch {
+      /* even if the network call fails, still clear local state below */
+    }
     setUser(null);
     setIsLoggedIn(false);
     navigate("/");
@@ -228,20 +235,30 @@ const App: React.FC = () => {
   const hideChrome = isPortalRoute || location.pathname === "/login" || isPaymentRoute;
 
   if (booting) {
-    return <div className="h-screen flex items-center justify-center">Loading…</div>;
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden bg-murzak-deep">
+        <InteractiveBackground isDarkMode={true} />
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(46,166,255,0.2)] animate-glow-pulse mb-6">
+            <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-cyan animate-spin"></div>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+            Authenticating...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
-      <InteractiveBackground isDarkMode={isDarkMode} />
+      <InteractiveBackground isDarkMode={true} />
 
       <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-deep backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {!hideChrome && (
           <Header
             activePage={activePage}
             onNavigate={onNavigate}
-            isDarkMode={isDarkMode}
-            toggleTheme={toggleTheme}
             isLoggedIn={isLoggedIn}
             onOpenSales={() => setIsSalesModalOpen(true)}
           />
@@ -253,8 +270,9 @@ const App: React.FC = () => {
               <Route path="/" element={<Home onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/services" element={<Navigate to="/products" replace />} />
               <Route path="/cloud" element={<Cloud onNavigate={onNavigate} isLoading={isPageLoading} />} />
-              <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} />} />
-              <Route path="/solutions" element={<Solutions onNavigate={onNavigate} isLoading={isPageLoading} />} />
+              <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} isLoggedIn={isLoggedIn} user={user} onUserUpdate={handleUserUpdate} />} />
+              {/* Solutions merged into Products — redirect legacy links. */}
+              <Route path="/solutions" element={<Navigate to="/products" replace />} />
               <Route path="/products" element={<Products onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/about" element={<About onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/contact" element={<ContactPage onNavigate={onNavigate} />} />
@@ -269,13 +287,11 @@ const App: React.FC = () => {
                 path="/portal/*"
                 element={
                   <RequireAuth user={user}>
-                  <Portal 
-                    user={user} 
-                    onLogout={handleLogout} 
+                  <Portal
+                    user={user}
+                    onLogout={handleLogout}
                     onNavigate={onNavigate}
-                    isDarkMode={isDarkMode}
-                    toggleTheme={toggleTheme}
-                    onUserUpdate={handleLogin}
+                    onUserUpdate={handleUserUpdate}
                   />
                   </RequireAuth>
                 }/>
@@ -302,6 +318,28 @@ const App: React.FC = () => {
 
         {!hideChrome && <Footer onNavigate={onNavigate} />}
       </div>
+
+      {isBackendDown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
+          <div className="bg-gray-900 border border-red-900/50 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center mx-4">
+            <div className="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Service Temporarily Unavailable</h2>
+            <p className="text-gray-400 mb-6">
+              Our backend systems are currently undergoing maintenance or experiencing high traffic. Please try again in a few minutes.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-murzak-green hover:bg-murzak-green/90 text-black font-semibold py-3 px-6 rounded-lg transition-colors w-full"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      )}
       
       <SalesModal isOpen={isSalesModalOpen} onClose={() => setIsSalesModalOpen(false)} />
     </div>

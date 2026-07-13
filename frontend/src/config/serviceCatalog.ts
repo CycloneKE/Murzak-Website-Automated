@@ -33,13 +33,14 @@ export type DomainChoice =
 export type CapacityClass = "volume" | "premium" | "dedicated";
 
 /**
- * Real budget of the production box: ONE Hostinger KVM 4
+ * Real budget of the production box: ONE upstream KVM node sourced wholesale
  * (4 vCPU / 16 GB RAM / 200 GB NVMe / 16 TB bandwidth).
  * `sellable*` = what's left after OS + control plane + backups overhead.
  * Used for internal capacity tracking so we don't oversell beyond the hardware.
+ * NOTE: white-label — never surface the upstream provider name to customers.
  */
 export const SERVER_CAPACITY = {
-  plan: "Hostinger KVM 4",
+  plan: "Murzak Cloud — Standard Node",
   totalRamMb: 16384,
   totalDiskGb: 200,
   vcpu: 4,
@@ -117,7 +118,7 @@ export type SelectedService = {
 export type PlanMeta = {
   code: PlanCode;
   label: string;
-  startingKes: number | null; // null => custom / quote
+  startingKes: number | null; // DERIVED at load from the catalog (see planStartingKes); literals below are placeholders
   period: string;
   blurb: string;
   bestFor: string;
@@ -140,24 +141,24 @@ export const PLAN_META: Record<PlanCode, PlanMeta> = {
   },
   Starter: {
     code: "Starter",
-    label: "Starter",
+    label: "Infrastructure Core",
     startingKes: 1200,
     period: "/mo",
-    blurb: "Fast, managed hosting for a website, business email and small databases — billed in KES.",
-    bestFor: "Websites, email & small business apps",
-    cta: "Configure plan",
+    blurb: "Fast, managed infrastructure: Website hosting, business email, and databases — billed in KES.",
+    bestFor: "Websites, email & standalone infrastructure",
+    cta: "Configure infrastructure",
     features: ["Managed website hosting", "Business email", "Daily backups + SSL", "M-Pesa billing in KES"],
   },
   Business: {
     code: "Business",
-    label: "Business",
+    label: "Business Suite (SaaS)",
     startingKes: 4500,
     period: "/mo",
-    blurb: "Fully managed ERPNext, POS, CRM and apps — configured, hosted and supported from Nairobi.",
-    bestFor: "Growing teams running business apps",
-    cta: "Configure plan",
+    blurb: "Fully managed SaaS applications (ERPNext, POS, CRM). Configured, hosted, and supported from Nairobi.",
+    bestFor: "Growing teams needing POS, ERP & CRM",
+    cta: "Configure SaaS apps",
     featured: true,
-    features: ["Managed ERPNext / POS / CRM", "Pre-configured & migrated", "Daily backups + hardening", "Priority Nairobi support"],
+    features: ["Murzak Retail POS", "Managed ERPNext & CRM", "Pre-configured & migrated", "Priority Nairobi support"],
   },
   Enterprise: {
     code: "Enterprise",
@@ -179,7 +180,7 @@ export const PLAN_LIMITS: Record<PlanCode, number> = {
 };
 
 // =====================================================================
-//  CATALOG — right-sized to one Hostinger KVM 4 (16GB RAM / 200GB NVMe).
+//  CATALOG — right-sized to one upstream KVM node (16GB RAM / 200GB NVMe).
 //  Prices are margin-driven proposals (server costs ~KES 3,000/mo).
 //  TUNE the monthlyKes / setupKes numbers freely.
 // =====================================================================
@@ -753,3 +754,117 @@ export function formatKes(n?: number): string {
 export function isQuoteOnly(svc: ServiceItem): boolean {
   return svc.capacityClass === "dedicated" || svc.pricing.model === "custom";
 }
+
+/**
+ * Managed SaaS (premium: ERPNext/POS/CRM…) — configured & operated by the team,
+ * so it's set up (not instant) after checkout. Drives the "Managed setup" badge
+ * and the "Setting up" post-payment status. Volume hosting slices are not managed.
+ */
+export function isManagedSetup(svc: ServiceItem): boolean {
+  return svc.capacityClass === "premium";
+}
+
+// =====================================================================
+//  SINGLE SOURCE OF TRUTH — price + lookup helpers.
+//  Every customer-facing price MUST be derived from these, never hardcoded
+//  in a page, so marketing copy can never drift from the configurator.
+// =====================================================================
+
+const SERVICE_INDEX: Record<string, ServiceItem> = (() => {
+  const idx: Record<string, ServiceItem> = {};
+  (Object.keys(SERVICE_CATALOG) as PlanCode[]).forEach((code) => {
+    for (const s of SERVICE_CATALOG[code]) idx[s.id] = s;
+  });
+  for (const s of UNIVERSAL_ADDONS) idx[s.id] = s;
+  return idx;
+})();
+
+/** Look up any catalog service (plan service or universal add-on) by id. */
+export function getService(id: string): ServiceItem | undefined {
+  return SERVICE_INDEX[id];
+}
+
+/** Monthly price (KES) of a service by id, or undefined if unknown. */
+export function serviceMonthlyKes(id: string): number | undefined {
+  return getService(id)?.pricing.monthlyKes;
+}
+
+/**
+ * Which plan tab a service belongs to — used to open the configurator on the
+ * right plan when a visitor picks a specific product elsewhere (e.g. the
+ * Products page). Universal add-ons aren't tied to one plan; default to Business.
+ */
+export function planForService(id: string): PlanCode | null {
+  for (const code of Object.keys(SERVICE_CATALOG) as PlanCode[]) {
+    if ((SERVICE_CATALOG[code] || []).some((s) => s.id === id)) return code;
+  }
+  if (UNIVERSAL_ADDONS.some((s) => s.id === id)) return "Business";
+  return null;
+}
+
+/** One-time setup fee (KES) of a service by id, or undefined if unknown. */
+export function serviceSetupKes(id: string): number | undefined {
+  return getService(id)?.pricing.setupKes;
+}
+
+/**
+ * The honest "from" anchor for a plan card: the cheapest configurable monthly
+ * price actually present in that plan's catalog. Derived (never hand-typed) so
+ * "from KES X" on a card can never contradict the configurator.
+ *  - Test => 0 (free), Enterprise => null (quote-only).
+ */
+export function planStartingKes(code: PlanCode): number | null {
+  if (code === "Enterprise") return null;
+  if (code === "Test") return 0;
+  const prices = (SERVICE_CATALOG[code] ?? [])
+    .filter((s) => s.pricing.model === "addon" && (s.pricing.monthlyKes ?? 0) > 0)
+    .map((s) => s.pricing.monthlyKes as number);
+  return prices.length ? Math.min(...prices) : null;
+}
+
+// =====================================================================
+//  CAPACITY ENFORCEMENT — the box is ONE shared node (see SERVER_CAPACITY).
+//  A single self-serve order must not consume capacity that only a dedicated
+//  box can serve; beyond these caps the build becomes an Enterprise/quote.
+//  (Fleet-level oversell is gated server-side at provisioning time.)
+// =====================================================================
+
+// A single self-serve tenant shouldn't eat more than ~half the sellable box.
+export const SELF_SERVE_ORDER_RAM_CAP_MB = 6144; // 6 GB
+export const SELF_SERVE_ORDER_DISK_CAP_GB = 80; // 80 GB
+
+export function serviceFootprint(svc: ServiceItem): { ramMb: number; diskGb: number } {
+  return { ramMb: svc.resources?.ramMb ?? 0, diskGb: svc.resources?.diskGb ?? 0 };
+}
+
+/** Sum the real resource footprint of a set of services (for capacity math). */
+export function sumFootprint(svcs: ServiceItem[]): { ramMb: number; diskGb: number } {
+  return svcs.reduce(
+    (acc, s) => {
+      const f = serviceFootprint(s);
+      return { ramMb: acc.ramMb + f.ramMb, diskGb: acc.diskGb + f.diskGb };
+    },
+    { ramMb: 0, diskGb: 0 }
+  );
+}
+
+/** True when a selection exceeds what a single shared self-serve order may use. */
+export function exceedsSelfServeCap(svcs: ServiceItem[]): {
+  over: boolean;
+  ramMb: number;
+  diskGb: number;
+  ramOver: boolean;
+  diskOver: boolean;
+} {
+  const f = sumFootprint(svcs);
+  const ramOver = f.ramMb > SELF_SERVE_ORDER_RAM_CAP_MB;
+  const diskOver = f.diskGb > SELF_SERVE_ORDER_DISK_CAP_GB;
+  return { over: ramOver || diskOver, ramMb: f.ramMb, diskGb: f.diskGb, ramOver, diskOver };
+}
+
+// Derive each plan's "from" anchor from the catalog at load time so the literal
+// startingKes values in PLAN_META can never drift from real prices. This is the
+// single source of truth every card/advisor reads via PLAN_META[code].startingKes.
+(Object.keys(PLAN_META) as PlanCode[]).forEach((code) => {
+  PLAN_META[code].startingKes = planStartingKes(code);
+});

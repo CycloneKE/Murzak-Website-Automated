@@ -62,8 +62,14 @@ function provision(job, opts) {
       (err, stdout, stderr) => {
         const out = String(stdout || "");
         if (err) {
+          let reason = err.message;
+          if (err.killed) {
+            reason = `process timed out (killed by runner after ${process.env.BENCH_PROVISION_TIMEOUT_MS || 600000}ms)`;
+          } else if (err.code === "ENOBUFS") {
+            reason = "process output exceeded 4MB buffer limit (ENOBUFS)";
+          }
           return reject(
-            new Error(`bench provision failed: ${err.message} ${String(stderr || "").slice(-500)}`.trim())
+            new Error(`bench provision failed: ${reason} ${String(stderr || "").slice(-500)}`.trim())
           );
         }
         // The last JSON line is the machine-readable result; tolerate its absence.

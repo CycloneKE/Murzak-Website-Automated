@@ -76,6 +76,11 @@ function buildJobPayload({ webAccount, invoice, serviceId }) {
     web_account: webAccount,
     invoice,
     service_id: serviceId,
+    // Unique key (enforced by a unique index on the doctype) so concurrent
+    // enqueues for the same (invoice, service) can't create duplicate jobs even
+    // if the findExistingJob check-then-insert races — the second insert is
+    // rejected and treated as "already queued".
+    job_key: `${invoice}::${serviceId}`,
     service_name: meta?.name || serviceId,
     category: meta?.category || "",
     capacity_class: meta?.capacityClass || "",
@@ -148,11 +153,16 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       }
     } catch (e) {
       const status = e?.response?.status;
+      const errText = `${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`;
       // Frappe returns 417/404 when the doctype doesn't exist yet.
       if (status === 404 || status === 417 || e.__doctypeMissing) {
         doctypeMissing = true;
         // Still surface the service so staff get notified even without the doctype.
         skipped.push({ ...payload, reason: "doctype not installed" });
+      } else if (status === 409 || /duplicate|already exists|unique/i.test(errText)) {
+        // Lost the enqueue race — the unique job_key index rejected this insert.
+        // Idempotent: a job for (invoice, service) already exists.
+        skipped.push({ ...payload, reason: "already queued (unique)" });
       } else {
         skipped.push({ ...payload, reason: `error: ${e?.message || status || "unknown"}` });
       }

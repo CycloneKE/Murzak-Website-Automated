@@ -1,0 +1,14 @@
+# Keep AI coding tools (Cursor) from reading secrets.
+.env
+*.env
+.env.*
+!*.env.example
+
+*serviceAccount*.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+*.secret

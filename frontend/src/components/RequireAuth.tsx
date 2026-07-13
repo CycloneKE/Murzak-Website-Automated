@@ -12,7 +12,7 @@ export default function RequireAuth({
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname)}`} replace />;
   }
 
   return <>{children}</>;

@@ -1,0 +1,15 @@
+# Generic AI-tool exclude (honored by tools that support .aiexclude).
+# Keeps secrets out of AI context.
+.env
+*.env
+.env.*
+!*.env.example
+
+*serviceAccount*.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+*.secret

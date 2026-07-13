@@ -17,6 +17,11 @@
  */
 
 const { JOB_DOCTYPE } = require("./provisioningService");
+const {
+  WEB_ACCOUNT_DOCTYPE, WEB_ACCOUNT_SERVICES_FIELD,
+  CHILD_SERVICE_ID_FIELD, CHILD_STATUS_FIELD,
+  STATUS_SETTING_UP, STATUS_ACTIVE,
+} = require("./constants");
 const { getServiceMeta, laneFor } = require("./catalog");
 const scaling = require("./scaling");
 const targets = require("./targets");
@@ -24,8 +29,11 @@ const backups = require("./backups");
 const edge = require("./edge");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
+const mock = require("./lanes/mock");
 
-const DEFAULT_LANES = { coolify, bench };
+const DEFAULT_LANES = mock.isEnabled()
+  ? { coolify: mock, bench: mock }
+  : { coolify, bench };
 
 const enc = encodeURIComponent;
 const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
@@ -79,6 +87,16 @@ async function fetchJobByName(client, name) {
  * @returns {Promise<boolean>} true if we own the job.
  */
 async function claimJob(client, name, runnerId, targetId) {
+  // Pre-check: claimable only if still queued, OR already owned by us (idempotent
+  // re-claim). A job another runner already moved to running/active is rejected.
+  try {
+    const pre = await fetchJobByName(client, name);
+    if (!pre) return false;
+    if (pre.status !== "queued" && pre.runner_id !== runnerId) return false;
+  } catch {
+    // read failed — proceed to the write+verify below (lane is idempotent).
+  }
+
   await updateJob(client, name, {
     status: "running",
     runner_id: runnerId,
@@ -94,9 +112,63 @@ async function claimJob(client, name, runnerId, targetId) {
   return true;
 }
 
+async function createEscalationTicket(client, job, reason) {
+  if (!job.web_account) return;
+  try {
+    let email = job.web_account;
+    try {
+      const res = await client.get(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(job.web_account)}`);
+      if (res.data?.data?.user_email) email = res.data.data.user_email;
+    } catch (e) { /* best-effort */ }
+
+    const payload = {
+      portal_user: job.web_account,
+      email: email,
+      subject: `Provisioning Delayed: ${job.service_name || job.service_id || job.name}`,
+      status: "Waiting on Admin",
+      source: "Portal",
+      messages: [{
+        sender_type: "Admin",
+        sender: "System Automation",
+        message: `Provisioning for ${job.service_name || job.service_id || job.name} requires human intervention. Our engineers have been notified and are actively working on it.\n\nInternal diagnostic: ${reason}`
+      }]
+    };
+    await client.post("/api/resource/Portal Users Requests", payload);
+  } catch (err) {
+    console.error(`[provisioning] Failed to create escalation ticket for ${job.name}: ${err.message}`);
+  }
+}
+
 async function escalate(client, job, reason) {
   await updateJob(client, job.name, { status: "needs_human", error: String(reason).slice(0, 500) });
+  await createEscalationTicket(client, job, reason);
   return { name: job.name, outcome: "needs_human", reason };
+}
+
+// On provisioning completion, flip the managed (premium) service's Web Account
+// row from "Setting up" to "Active". Best-effort; never throws into the runner.
+async function markAccountServiceActive(client, webAccount, serviceId) {
+  if (!webAccount || !serviceId) return;
+  try {
+    const res = await client.get(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(webAccount)}`);
+    const acc = res.data?.data || {};
+    const rows = Array.isArray(acc[WEB_ACCOUNT_SERVICES_FIELD]) ? acc[WEB_ACCOUNT_SERVICES_FIELD] : [];
+    let changed = false;
+    const updated = rows.map((r) => {
+      if (r[CHILD_SERVICE_ID_FIELD] === serviceId && r[CHILD_STATUS_FIELD] === STATUS_SETTING_UP) {
+        changed = true;
+        return { ...r, [CHILD_STATUS_FIELD]: STATUS_ACTIVE };
+      }
+      return r;
+    });
+    if (changed) {
+      await client.put(`/api/resource/${enc(WEB_ACCOUNT_DOCTYPE)}/${enc(webAccount)}`, {
+        [WEB_ACCOUNT_SERVICES_FIELD]: updated,
+      });
+    }
+  } catch (e) {
+    console.warn(`[provisioning] could not flip ${serviceId} -> Active on ${webAccount}: ${e.message}`);
+  }
 }
 
 /** Queued jobs whose backoff (next_run_at) has elapsed. */
@@ -196,6 +268,8 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
         edge_status: edgeRes.status,
         error: "",
       });
+      // Managed SaaS goes live: flip its Web Account row "Setting up" -> "Active".
+      await markAccountServiceActive(client, job.web_account, job.service_id);
       return { name: job.name, outcome: "active", externalRef: out.externalRef, target: targetId, backup: backup.status, edge: edgeRes.status };
     } catch (e) {
       const attempts = Number(job.attempts || 0) + 1;
@@ -205,6 +279,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
           attempts,
           error: `Failed after ${attempts} attempt(s): ${e.message}`.slice(0, 500),
         });
+        await createEscalationTicket(client, job, `Failed after ${attempts} attempt(s): ${e.message}`);
         return { name: job.name, outcome: "needs_human", attempts, reason: e.message };
       }
       const wait = backoffSec(attempts);
@@ -332,4 +407,5 @@ module.exports = {
   processQueue,
   startRunner,
   stopRunner,
+  markAccountServiceActive,
 };
