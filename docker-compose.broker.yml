@@ -1,0 +1,64 @@
+# Terminal broker stack — deploy ALONGSIDE the main app, not inside it.
+#
+# Chain of custody for the docker socket (each layer drops capability):
+#   backend  ──internal──►  broker  ──internal──►  socket-proxy  ──►  docker.sock
+#
+# Only `socket-proxy` ever touches /var/run/docker.sock. The broker can only
+# reach the proxy; the proxy only exposes the allowlisted verbs below. Nothing
+# here is published to the host/internet — `internal: true` on the network.
+#
+# ⚠️ SCAFFOLDING. The exec path (broker → proxy EXEC) is inert until P5.3.
+# Bring this up with TERMINAL_ENABLED=false first and verify the /health +
+# /resolve diagnostic path from the backend before enabling anything.
+
+services:
+  socket-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    environment:
+      # Allowlist: ONLY what the broker needs. Everything else defaults to 0.
+      CONTAINERS: 1   # GET /containers/json + inspect (ownership resolution)
+      EXEC: 1         # POST /containers/{id}/exec + /exec/{id}/start (P5.3)
+      # Explicitly denied (belt-and-suspenders; 0 is the default):
+      POST: 1         # required for exec create/start...
+      BUILD: 0
+      COMMIT: 0
+      IMAGES: 0
+      VOLUMES: 0
+      NETWORKS: 0
+      SERVICES: 0
+      SWARM: 0
+      SYSTEM: 0
+      INFO: 0
+      # NOTE: docker-socket-proxy cannot forbid `docker exec` into a SPECIFIC
+      # container — EXEC=1 permits exec into ANY container. Per-container
+      # authorization is enforced in the broker (lib/resolve.js), NOT here.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - broker-internal
+
+  broker:
+    build:
+      context: .
+      dockerfile: broker/Dockerfile
+    restart: unless-stopped
+    environment:
+      TERMINAL_ENABLED: ${TERMINAL_ENABLED:-false}
+      BROKER_PORT: "4600"
+      BROKER_API_KEY: ${BROKER_API_KEY}
+      BROKER_SIGNING_KEY: ${BROKER_SIGNING_KEY}
+      DOCKER_PROXY_URL: http://socket-proxy:2375
+    depends_on:
+      - socket-proxy
+    networks:
+      - broker-internal
+    # Extra hardening: the broker never needs new privileges or extra caps.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+networks:
+  broker-internal:
+    internal: true   # no route to the host/internet; backend joins this network

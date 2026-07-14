@@ -152,6 +152,38 @@ const okLane = {
   ok(coolify.isConfigured({ target: { id: "box-2", coolify: { baseUrl: "https://c2", token: "t", projectUuid: "p", serverUuid: "s" } } }) === true, "coolify configured via per-target creds (no env)");
   ok(coolify.isConfigured() === false, "coolify unconfigured with no env/target");
 
+  section("P5.0 container resource limits (resourceLimits)");
+  {
+    const savedPids = process.env.COOLIFY_PIDS_LIMIT;
+    delete process.env.COOLIFY_PIDS_LIMIT;
+
+    // 768MB volume service on a 4-vCPU / 12800MB box → ~0.24 raw, floored to 0.25.
+    const l = coolify.resourceLimits({ ram_mb: 768, disk_gb: 10 });
+    ok(l.ramMb === 768, "resourceLimits: memory passes through job.ram_mb");
+    ok(l.cpus === 0.25, "resourceLimits: small service floored to MIN_CPUS (0.25)");
+    ok(l.pidsLimit === 512, "resourceLimits: default pids limit 512 (fork-bomb bound)");
+    ok(l.diskGb === 10, "resourceLimits: disk passes through job.disk_gb");
+
+    // A large service gets proportionally more CPU: 6144MB → 6144/12800*4 ≈ 1.92.
+    const big = coolify.resourceLimits({ ram_mb: 6144, disk_gb: 80 });
+    ok(big.cpus === 1.92, "resourceLimits: cpu scales with RAM share of the box");
+
+    // A single service can never be entitled to more than the whole box.
+    const huge = coolify.resourceLimits({ ram_mb: 999999 });
+    ok(huge.cpus === 4, "resourceLimits: cpu ceiled at the box vcpu count");
+
+    // Missing footprint → safe floor, no disk key.
+    const bare = coolify.resourceLimits({});
+    ok(bare.ramMb === 256 && bare.cpus === 0.25 && bare.diskGb === 0, "resourceLimits: missing footprint floors to safe defaults, no disk");
+
+    // Env override for pids.
+    process.env.COOLIFY_PIDS_LIMIT = "1024";
+    ok(coolify.resourceLimits({ ram_mb: 768 }).pidsLimit === 1024, "resourceLimits: COOLIFY_PIDS_LIMIT env override honored");
+
+    if (savedPids === undefined) delete process.env.COOLIFY_PIDS_LIMIT;
+    else process.env.COOLIFY_PIDS_LIMIT = savedPids;
+  }
+
   section("concurrency");
   s = makeStore([1, 2, 3, 4, 5].map((i) => ({ name: "C" + i, service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 768 })));
   const rc = await runner.processQueue(s, { lanes: { coolify: okLane }, limit: 3, max: 10 });
