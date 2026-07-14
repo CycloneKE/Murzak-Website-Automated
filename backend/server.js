@@ -3723,6 +3723,98 @@ const server = app.listen(PORT, () => {
   }
 });
 
+// ---- Developer access terminal: WS upgrade (Phase 5.2 — auth only) ----
+// Express middleware (incl. session parsing) does NOT run on the raw
+// 'upgrade' event, so this handler manually: (1) verifies the single-use
+// wsTicket minted by POST .../terminal/session, (2) manually unsigns the
+// session cookie and loads the session from the SAME store express-session
+// uses, (3) re-checks session.webAccount === ticket.webAccount — a stolen
+// ticket alone is not sufficient without also holding the live session
+// cookie. Real exec doesn't exist yet: on success this sends one
+// confirmation frame and closes. The broker bridge (using the brokerToken
+// baked into the ticket at mint time) is P5.3.
+{
+  const { WebSocketServer } = require("ws");
+  const cookieLib = require("cookie");
+  const cookieSignature = require("cookie-signature");
+  const { consumeWsTicket } = require("./utils/wsTicket");
+
+  const TERMINAL_WS_PATH = "/api/portal/terminal/ws";
+  const wss = new WebSocketServer({ noServer: true });
+
+  function rejectUpgrade(socket, statusLine) {
+    socket.write(`HTTP/1.1 ${statusLine}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  }
+
+  server.on("upgrade", (req, socket, head) => {
+    let reqUrl;
+    try {
+      reqUrl = new URL(req.url, "http://localhost");
+    } catch {
+      return rejectUpgrade(socket, "400 Bad Request");
+    }
+    if (reqUrl.pathname !== TERMINAL_WS_PATH) return; // not ours — leave for any other upgrade handler
+
+    if (String(process.env.TERMINAL_ENABLED || "false").toLowerCase() !== "true") {
+      return rejectUpgrade(socket, "503 Service Unavailable");
+    }
+    if (!SESSION_SECRET) {
+      console.error("TERMINAL WS ERROR: SESSION_SECRET not set.");
+      return rejectUpgrade(socket, "503 Service Unavailable");
+    }
+
+    const ticket = reqUrl.searchParams.get("ticket");
+    let ticketPayload;
+    try {
+      ticketPayload = consumeWsTicket(ticket, SESSION_SECRET);
+    } catch (e) {
+      console.warn("TERMINAL WS ticket rejected:", e.code || e.message);
+      return rejectUpgrade(socket, "401 Unauthorized");
+    }
+
+    // Manually unsign the session cookie (mirrors what express-session's own
+    // middleware does internally) and load the session from the same store.
+    const cookieHeader = req.headers.cookie || "";
+    const cookieName = "connect.sid"; // express-session default; not overridden in this app (see session() config).
+    const raw = cookieLib.parse(cookieHeader)[cookieName];
+    const sid = raw && raw.startsWith("s:") ? cookieSignature.unsign(raw.slice(2), SESSION_SECRET) : false;
+    if (!sid) {
+      console.warn("TERMINAL WS: no valid session cookie on upgrade request.");
+      return rejectUpgrade(socket, "401 Unauthorized");
+    }
+
+    const store = sessionStore; // the SAME store express-session was configured with (Redis or MemoryStore)
+    const loadSession = (cb) => {
+      if (store && typeof store.get === "function") return store.get(sid, cb);
+      return cb(new Error("No session store configured."));
+    };
+
+    loadSession((err, sessionData) => {
+      if (err || !sessionData) {
+        console.warn("TERMINAL WS: session not found or store error.", err?.message);
+        return rejectUpgrade(socket, "401 Unauthorized");
+      }
+      const sessionWebAccount = sessionData.webAccount || sessionData.user?.id;
+      if (!sessionWebAccount || sessionWebAccount !== ticketPayload.webAccount) {
+        console.warn("TERMINAL WS: session/ticket web_account mismatch — refusing.");
+        return rejectUpgrade(socket, "403 Forbidden");
+      }
+
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        // Auth chain proven end-to-end. Real exec (broker bridge, jail,
+        // recording) is P5.3 — for now, confirm and close so nothing here
+        // can be mistaken for a working shell.
+        ws.send(JSON.stringify({
+          type: "notice",
+          message: "Authenticated. The developer terminal isn't wired to a real shell yet (Phase 5.3) — this connection proves the auth chain only.",
+        }));
+        ws.close(1000, "not_yet_implemented");
+      });
+    });
+  });
+}
+
 // ---- Graceful shutdown ----
 function shutdown(signal) {
   console.log(`${signal} received: closing server...`);

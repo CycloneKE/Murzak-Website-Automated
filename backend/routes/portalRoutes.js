@@ -1,6 +1,13 @@
 
+const crypto = require('crypto');
 const express = require('express');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
+// Deliberately not destructured at import time — test/routesContext.test.js's
+// static guard greedily matches the first destructuring-brace pattern in the
+// file through to the ctx destructure, so any such import placed above it
+// breaks that check (and even mentioning the pattern in a comment does too).
+const signBrokerToken = require('../utils/brokerToken').signBrokerToken;
+const mintWsTicket = require('../utils/wsTicket').mintWsTicket;
 
 module.exports = function(ctx) {
   const {
@@ -12,6 +19,7 @@ module.exports = function(ctx) {
     userOwnsPrivateFile,
     PROVISIONING_JOB_DOCTYPE,
     rateLimit,
+    SESSION_SECRET,
   } = ctx;
 
   const router = express.Router();
@@ -859,6 +867,110 @@ router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachL
     console.error("DOMAIN ATTACH ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Failed to connect this domain. Please try again or contact support." });
   }
+});
+
+// --- DEVELOPER ACCESS TERMINAL (Phase 5.2 — mint + WS auth only) ---
+// Enterprise-gated (server-side — never trust the client's plan claim).
+// Mints TWO distinct credentials with different trust boundaries:
+//   - wsTicket: browser<->OUR backend, signed with SESSION_SECRET (same
+//     trust boundary as the session cookie itself; single-use; re-checked
+//     against the live session on WS upgrade — see server.js).
+//   - brokerToken: OUR backend<->broker, signed with BROKER_SIGNING_KEY (a
+//     secret the browser never sees), carrying the container's deterministic
+//     ownership name for the broker to resolve at connect time. The broker
+//     — not this route — is what turns that name into an actual container id
+//     (see broker/lib/resolve.js); this route never touches Docker.
+// Real exec doesn't exist yet (broker/index.js's WS upgrade still 501s and
+// dockerClient.execStream() still throws) — this phase proves the auth chain.
+const terminalMintLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+function isEnterprisePlan(plan) {
+  return String(plan || "None").toLowerCase().includes("enterprise");
+}
+
+router.post("/api/portal/services/:serviceId/terminal/session", requireAuth, terminalMintLimiter, async (req, res) => {
+  if (String(process.env.TERMINAL_ENABLED || "false").toLowerCase() !== "true") {
+    return res.status(503).json({ error: "Developer access terminal isn't available yet." });
+  }
+
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  // Server-side plan gate — the frontend may hide/show the button by plan,
+  // but that's cosmetic; this is the actual authorization boundary.
+  if (!isEnterprisePlan(req.session?.user?.plan)) {
+    return res.status(403).json({ error: "Developer access is an Enterprise-plan feature — contact sales to upgrade." });
+  }
+
+  const brokerSigningKey = process.env.BROKER_SIGNING_KEY;
+  if (!brokerSigningKey) {
+    console.error("TERMINAL MINT ERROR: BROKER_SIGNING_KEY not set.");
+    return res.status(503).json({ error: "Developer access terminal isn't configured yet — contact support." });
+  }
+  if (!SESSION_SECRET) {
+    console.error("TERMINAL MINT ERROR: SESSION_SECRET not set.");
+    return res.status(503).json({ error: "Developer access terminal isn't configured yet — contact support." });
+  }
+
+  const client = frappeClient();
+  let job;
+  try {
+    job = await loadOwnedJob(client, webAccountName, serviceId);
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.status(404).json({ error: "This service has no provisioning record yet." });
+    }
+    console.error("TERMINAL MINT LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  if (!job) return res.status(404).json({ error: "Service not found on your account." });
+  if (job.lane !== "coolify") {
+    return res.status(422).json({ error: "Developer access isn't available for this service type yet — contact support." });
+  }
+  if (!job.external_ref || job.status !== "active") {
+    return res.status(409).json({ error: "This service isn't live yet — developer access is available once it's active." });
+  }
+
+  // Deterministic ownership slug — identical derivation to what the coolify
+  // lane named the container at provision time. Never a client-supplied id;
+  // the broker independently resolves this name to a live container at
+  // connect time and re-checks it immediately before exec (TOCTOU guard).
+  const expectedName = coolifyLane.resourceName({ web_account: job.web_account, service_id: job.service_id });
+
+  const brokerToken = signBrokerToken(
+    {
+      expectedName,
+      webAccount: webAccountName,
+      jobName: job.name,
+      jti: crypto.randomBytes(16).toString("hex"),
+      exp: Date.now() + 45000,
+    },
+    brokerSigningKey
+  );
+
+  const wsTicket = mintWsTicket(
+    { webAccount: webAccountName, serviceId, jobName: job.name, brokerToken },
+    SESSION_SECRET,
+    45000
+  );
+
+  const ts = new Date().toISOString();
+  const auditLine = `[${ts}] [TERMINAL] session minted by ${webAccountName}`;
+  client
+    .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+      log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+    })
+    .catch((e) => console.error("TERMINAL MINT AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
+
+  return res.json({ ok: true, wsTicket, wsPath: "/api/portal/terminal/ws" });
 });
 
 // --- WEBSITE HOSTING ---
