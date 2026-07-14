@@ -133,4 +133,89 @@ async function provision(job, opts) {
   };
 }
 
-module.exports = { lane: "coolify", isConfigured, configError, provision, resourceName };
+/**
+ * Customer-initiated lifecycle actions against an already-provisioned service.
+ *
+ * ⚠️ UNVERIFIED AGAINST A LIVE INSTANCE. Coolify's create endpoint
+ * (POST /api/v1/services) is the only call this lane has ever actually
+ * exercised. These three paths are Coolify v4's documented per-resource
+ * action routes (GET, not POST — a known quirk of Coolify's API), but must
+ * be smoke-tested against the real instance (routes/portalRoutes.js action
+ * endpoints, from the deployed app — this can't be verified from a dev
+ * machine, same VPS-IP restriction as everything else in this lane) before
+ * trusting them in front of real customer buttons. If the path is wrong,
+ * this throws (axios 404/network error) and the caller must treat that as
+ * a real failure — never swallow it into a fake success.
+ */
+async function serviceAction(externalRef, action, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/services/${encodeURIComponent(externalRef)}/${action}`);
+  return res.data;
+}
+
+function restart(externalRef, opts) {
+  return serviceAction(externalRef, "restart", opts);
+}
+function stop(externalRef, opts) {
+  return serviceAction(externalRef, "stop", opts);
+}
+function start(externalRef, opts) {
+  return serviceAction(externalRef, "start", opts);
+}
+
+/**
+ * Real resource usage for an already-provisioned service.
+ *
+ * ⚠️ UNVERIFIED FIELD NAMES. `GET /api/v1/services/{uuid}` is a real,
+ * previously-exercised endpoint (provision()'s idempotency check uses the
+ * list form of it), but whether — and under what field names — it returns
+ * CPU/RAM/disk usage is unconfirmed; Coolify may not expose runtime resource
+ * stats via this endpoint at all. Every field below is read defensively
+ * (`?? null`) and the caller must treat `null` as "not available," never
+ * substitute a fabricated number. This is the one Phase 3 asked to keep
+ * honest rather than guess — see ResourceUtilizationCard's Phase 1 fallback.
+ */
+async function getUsage(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/services/${encodeURIComponent(externalRef)}`);
+  const d = res.data?.data || res.data || {};
+  return {
+    cpuPercent: d.cpu_usage_percent ?? d.cpu_percent ?? null,
+    ramUsedMb: d.memory_usage_mb ?? d.ram_used_mb ?? null,
+    ramLimitMb: d.memory_limit_mb ?? d.ram_limit_mb ?? null,
+    diskUsedGb: d.disk_usage_gb ?? null,
+    diskLimitGb: d.disk_limit_gb ?? null,
+  };
+}
+
+/**
+ * Attach a customer-owned domain to an already-provisioned service. Coolify
+ * auto-issues Let's Encrypt SSL for any domain that resolves to the box —
+ * this lane never touches DNS itself (the caller is responsible for
+ * confirming the domain already points here before calling this).
+ *
+ * ⚠️ UNVERIFIED FIELD NAME/METHOD. Coolify v4 services carry an `fqdn`/
+ * `domains` field; PATCHing it is the documented way to attach a domain, but
+ * the exact field name and whether it accepts a bare domain vs. a full URL
+ * is unconfirmed against this live instance. Smoke-test before trusting.
+ */
+async function attachDomain(externalRef, domain, opts) {
+  const client = http(opts);
+  const res = await client.patch(`/api/v1/services/${encodeURIComponent(externalRef)}`, {
+    domains: domain,
+  });
+  return res.data;
+}
+
+module.exports = {
+  lane: "coolify",
+  isConfigured,
+  configError,
+  provision,
+  restart,
+  stop,
+  start,
+  getUsage,
+  attachDomain,
+  resourceName,
+};

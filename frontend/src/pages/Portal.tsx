@@ -53,6 +53,7 @@ import AddonsModal from "../components/AddonsModal";
 import { deleteService } from "../services/account";
 import WebsiteHostingDashboard from "../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ChangePasswordCard from "../components/portal/ChangePasswordCard";
+import { fetchServiceActivity } from "../services/serviceActivity";
 import OnboardingWizard from "../components/portal/OnboardingWizard";
 import MetricCard from "../components/portal/MetricCard";
 import ActivityTimeline, { TimelineEvent } from "../components/portal/ActivityTimeline";
@@ -147,6 +148,48 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [activeLogServiceId, setActiveLogServiceId] = useState<string | null>(null);
+
+  // Restart/Stop/Start (Phase 2 of the resource-management dashboard). These
+  // deliberately never touch service status/health elsewhere in the portal —
+  // success only means the action was accepted by Coolify, not that the
+  // service is verified healthy. See how-does-one-create-deep-kazoo.md.
+  const [pendingServiceAction, setPendingServiceAction] = useState<{ id: string; action: string } | null>(null);
+  const [stopConfirmService, setStopConfirmService] = useState<{ id: string; name: string } | null>(null);
+  const [serviceActionNotice, setServiceActionNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const performServiceAction = async (action: "restart" | "start" | "stop", id: string) => {
+    setPendingServiceAction({ id, action });
+    setServiceActionNotice(null);
+    try {
+      const res = await fetch(`/api/portal/services/${encodeURIComponent(id)}/${action}`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `Failed to ${action} this service.`);
+      setServiceActionNotice({ type: "success", text: data?.message || `${action[0].toUpperCase()}${action.slice(1)} requested.` });
+    } catch (e: any) {
+      setServiceActionNotice({ type: "error", text: e?.message || `Failed to ${action} this service.` });
+    } finally {
+      setPendingServiceAction(null);
+    }
+  };
+
+  const handleServiceHealthAction = (action: string, id: string) => {
+    if (action === "manage") {
+      onTabClick("cloud");
+      navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
+      return;
+    }
+    if (action === "stop") {
+      const svc = selectedServices.find((s) => s.serviceId === id);
+      setStopConfirmService({ id, name: svc?.name || "this service" });
+      return;
+    }
+    if (action === "restart" || action === "start") {
+      performServiceAction(action, id);
+    }
+  };
 
   const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
   const [requestingDeveloper, setRequestingDeveloper] = useState(false);
@@ -246,6 +289,61 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
     const sp = new URLSearchParams(location.search);
     return sp.get("service") || null;
   }, [location.search]);
+
+  // Real Coolify/site URL for the generic (non-website-hosting) service panel —
+  // this is data the provisioning lane already writes but the portal never
+  // rendered anywhere. Only fetched for services with their own management
+  // panel (WebsiteHostingDashboard has its own real domain data already).
+  const [cloudAccessUrl, setCloudAccessUrl] = useState<string>("");
+  useEffect(() => {
+    setCloudAccessUrl("");
+    if (!cloudServiceId || cloudServiceId === "biz-web-hosting") return;
+    let cancelled = false;
+    fetchServiceActivity(cloudServiceId)
+      .then((jobs) => {
+        if (cancelled) return;
+        const withUrl = jobs.find((j) => j.accessUrl);
+        setCloudAccessUrl(withUrl?.accessUrl || "");
+      })
+      .catch(() => {
+        if (!cancelled) setCloudAccessUrl("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudServiceId]);
+
+  // Self-service domain attach (Phase 4). Reset whenever the user navigates
+  // to a different service so a stale success/error message from a previous
+  // service never lingers.
+  const [domainInput, setDomainInput] = useState("");
+  const [domainSubmitting, setDomainSubmitting] = useState(false);
+  const [domainResult, setDomainResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  useEffect(() => {
+    setDomainInput("");
+    setDomainResult(null);
+  }, [cloudServiceId]);
+
+  const submitDomainAttach = async () => {
+    if (!cloudServiceId || !domainInput.trim()) return;
+    setDomainSubmitting(true);
+    setDomainResult(null);
+    try {
+      const res = await fetch(`/api/portal/services/${encodeURIComponent(cloudServiceId)}/domain`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: domainInput.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to connect this domain.");
+      setDomainResult({ type: "success", text: data?.message || "Domain connected." });
+    } catch (e: any) {
+      setDomainResult({ type: "error", text: e?.message || "Failed to connect this domain." });
+    } finally {
+      setDomainSubmitting(false);
+    }
+  };
 
 const renderCloudSystemsGrid = () => null;
 
@@ -473,6 +571,44 @@ const renderCloudSystemsGrid = () => null;
       };
     });
   }, [user, catalogLookup, addonServiceIds]);
+
+  // Real usage metrics (Phase 3) for the Overview ResourceUtilizationCard —
+  // the account-level card shows usage for the first Active service, since
+  // that card isn't per-service. Degrades to "not available" (undefined
+  // fields) on any error, missing service, or if Coolify doesn't expose
+  // usage data — never fabricates a number.
+  const [serviceUsage, setServiceUsage] = useState<{
+    diskUsagePercent?: number;
+    ramUsagePercent?: number;
+  }>({});
+  useEffect(() => {
+    const primary = selectedServices.find((s) => s.status === "Active");
+    if (!primary) {
+      setServiceUsage({});
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/portal/services/${encodeURIComponent(primary.serviceId)}/usage`, { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data?.available) return;
+        const diskUsagePercent =
+          typeof data.diskUsedGb === "number" && typeof data.diskLimitGb === "number" && data.diskLimitGb > 0
+            ? Math.round((data.diskUsedGb / data.diskLimitGb) * 100)
+            : undefined;
+        const ramUsagePercent =
+          typeof data.ramUsedMb === "number" && typeof data.ramLimitMb === "number" && data.ramLimitMb > 0
+            ? Math.round((data.ramUsedMb / data.ramLimitMb) * 100)
+            : undefined;
+        setServiceUsage({ diskUsagePercent, ramUsagePercent });
+      })
+      .catch(() => {
+        if (!cancelled) setServiceUsage({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedServices]);
 
   const commandActions = useMemo<CommandAction[]>(() => {
     const actions: CommandAction[] = [
@@ -1099,6 +1235,19 @@ const renderCloudSystemsGrid = () => null;
           ))}
         </div>
 
+        {serviceActionNotice && (
+          <div className={`px-6 py-4 rounded-2xl border text-[11px] font-bold flex items-center justify-between gap-4 ${
+            serviceActionNotice.type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+              : "bg-red-500/10 border-red-500/20 text-red-400"
+          }`}>
+            <span>{serviceActionNotice.text}</span>
+            <button onClick={() => setServiceActionNotice(null)} className="opacity-70 hover:opacity-100">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Dashboard Area */}
           <div className="lg:col-span-2 space-y-8">
@@ -1117,15 +1266,11 @@ const renderCloudSystemsGrid = () => null;
               {healthServices.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {healthServices.map(service => (
-                    <ServiceHealthCard 
-                      key={service.id} 
-                      service={service} 
-                      onAction={(action, id) => {
-                        if (action === "manage") {
-                          onTabClick("cloud");
-                          navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
-                        }
-                      }} 
+                    <ServiceHealthCard
+                      key={service.id}
+                      service={service}
+                      onAction={handleServiceHealthAction}
+                      pendingAction={pendingServiceAction?.id === service.id ? pendingServiceAction.action : null}
                     />
                   ))}
                 </div>
@@ -1144,7 +1289,10 @@ const renderCloudSystemsGrid = () => null;
             {/* New Insights Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <SecurityOverviewCard />
-              <ResourceUtilizationCard />
+              <ResourceUtilizationCard
+                diskUsagePercent={serviceUsage.diskUsagePercent}
+                ramUsagePercent={serviceUsage.ramUsagePercent}
+              />
             </div>
 
             {/* General Upload */}
@@ -1824,6 +1972,54 @@ const renderCloudSystemsGrid = () => null;
               </p>
             </div>
 
+            {isActive && cloudAccessUrl && (
+              <a
+                href={cloudAccessUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/5 p-5 hover:bg-murzak-cyan/10 transition-all group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-murzak-cyan/10 text-murzak-cyan shrink-0"><ExternalLink className="w-4 h-4" /></div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Live</p>
+                    <p className="text-[13px] font-black text-murzak-navy dark:text-white truncate">{cloudAccessUrl}</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-murzak-cyan shrink-0 group-hover:translate-x-1 transition-transform" />
+              </a>
+            )}
+
+            {isActive && (
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Connect your domain</p>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-4">
+                  Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={domainInput}
+                    onChange={(e) => setDomainInput(e.target.value)}
+                    placeholder="shop.yourbusiness.co.ke"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-[12px] font-bold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan"
+                  />
+                  <button
+                    onClick={submitDomainAttach}
+                    disabled={domainSubmitting || !domainInput.trim()}
+                    className="px-5 py-2.5 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {domainSubmitting ? "Connecting…" : "Connect"}
+                  </button>
+                </div>
+                {domainResult && (
+                  <p className={`mt-3 text-[11px] font-bold ${domainResult.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
+                    {domainResult.text}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setIsContactOpen(true)}
@@ -2257,11 +2453,44 @@ const renderCloudSystemsGrid = () => null;
         user={user}
       />
       
-      <LogConsole 
+      <LogConsole
         serviceId={activeLogServiceId}
         onClose={() => setActiveLogServiceId(null)}
         services={selectedServices}
       />
+
+      {stopConfirmService && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => setStopConfirmService(null)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-murzak-navy rounded-[2rem] border border-slate-200 dark:border-white/10 p-7 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Stop service</p>
+            <h3 className="text-lg font-black text-murzak-navy dark:text-white mt-2">
+              Stop {stopConfirmService.name}?
+            </h3>
+            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+              This takes your service offline until you start it again. Visitors won't be able to reach it while stopped.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setStopConfirmService(null)}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const svc = stopConfirmService;
+                  setStopConfirmService(null);
+                  performServiceAction("stop", svc.id);
+                }}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition"
+              >
+                Stop it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <OnboardingWizard
         isOpen={showOnboarding}

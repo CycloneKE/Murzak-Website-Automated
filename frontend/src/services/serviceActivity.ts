@@ -7,6 +7,9 @@ export interface ProvisioningActivityEntry {
   edgeStatus: string;
   error: string;
   attempts: number;
+  // Real URL from the Provisioning Job's `access` field (Coolify manageUrl or
+  // the tenant's own site url) — only populated once status is "active".
+  accessUrl: string;
   createdAt: string;
   updatedAt: string;
 }

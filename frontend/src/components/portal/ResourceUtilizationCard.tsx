@@ -1,28 +1,74 @@
 import React from 'react';
-import { HardDrive, Activity } from 'lucide-react';
+import { HardDrive, Activity, Cpu } from 'lucide-react';
 
+// Real usage, when available, comes from the Coolify lane's getUsage() (Phase
+// 3) — unconfirmed whether Coolify's API actually exposes these numbers (see
+// lanes/coolify.js). Any prop left undefined renders an honest "not
+// available" state rather than a fabricated number a customer could
+// reasonably act on (e.g. panic-upgrade off a random 85%). Bandwidth/traffic
+// has no known Coolify data source at all — expect it to stay unavailable.
 interface ResourceUtilizationCardProps {
-  // We'll accept mock values for now, defaulting to 0
   diskUsagePercent?: number;
+  ramUsagePercent?: number;
   bandwidthUsagePercent?: number;
 }
 
-const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({ 
-  diskUsagePercent = Math.floor(Math.random() * 40) + 20, // Mock 20-60% if not provided
-  bandwidthUsagePercent = Math.floor(Math.random() * 30) + 10 // Mock 10-40% if not provided
+function Metric({
+  icon,
+  label,
+  percent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  percent?: number;
+}) {
+  const hasData = typeof percent === 'number';
+  const color = !hasData
+    ? 'bg-slate-600'
+    : percent > 90
+    ? 'bg-red-500'
+    : percent > 75
+    ? 'bg-orange-500'
+    : 'bg-murzak-cyan';
+  const textColor = !hasData
+    ? 'text-slate-500'
+    : percent > 90
+    ? 'text-red-500'
+    : percent > 75
+    ? 'text-orange-500'
+    : 'text-murzak-cyan';
+
+  return (
+    <div>
+      <div className="flex justify-between items-end mb-2">
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-300">{label}</span>
+        </div>
+        <span className={`text-[10px] font-black tracking-widest ${textColor}`}>
+          {hasData ? `${percent}%` : 'Not available yet'}
+        </span>
+      </div>
+      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
+        <div
+          className={`h-full ${color} transition-all duration-1000`}
+          style={{ width: hasData ? `${percent}%` : '100%', opacity: hasData ? 1 : 0.15 }}
+        />
+      </div>
+      {hasData && percent > 80 && (
+        <p className="text-[9px] text-orange-400 mt-2 uppercase tracking-widest">
+          Approaching capacity. Consider upgrading soon.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
+  diskUsagePercent,
+  ramUsagePercent,
+  bandwidthUsagePercent,
 }) => {
-  const getProgressColor = (percent: number) => {
-    if (percent > 90) return 'bg-red-500';
-    if (percent > 75) return 'bg-orange-500';
-    return 'bg-murzak-cyan';
-  };
-
-  const getTextColor = (percent: number) => {
-    if (percent > 90) return 'text-red-500';
-    if (percent > 75) return 'text-orange-500';
-    return 'text-murzak-cyan';
-  };
-
   return (
     <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full">
       <div className="flex items-center gap-3 mb-8">
@@ -31,53 +77,14 @@ const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
         </div>
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-widest text-white">Resource Utilization</h3>
-          <p className="text-[10px] font-medium text-slate-400 mt-1">Live limits for your infrastructure</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-1">Limits for your infrastructure</p>
         </div>
       </div>
 
       <div className="space-y-8">
-        {/* Storage */}
-        <div>
-          <div className="flex justify-between items-end mb-2">
-            <div className="flex items-center gap-2">
-              <HardDrive size={14} className="text-slate-400" />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-300">Storage Limit</span>
-            </div>
-            <span className={`text-[11px] font-black tracking-widest ${getTextColor(diskUsagePercent)}`}>
-              {diskUsagePercent}%
-            </span>
-          </div>
-          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
-            <div 
-              className={`h-full ${getProgressColor(diskUsagePercent)} transition-all duration-1000`} 
-              style={{ width: `${diskUsagePercent}%` }} 
-            />
-          </div>
-          {diskUsagePercent > 80 && (
-            <p className="text-[9px] text-orange-400 mt-2 uppercase tracking-widest">
-              Approaching capacity. Consider upgrading soon.
-            </p>
-          )}
-        </div>
-
-        {/* Traffic / Bandwidth */}
-        <div>
-          <div className="flex justify-between items-end mb-2">
-            <div className="flex items-center gap-2">
-              <Activity size={14} className="text-slate-400" />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-300">Monthly Traffic</span>
-            </div>
-            <span className={`text-[11px] font-black tracking-widest ${getTextColor(bandwidthUsagePercent)}`}>
-              {bandwidthUsagePercent}%
-            </span>
-          </div>
-          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
-            <div 
-              className={`h-full ${getProgressColor(bandwidthUsagePercent)} transition-all duration-1000`} 
-              style={{ width: `${bandwidthUsagePercent}%` }} 
-            />
-          </div>
-        </div>
+        <Metric icon={<HardDrive size={14} className="text-slate-400" />} label="Storage Limit" percent={diskUsagePercent} />
+        <Metric icon={<Cpu size={14} className="text-slate-400" />} label="Memory (RAM)" percent={ramUsagePercent} />
+        <Metric icon={<Activity size={14} className="text-slate-400" />} label="Monthly Traffic" percent={bandwidthUsagePercent} />
       </div>
     </div>
   );
