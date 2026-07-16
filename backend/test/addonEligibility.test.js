@@ -12,6 +12,7 @@ function ok(cond, msg) {
 function section(name) { console.log(`\n# ${name}`); }
 
 const { isAddonEligible } = require("../services/addonEligibility");
+const { getServiceMeta } = require("../services/provisioning/catalog");
 
 (async () => {
   section("volume-class services are plan-agnostic");
@@ -67,6 +68,28 @@ const { isAddonEligible } = require("../services/addonEligibility");
       service: { tier: "Light", capacityClass: "volume", monthlyKes: 1200 },
     }).ok === false,
     "No plan at all -> not eligible (caller must go through attach-selection instead)"
+  );
+
+  section("integration: real catalog snapshot meta (getServiceMeta)");
+  // The gate's runtime input is getServiceMeta(serviceId), NOT a hand-built
+  // object — these cases guard against the snapshot dropping fields the gate
+  // depends on (a missing `tier` once made premium gating a silent no-op).
+  const erpMeta = getServiceMeta("biz-erp-configured");
+  ok(
+    erpMeta && typeof erpMeta.tier === "string" && erpMeta.tier.length > 0,
+    "catalog snapshot carries a real tier for premium services (biz-erp-configured)"
+  );
+  ok(
+    isAddonEligible({ planKey: "Starter", service: erpMeta }).ok === false,
+    "Starter-plan customer cannot add biz-erp-configured (Large-tier premium) — the exact regression"
+  );
+  ok(
+    isAddonEligible({ planKey: "Business", service: getServiceMeta("biz-pos-inventory") }).ok === true,
+    "Business-plan customer can add biz-pos-inventory (Medium-tier premium)"
+  );
+  ok(
+    isAddonEligible({ planKey: "Business", service: getServiceMeta("starter-app-hosting") }).ok === true,
+    "Business-plan customer can add starter-app-hosting (volume is plan-agnostic)"
   );
 
   console.log(`\n${passed} passed, ${failed} failed`);

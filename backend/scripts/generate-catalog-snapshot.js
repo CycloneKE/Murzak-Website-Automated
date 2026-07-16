@@ -62,6 +62,7 @@ function main() {
 
     const name = pull(block, "name");
     const category = pull(block, "category");
+    const tier = pull(block, "tier");
     const capacityClass = pull(block, "capacityClass");
     const ramMb = pull(block, "ramMb");
     const diskGb = pull(block, "diskGb");
@@ -80,6 +81,7 @@ function main() {
       id,
       name,
       category,
+      tier: tier || null,
       capacityClass,
       ramMb: ramMb == null ? null : Number(ramMb),
       diskGb: diskGb == null ? null : Number(diskGb),
