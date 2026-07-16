@@ -883,7 +883,7 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
 export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]> {
   const allVolumeServices = (Object.keys(SERVICE_CATALOG) as PlanCode[])
     .flatMap((code) => SERVICE_CATALOG[code])
-    .filter((s) => s.capacityClass === "volume");
+    .filter((s) => s.capacityClass === "volume" && s.pricing.model === "addon");
 
   const result = {} as Record<CloudLaunchCategory, ServiceItem[]>;
   for (const cat of CLOUD_LAUNCH_CATEGORIES) {
