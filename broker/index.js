@@ -20,6 +20,7 @@ const { verify } = require("./lib/token");
 const docker = require("./lib/dockerClient");
 const { resolveOwnedContainerId, containerMatchesOwner } = require("./lib/resolve");
 const { buildExecCreatePayload, SessionManager } = require("./lib/exec");
+const reaper = require("./lib/reaper");
 const s3Upload = require("./lib/s3Upload");
 const backendReport = require("./lib/backendReport");
 
@@ -131,10 +132,16 @@ const sessions = new SessionManager({
     }
   },
 });
-// sessionId -> { ws, dockerStream, meta, recordChunks, recordBytes } so the
-// SessionManager's expiry can reach the live transport to kill it, and
-// teardown has what it needs to report the outcome + flush the recording.
+// sessionId -> { ws, dockerStream, execId, containerId, meta, recordChunks,
+// recordBytes } so the SessionManager's expiry can reach the live transport
+// to kill it, resize can target the right exec, and teardown has what it
+// needs to report the outcome + flush the recording.
 const liveSockets = new Map();
+
+// Containers this broker process has exec'd into at least once — the
+// orphan reaper's sweep universe (see lib/reaper.js). Only covers containers
+// touched since this process started.
+const containersEverUsed = new Set();
 
 // Recordings are capped in memory to stay bounded regardless of session
 // length — past this, further bytes are dropped from the recording (the
@@ -221,9 +228,9 @@ server.on("upgrade", async (req, socket, head) => {
   }
 
   wss.handleUpgrade(req, socket, head, async (ws) => {
-    let dockerStream;
+    let dockerStream, execId;
     try {
-      const execId = await docker.createExec(containerId, buildExecCreatePayload({ sessionId }));
+      execId = await docker.createExec(containerId, buildExecCreatePayload({ sessionId }));
       dockerStream = await docker.startExecStream(execId);
     } catch (e) {
       console.error("[broker] exec open failed:", e.message);
@@ -235,7 +242,11 @@ server.on("upgrade", async (req, socket, head) => {
 
     const startedAt = Date.now();
     const meta = { webAccount: payload.webAccount, jobName: payload.jobName, containerName: payload.expectedName, startedAt };
-    liveSockets.set(sessionId, { ws, dockerStream, meta, recordChunks: [], recordBytes: 0 });
+    liveSockets.set(sessionId, { ws, dockerStream, execId, containerId, meta, recordChunks: [], recordBytes: 0 });
+    // Tracked so the orphan reaper knows which containers to sweep — only
+    // covers containers touched since this broker process started (a fresh
+    // deploy/restart resets the set; a documented, not hidden, limitation).
+    containersEverUsed.add(containerId);
     backendReport.reportSessionStart({
       sessionId,
       webAccount: meta.webAccount,
@@ -260,7 +271,14 @@ server.on("upgrade", async (req, socket, head) => {
         // treated as raw keystrokes.
         try {
           const msg = JSON.parse(data.toString());
-          if (msg && msg.type === "resize") return; // exec resize API is a separate call; wired in a follow-up
+          if (msg && msg.type === "resize") {
+            // Clamp to sane bounds — this is untrusted client input reaching
+            // a real Docker API call.
+            const cols = Math.min(Math.max(parseInt(msg.cols, 10) || 0, 1), 500);
+            const rows = Math.min(Math.max(parseInt(msg.rows, 10) || 0, 1), 500);
+            docker.resizeExec(execId, cols, rows).catch((e) => console.warn("[broker] resize failed:", e.message));
+            return;
+          }
         } catch { /* not JSON -> raw input */ }
       }
       try { dockerStream.write(data); } catch {}
@@ -281,6 +299,24 @@ if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`[broker] listening on :${PORT} (terminal ${ENABLED ? "ENABLED" : "disabled"})`);
   });
+
+  // Orphan-process reaper (P5.4 gap-close, see lib/reaper.js). Only runs
+  // when the terminal feature is enabled; harmless no-op sweeps once no
+  // container has ever had a session.
+  if (ENABLED) {
+    const REAPER_INTERVAL_MS = Math.max(60000, Number(process.env.TERMINAL_REAPER_INTERVAL_MS || 5 * 60 * 1000));
+    setInterval(() => {
+      const containerIds = Array.from(containersEverUsed);
+      if (!containerIds.length) return;
+      const liveSessionIds = Array.from(liveSockets.keys());
+      reaper
+        .sweepAll(containerIds, liveSessionIds, docker)
+        .then((s) => {
+          if (s.errors > 0) console.warn(`[broker] reaper sweep: ${s.swept} ok, ${s.errors} errors`);
+        })
+        .catch((e) => console.error("[broker] reaper sweep crashed:", e.message));
+    }, REAPER_INTERVAL_MS).unref();
+  }
 }
 
 module.exports = { server, resolveForToken };

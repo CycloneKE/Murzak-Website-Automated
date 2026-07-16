@@ -18,7 +18,14 @@ services:
     environment:
       # Allowlist: ONLY what the broker needs. Everything else defaults to 0.
       CONTAINERS: 1   # GET /containers/json + inspect (ownership resolution)
-      EXEC: 1         # POST /containers/{id}/exec + /exec/{id}/start (P5.3)
+      EXEC: 1         # POST /containers/{id}/exec + /exec/{id}/start (P5.3);
+                       # Tecnativa's proxy groups the whole /exec/* prefix
+                       # under this one flag, so /exec/{id}/resize (P5.4) and
+                       # the reaper's own one-shot execs ride the same
+                       # allowlist entry — not independently re-verified
+                       # against the proxy's source, same "confirm on the
+                       # VPS" caveat as everything else Docker-socket-shaped
+                       # in this file.
       # Explicitly denied (belt-and-suspenders; 0 is the default):
       POST: 1         # required for exec create/start...
       BUILD: 0

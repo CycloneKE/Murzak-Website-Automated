@@ -55,11 +55,26 @@ re-inspect in `index.js`, run again immediately before every exec.
   Frappe credentials. `POST /sessions/:id/kill` (gated by `x-broker-key`, same
   as every other internal route) lets the backend's admin kill-switch
   terminate a live session by broker-assigned session id.
-- **Still missing:** terminal **resize** (control-frame is parsed but not yet
-  forwarded to Docker's resize API), and the **orphan-process reaper** (a
-  `setsid`-wrapped shell dies with the session, but grandchildren re-parented
-  to the container's PID 1 can still survive — "closing the tab is not a
-  security boundary" until the reaper sweep exists).
+- **P5.4 gap-close — done.** Terminal **resize**: `{type:"resize",cols,rows}`
+  control frames (clamped to 1–500) now call `docker.resizeExec()` (a plain
+  `POST /exec/{id}/resize`, no hijack needed) against the live exec — no
+  frontend consumes this yet (that's P5.5), but the broker-side plumbing is
+  real and ready. **Orphan-process reaper** (`lib/reaper.js`): every jailed
+  shell is exec'd with a `MURZAK_TERMINAL_SESSION=<id>` marker env var
+  (`lib/exec.js`); a periodic sweep (`TERMINAL_REAPER_INTERVAL_MS`, default 5
+  min) execs a small POSIX `sh` script into every container this broker
+  process has ever touched, finds marker-tagged process-group leaders whose
+  session id is NOT currently live, and `kill -9`s the group — catching
+  grandchildren that `setsid`-on-disconnect alone wouldn't reap. Pure script-
+  generation and the injected-docker sweep logic are unit tested (22 tests,
+  `test/reaper.test.js`); the script's *behavior against a real container's
+  `/proc`* has only been syntax-checked (`sh -n`/`dash -n`), not run live —
+  no Linux host was available to exercise it end-to-end, same
+  unverified-live convention as the rest of this file's Docker-socket code.
+  Known limitation, not hidden: the reaper's sweep universe resets on every
+  broker restart (it only remembers containers touched since the process
+  started), so a crash mid-session followed by a restart could leave an
+  orphan unswept until that container gets a new session.
 
 ## Env
 
@@ -76,12 +91,13 @@ re-inspect in `index.js`, run again immediately before every exec.
 | `BACKEND_INTERNAL_URL` | Where to POST session start/end reports. Unset = reporting silently no-ops (never blocks a live session). |
 | `TERMINAL_S3_ENDPOINT` / `_BUCKET` / `_REGION` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` | Off-box recording storage. Unset = recordings are captured in memory but never uploaded (dropped at teardown). |
 | `TERMINAL_RECORDING_MAX_BYTES` | In-memory recording cap per session. Default 2MB. |
+| `TERMINAL_REAPER_INTERVAL_MS` | Orphan-reaper sweep interval. Default 5 min, floor 1 min. |
 
 ## Run / test
 
 ```
 npm install && npm start          # local (needs DOCKER_PROXY_URL for /resolve and /exec)
-npm test                          # pure unit tests (resolve + token + exec/session caps), no Docker
+npm test                          # pure unit tests (resolve + token + exec/session caps + reaper), no Docker
 docker compose -f ../docker-compose.broker.yml up   # full stack (VPS)
 ```
 
