@@ -180,6 +180,9 @@ async function fetchClaimable(client, limit) {
         "name", "web_account", "invoice", "service_id", "service_name",
         "category", "capacity_class", "lane", "status", "attempts",
         "ram_mb", "disk_gb", "next_run_at", "target",
+        // BYOA: the lane dispatches on repo_url — omitting it here silently
+        // downgrades an app deploy to a blank service (caught live 2026-07-16).
+        "repo_url",
       ]),
       order_by: "modified asc",
       limit_page_length: limit,

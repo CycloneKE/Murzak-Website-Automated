@@ -68,6 +68,10 @@ function main() {
     const pricingModel = pull(block, "model");
     const monthlyKes = pull(block, "monthlyKes");
     const setupKes = pull(block, "setupKes");
+    // Boolean flag (pull() only handles strings/numbers): BYOA services that
+    // deploy the customer's own repo — provisioning needs this to attach the
+    // repo URL to the job.
+    const requiresRepo = /requiresRepo\s*:\s*true/.test(block);
 
     // Skip anything that isn't a real catalog service (must at least name itself).
     if (!name || !category || !capacityClass) continue;
@@ -82,6 +86,7 @@ function main() {
       pricingModel: pricingModel || null,
       monthlyKes: monthlyKes == null ? 0 : Number(monthlyKes),
       setupKes: setupKes == null ? 0 : Number(setupKes),
+      requiresRepo,
     };
   }
 

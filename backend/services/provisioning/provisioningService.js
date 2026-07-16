@@ -69,9 +69,20 @@ async function getReservedRamMb(client) {
   }
 }
 
-function buildJobPayload({ webAccount, invoice, serviceId }) {
+function buildJobPayload({ webAccount, invoice, serviceId, repoUrl }) {
   const meta = getServiceMeta(serviceId);
   const lane = laneFor(meta);
+  // BYOA: a service that deploys the customer's own repo carries it on the
+  // job; with no repo on file the job is born needs_human (never a fake build).
+  const byoa = meta?.requiresRepo
+    ? repoUrl
+      ? { repo_url: String(repoUrl).trim() }
+      : {
+          status: "needs_human",
+          error:
+            "BYOA service but no repository URL on the account — ask the customer for their Git repo (My Account → Project repository).",
+        }
+    : {};
   return {
     web_account: webAccount,
     invoice,
@@ -91,6 +102,7 @@ function buildJobPayload({ webAccount, invoice, serviceId }) {
     disk_gb: meta?.diskGb || 0,
     target: "box-1",
     backup_status: "pending",
+    ...byoa,
   };
 }
 
@@ -112,8 +124,28 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   const scaling = require("./scaling");
   let scaleOutNeeded = null;
 
+  // BYOA: fetch the account's project repository once if any service in this
+  // order deploys the customer's own code. Best-effort — a fetch failure just
+  // means the job is born needs_human (same as no repo on file).
+  let accountRepoUrl = "";
+  if (serviceIds.some((id) => getServiceMeta(id)?.requiresRepo)) {
+    try {
+      const accRes = await client.get(
+        `/api/resource/Web Account/${encodeURIComponent(webAccount)}`
+      );
+      accountRepoUrl = String(accRes.data?.data?.source_code || "").trim();
+    } catch (e) {
+      console.warn(`[provisioning] BYOA repo lookup failed for ${webAccount}: ${e.message}`);
+    }
+  }
+
   for (const serviceId of serviceIds) {
-    const payload = buildJobPayload({ webAccount, invoice: invoiceDocName, serviceId });
+    const payload = buildJobPayload({
+      webAccount,
+      invoice: invoiceDocName,
+      serviceId,
+      repoUrl: accountRepoUrl,
+    });
     const meta = getServiceMeta(serviceId);
     if (meta?.capacityClass === "premium") {
       const placement = await scaling.ensureCapacityFor(client, {

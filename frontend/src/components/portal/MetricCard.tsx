@@ -23,6 +23,13 @@ export default function MetricCard({ title, value, icon, trend, trendUp, actionL
         return;
       }
 
+      // rAF never fires in a hidden/background tab, which would freeze the
+      // counter at 0 until the tab is foregrounded — show the real value.
+      if (typeof document !== "undefined" && document.hidden) {
+        setDisplayValue(end);
+        return;
+      }
+
       let totalDuration = 1000;
       let startTime: number | null = null;
 

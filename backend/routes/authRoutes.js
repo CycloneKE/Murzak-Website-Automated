@@ -757,20 +757,10 @@ router.get("/api/auth/me", async (req, res) => {
       user: devUser
     });
   }
-  if (process.env.MOCK_FRAPPE === "true" && req.session?.user) {
-    if (req.session.user.selectedServices) {
-      req.session.user.selectedServices.forEach(s => {
-        if (s.status === "Setting up") {
-          // Auto-activate mock services to simulate background provisioning completion
-          s.status = "Active";
-        }
-      });
-    }
-    return res.json({
-      ok: true,
-      user: req.session.user
-    });
-  }
+  // NOTE: no MOCK_FRAPPE short-circuit here. Mock mode must exercise the same
+  // read path as production (frappeClient() already returns the mock store) —
+  // a session-only fast path that force-flipped "Setting up" to "Active" was
+  // masking the managed-setup state machine from every E2E run.
   try {
     const webAccountName = req.session?.webAccount || req.session?.user?.id || req.session?.user?.name;
     if (!webAccountName) {

@@ -543,15 +543,6 @@ const handleReset = async (e: React.FormEvent) => {
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
                   />
 
-                  <button type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="flex items-center gap-2 mt-3 sm:mt-4 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-cyan transition">
-                    <span className={`w-5 h-5 rounded-md border flex items-center justify-center ${showPassword ? "bg-murzak-cyan border-murzak-cyan" : "border-slate-300 dark:border-white/20"}`}>
-                      {showPassword && <CheckSquare className="w-3.5 h-3.5 text-murzak-navy" />}
-                    </span>
-                    Show password
-                  </button>
-
                   {/* Show/Hide toggle button */}
                   <button type="button"
                     onClick={() => setShowPassword((s) => !s)}

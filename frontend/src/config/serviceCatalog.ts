@@ -3,6 +3,7 @@ export type PlanCode = "Test" | "Starter" | "Business" | "Enterprise";
 
 export type ServiceCategory =
   | "Website Hosting"
+  | "App Hosting"
   | "ERP Hosting"
   | "CRM & Helpdesk"
   | "Email Hosting"
@@ -89,6 +90,13 @@ export type ServiceOption = {
   };
 
   requiresDomainChoice?: boolean;
+
+  /**
+   * This service deploys the CUSTOMER'S OWN app from a Git repository (BYOA).
+   * The configurator asks for the repo URL and provisioning deploys from it —
+   * an account with no repo URL escalates to a human instead of faking a build.
+   */
+  requiresRepo?: boolean;
 
   /** Short benefit bullets shown in the configurator. */
   highlights?: string[];
@@ -259,6 +267,21 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       sortOrder: 20,
     },
     {
+      id: "starter-app-hosting",
+      name: "App Hosting (Node.js / Docker)",
+      description: "We deploy your own app straight from its Git repository — Node.js, Python, PHP or any Dockerfile — and keep it running.",
+      category: "App Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1024, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2200, setupKes: 1000, domainAddonKes: 1500 },
+      requiresDomainChoice: true,
+      requiresRepo: true,
+      highlights: ["Deploys from your GitHub/GitLab repo", "Websockets & background jobs supported", "Free SSL + daily backups", "Managed restarts & monitoring"],
+      sortOrder: 25,
+    },
+    {
       id: "starter-email",
       name: "Business Email",
       description: "Professional email on your domain — up to 5 mailboxes, 5GB each.",
@@ -296,6 +319,19 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["MySQL or Postgres", "Daily backups", "Remote access"],
       sortOrder: 50,
+    },
+    {
+      id: "starter-db-mongo",
+      name: "Database Hosting (MongoDB)",
+      description: "Managed MongoDB for apps built on a document database.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["MongoDB 7", "Daily backups", "Remote access"],
+      sortOrder: 55,
     },
     {
       id: "starter-hrpay",

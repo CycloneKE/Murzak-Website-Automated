@@ -310,7 +310,15 @@ router.get("/api/billing/invoice/:docName", requireAuth, async (req, res) => {
       error: "Missing docName."
     });
     const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(docName)}`);
+    let invRes;
+    try {
+      invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(docName)}`);
+    } catch (fetchErr) {
+      if (fetchErr.response?.status === 404) {
+        return res.status(404).json({ error: "Invoice not found." });
+      }
+      throw fetchErr;
+    }
     const inv = invRes.data?.data;
     if (!inv) return res.status(404).json({
       error: "Invoice not found."
@@ -394,7 +402,15 @@ router.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       });
     }
     const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
+    let invRes;
+    try {
+      invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
+    } catch (fetchErr) {
+      if (fetchErr.response?.status === 404) {
+        return res.status(404).json({ error: "Invoice not found." });
+      }
+      throw fetchErr;
+    }
     const inv = invRes.data?.data;
     if (!inv) return res.status(404).json({
       error: "Invoice not found."
@@ -601,7 +617,15 @@ router.get("/api/billing/mpesa/status/:invoiceDocName", requireAuth, async (req,
       invoiceDocName
     } = req.params;
     const client = frappeClient();
-    const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
+    let invRes;
+    try {
+      invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
+    } catch (fetchErr) {
+      if (fetchErr.response?.status === 404) {
+        return res.status(404).json({ error: "Invoice not found." });
+      }
+      throw fetchErr;
+    }
     const inv = invRes.data?.data;
     if (!inv) return res.status(404).json({
       error: "Invoice not found."
@@ -729,7 +753,15 @@ router.get("/api/invoices/:docName/download", async (req, res) => {
     const client = frappeClient();
 
     // 1) Load the exact invoice doc by docName
-    const invResp = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(docName)}`);
+    let invResp;
+    try {
+      invResp = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(docName)}`);
+    } catch (fetchErr) {
+      if (fetchErr.response?.status === 404) {
+        return res.status(404).json({ error: "Invoice not found." });
+      }
+      throw fetchErr;
+    }
     const inv = invResp.data?.data;
     if (!inv) return res.status(404).json({
       error: "Invoice not found."
