@@ -113,4 +113,48 @@ function startExecStream(execId) {
   });
 }
 
-module.exports = { listContainers, inspectContainer, createExec, startExecStream, base };
+/**
+ * POST /exec/{execId}/resize?h=&w= — resize a live exec's TTY. Plain
+ * request/response (no hijack) — the exec is already streaming via its own
+ * startExecStream() socket; this just tells Docker the new terminal size.
+ */
+async function resizeExec(execId, cols, rows) {
+  await http().post(`/exec/${encodeURIComponent(execId)}/resize`, null, {
+    params: { h: rows, w: cols },
+  });
+}
+
+/**
+ * Create + start a SHORT-LIVED, non-interactive exec, collect its output
+ * until the stream ends, then resolve with the collected text. For
+ * housekeeping commands (the P5.4 orphan reaper) — NOT for the interactive
+ * shell path, which stays open for the session's lifetime via
+ * startExecStream() directly.
+ */
+async function runExecAndCollect(containerId, payload, opts = {}) {
+  const timeoutMs = opts.timeoutMs || 10000;
+  const execId = await createExec(containerId, payload);
+  const stream = await startExecStream(execId);
+  return new Promise((resolve, reject) => {
+    let out = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { stream.destroy(); } catch {}
+      reject(new Error("exec collect timed out"));
+    }, timeoutMs);
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err); else resolve(out);
+    };
+    stream.on("data", (c) => { if (out.length < 8192) out += c.toString("utf8"); });
+    stream.on("close", () => finish());
+    stream.on("end", () => finish());
+    stream.on("error", (e) => finish(e));
+  });
+}
+
+module.exports = { listContainers, inspectContainer, createExec, startExecStream, resizeExec, runExecAndCollect, base };
