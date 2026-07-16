@@ -859,6 +859,42 @@ export function planStartingKes(code: PlanCode): number | null {
 }
 
 // =====================================================================
+//  MURZAK CLOUD — instant single-resource checkout. Scoped to exactly the
+//  volume-class categories that provision without a human (Coolify lane).
+//  Deliberately excludes UNIVERSAL_ADDONS (those augment an existing
+//  resource, e.g. "+50GB Storage" — they are not standalone launchable
+//  resources) and anything capacityClass "premium"/"dedicated".
+// =====================================================================
+
+export type CloudLaunchCategory =
+  | "Website Hosting"
+  | "App Hosting"
+  | "Database Hosting"
+  | "Storage";
+
+export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
+  "Website Hosting",
+  "App Hosting",
+  "Database Hosting",
+  "Storage",
+];
+
+/** Every self-serve, instantly-provisioned resource, grouped by category. */
+export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]> {
+  const allVolumeServices = (Object.keys(SERVICE_CATALOG) as PlanCode[])
+    .flatMap((code) => SERVICE_CATALOG[code])
+    .filter((s) => s.capacityClass === "volume");
+
+  const result = {} as Record<CloudLaunchCategory, ServiceItem[]>;
+  for (const cat of CLOUD_LAUNCH_CATEGORIES) {
+    result[cat] = allVolumeServices
+      .filter((s) => s.category === cat)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+  return result;
+}
+
+// =====================================================================
 //  CAPACITY ENFORCEMENT — the box is ONE shared node (see SERVER_CAPACITY).
 //  A single self-serve order must not consume capacity that only a dedicated
 //  box can serve; beyond these caps the build becomes an Enterprise/quote.
