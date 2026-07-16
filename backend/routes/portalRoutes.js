@@ -1,5 +1,16 @@
 
+const crypto = require('crypto');
 const express = require('express');
+const coolifyLane = require('../services/provisioning/lanes/coolify');
+// Deliberately not destructured at import time — test/routesContext.test.js's
+// static guard greedily matches the first destructuring-brace pattern in the
+// file through to the ctx destructure, so any such import placed above it
+// breaks that check (and even mentioning the pattern in a comment does too).
+const signBrokerToken = require('../utils/brokerToken').signBrokerToken;
+const mintWsTicket = require('../utils/wsTicket').mintWsTicket;
+const terminalConstants = require('../services/terminal/constants');
+const accessControlLib = require('../services/terminal/accessControl');
+const s3ClientLib = require('../services/terminal/s3Client');
 
 module.exports = function(ctx) {
   const {
@@ -9,10 +20,35 @@ module.exports = function(ctx) {
     requireAuth,
     upload,
     userOwnsPrivateFile,
-    PROVISIONING_JOB_DOCTYPE
+    PROVISIONING_JOB_DOCTYPE,
+    rateLimit,
+    SESSION_SECRET,
   } = ctx;
 
   const router = express.Router();
+
+  // Tighter than the global apiLimiter (120/min/IP) — these actions hit real
+  // customer infrastructure, not just Frappe reads. stop gets a stricter cap
+  // than restart/start since it causes an outage until manually reversed.
+  const serviceActionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests. Please wait a moment and try again." },
+  });
+  const serviceStopLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests. Please wait a moment and try again." },
+  });
+
+  // In-flight guard: blunts (not perfectly prevents) a double-click firing two
+  // concurrent actions on the same job. Best-effort, single-process — matches
+  // this app's existing single-runner assumption (see provisioning/README.md).
+  const actionInFlight = new Set();
 
 // --- PORTAL USER CHAT: create thread ---
 router.post("/api/portal/requests", requireAuth, async (req, res) => {
@@ -553,7 +589,7 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
         ]),
         fields: JSON.stringify([
           "name", "status", "log", "backup_status", "edge_status", "error",
-          "attempts", "creation", "modified",
+          "attempts", "access", "creation", "modified",
         ]),
         order_by: "modified desc",
         limit_page_length: 20,
@@ -561,17 +597,34 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
     });
 
     const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
-    const jobs = rows.map((j) => ({
-      id: j.name,
-      status: j.status || "",
-      log: j.log || "",
-      backupStatus: j.backup_status || "",
-      edgeStatus: j.edge_status || "",
-      error: j.error || "",
-      attempts: Number(j.attempts || 0),
-      createdAt: j.creation || "",
-      updatedAt: j.modified || "",
-    }));
+    const jobs = rows.map((j) => {
+      // access is a JSON string (see doctype-provisioning-job.json) written by
+      // whichever lane provisioned the service — coolify writes manageUrl+uuid,
+      // bench/mock write url. Normalize to one field so the frontend doesn't
+      // need to know the lane-specific shape. Only meaningful once the job is
+      // actually active — a queued/failed job has nothing real to link to.
+      let accessUrl = "";
+      if (j.status === "active" && j.access) {
+        try {
+          const parsed = JSON.parse(j.access);
+          accessUrl = parsed?.url || parsed?.manageUrl || "";
+        } catch {
+          // malformed/truncated access JSON — degrade to no link, not a crash.
+        }
+      }
+      return {
+        id: j.name,
+        status: j.status || "",
+        log: j.log || "",
+        backupStatus: j.backup_status || "",
+        edgeStatus: j.edge_status || "",
+        error: j.error || "",
+        attempts: Number(j.attempts || 0),
+        accessUrl,
+        createdAt: j.creation || "",
+        updatedAt: j.modified || "",
+      };
+    });
 
     return res.json({ ok: true, jobs });
   } catch (err) {
@@ -583,6 +636,432 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
     }
     console.error("FETCH SERVICE ACTIVITY ERROR:", err.response?.data || err.message);
     return res.status(500).json({ error: "Failed to load service activity." });
+  }
+});
+
+// --- SERVICE LIFECYCLE ACTIONS (restart / stop / start via Coolify) ---
+// Phase 2 of the resource-management dashboard. Scoped to a customer's own
+// coolify-lane service. Deliberately does NOT touch the Provisioning Job's
+// `status` field (that's provisioning-lifecycle state, not runtime up/down —
+// see the plan doc) and does NOT claim to update any "online/offline"
+// indicator elsewhere in the portal — success just means the action was
+// accepted, not that the service is verified healthy afterward.
+
+// Fetch the most recent Provisioning Job for this account+service and verify
+// ownership explicitly (defense in depth beyond the query filter — a write
+// action gets a real check, not just a hope the filter returns zero rows).
+async function loadOwnedJob(client, webAccountName, serviceId) {
+  const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+    params: {
+      filters: JSON.stringify([
+        ["web_account", "=", webAccountName],
+        ["service_id", "=", serviceId],
+      ]),
+      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log"]),
+      order_by: "modified desc",
+      limit_page_length: 1,
+    },
+  });
+  const job = resp.data?.data?.[0] || null;
+  if (job && job.web_account !== webAccountName) return null; // never trust the filter alone
+  return job;
+}
+
+async function runServiceAction(req, res, action, laneFn) {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  const client = frappeClient();
+  let job;
+  try {
+    job = await loadOwnedJob(client, webAccountName, serviceId);
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.status(404).json({ error: "This service has no provisioning record yet." });
+    }
+    console.error(`SERVICE ${action.toUpperCase()} LOOKUP ERROR:`, err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+
+  if (!job) {
+    return res.status(404).json({ error: "Service not found on your account." });
+  }
+  if (job.lane !== "coolify") {
+    return res.status(422).json({ error: "This service isn't managed through an automated lane yet — contact support." });
+  }
+  if (!job.external_ref) {
+    return res.status(409).json({ error: "This service has no live infrastructure to act on yet." });
+  }
+  if (job.status !== "active") {
+    return res.status(409).json({ error: `Can't ${action} a service that isn't active (current: ${job.status || "unknown"}).` });
+  }
+
+  const guardKey = `${job.name}:${action}`;
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+
+  try {
+    await laneFn(job.external_ref);
+
+    // Audit trail — required for a customer-initiated action against
+    // production infra, not optional. Best-effort: the Coolify call is the
+    // source of truth for the action itself, so a failed audit write here
+    // shouldn't turn a real success into a customer-facing error — but it
+    // must never fail silently server-side.
+    const ts = new Date().toISOString();
+    const auditLine = `[${ts}] [ACTION] ${action} requested by ${webAccountName}`;
+    client
+      .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+        log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+      })
+      .catch((e) => console.error(`SERVICE ${action.toUpperCase()} AUDIT LOG WRITE FAILED:`, e.response?.data || e.message));
+
+    return res.json({ ok: true, message: `${action[0].toUpperCase()}${action.slice(1)} requested — check back shortly.` });
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status === 404) {
+      console.error(`SERVICE ${action.toUpperCase()} STALE REF:`, job.name, job.external_ref);
+      return res.status(409).json({ error: "This service's infrastructure record is out of sync — contact support." });
+    }
+    console.error(`SERVICE ${action.toUpperCase()} ERROR:`, err.response?.data || err.message);
+    return res.status(502).json({ error: `Failed to ${action} this service. Please try again or contact support.` });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+}
+
+router.post("/api/portal/services/:serviceId/restart", requireAuth, serviceActionLimiter, (req, res) =>
+  runServiceAction(req, res, "restart", coolifyLane.restart)
+);
+router.post("/api/portal/services/:serviceId/start", requireAuth, serviceActionLimiter, (req, res) =>
+  runServiceAction(req, res, "start", coolifyLane.start)
+);
+router.post("/api/portal/services/:serviceId/stop", requireAuth, serviceStopLimiter, (req, res) =>
+  runServiceAction(req, res, "stop", coolifyLane.stop)
+);
+
+// --- REAL USAGE METRICS (Phase 3) ---
+// Read-only, so filter-based scoping (web_account+service_id in the Frappe
+// query) is sufficient here — no separate ownership check needed, unlike the
+// action routes above (see activity endpoint above for the same reasoning).
+router.get("/api/portal/services/:serviceId/usage", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  const client = frappeClient();
+  let job;
+  try {
+    job = await loadOwnedJob(client, webAccountName, serviceId);
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, available: false });
+    }
+    console.error("SERVICE USAGE LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+
+  // Not an error state — most services simply don't have real usage data
+  // yet (wrong lane, not provisioned, or Coolify doesn't expose it). The
+  // frontend's job is to render "not available," not to alarm the customer.
+  if (!job || job.lane !== "coolify" || !job.external_ref || job.status !== "active") {
+    return res.json({ ok: true, available: false });
+  }
+
+  try {
+    const usage = await coolifyLane.getUsage(job.external_ref);
+    const available = Object.values(usage).some((v) => v !== null);
+    return res.json({ ok: true, available, ...usage });
+  } catch (err) {
+    // Coolify not exposing this, or a transient error — degrade to
+    // "not available," don't surface a scary error for a nice-to-have widget.
+    console.warn("SERVICE USAGE FETCH FAILED:", err.response?.data || err.message);
+    return res.json({ ok: true, available: false });
+  }
+});
+
+// --- DOMAIN SELF-SERVICE (Phase 4) ---
+// Self-service domain attach for coolify-lane services: the customer already
+// owns the domain and has pointed it at our IP; we verify that (a real DNS
+// check, not a client-supplied claim) then hand it to Coolify, which
+// auto-issues SSL. We never touch DNS ourselves — no registrar API, no
+// automated record creation.
+const dns = require("dns").promises;
+
+const domainAttachLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+function isValidDomain(domain) {
+  return /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i.test(domain);
+}
+
+router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachLimiter, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  const domain = String(req.body?.domain || "").trim().toLowerCase();
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+  if (!domain || !isValidDomain(domain)) {
+    return res.status(400).json({ error: "Enter a valid domain (e.g. shop.yourbusiness.co.ke)." });
+  }
+
+  const serverIp = process.env.COOLIFY_SERVER_IP;
+  if (!serverIp) {
+    return res.status(503).json({ error: "Domain self-service isn't configured yet — contact support." });
+  }
+
+  const client = frappeClient();
+  let job;
+  try {
+    job = await loadOwnedJob(client, webAccountName, serviceId);
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.status(404).json({ error: "This service has no provisioning record yet." });
+    }
+    console.error("DOMAIN ATTACH LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  if (!job) return res.status(404).json({ error: "Service not found on your account." });
+  if (job.lane !== "coolify") {
+    return res.status(422).json({ error: "This service isn't managed through an automated lane yet — contact support." });
+  }
+  if (!job.external_ref || job.status !== "active") {
+    return res.status(409).json({ error: "This service isn't live yet — connect your domain once it's active." });
+  }
+
+  // Real check, not a client-supplied claim: resolve the domain and confirm
+  // it points at our server before ever touching Coolify.
+  try {
+    const addresses = await dns.resolve4(domain).catch(() => []);
+    if (!addresses.includes(serverIp)) {
+      return res.status(422).json({
+        error: `${domain} doesn't point here yet. Add an A record for ${domain} → ${serverIp}, then try again (DNS can take a few minutes to propagate).`,
+      });
+    }
+  } catch (err) {
+    return res.status(422).json({ error: `Couldn't resolve ${domain}. Double-check the domain and try again.` });
+  }
+
+  try {
+    await coolifyLane.attachDomain(job.external_ref, domain);
+    const ts = new Date().toISOString();
+    const auditLine = `[${ts}] [DOMAIN] ${domain} attached by ${webAccountName}`;
+    client
+      .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+        log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+      })
+      .catch((e) => console.error("DOMAIN ATTACH AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
+    return res.json({ ok: true, message: `${domain} connected — SSL is issuing automatically, usually live within a few minutes.` });
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status === 404) {
+      return res.status(409).json({ error: "This service's infrastructure record is out of sync — contact support." });
+    }
+    console.error("DOMAIN ATTACH ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Failed to connect this domain. Please try again or contact support." });
+  }
+});
+
+// --- DEVELOPER ACCESS TERMINAL (Phase 5.2 — mint + WS auth only) ---
+// Enterprise-gated (server-side — never trust the client's plan claim).
+// Mints TWO distinct credentials with different trust boundaries:
+//   - wsTicket: browser<->OUR backend, signed with SESSION_SECRET (same
+//     trust boundary as the session cookie itself; single-use; re-checked
+//     against the live session on WS upgrade — see server.js).
+//   - brokerToken: OUR backend<->broker, signed with BROKER_SIGNING_KEY (a
+//     secret the browser never sees), carrying the container's deterministic
+//     ownership name for the broker to resolve at connect time. The broker
+//     — not this route — is what turns that name into an actual container id
+//     (see broker/lib/resolve.js); this route never touches Docker.
+// Real exec doesn't exist yet (broker/index.js's WS upgrade still 501s and
+// dockerClient.execStream() still throws) — this phase proves the auth chain.
+const terminalMintLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+function isEnterprisePlan(plan) {
+  return String(plan || "None").toLowerCase().includes("enterprise");
+}
+
+router.post("/api/portal/services/:serviceId/terminal/session", requireAuth, terminalMintLimiter, async (req, res) => {
+  if (String(process.env.TERMINAL_ENABLED || "false").toLowerCase() !== "true") {
+    return res.status(503).json({ error: "Developer access terminal isn't available yet." });
+  }
+
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  // Server-side plan gate — the frontend may hide/show the button by plan,
+  // but that's cosmetic; this is the actual authorization boundary.
+  if (!isEnterprisePlan(req.session?.user?.plan)) {
+    return res.status(403).json({ error: "Developer access is an Enterprise-plan feature — contact sales to upgrade." });
+  }
+
+  const brokerSigningKey = process.env.BROKER_SIGNING_KEY;
+  if (!brokerSigningKey) {
+    console.error("TERMINAL MINT ERROR: BROKER_SIGNING_KEY not set.");
+    return res.status(503).json({ error: "Developer access terminal isn't configured yet — contact support." });
+  }
+  if (!SESSION_SECRET) {
+    console.error("TERMINAL MINT ERROR: SESSION_SECRET not set.");
+    return res.status(503).json({ error: "Developer access terminal isn't configured yet — contact support." });
+  }
+
+  const client = frappeClient();
+  let job;
+  try {
+    job = await loadOwnedJob(client, webAccountName, serviceId);
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.status(404).json({ error: "This service has no provisioning record yet." });
+    }
+    console.error("TERMINAL MINT LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  if (!job) return res.status(404).json({ error: "Service not found on your account." });
+  if (job.lane !== "coolify") {
+    return res.status(422).json({ error: "Developer access isn't available for this service type yet — contact support." });
+  }
+  if (!job.external_ref || job.status !== "active") {
+    return res.status(409).json({ error: "This service isn't live yet — developer access is available once it's active." });
+  }
+
+  // Deterministic ownership slug — identical derivation to what the coolify
+  // lane named the container at provision time. Never a client-supplied id;
+  // the broker independently resolves this name to a live container at
+  // connect time and re-checks it immediately before exec (TOCTOU guard).
+  const expectedName = coolifyLane.resourceName({ web_account: job.web_account, service_id: job.service_id });
+
+  const brokerToken = signBrokerToken(
+    {
+      expectedName,
+      webAccount: webAccountName,
+      jobName: job.name,
+      jti: crypto.randomBytes(16).toString("hex"),
+      exp: Date.now() + 45000,
+    },
+    brokerSigningKey
+  );
+
+  const wsTicket = mintWsTicket(
+    { webAccount: webAccountName, serviceId, jobName: job.name, brokerToken },
+    SESSION_SECRET,
+    45000
+  );
+
+  const ts = new Date().toISOString();
+  const auditLine = `[${ts}] [TERMINAL] session minted by ${webAccountName}`;
+  client
+    .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+      log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+    })
+    .catch((e) => console.error("TERMINAL MINT AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
+
+  return res.json({ ok: true, wsTicket, wsPath: "/api/portal/terminal/ws" });
+});
+
+// --- DEVELOPER ACCESS TERMINAL: own-session history + own-recording access (P5.4) ---
+
+router.get("/api/portal/terminal/sessions", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  try {
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["web_account", "=", webAccountName]]),
+        fields: JSON.stringify([
+          "name", "session_id", "service_id", "started_at", "ended_at",
+          "duration_seconds", "exit_reason", "retention_tier", "purged",
+        ]),
+        order_by: "started_at desc",
+        limit_page_length: 100,
+      },
+    });
+    return res.json({ ok: true, data: resp.data?.data || [] });
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, data: [] });
+    }
+    console.error("PORTAL TERMINAL SESSIONS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load session history." });
+  }
+});
+
+// Customers get direct (but logged and rate-limited) access to their OWN
+// recordings — no manual request queue, since it's their own data. Every
+// access is still logged via the same immutable trail as staff access.
+const recordingAccessLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+router.get("/api/portal/terminal/sessions/:sessionId/recording", requireAuth, recordingAccessLimiter, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { sessionId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!sessionId) return res.status(400).json({ error: "Missing sessionId." });
+
+  const client = frappeClient();
+  let row;
+  try {
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["session_id", "=", sessionId]]),
+        fields: JSON.stringify(["name", "web_account", "recording_key", "purged"]),
+        limit_page_length: 1,
+      },
+    });
+    row = resp.data?.data?.[0];
+  } catch (err) {
+    console.error("PORTAL RECORDING ACCESS LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this session." });
+  }
+  // Ownership check, never trust the filter alone (same discipline as loadOwnedJob).
+  if (!row || row.web_account !== webAccountName) {
+    return res.status(404).json({ error: "No session with that id." });
+  }
+
+  const logEntry = accessControlLib.buildAccessLogEntry({
+    sessionName: row.name,
+    accessedBy: req.session?.user?.email || webAccountName,
+    reason: "customer self-access",
+    granted: true,
+  });
+  client
+    .post("/api/method/frappe.client.insert", { doc: { doctype: terminalConstants.ACCESS_LOG_DOCTYPE, ...logEntry } })
+    .catch((e) => console.error("PORTAL RECORDING ACCESS LOG WRITE FAILED:", e.response?.data || e.message));
+
+  if (row.purged || !row.recording_key) {
+    return res.status(404).json({ error: "No recording available for this session." });
+  }
+
+  try {
+    const url = s3ClientLib.presignGetUrl(row.recording_key, { expiresSeconds: 300 });
+    return res.json({ ok: true, url });
+  } catch (err) {
+    console.error("PORTAL RECORDING PRESIGN ERROR:", err.message);
+    return res.status(503).json({ error: "Recording storage isn't configured." });
   }
 });
 

@@ -25,7 +25,7 @@ const TESTIMONIALS: Testimonial[] = [];
 const PEEK_ITEMS = [
   { name: 'Website Hosting', kes: serviceMonthlyKes('starter-web-hosting') ?? 0 },
   { name: 'Business Email', kes: serviceMonthlyKes('starter-email') ?? 0 },
-  { name: 'Managed ERPNext', kes: serviceMonthlyKes('biz-erp-light') ?? 0 },
+  { name: 'Murzak ERP', kes: serviceMonthlyKes('biz-erp-light') ?? 0 },
 ];
 
 function ConfigPeek() {
@@ -331,7 +331,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
-                  { icon: <Boxes size={16} />, t: 'Hosted ERPNext', s: 'Inventory, accounting, HR — configured for KE' },
+                  { icon: <Boxes size={16} />, t: 'Murzak ERP', s: 'Inventory, accounting, HR — configured for KE' },
                   { icon: <ShoppingCart size={16} />, t: 'POS & Inventory', s: 'Sell, track stock, see reports' },
                   { icon: <Database size={16} />, t: 'CRM & Helpdesk', s: 'Pipeline, tickets, follow-ups' },
                   { icon: <Mail size={16} />, t: 'Business Email', s: 'Your-name@your-domain, managed' },

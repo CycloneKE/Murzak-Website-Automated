@@ -183,7 +183,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Package size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">See a Demo</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Watch ERPNext, POS, CRM or your custom build running live on a quick screen-share.</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
                 <button 

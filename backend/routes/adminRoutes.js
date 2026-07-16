@@ -1,10 +1,17 @@
 
 const express = require('express');
+// Not destructured at import time — test/routesContext.test.js's static guard
+// greedily matches the first destructuring-brace pattern through to the ctx
+// destructure below (see portalRoutes.js for the same convention).
+const terminalConstants = require('../services/terminal/constants');
+const accessControlLib = require('../services/terminal/accessControl');
+const s3ClientLib = require('../services/terminal/s3Client');
 
 module.exports = function(ctx) {
-  const { 
+  const {
     CAPACITY_REQUEST_DOCTYPE,
     PROVISIONING_JOB_DOCTYPE,
+    axios,
     frappeClient,
     logPortalUpdate,
     mysqlDatetimeUTC,
@@ -12,7 +19,7 @@ module.exports = function(ctx) {
     provisioningRunner,
     provisioningTargets,
     requireAdmin,
-    requireAuth 
+    requireAuth
   } = ctx;
 
   const router = express.Router();
@@ -316,6 +323,140 @@ router.get("/api/admin/provisioning/queue", requireAuth, requireAdmin, async (re
     return res.status(500).json({
       error: "Failed to read queue health."
     });
+  }
+});
+
+// ---- Developer access terminal (admin) — P5.4 ----
+// Metadata-only list: general admin access, broad requireAdmin gate — matches
+// the brainstormed tiering (staff see WHAT happened, not the transcript).
+// Recording CONTENT is a separate, narrower gate below.
+router.get("/api/admin/terminal/sessions", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        fields: JSON.stringify([
+          "name", "session_id", "web_account", "provisioning_job", "service_id",
+          "container_name", "started_at", "ended_at", "duration_seconds",
+          "exit_reason", "byte_count", "retention_tier", "flagged_reason", "purged",
+        ]),
+        order_by: "started_at desc",
+        limit_page_length: 200,
+      },
+    });
+    return res.json({ ok: true, data: resp.data?.data || [] });
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, data: [] });
+    }
+    console.error("ADMIN TERMINAL SESSIONS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load terminal sessions." });
+  }
+});
+
+// Kill-switch — an ACTION, not a content view, so it stays behind the broad
+// requireAdmin gate (unlike recording access below). Only reaches a session
+// the backend has a live Terminal Session row for (ended_at empty); the
+// broker itself does not re-authorize this beyond the shared internal key.
+router.post("/api/admin/terminal/:sessionId/kill", requireAuth, requireAdmin, async (req, res) => {
+  const { sessionId } = req.params;
+  if (!sessionId) return res.status(400).json({ error: "Missing sessionId." });
+
+  const brokerKey = process.env.BROKER_API_KEY;
+  const brokerUrl = (process.env.BROKER_URL || "").replace(/\/+$/, "");
+  if (!brokerKey || !brokerUrl) {
+    console.error("ADMIN TERMINAL KILL ERROR: BROKER_API_KEY/BROKER_URL not set.");
+    return res.status(503).json({ error: "Terminal broker isn't configured yet." });
+  }
+
+  try {
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["session_id", "=", sessionId]]),
+        fields: JSON.stringify(["name", "ended_at"]),
+        limit_page_length: 1,
+      },
+    });
+    const row = resp.data?.data?.[0];
+    if (!row) return res.status(404).json({ error: "No session with that id." });
+    if (row.ended_at) return res.status(409).json({ error: "That session has already ended." });
+
+    await axios.post(`${brokerUrl}/sessions/${encodeURIComponent(sessionId)}/kill`, {}, {
+      headers: { "x-broker-key": brokerKey },
+      timeout: 5000,
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      return res.status(404).json({ error: "That session is no longer live on the broker." });
+    }
+    console.error("ADMIN TERMINAL KILL ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Failed to kill the session. Please try again." });
+  }
+});
+
+// Recording CONTENT access — deliberately narrower than requireAdmin: gated
+// on TERMINAL_RECORDING_ACCESS_EMAILS (a separate, smaller list), requires a
+// stated reason, and every attempt (granted or denied) is logged to an
+// immutable doctype. See services/terminal/accessControl.js.
+router.post("/api/admin/terminal/:sessionId/recording-access", requireAuth, requireAdmin, async (req, res) => {
+  const { sessionId } = req.params;
+  const reason = req.body?.reason;
+  const email = req.session?.user?.email || "";
+  if (!sessionId) return res.status(400).json({ error: "Missing sessionId." });
+
+  const client = frappeClient();
+  let row;
+  try {
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["session_id", "=", sessionId]]),
+        fields: JSON.stringify(["name", "recording_key", "purged"]),
+        limit_page_length: 1,
+      },
+    });
+    row = resp.data?.data?.[0];
+  } catch (err) {
+    console.error("ADMIN RECORDING ACCESS LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this session." });
+  }
+  if (!row) return res.status(404).json({ error: "No session with that id." });
+
+  const authorized = accessControlLib.isRecordingAccessAuthorized(email);
+
+  let logEntry;
+  try {
+    logEntry = accessControlLib.buildAccessLogEntry({
+      sessionName: row.name,
+      accessedBy: email,
+      reason,
+      granted: authorized,
+    });
+  } catch (err) {
+    if (err.code === "REASON_REQUIRED") {
+      return res.status(400).json({ error: "A reason is required to access a recording." });
+    }
+    throw err;
+  }
+
+  client
+    .post("/api/method/frappe.client.insert", { doc: { doctype: terminalConstants.ACCESS_LOG_DOCTYPE, ...logEntry } })
+    .catch((e) => console.error("RECORDING ACCESS LOG WRITE FAILED:", e.response?.data || e.message));
+
+  if (!authorized) {
+    return res.status(403).json({ error: "You're not authorized to view recording content." });
+  }
+  if (row.purged || !row.recording_key) {
+    return res.status(404).json({ error: "No recording available for this session." });
+  }
+
+  try {
+    const url = s3ClientLib.presignGetUrl(row.recording_key, { expiresSeconds: 300 });
+    return res.json({ ok: true, url });
+  } catch (err) {
+    console.error("ADMIN RECORDING PRESIGN ERROR:", err.message);
+    return res.status(503).json({ error: "Recording storage isn't configured." });
   }
 });
 

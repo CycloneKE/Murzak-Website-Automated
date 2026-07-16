@@ -1,17 +1,16 @@
 import React from 'react';
 import { ShieldCheck, Server, Lock } from 'lucide-react';
 
+// No per-tenant backup timestamp or firewall-block counter is wired to any
+// real data source yet (the Provisioning Job doctype has a backup_status
+// enum — pending/configured/skipped/failed — but no timestamp, and nothing
+// tracks WAF hits per tenant). Show honest "not tracked yet" states instead
+// of the "Today, 02:00" / random-number placeholders this used to render.
 const SecurityOverviewCard: React.FC = () => {
-  // Mocking realistic timestamps and counts for demonstration
-  const today = new Date();
-  today.setHours(2, 0, 0, 0); // Mock back up at 2 AM today
-  
-  const blockedThreats = Math.floor(Math.random() * 50) + 12; // 12-62 threats blocked
-
   return (
     <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-32 h-32 bg-murzak-cyan/5 rounded-bl-full blur-3xl transition-all duration-1000 group-hover:bg-murzak-cyan/10"></div>
-      
+
       <div className="flex items-center justify-between mb-8 relative z-10">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-2xl text-green-400">
@@ -30,32 +29,32 @@ const SecurityOverviewCard: React.FC = () => {
             <Server size={16} className="text-murzak-cyan" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Uptime SLA</p>
-              <p className="text-xs text-slate-400">Monthly Average</p>
+              <p className="text-xs text-slate-400">Contractual commitment</p>
             </div>
           </div>
-          <span className="text-lg font-black text-white">99.99%</span>
+          <span className="text-lg font-black text-white">99.9%</span>
         </div>
 
         <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
           <div className="flex items-center gap-3">
-            <ShieldCheck size={16} className="text-green-400" />
+            <ShieldCheck size={16} className="text-slate-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Last Backup</p>
-              <p className="text-xs text-slate-400">Verified & Encrypted</p>
+              <p className="text-xs text-slate-400">Verified & encrypted, when run</p>
             </div>
           </div>
-          <span className="text-sm font-bold text-white tracking-wider">Today, 02:00</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>
         </div>
 
         <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
           <div className="flex items-center gap-3">
-            <Lock size={16} className="text-orange-400" />
+            <Lock size={16} className="text-slate-500" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Firewall Blocks</p>
-              <p className="text-xs text-slate-400">Past 7 Days</p>
+              <p className="text-xs text-slate-400">Past 7 days</p>
             </div>
           </div>
-          <span className="text-lg font-black text-white">{blockedThreats}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>
         </div>
       </div>
     </div>

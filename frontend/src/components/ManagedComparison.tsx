@@ -6,7 +6,7 @@ const rows: { feature: string; diy: string | false; murzak: string | true }[] = 
   { feature: "Server setup & configuration", diy: "You do it (hours of work)", murzak: "Done for you" },
   { feature: "Billing currency", diy: "USD, card only", murzak: "KES — local invoices" },
   { feature: "M-Pesa payments", diy: false, murzak: "STK push built in" },
-  { feature: "ERPNext / POS / CRM setup", diy: "Self-install & maintain", murzak: "Pre-configured & migrated" },
+  { feature: "Murzak ERP / POS / CRM setup", diy: "Self-install & maintain", murzak: "Pre-configured & migrated" },
   { feature: "Backups, SSL & security patching", diy: "Your responsibility", murzak: "Managed daily" },
   { feature: "Support", diy: "Tickets, overseas hours", murzak: "Nairobi team, local hours" },
   { feature: "Domain handling", diy: "Separate registrar", murzak: "Searched & registered for you" },

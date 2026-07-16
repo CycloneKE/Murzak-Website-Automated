@@ -31,11 +31,18 @@ function linesForJob(job: ProvisioningActivityEntry): string[] {
   return lines;
 }
 
+// A job still in these states can produce new log lines any moment — poll
+// fast while any recent job is in one of them. Once every job has settled
+// (active/failed/needs_human), there's nothing new to catch, so stop.
+const LIVE_STATUSES = new Set(['queued', 'running']);
+const LIVE_POLL_MS = 1500;
+
 const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isLive, setIsLive] = useState(false);
   const endOfLogsRef = useRef<HTMLDivElement>(null);
 
   const activeService = services.find(s => s.serviceId === serviceId);
@@ -48,12 +55,15 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
       const jobs = await fetchServiceActivity(serviceId);
       if (jobs.length === 0) {
         setLogs(['No provisioning activity has been recorded for this service yet.']);
+        setIsLive(false);
       } else {
         setLogs(jobs.flatMap(linesForJob));
+        setIsLive(jobs.some((j) => LIVE_STATUSES.has(j.status)));
       }
     } catch (e: any) {
       setLoadError(e?.message || 'Failed to load activity.');
       setLogs([]);
+      setIsLive(false);
     } finally {
       setLoading(false);
     }
@@ -63,6 +73,16 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
     if (!serviceId) return;
     load();
   }, [serviceId, load]);
+
+  // While a build is actually in progress, poll fast so the drawer feels like
+  // a live console instead of a static historical dump. Stops itself the
+  // moment every job has settled — no interval left running for a finished
+  // service.
+  useEffect(() => {
+    if (!serviceId || !isLive) return;
+    const id = setInterval(load, LIVE_POLL_MS);
+    return () => clearInterval(id);
+  }, [serviceId, isLive, load]);
 
   useEffect(() => {
     endOfLogsRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +99,13 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
           <div className="flex items-center text-gray-300 text-sm">
             <Terminal className="w-4 h-4 mr-2" />
             <span>provisioning activity: {activeService?.name || activeService?.category}</span>
-            <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-white/10 text-gray-300">Recorded</span>
+            {isLive ? (
+              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
+              </span>
+            ) : (
+              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-white/10 text-gray-300">Recorded</span>
+            )}
           </div>
           <div className="flex items-center space-x-2 text-gray-500">
             <button className="hover:text-white transition-colors p-1" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh">

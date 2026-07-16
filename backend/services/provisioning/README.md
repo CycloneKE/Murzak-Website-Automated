@@ -160,7 +160,9 @@ Admin: `GET /api/admin/provisioning/queue` → mode + (bullmq) live job counts.
 - **Per-tenant edge / WAF** (`edge.js`): `EDGE_CONFIG_CMD` wires each tenant into
   Cloudflare/WAF at create-time; recorded on the job (`edge_status`).
 - **Isolation contract** the lane scripts must honour: per-tenant DB creds,
-  container memory limits (coolify lane sets `limits_memory`), no shell access,
+  container resource caps (coolify lane's `resourceLimits(job)` sets
+  memory + cpu + pids + disk, plus cap-drop/no-new-privileges — see the
+  ⚠️ field-name caveat in `lanes/coolify.js provision()`), no shell access,
   edge/WAF in front. Dedicated/large tenants go to their own box (manual lane).
 
 ## Tests

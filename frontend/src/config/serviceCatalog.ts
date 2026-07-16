@@ -25,7 +25,7 @@ export type DomainChoice =
 /**
  * Capacity class — drives both economics and provisioning:
  *  - "volume":   light, shared slices of the KVM 4. High density, high aggregate margin.
- *  - "premium":  managed Frappe-class apps (ERPNext/POS/CRM). Low density (~2–4GB RAM each),
+ *  - "premium":  managed Frappe-class apps (Murzak ERP/POS/CRM). Low density (~2–4GB RAM each),
  *                so only a handful fit. Priced high.
  *  - "dedicated":too large for the shared KVM 4 — provisioning a separate/bigger server.
  *                Always quote-based ("custom"), never self-serve.
@@ -154,11 +154,11 @@ export const PLAN_META: Record<PlanCode, PlanMeta> = {
     label: "Business Suite (SaaS)",
     startingKes: 4500,
     period: "/mo",
-    blurb: "Fully managed SaaS applications (ERPNext, POS, CRM). Configured, hosted, and supported from Nairobi.",
+    blurb: "Fully managed SaaS applications (Murzak ERP, POS, CRM). Configured, hosted, and supported from Nairobi.",
     bestFor: "Growing teams needing POS, ERP & CRM",
     cta: "Configure SaaS apps",
     featured: true,
-    features: ["Murzak Retail POS", "Managed ERPNext & CRM", "Pre-configured & migrated", "Priority Nairobi support"],
+    features: ["Murzak Retail POS", "Managed Murzak ERP & CRM", "Pre-configured & migrated", "Priority Nairobi support"],
   },
   Enterprise: {
     code: "Enterprise",
@@ -203,8 +203,8 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     },
     {
       id: "test-erpnext-demo",
-      name: "ERPNext Demo Sandbox",
-      description: "Pre-seeded ERPNext sandbox to explore modules and workflows.",
+      name: "Murzak ERP Demo Sandbox",
+      description: "Pre-seeded Murzak ERP sandbox to explore modules and workflows.",
       category: "ERP Hosting",
       tier: "Demo",
       capacityClass: "premium",
@@ -316,21 +316,21 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
   Business: [
     {
       id: "biz-erp-light",
-      name: "Managed ERPNext (1–3 users)",
-      description: "Fully managed ERPNext for a small operation — we host, configure and back it up.",
+      name: "Murzak ERP (1–3 users)",
+      description: "Fully managed Murzak ERP for a small operation — we host, configure and back it up.",
       category: "ERP Hosting",
       tier: "Medium",
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "20GB NVMe", cpu: "1–2 vCPU", bandwidth: "Generous", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 20 },
       pricing: { model: "addon", monthlyKes: 6000, setupKes: 5000 },
-      highlights: ["Managed ERPNext", "Daily backups", "SSL + custom domain", "Email support"],
+      highlights: ["Managed Murzak ERP", "Daily backups", "SSL + custom domain", "Email support"],
       sortOrder: 10,
     },
     {
       id: "biz-erp-configured",
-      name: "Managed ERPNext (5–20 users, configured)",
-      description: "ERPNext tailored to your departments (KE tax, inventory, accounting) and migrated for you.",
+      name: "Murzak ERP (5–20 users, configured)",
+      description: "Murzak ERP tailored to your departments (KE tax, inventory, accounting) and migrated for you.",
       category: "ERP Hosting",
       tier: "Large",
       capacityClass: "premium",
@@ -452,7 +452,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "ent-erp-large",
       name: "Large ERP Hosting (Dedicated)",
-      description: "Enterprise ERPNext on dedicated capacity with hardening and scale.",
+      description: "Enterprise Murzak ERP on dedicated capacity with hardening and scale.",
       category: "ERP Hosting",
       tier: "Enterprise",
       capacityClass: "dedicated",
@@ -756,7 +756,7 @@ export function isQuoteOnly(svc: ServiceItem): boolean {
 }
 
 /**
- * Managed SaaS (premium: ERPNext/POS/CRM…) — configured & operated by the team,
+ * Managed SaaS (premium: Murzak ERP/POS/CRM…) — configured & operated by the team,
  * so it's set up (not instant) after checkout. Drives the "Managed setup" badge
  * and the "Setting up" post-payment status. Volume hosting slices are not managed.
  */

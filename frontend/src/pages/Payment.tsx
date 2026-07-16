@@ -391,7 +391,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
               <p className="text-sm font-bold text-slate-400 leading-relaxed">
                 {isVerification
                   ? "Your trial is starting now — head to your portal to begin exploring."
-                  : "We're setting up your services. Instant services go live right away; managed setups (like ERPNext) are configured by our team within 24 hours — you can watch progress in your portal."}
+                  : "We're setting up your services. Instant services go live right away; managed setups (like Murzak ERP) are configured by our team within 24 hours — you can watch progress in your portal."}
               </p>
             </div>
           )}

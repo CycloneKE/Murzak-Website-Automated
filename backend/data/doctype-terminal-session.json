@@ -1,0 +1,45 @@
+{
+  "doctype": "DocType",
+  "name": "Terminal Session",
+  "module": "Custom",
+  "custom": 1,
+  "naming_rule": "Expression (old style)",
+  "autoname": "format:TERM-{web_account}-{#####}",
+  "title_field": "session_id",
+  "track_changes": 1,
+  "sort_field": "started_at",
+  "sort_order": "DESC",
+  "fields": [
+    { "fieldname": "section_identity", "fieldtype": "Section Break", "label": "Identity" },
+    { "fieldname": "session_id", "fieldtype": "Data", "label": "Session ID", "unique": 1, "read_only": 1, "in_list_view": 1, "description": "Broker-generated random id — never derived from anything client-supplied." },
+    { "fieldname": "web_account", "fieldtype": "Link", "label": "Web Account", "options": "Web Account", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1 },
+    { "fieldname": "provisioning_job", "fieldtype": "Link", "label": "Provisioning Job", "options": "Provisioning Job" },
+    { "fieldname": "column_break_identity", "fieldtype": "Column Break" },
+    { "fieldname": "service_id", "fieldtype": "Data", "label": "Service ID" },
+    { "fieldname": "container_name", "fieldtype": "Data", "label": "Container (ownership name)", "read_only": 1, "description": "The exact resourceName() the broker resolved and TOCTOU-rechecked — for incident review, not for re-use." },
+
+    { "fieldname": "section_timing", "fieldtype": "Section Break", "label": "Timing" },
+    { "fieldname": "started_at", "fieldtype": "Datetime", "label": "Started At", "reqd": 1, "in_list_view": 1 },
+    { "fieldname": "ended_at", "fieldtype": "Datetime", "label": "Ended At" },
+    { "fieldname": "duration_seconds", "fieldtype": "Int", "label": "Duration (s)" },
+    { "fieldname": "column_break_timing", "fieldtype": "Column Break" },
+    { "fieldname": "exit_reason", "fieldtype": "Select", "label": "Exit Reason", "options": "\nclient_closed\nidle_timeout\nabsolute_timeout\nshell_exited\nstream_error\nexec_failed\nadmin_killed\naccount_suspended", "in_list_view": 1 },
+    { "fieldname": "byte_count", "fieldtype": "Int", "label": "Recorded Bytes" },
+
+    { "fieldname": "section_retention", "fieldtype": "Section Break", "label": "Retention" },
+    { "fieldname": "retention_tier", "fieldtype": "Select", "label": "Retention Tier", "options": "routine\nflagged\nlegal_hold", "default": "routine", "in_list_view": 1, "in_standard_filter": 1, "description": "routine=30d, flagged=90d, legal_hold=indefinite until manually cleared." },
+    { "fieldname": "expires_at", "fieldtype": "Datetime", "label": "Expires At", "description": "When the retention sweep will purge this recording. Empty for legal_hold." },
+    { "fieldname": "flagged_reason", "fieldtype": "Small Text", "label": "Flagged Reason", "description": "Why this session was upgraded to the flagged (90d) tier, e.g. hit a resource cap, abnormal exit." },
+    { "fieldname": "column_break_retention", "fieldtype": "Column Break" },
+    { "fieldname": "legal_hold_set_by", "fieldtype": "Data", "label": "Legal Hold Set By", "description": "Staff email that placed the hold — required whenever retention_tier=legal_hold." },
+    { "fieldname": "purged", "fieldtype": "Check", "label": "Purged", "default": "0", "in_standard_filter": 1 },
+    { "fieldname": "purged_at", "fieldtype": "Datetime", "label": "Purged At", "read_only": 1 },
+
+    { "fieldname": "section_storage", "fieldtype": "Section Break", "label": "Recording Storage" },
+    { "fieldname": "recording_key", "fieldtype": "Data", "label": "Recording Object Key", "description": "Off-box object storage key (never a local path — see services/terminal/recordingStorage.js). Cleared on purge." },
+    { "fieldname": "recording_encrypted", "fieldtype": "Check", "label": "Encrypted At Rest", "default": "1" }
+  ],
+  "permissions": [
+    { "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1 }
+  ]
+}
