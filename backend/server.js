@@ -90,6 +90,7 @@ const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmoun
 const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
+const { isAddonEligible } = require("./services/addonEligibility");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -1127,28 +1128,21 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Pay your subscription plan first before purchasing add-ons." });
     }
 
-    // Tier rule enforcement (server-side)
-    const allowedTiers = new Set(allowedAddonTiersForPlan(planKey));
-    if (allowedTiers.size === 0) {
-      return res.status(400).json({ error: "Add-ons are not available for your current plan." });
-    }
-
     const norm = normalizeSelectedServices(services);
 
     // Every add-on must be a real, priced catalog service — no fabricated
-    // pricing for something not in the catalog snapshot.
+    // pricing for something not in the catalog snapshot. Also enforce
+    // eligibility per-service (volume-class is plan-agnostic; premium-class
+    // must match the customer's plan tier).
     for (const s of norm) {
       const meta = getServiceMeta(s.serviceId);
       if (!meta || !(Number(meta.monthlyKes) > 0)) {
         return res.status(400).json({ error: `Add-on pricing not configured for service: ${s.serviceId}` });
       }
-    }
-
-    // We also validate tier by looking at incoming tier field (since doctype already exists)
-    // If you want stronger enforcement, we can fetch service tier from a server-side catalog later.
-    const bad = norm.find((s) => s.tier && !allowedTiers.has(String(s.tier)));
-    if (bad) {
-      return res.status(400).json({ error: `Service tier not allowed for add-ons under ${planKey}.` });
+      const elig = isAddonEligible({ planKey, service: meta });
+      if (!elig.ok) {
+        return res.status(400).json({ error: elig.error });
+      }
     }
 
     // Capacity guard: an add-on adds to what the tenant already runs, so check
@@ -1169,6 +1163,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     // Find any open unpaid add-on invoice
     const open = await findOpenInvoice(client, webAccountName, "Add-on");
 
+    let createdInvoiceId = null;
     if (open?.name && String(open.status || "").toLowerCase() !== "paid") {
       // Read the full current invoice and merge, not replace
       const openRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(open.name)}`);
@@ -1228,6 +1223,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
         status: open.status || "Unpaid",
         [PORTAL_INVOICE_SERVICES_FIELD]: mergedRows,
       });
+      createdInvoiceId = open.name;
     } else {
       const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
       const clientName = accRes.data?.data?.account_holder_name || "";
@@ -1239,7 +1235,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
         }))
       );
 
-      await client.post("/api/resource/Portal Invoice", {
+      const created = await client.post("/api/resource/Portal Invoice", {
         web_account: webAccountName,
         client_name: clientName,
         invoice_no: `ADD-${Date.now()}`,
@@ -1250,6 +1246,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
         invoice_date: today,
         [PORTAL_INVOICE_SERVICES_FIELD]: rows,
       });
+      createdInvoiceId = created.data?.data?.name || null;
     }
 
     try {
@@ -1292,7 +1289,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     const userPayload = buildUserPayload({ record: fresh, invoices, selectedServices });
     req.session.user = userPayload;
 
-    return res.json({ ok: true, user: userPayload });
+    return res.json({ ok: true, user: userPayload, invoiceId: createdInvoiceId });
   } catch (err) {
     console.error("ADDON INVOICE ERROR:", err.response?.data || err.message);
     const status = err.statusCode || 500;
