@@ -27,6 +27,7 @@
     { "fieldname": "ram_mb", "fieldtype": "Int", "label": "RAM (MB)" },
     { "fieldname": "disk_gb", "fieldtype": "Int", "label": "Disk (GB)" },
     { "fieldname": "backup_status", "fieldtype": "Select", "label": "Backup", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Off-site backup state set at create-time" },
+    { "fieldname": "repo_url", "fieldtype": "Data", "label": "Repo URL", "description": "BYOA: customer Git repository this job deploys (optional #branch suffix)" },
     { "fieldname": "edge_status", "fieldtype": "Select", "label": "Edge / WAF", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Per-tenant edge/WAF state set at create-time" },
 
     { "fieldname": "section_status", "fieldtype": "Section Break", "label": "Status" },

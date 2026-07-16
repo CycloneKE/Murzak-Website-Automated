@@ -43,8 +43,8 @@ test.describe('Navigation and Page Loading', () => {
     await page.goto('/');
     await page.locator('header').getByRole('button', { name: 'Products' }).click();
     await expect(page).toHaveURL(/\/products/);
-    // Actual h1: "Buy what's ready. Build what isn't."
-    await expect(page.locator('h1')).toContainText(/Buy what/);
+    // Actual h1 (post catalog-IA overhaul): "Software built for how Kenya works."
+    await expect(page.locator('h1')).toContainText(/Software built for how Kenya works/);
   });
 
   test('should navigate to Pricing', async ({ page }) => {

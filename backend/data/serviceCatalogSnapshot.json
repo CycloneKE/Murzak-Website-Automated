@@ -22,18 +22,20 @@
       "diskGb": 8,
       "pricingModel": "included",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "test-erpnext-demo": {
       "id": "test-erpnext-demo",
-      "name": "ERPNext Demo Sandbox",
+      "name": "Murzak ERP Demo Sandbox",
       "category": "ERP Hosting",
       "capacityClass": "premium",
       "ramMb": 2048,
       "diskGb": 15,
       "pricingModel": "included",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "test-crm-demo": {
       "id": "test-crm-demo",
@@ -44,7 +46,8 @@
       "diskGb": 10,
       "pricingModel": "included",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "starter-web-hosting": {
       "id": "starter-web-hosting",
@@ -55,7 +58,8 @@
       "diskGb": 10,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 500
+      "setupKes": 500,
+      "requiresRepo": false
     },
     "starter-web-hosting-plus": {
       "id": "starter-web-hosting-plus",
@@ -66,7 +70,20 @@
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 2500,
-      "setupKes": 1000
+      "setupKes": 1000,
+      "requiresRepo": false
+    },
+    "starter-app-hosting": {
+      "id": "starter-app-hosting",
+      "name": "App Hosting (Node.js / Docker)",
+      "category": "App Hosting",
+      "capacityClass": "volume",
+      "ramMb": 1024,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 2200,
+      "setupKes": 1000,
+      "requiresRepo": true
     },
     "starter-email": {
       "id": "starter-email",
@@ -77,7 +94,8 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 1500,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "starter-storage": {
       "id": "starter-storage",
@@ -88,7 +106,8 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "starter-db-light": {
       "id": "starter-db-light",
@@ -99,7 +118,20 @@
       "diskGb": 10,
       "pricingModel": "addon",
       "monthlyKes": 2000,
-      "setupKes": 500
+      "setupKes": 500,
+      "requiresRepo": false
+    },
+    "starter-db-mongo": {
+      "id": "starter-db-mongo",
+      "name": "Database Hosting (MongoDB)",
+      "category": "Database Hosting",
+      "capacityClass": "volume",
+      "ramMb": 768,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 2000,
+      "setupKes": 500,
+      "requiresRepo": false
     },
     "starter-hrpay": {
       "id": "starter-hrpay",
@@ -110,29 +142,32 @@
       "diskGb": 15,
       "pricingModel": "addon",
       "monthlyKes": 3000,
-      "setupKes": 1500
+      "setupKes": 1500,
+      "requiresRepo": false
     },
     "biz-erp-light": {
       "id": "biz-erp-light",
-      "name": "Managed ERPNext (1–3 users)",
+      "name": "Murzak ERP (1–3 users)",
       "category": "ERP Hosting",
       "capacityClass": "premium",
       "ramMb": 2048,
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 6000,
-      "setupKes": 5000
+      "setupKes": 5000,
+      "requiresRepo": false
     },
     "biz-erp-configured": {
       "id": "biz-erp-configured",
-      "name": "Managed ERPNext (5–20 users, configured)",
+      "name": "Murzak ERP (5–20 users, configured)",
       "category": "ERP Hosting",
       "capacityClass": "premium",
       "ramMb": 4096,
       "diskGb": 40,
       "pricingModel": "addon",
       "monthlyKes": 12000,
-      "setupKes": 12000
+      "setupKes": 12000,
+      "requiresRepo": false
     },
     "biz-pos-inventory": {
       "id": "biz-pos-inventory",
@@ -143,7 +178,8 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 4500,
-      "setupKes": 3000
+      "setupKes": 3000,
+      "requiresRepo": false
     },
     "biz-crm-helpdesk": {
       "id": "biz-crm-helpdesk",
@@ -154,7 +190,8 @@
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 4000,
-      "setupKes": 3000
+      "setupKes": 3000,
+      "requiresRepo": false
     },
     "biz-accounting": {
       "id": "biz-accounting",
@@ -165,7 +202,8 @@
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 3500,
-      "setupKes": 2000
+      "setupKes": 2000,
+      "requiresRepo": false
     },
     "biz-webapps": {
       "id": "biz-webapps",
@@ -176,7 +214,8 @@
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 3500,
-      "setupKes": 2000
+      "setupKes": 2000,
+      "requiresRepo": false
     },
     "biz-docs": {
       "id": "biz-docs",
@@ -187,7 +226,8 @@
       "diskGb": 30,
       "pricingModel": "addon",
       "monthlyKes": 3500,
-      "setupKes": 2000
+      "setupKes": 2000,
+      "requiresRepo": false
     },
     "biz-db-medium": {
       "id": "biz-db-medium",
@@ -198,7 +238,8 @@
       "diskGb": 40,
       "pricingModel": "addon",
       "monthlyKes": 4000,
-      "setupKes": 2000
+      "setupKes": 2000,
+      "requiresRepo": false
     },
     "biz-email": {
       "id": "biz-email",
@@ -209,7 +250,8 @@
       "diskGb": 40,
       "pricingModel": "addon",
       "monthlyKes": 2500,
-      "setupKes": 500
+      "setupKes": 500,
+      "requiresRepo": false
     },
     "biz-web-hosting": {
       "id": "biz-web-hosting",
@@ -220,7 +262,8 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 2500,
-      "setupKes": 1000
+      "setupKes": 1000,
+      "requiresRepo": false
     },
     "ent-erp-large": {
       "id": "ent-erp-large",
@@ -231,7 +274,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-db-large": {
       "id": "ent-db-large",
@@ -242,7 +286,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-ecom-large": {
       "id": "ent-ecom-large",
@@ -253,7 +298,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-pos-multibranch": {
       "id": "ent-pos-multibranch",
@@ -264,7 +310,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-bi": {
       "id": "ent-bi",
@@ -275,7 +322,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-mail": {
       "id": "ent-mail",
@@ -286,7 +334,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-cctv": {
       "id": "ent-cctv",
@@ -297,7 +346,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "ent-backup-server": {
       "id": "ent-backup-server",
@@ -308,7 +358,8 @@
       "diskGb": null,
       "pricingModel": "custom",
       "monthlyKes": 0,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-ssl-premium": {
       "id": "addon-ssl-premium",
@@ -319,7 +370,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 700,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-dedicated-ip": {
       "id": "addon-dedicated-ip",
@@ -330,7 +382,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 700,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-mailboxes-5": {
       "id": "addon-mailboxes-5",
@@ -341,7 +394,8 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-bulk-email": {
       "id": "addon-bulk-email",
@@ -352,7 +406,8 @@
       "diskGb": 5,
       "pricingModel": "addon",
       "monthlyKes": 1500,
-      "setupKes": 1000
+      "setupKes": 1000,
+      "requiresRepo": false
     },
     "addon-storage-50": {
       "id": "addon-storage-50",
@@ -363,7 +418,8 @@
       "diskGb": 50,
       "pricingModel": "addon",
       "monthlyKes": 1500,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-backup-plus": {
       "id": "addon-backup-plus",
@@ -374,7 +430,8 @@
       "diskGb": 20,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-waf": {
       "id": "addon-waf",
@@ -385,7 +442,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-malware": {
       "id": "addon-malware",
@@ -396,7 +454,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 900,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-cdn": {
       "id": "addon-cdn",
@@ -407,7 +466,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 900,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-staging": {
       "id": "addon-staging",
@@ -418,7 +478,8 @@
       "diskGb": 10,
       "pricingModel": "addon",
       "monthlyKes": 1200,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-priority-support": {
       "id": "addon-priority-support",
@@ -429,7 +490,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 2500,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-managed-updates": {
       "id": "addon-managed-updates",
@@ -440,7 +502,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 2500,
-      "setupKes": 0
+      "setupKes": 0,
+      "requiresRepo": false
     },
     "addon-migration": {
       "id": "addon-migration",
@@ -451,7 +514,8 @@
       "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 0,
-      "setupKes": 3000
+      "setupKes": 3000,
+      "requiresRepo": false
     }
   }
 }

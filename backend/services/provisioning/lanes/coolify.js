@@ -121,10 +121,109 @@ function resourceName(job) {
 }
 
 /**
+ * Split a stored repo reference into url + branch. Customers submit one field;
+ * "https://github.com/x/y#staging" pins a branch, otherwise Coolify's default
+ * (the repo's default branch) is used via "main".
+ */
+function parseRepoRef(repoRef) {
+  const raw = String(repoRef || "").trim();
+  if (!raw) return null;
+  const hash = raw.indexOf("#");
+  if (hash === -1) return { url: raw, branch: "main" };
+  return { url: raw.slice(0, hash), branch: raw.slice(hash + 1) || "main" };
+}
+
+/**
+ * BYOA lane — deploy the customer's own app from its Git repository as a
+ * Coolify APPLICATION (git-sourced build), not a blank "service".
+ * Uses Coolify v4's documented public-repo application endpoint; a private
+ * repo (or bad URL) makes the POST fail, the runner retries then escalates to
+ * needs_human — staff follow up for access. Never fakes a build.
+ *
+ * ⚠️ Like the rest of this lane, smoke-test against the live instance before
+ * trusting in front of real customers (same VPS-IP restriction).
+ */
+async function provisionApp(job, opts) {
+  const c = cfg(opts);
+  const client = http(opts);
+  const name = resourceName(job);
+  const repo = parseRepoRef(job.repo_url);
+  const limits = resourceLimits(job);
+
+  // Idempotency: recover an application created on a previous crashed attempt.
+  try {
+    const listRes = await client.get("/api/v1/applications");
+    const existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
+    if (existing) {
+      const uuid = existing.uuid || existing.id || name;
+      return {
+        externalRef: String(uuid),
+        access: {
+          lane: "coolify",
+          kind: "application",
+          target: opts?.target?.id || "box-1",
+          resource: name,
+          repo: repo.url,
+          branch: repo.branch,
+          manageUrl: c.baseUrl.replace(/\/+$/, ""),
+          uuid: String(uuid),
+        },
+        log: `coolify: recovered existing application "${name}" (uuid=${uuid}) from ${repo.url}#${repo.branch}`,
+      };
+    }
+  } catch (e) {
+    console.warn(`[coolify] app idempotency GET failed for ${name}: ${e.message}`);
+  }
+
+  const payload = {
+    project_uuid: c.project,
+    server_uuid: c.server,
+    environment_name: c.env,
+    name,
+    git_repository: repo.url,
+    git_branch: repo.branch,
+    // nixpacks auto-detects Node/Python/PHP/etc; a repo with a Dockerfile can
+    // be flipped to build_pack "dockerfile" from the Coolify UI by staff.
+    build_pack: "nixpacks",
+    ports_exposes: String(job.app_port || process.env.COOLIFY_DEFAULT_APP_PORT || 3000),
+    instant_deploy: true,
+    limits_memory: `${limits.ramMb}M`,
+    limits_cpus: String(limits.cpus),
+    limits_pids: limits.pidsLimit,
+    cap_drop: ["ALL"],
+    security_opt: ["no-new-privileges:true"],
+    ...(limits.diskGb > 0 ? { storage_opt: { size: `${limits.diskGb}G` } } : {}),
+  };
+
+  const res = await client.post("/api/v1/applications/public", payload);
+  const data = res.data?.data || res.data || {};
+  const uuid = data.uuid || data.id || name;
+
+  return {
+    externalRef: String(uuid),
+    access: {
+      lane: "coolify",
+      kind: "application",
+      target: opts?.target?.id || "box-1",
+      resource: name,
+      repo: repo.url,
+      branch: repo.branch,
+      manageUrl: c.baseUrl.replace(/\/+$/, ""),
+      uuid: String(uuid),
+    },
+    log: `coolify: created application "${name}" (uuid=${uuid}) from ${repo.url}#${repo.branch} buildpack=nixpacks mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+  };
+}
+
+/**
  * @returns {Promise<{externalRef:string, access:object, log:string}>}
  * @throws on any API failure (the runner converts a throw into retry/escalate).
  */
 async function provision(job, opts) {
+  // BYOA jobs (repo_url attached at enqueue) build from the customer's git
+  // repo as an application; everything else stays the generic service path.
+  if (job?.repo_url) return provisionApp(job, opts);
+
   const c = cfg(opts);
   const client = http(opts);
   const name = resourceName(job);
@@ -281,6 +380,8 @@ module.exports = {
   isConfigured,
   configError,
   provision,
+  provisionApp,
+  parseRepoRef,
   restart,
   stop,
   start,

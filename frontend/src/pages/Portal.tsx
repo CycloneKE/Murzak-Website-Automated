@@ -126,6 +126,12 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const [uploadErr, setUploadErr] = useState<string>("");
   const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string }[]>([]);
 
+  // BYOA project repository (Web Account.source_code) — shown + editable on
+  // My Account so the repo App Hosting deploys from is never write-only.
+  const [repoDraft, setRepoDraft] = useState<string>(user.sourceCode || "");
+  const [repoSaving, setRepoSaving] = useState(false);
+  const [repoMsg, setRepoMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [addonsSourceTab, setAddonsSourceTab] = useState<"overview" | "cloud" | "billing">("overview");
   const [addonsError, setAddonsError] = useState<string>("");
@@ -2042,6 +2048,27 @@ const renderCloudSystemsGrid = () => null;
     </div>
   );
 
+  const saveRepo = async () => {
+    setRepoSaving(true);
+    setRepoMsg(null);
+    try {
+      const res = await fetch("/api/portal/account/repo", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ repoUrl: repoDraft.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to save.");
+      onUserUpdate({ ...user, sourceCode: data.sourceCode });
+      setRepoMsg({ ok: true, text: "Saved. New App Hosting orders deploy from this repository." });
+    } catch (e: any) {
+      setRepoMsg({ ok: false, text: e?.message || "Failed to save." });
+    } finally {
+      setRepoSaving(false);
+    }
+  };
+
   const renderProfile = () => (
     <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
@@ -2090,6 +2117,37 @@ const renderCloudSystemsGrid = () => null;
               <p className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
                 {user.company}
               </p>
+            </div>
+
+            <div className="group/item">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Project Repository
+              </p>
+              <p className="text-[10px] text-slate-500 mb-3 pl-3">
+                The Git repo we deploy your App Hosting services from. Add <span className="font-mono">#branch</span> to pin a branch.
+              </p>
+              <div className="flex gap-2 pl-3">
+                <input
+                  type="url"
+                  value={repoDraft}
+                  onChange={(e) => { setRepoDraft(e.target.value); if (repoMsg) setRepoMsg(null); }}
+                  placeholder="https://github.com/you/your-app"
+                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-semibold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-murzak-cyan/60"
+                />
+                <button
+                  type="button"
+                  onClick={saveRepo}
+                  disabled={repoSaving || repoDraft.trim() === (user.sourceCode || "")}
+                  className="shrink-0 px-4 py-2.5 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest disabled:opacity-40 hover:scale-[1.02] transition-all"
+                >
+                  {repoSaving ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {repoMsg && (
+                <p className={`text-[10px] font-bold mt-2 pl-3 ${repoMsg.ok ? "text-emerald-500" : "text-red-500"}`}>
+                  {repoMsg.text}
+                </p>
+              )}
             </div>
           </div>
         </div>

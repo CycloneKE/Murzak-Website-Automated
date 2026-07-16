@@ -23,6 +23,7 @@ import {
 // Icon per category for the filter bar + section headers.
 const CATEGORY_ICON: Record<string, React.ReactNode> = {
   "Website Hosting": <Globe size={14} />,
+  "App Hosting": <Server size={14} />,
   "ERP Hosting": <Boxes size={14} />,
   "CRM & Helpdesk": <Headphones size={14} />,
   "Email Hosting": <Mail size={14} />,

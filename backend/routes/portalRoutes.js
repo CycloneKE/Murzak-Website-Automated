@@ -50,6 +50,39 @@ module.exports = function(ctx) {
   // this app's existing single-runner assumption (see provisioning/README.md).
   const actionInFlight = new Set();
 
+// --- BYOA: project repository (Web Account.source_code) ---
+// The repo the App Hosting lane deploys from. Captured at signup ("Link to
+// your Project Files"), editable here — provisioning enqueue reads it when a
+// requiresRepo service is paid for, so it must never be write-only again.
+router.put("/api/portal/account/repo", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  const raw = String(req.body?.repoUrl ?? "").trim();
+  if (raw.length > 500) return res.status(400).json({ error: "Repository URL is too long." });
+  // Allow clearing (empty); otherwise require an https or git@ URL (optional #branch).
+  if (raw && !/^(https?:\/\/|git@)\S+$/i.test(raw)) {
+    return res.status(400).json({
+      error: "Enter a valid repository URL (e.g. https://github.com/you/app, optional #branch).",
+    });
+  }
+
+  try {
+    const client = frappeClient();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+      source_code: raw,
+    });
+    if (req.session.user) {
+      req.session.user.sourceCode = raw;
+      await new Promise((resolve) => req.session.save(resolve));
+    }
+    return res.json({ ok: true, sourceCode: raw });
+  } catch (err) {
+    console.error("ACCOUNT REPO UPDATE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to update repository URL." });
+  }
+});
+
 // --- PORTAL USER CHAT: create thread ---
 router.post("/api/portal/requests", requireAuth, async (req, res) => {
   try {

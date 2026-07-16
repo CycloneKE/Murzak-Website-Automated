@@ -75,18 +75,24 @@ test.describe('E2E Customer Journey - POS Purchase and Provisioning', () => {
       }
     }, invoiceId);
 
-    // 6. Verify Portal Auto-provisioning
+    // 6. Verify Portal Auto-provisioning — the mock capture now runs the REAL
+    // activation pipeline (invoice flips Paid, services activate, provisioning
+    // jobs enqueue), so assert on the actual purchased service, not a stub.
     await expect(page).toHaveURL(/.*\/portal\/overview/);
-    
-    // The service should initially show as Setting up or Provisioning, or Online if instantly mocked
+
     const authRes = await page.evaluate(async () => {
       const r = await fetch('/api/auth/me');
       return await r.json();
     });
     console.log("AUTH ME:", JSON.stringify(authRes, null, 2));
 
-    const posService = page.locator('text=POS Base Package').first();
+    // The service actually bought at step 1 (biz-pos-inventory). Premium SKUs
+    // land in "Setting up" until the provisioning runner completes them.
+    const posService = page.locator('text=POS & Inventory').first();
     await expect(posService).toBeVisible({ timeout: 5000 });
-    await expect(posService).toBeVisible({ timeout: 5000 });
+
+    // The paid invoice must no longer show as due.
+    const invoiceState = authRes?.user?.invoices?.[0]?.status || authRes?.invoices?.[0]?.status;
+    expect(String(invoiceState).toLowerCase()).toBe('paid');
   });
 });

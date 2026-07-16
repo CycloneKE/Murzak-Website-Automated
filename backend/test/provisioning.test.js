@@ -42,7 +42,17 @@ function makeStore(initialJobs = []) {
         if (op === "=") rows = rows.filter((r) => String(r[f]) === String(v));
         else if (op === "in") rows = rows.filter((r) => v.includes(r[f]));
       }
-      return { data: { data: rows.map((r) => ({ ...r })) } };
+      // Honor field projection like real Frappe does — the runner's claimable
+      // list is projected, and a field missing from that list is invisible to
+      // the lanes (this exact truncation shipped a live bug for repo_url).
+      const fields = opts?.params?.fields ? JSON.parse(opts.params.fields) : null;
+      const project = (r) => {
+        if (!fields) return { ...r };
+        const out = {};
+        for (const f of fields) out[f] = r[f];
+        return out;
+      };
+      return { data: { data: rows.map(project) } };
     },
     post: async (url, payload) => {
       const { dt } = parse(url);
@@ -285,6 +295,50 @@ const okLane = {
   if (savedQueue === undefined) delete process.env.PROVISIONING_QUEUE; else process.env.PROVISIONING_QUEUE = savedQueue;
   if (savedRedis !== undefined) process.env.REDIS_URL = savedRedis;
   if (savedPRedis !== undefined) process.env.PROVISIONING_REDIS_URL = savedPRedis;
+
+  section("BYOA (bring-your-own-app) repo plumbing");
+  {
+    ok(catalog.laneFor(catalog.getServiceMeta("starter-app-hosting")) === "coolify", "BYOA app-hosting SKU -> coolify lane");
+    ok(catalog.laneFor(catalog.getServiceMeta("starter-db-mongo")) === "coolify", "MongoDB SKU -> coolify lane");
+    ok(catalog.getServiceMeta("starter-app-hosting")?.requiresRepo === true, "snapshot carries requiresRepo flag");
+
+    const p = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "https://github.com/x/y#dev" });
+    ok(p.repo_url === "https://github.com/x/y#dev" && p.status === "queued" && p.lane === "coolify", "BYOA payload carries repo_url, stays queued");
+    const p2 = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting" });
+    ok(p2.status === "needs_human" && /repository/i.test(p2.error || ""), "BYOA with no repo -> born needs_human (never fake-built)");
+    const p3 = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-web-hosting", repoUrl: "https://github.com/x/y" });
+    ok(!p3.repo_url, "non-BYOA service ignores account repo");
+
+    ok(coolify.parseRepoRef("https://github.com/x/y").branch === "main", "parseRepoRef defaults branch to main");
+    const ref = coolify.parseRepoRef("https://github.com/x/y#staging");
+    ok(ref.url === "https://github.com/x/y" && ref.branch === "staging", "parseRepoRef splits #branch suffix");
+    ok(coolify.parseRepoRef("") === null, "parseRepoRef empty -> null");
+
+    // Enqueue reads the account's source_code once and attaches it to BYOA jobs.
+    s = makeStore([]);
+    s.docs["Web Account"]["WA"] = { name: "WA", source_code: "https://github.com/cust/app" };
+    const eq = await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV-9", serviceIds: ["starter-app-hosting"] });
+    ok(eq.created.length === 1 && eq.created[0].repo_url === "https://github.com/cust/app", "enqueue attaches account source_code to BYOA job");
+
+    // No repo on the account -> the created job is parked for a human.
+    s = makeStore([]);
+    s.docs["Web Account"]["WA2"] = { name: "WA2", source_code: "" };
+    const eq2 = await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA2", invoiceDocName: "INV-10", serviceIds: ["starter-app-hosting"] });
+    ok(eq2.created.length === 1 && eq2.created[0].status === "needs_human", "enqueue with no account repo -> needs_human job");
+
+    // END-TO-END through the runner: repo_url must survive the projected
+    // claimable-list fetch and reach the lane (regression: the runner's field
+    // projection silently dropped it, downgrading app deploys to blank services).
+    let seenRepo = null;
+    const repoLane = {
+      isConfigured: () => true,
+      configError: () => null,
+      provision: async (job) => { seenRepo = job.repo_url; return { externalRef: "APP-1", access: {}, log: "ok" }; },
+    };
+    s = makeStore([{ name: "JB", service_id: "starter-app-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 1024, repo_url: "https://github.com/cust/app#main" }]);
+    await runner.processQueue(s, { lanes: { coolify: repoLane } });
+    ok(seenRepo === "https://github.com/cust/app#main" && PJ(s).JB.status === "active", "runner passes repo_url through the projected fetch to the lane");
+  }
 
   // ---- tally ----
   console.log(`\n${"=".repeat(48)}`);

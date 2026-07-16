@@ -68,31 +68,33 @@ function createPaypalRouter({
       const webAccountName = req.session?.webAccount || req.session?.user?.id;
       const { invoiceDocName, orderID } = req.body;
 
-      if (orderID === 'MOCK_PAYPAL_SUCCESS' && process.env.NODE_ENV !== 'production') {
-        if (req.session && req.session.user) {
-          const newServices = [...(req.session.user.selectedServices || [])];
-          newServices.push({
-            serviceId: `srv-${Date.now()}`,
-            name: "POS Base Package",
-            status: "Setting up",
-            tier: "Starter",
-            billingCycle: "Monthly"
-          });
-          req.session.user.selectedServices = newServices;
-          await new Promise((resolve) => req.session.save(resolve));
-        }
+      // Mock rail for E2E tests: skips ONLY the PayPal SDK verification, then
+      // runs the exact same activation pipeline as a real capture (invoice
+      // flips Paid, account services activate, provisioning jobs enqueue).
+      // Never fabricates services or amounts — the test asserts on real state.
+      // Double-gated: dev/test env AND mock Frappe, so it can never touch a
+      // real invoice even on a misconfigured dev box.
+      if (
+        orderID === "MOCK_PAYPAL_SUCCESS" &&
+        process.env.NODE_ENV !== "production" &&
+        process.env.MOCK_FRAPPE === "true"
+      ) {
+        const activationResult = await activateServicesForInvoice({
+          req,
+          invoiceDocName,
+          paymentVerified: true,
+        });
         return res.status(200).json({
           ok: true,
           message: "MOCK PayPal payment captured successfully.",
           paypal: { status: "COMPLETED" },
-          paypalMeta: {},
+          paypalMeta: { mock: true },
           invoice: {
             docName: invoiceDocName,
             invoiceNo: invoiceDocName,
-            amount: 99,
             status: "Paid",
           },
-          user: req.session?.user || null,
+          user: activationResult?.user || req.session?.user || null,
         });
       }
 
