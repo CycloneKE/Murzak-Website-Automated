@@ -84,7 +84,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           <div className="grid sm:grid-cols-3 gap-5">
             {[
               { icon: <Server size={20} />, t: 'Managed hosting', s: 'Websites, email and databases — provisioned, secured and backed up for you on Murzak Cloud.', page: 'cloud' as const, cta: 'Murzak Cloud' },
-              { icon: <Boxes size={20} />, t: 'Business systems', s: 'Hosted ERPNext, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
+              { icon: <Boxes size={20} />, t: 'Business systems', s: 'Murzak ERP, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
               { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
             ].map((c) => (
               <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05]">

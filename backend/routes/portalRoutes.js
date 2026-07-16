@@ -8,6 +8,9 @@ const coolifyLane = require('../services/provisioning/lanes/coolify');
 // breaks that check (and even mentioning the pattern in a comment does too).
 const signBrokerToken = require('../utils/brokerToken').signBrokerToken;
 const mintWsTicket = require('../utils/wsTicket').mintWsTicket;
+const terminalConstants = require('../services/terminal/constants');
+const accessControlLib = require('../services/terminal/accessControl');
+const s3ClientLib = require('../services/terminal/s3Client');
 
 module.exports = function(ctx) {
   const {
@@ -971,6 +974,95 @@ router.post("/api/portal/services/:serviceId/terminal/session", requireAuth, ter
     .catch((e) => console.error("TERMINAL MINT AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
 
   return res.json({ ok: true, wsTicket, wsPath: "/api/portal/terminal/ws" });
+});
+
+// --- DEVELOPER ACCESS TERMINAL: own-session history + own-recording access (P5.4) ---
+
+router.get("/api/portal/terminal/sessions", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  try {
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["web_account", "=", webAccountName]]),
+        fields: JSON.stringify([
+          "name", "session_id", "service_id", "started_at", "ended_at",
+          "duration_seconds", "exit_reason", "retention_tier", "purged",
+        ]),
+        order_by: "started_at desc",
+        limit_page_length: 100,
+      },
+    });
+    return res.json({ ok: true, data: resp.data?.data || [] });
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, data: [] });
+    }
+    console.error("PORTAL TERMINAL SESSIONS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load session history." });
+  }
+});
+
+// Customers get direct (but logged and rate-limited) access to their OWN
+// recordings — no manual request queue, since it's their own data. Every
+// access is still logged via the same immutable trail as staff access.
+const recordingAccessLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+router.get("/api/portal/terminal/sessions/:sessionId/recording", requireAuth, recordingAccessLimiter, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { sessionId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!sessionId) return res.status(400).json({ error: "Missing sessionId." });
+
+  const client = frappeClient();
+  let row;
+  try {
+    const resp = await client.get(`/api/resource/${encodeURIComponent(terminalConstants.SESSION_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["session_id", "=", sessionId]]),
+        fields: JSON.stringify(["name", "web_account", "recording_key", "purged"]),
+        limit_page_length: 1,
+      },
+    });
+    row = resp.data?.data?.[0];
+  } catch (err) {
+    console.error("PORTAL RECORDING ACCESS LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this session." });
+  }
+  // Ownership check, never trust the filter alone (same discipline as loadOwnedJob).
+  if (!row || row.web_account !== webAccountName) {
+    return res.status(404).json({ error: "No session with that id." });
+  }
+
+  const logEntry = accessControlLib.buildAccessLogEntry({
+    sessionName: row.name,
+    accessedBy: req.session?.user?.email || webAccountName,
+    reason: "customer self-access",
+    granted: true,
+  });
+  client
+    .post("/api/method/frappe.client.insert", { doc: { doctype: terminalConstants.ACCESS_LOG_DOCTYPE, ...logEntry } })
+    .catch((e) => console.error("PORTAL RECORDING ACCESS LOG WRITE FAILED:", e.response?.data || e.message));
+
+  if (row.purged || !row.recording_key) {
+    return res.status(404).json({ error: "No recording available for this session." });
+  }
+
+  try {
+    const url = s3ClientLib.presignGetUrl(row.recording_key, { expiresSeconds: 300 });
+    return res.json({ ok: true, url });
+  } catch (err) {
+    console.error("PORTAL RECORDING PRESIGN ERROR:", err.message);
+    return res.status(503).json({ error: "Recording storage isn't configured." });
+  }
 });
 
 // --- WEBSITE HOSTING ---

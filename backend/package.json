@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/provisioning.test.js && node test/billing.test.js && node test/routesContext.test.js && node test/renewal.test.js && node test/terminal.test.js",
+    "test": "node test/provisioning.test.js && node test/billing.test.js && node test/routesContext.test.js && node test/renewal.test.js && node test/terminal.test.js && node test/terminalRetention.test.js && node test/terminalSweep.test.js",
     "gen:catalog": "node scripts/generate-catalog-snapshot.js"
   },
   "dependencies": {

@@ -49,6 +49,19 @@ services:
       BROKER_API_KEY: ${BROKER_API_KEY}
       BROKER_SIGNING_KEY: ${BROKER_SIGNING_KEY}
       DOCKER_PROXY_URL: http://socket-proxy:2375
+      # P5.4 — session-outcome reporting (broker -> backend, same shared key
+      # as backend -> broker calls) and off-box recording storage. The broker
+      # container must be reachable FROM the backend's internal call too; if
+      # the main app's compose puts the backend on this same network, point
+      # this at that service name (e.g. http://backend:3001). Left unset here
+      # since the backend's compose file/service name lives outside this repo
+      # slice — set it at deploy time.
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-}
+      TERMINAL_S3_ENDPOINT: ${TERMINAL_S3_ENDPOINT:-}
+      TERMINAL_S3_BUCKET: ${TERMINAL_S3_BUCKET:-}
+      TERMINAL_S3_REGION: ${TERMINAL_S3_REGION:-}
+      TERMINAL_S3_ACCESS_KEY_ID: ${TERMINAL_S3_ACCESS_KEY_ID:-}
+      TERMINAL_S3_SECRET_ACCESS_KEY: ${TERMINAL_S3_SECRET_ACCESS_KEY:-}
     depends_on:
       - socket-proxy
     networks:

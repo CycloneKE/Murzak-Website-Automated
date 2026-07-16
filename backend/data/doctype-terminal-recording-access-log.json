@@ -1,0 +1,22 @@
+{
+  "doctype": "DocType",
+  "name": "Terminal Recording Access Log",
+  "module": "Custom",
+  "custom": 1,
+  "naming_rule": "Expression (old style)",
+  "autoname": "format:TERMACC-{#####}",
+  "title_field": "accessed_by",
+  "track_changes": 0,
+  "sort_field": "accessed_at",
+  "sort_order": "DESC",
+  "fields": [
+    { "fieldname": "session", "fieldtype": "Link", "label": "Terminal Session", "options": "Terminal Session", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1 },
+    { "fieldname": "accessed_by", "fieldtype": "Data", "label": "Accessed By", "reqd": 1, "in_list_view": 1, "description": "Staff email — must be in TERMINAL_RECORDING_ACCESS_EMAILS at the time of access, checked server-side, never client-supplied." },
+    { "fieldname": "accessed_at", "fieldtype": "Datetime", "label": "Accessed At", "reqd": 1, "in_list_view": 1 },
+    { "fieldname": "reason", "fieldtype": "Small Text", "label": "Reason", "reqd": 1, "description": "Required justification, e.g. a linked support ticket number or incident description. Free browsing is not a supported use case — this log exists to make that visible, not to enable it." },
+    { "fieldname": "granted", "fieldtype": "Check", "label": "Granted", "default": "1", "description": "0 = the access attempt was logged but REFUSED (e.g. requester not on the access list, or the session was already purged). Denials are logged too — a pattern of denied attempts is itself a signal." }
+  ],
+  "permissions": [
+    { "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 0, "report": 1, "export": 1 }
+  ]
+}

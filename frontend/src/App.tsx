@@ -21,6 +21,16 @@ import Payment from "./pages/Payment";
 import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 
+import MurzakPOS from "./pages/products/MurzakPOS";
+import MurzakERP from "./pages/products/MurzakERP";
+import MurzakCRM from "./pages/products/MurzakCRM";
+import CustomSoftware from "./pages/products/CustomSoftware";
+
+import ForRetail from "./pages/for/ForRetail";
+import ForHealthcare from "./pages/for/ForHealthcare";
+import ForLogistics from "./pages/for/ForLogistics";
+import ForServices from "./pages/for/ForServices";
+
 import { Page, User } from "./types";
 import { logPageView } from "./services/firebase";
 
@@ -41,6 +51,14 @@ const pageToPath: Record<Page, string> = {
   login: "/login",
   portal: "/portal",
   payment: "/payment",
+  pos: "/products/pos",
+  erp: "/products/erp",
+  crm: "/products/crm",
+  "custom-software": "/products/custom",
+  "for-retail": "/for/retail",
+  "for-clinics": "/for/clinics",
+  "for-logistics": "/for/logistics",
+  "for-services": "/for/services",
 };
 
 // Only exact non-nested pages belong here
@@ -60,6 +78,14 @@ const pathToPage: Record<string, Page> = {
   "/login": "login",
   "/portal": "portal",   // base (nested handled below)
   "/payment": "payment",
+  "/products/pos": "pos",
+  "/products/erp": "erp",
+  "/products/crm": "crm",
+  "/products/custom": "custom-software",
+  "/for/retail": "for-retail",
+  "/for/clinics": "for-clinics",
+  "/for/logistics": "for-logistics",
+  "/for/services": "for-services",
 };
 
 const pageMetadata: Record<Page, { title: string; description: string }> = {
@@ -78,6 +104,14 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   login: { title: "Client Login | Murzak Technologies Secure Portal", description: "Access your cloud clusters and software project dashboards." },
   portal: { title: "Client Portal | Murzak Technologies Dashboard", description: "Managed Murzak Cloud and Software project status." },
   payment: { title: "Secure Checkout | Murzak Technologies Payment Gateway", description: "Process your subscription or setup fees securely." },
+  pos: { title: "Murzak POS & Inventory | Cloud Point of Sale Kenya", description: "Fast, multi-branch POS with M-Pesa integration." },
+  erp: { title: "Murzak ERP | Business Management System Kenya", description: "Accounting, Inventory, and HR configured for Kenya." },
+  crm: { title: "Murzak CRM & Helpdesk | Customer Management", description: "Track every lead and ticket seamlessly." },
+  "custom-software": { title: "Custom Software Development Nairobi | Murzak", description: "Bespoke operational systems and portals." },
+  "for-retail": { title: "Tech Stack for Retail & Shops | Murzak", description: "POS and inventory for Kenyan retail." },
+  "for-clinics": { title: "Tech Stack for Clinics | Murzak", description: "Healthcare ERP and booking systems." },
+  "for-logistics": { title: "Tech Stack for Logistics | Murzak", description: "Dispatch and fleet management systems." },
+  "for-services": { title: "Tech Stack for Professional Services | Murzak", description: "CRM and invoicing for agencies and firms." },
 };
 
 const App: React.FC = () => {
@@ -280,6 +314,16 @@ const App: React.FC = () => {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/sla" element={<SLA />} />
+
+              <Route path="/products/pos" element={<MurzakPOS onNavigate={onNavigate} />} />
+              <Route path="/products/erp" element={<MurzakERP onNavigate={onNavigate} />} />
+              <Route path="/products/crm" element={<MurzakCRM onNavigate={onNavigate} />} />
+              <Route path="/products/custom" element={<CustomSoftware onNavigate={onNavigate} />} />
+              
+              <Route path="/for/retail" element={<ForRetail onNavigate={onNavigate} />} />
+              <Route path="/for/clinics" element={<ForHealthcare onNavigate={onNavigate} />} />
+              <Route path="/for/logistics" element={<ForLogistics onNavigate={onNavigate} />} />
+              <Route path="/for/services" element={<ForServices onNavigate={onNavigate} />} />
 
               <Route path="/login" element={<Login onLogin={handleLogin} onNavigate={onNavigate} initialPlan={pendingPlan} defaultMode="login" />} />
 

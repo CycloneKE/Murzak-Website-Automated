@@ -20,6 +20,8 @@ const { verify } = require("./lib/token");
 const docker = require("./lib/dockerClient");
 const { resolveOwnedContainerId, containerMatchesOwner } = require("./lib/resolve");
 const { buildExecCreatePayload, SessionManager } = require("./lib/exec");
+const s3Upload = require("./lib/s3Upload");
+const backendReport = require("./lib/backendReport");
 
 const PORT = Number(process.env.BROKER_PORT || 4600);
 const ENABLED = String(process.env.TERMINAL_ENABLED || "false").toLowerCase() === "true";
@@ -97,6 +99,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Admin kill-switch (P5.4) — backend calls this after verifying the
+  // requester is an admin AND the session belongs to a live Terminal Session
+  // row; the broker itself does no further authorization, only the shared
+  // internal-key gate already checked above.
+  const killMatch = req.method === "POST" && req.url.match(/^\/sessions\/([a-f0-9]+)\/kill$/);
+  if (killMatch) {
+    const sessionId = killMatch[1];
+    if (!liveSockets.has(sessionId)) {
+      return json(res, 404, { error: "No live session with that id." });
+    }
+    teardown(sessionId, "admin_killed");
+    return json(res, 200, { ok: true });
+  }
+
   return json(res, 404, { error: "Not found." });
 });
 
@@ -115,16 +131,58 @@ const sessions = new SessionManager({
     }
   },
 });
-// sessionId -> { ws, dockerStream } so the SessionManager's expiry can reach
-// the live transport to kill it.
+// sessionId -> { ws, dockerStream, meta, recordChunks, recordBytes } so the
+// SessionManager's expiry can reach the live transport to kill it, and
+// teardown has what it needs to report the outcome + flush the recording.
 const liveSockets = new Map();
 
-function teardown(sessionId, _reason) {
+// Recordings are capped in memory to stay bounded regardless of session
+// length — past this, further bytes are dropped from the recording (the
+// live stream itself is never truncated, only what gets persisted).
+const RECORDING_MAX_BYTES = Number(process.env.TERMINAL_RECORDING_MAX_BYTES || 2 * 1024 * 1024);
+
+function recordChunk(sessionId, direction, chunk) {
+  const live = liveSockets.get(sessionId);
+  if (!live || !live.recordChunks) return;
+  if (live.recordBytes >= RECORDING_MAX_BYTES) return;
+  const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+  live.recordChunks.push({ t: Date.now(), d: direction, b: buf.toString("base64") });
+  live.recordBytes += buf.length;
+}
+
+async function flushRecordingAndReport(sessionId, meta, recordChunks, byteCount, exitReason) {
+  let recordingKey = "";
+  try {
+    if (recordChunks.length && s3Upload.isConfigured()) {
+      recordingKey = `sessions/${meta.jobName}/${sessionId}.ndjson`;
+      const body = recordChunks.map((c) => JSON.stringify(c)).join("\n");
+      await s3Upload.putObject(recordingKey, body);
+    }
+  } catch (e) {
+    console.error(`[broker] recording upload failed for ${sessionId}:`, e.message);
+    recordingKey = ""; // don't report a key that doesn't actually exist in the bucket
+  }
+
+  const endedAt = Date.now();
+  await backendReport.reportSessionEnd({
+    sessionId,
+    exitReason,
+    endedAt: new Date(endedAt).toISOString(),
+    durationSeconds: Math.max(0, Math.round((endedAt - meta.startedAt) / 1000)),
+    byteCount,
+    recordingKey,
+  });
+}
+
+function teardown(sessionId, reason) {
   const live = liveSockets.get(sessionId);
   if (live) {
     try { live.dockerStream && live.dockerStream.destroy(); } catch {}
     try { live.ws && live.ws.close(1000, "session_end"); } catch {}
     liveSockets.delete(sessionId);
+    // Best-effort, fire-and-forget — must never block or throw into the
+    // synchronous teardown path (called from WS/stream event handlers).
+    flushRecordingAndReport(sessionId, live.meta, live.recordChunks || [], live.recordBytes || 0, reason || "unknown").catch(() => {});
   }
   sessions.close(sessionId);
 }
@@ -175,12 +233,21 @@ server.on("upgrade", async (req, socket, head) => {
       return;
     }
 
-    liveSockets.set(sessionId, { ws, dockerStream });
+    const startedAt = Date.now();
+    const meta = { webAccount: payload.webAccount, jobName: payload.jobName, containerName: payload.expectedName, startedAt };
+    liveSockets.set(sessionId, { ws, dockerStream, meta, recordChunks: [], recordBytes: 0 });
+    backendReport.reportSessionStart({
+      sessionId,
+      webAccount: meta.webAccount,
+      jobName: meta.jobName,
+      containerName: meta.containerName,
+      startedAt: new Date(startedAt).toISOString(),
+    }).catch(() => {});
 
     // Docker stdout/stderr -> browser (binary frames pass through untouched).
     dockerStream.on("data", (chunk) => {
       if (ws.readyState === ws.OPEN) ws.send(chunk);
-      // P5.4 record hook: recordChunk(sessionId, "out", chunk)
+      recordChunk(sessionId, "out", chunk);
     });
     dockerStream.on("close", () => teardown(sessionId, "shell_exited"));
     dockerStream.on("error", () => teardown(sessionId, "stream_error"));
@@ -197,7 +264,7 @@ server.on("upgrade", async (req, socket, head) => {
         } catch { /* not JSON -> raw input */ }
       }
       try { dockerStream.write(data); } catch {}
-      // P5.4 record hook: recordChunk(sessionId, "in", data)
+      recordChunk(sessionId, "in", data);
     });
     ws.on("close", () => teardown(sessionId, "client_closed"));
     ws.on("error", () => teardown(sessionId, "client_error"));

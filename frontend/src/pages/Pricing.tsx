@@ -115,10 +115,10 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, 
   const faqItems: FaqItem[] = [
     { q: "How do I pay — and in what currency?", a: "Everything is billed in Kenyan Shillings (KES). Pay by M-Pesa STK push or card from your client portal. No forex surprises." },
     { q: "Can I use my own domain or register a new one?", a: "Both. Point an existing domain to us, use a free Murzak subdomain to start, or search and register a brand-new domain right inside the plan configurator — we handle the setup." },
-    { q: "What does 'managed' actually include?", a: "We provision and configure the server, install and tune your apps (ERPNext, POS, CRM, websites), set up SSL, run daily backups, patch security, and support you from Nairobi. You focus on your business." },
+    { q: "What does 'managed' actually include?", a: "We provision and configure the server, install and tune your apps (Murzak ERP, POS, CRM, websites), set up SSL, run daily backups, patch security, and support you from Nairobi. You focus on your business." },
     { q: "Can I add services or upgrade later?", a: "Yes — add services anytime from your portal. Each one is a clearly-priced add-on billed in KES, so you only ever pay for what you actually use." },
     { q: "What happens if I outgrow my plan?", a: "Larger ERPs, databases and high-load platforms move to dedicated capacity. We size it, quote it, and migrate you with no downtime." },
-    { q: "How fast is setup?", a: "Most websites and standard apps go live the same day. Configured ERPNext with data migration is scoped during onboarding and typically takes a few days." },
+    { q: "How fast is setup?", a: "Most websites and standard apps go live the same day. Configured Murzak ERP with data migration is scoped during onboarding and typically takes a few days." },
     { q: "Are my data and site backed up?", a: "Yes. Daily backups are included on paid plans, with SSL and security hardening as standard. Disaster-recovery options are available on dedicated plans." },
   ];
 

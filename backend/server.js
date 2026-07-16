@@ -3625,6 +3625,7 @@ const routeContext = {
 
 app.use(require('./routes/authRoutes')(routeContext));
 app.use(require('./routes/portalRoutes')(routeContext));
+app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/adminRoutes')(routeContext));
@@ -3720,6 +3721,27 @@ const server = app.listen(PORT, () => {
       setInterval(run, cfg.intervalMs).unref();
       console.log(`[renewal] sweep scheduled every ${Math.round(cfg.intervalMs / 60000)}m (cycle ${cfg.cycleDays}d, grace ${cfg.graceDays}d, suspend=${cfg.suspendEnabled})`);
     }
+  }
+
+  // Terminal recording retention sweep (P5.4): purges off-box recordings and
+  // marks Terminal Session rows purged once past their retention_tier's
+  // expiry. Off by default until TERMINAL_ENABLED is on for real traffic;
+  // still safe to run either way since it's a no-op with zero rows.
+  if (process.env.TERMINAL_ENABLED === "true" && process.env.TERMINAL_RETENTION_SWEEP_ENABLED !== "false") {
+    const { sweepExpiredRecordings } = require("./services/terminal/retentionSweep");
+    const s3Client = require("./services/terminal/s3Client");
+    const everyMs = Math.max(300000, Number(process.env.TERMINAL_RETENTION_SWEEP_INTERVAL_MS || 60 * 60 * 1000));
+    const run = () =>
+      sweepExpiredRecordings({ frappeClient, s3Client })
+        .then((s) => {
+          if (s.purged > 0 || s.errors > 0) {
+            console.log(`[terminal-retention] sweep: checked=${s.checked} purged=${s.purged} errors=${s.errors}`);
+          }
+        })
+        .catch((e) => console.warn("[terminal-retention] sweep error:", e.message));
+    setTimeout(run, 120000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[terminal-retention] sweep scheduled every ${Math.round(everyMs / 60000)}m`);
   }
 });
 
