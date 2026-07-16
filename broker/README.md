@@ -1,4 +1,4 @@
-# Terminal broker (Phase 5.1 scaffolding)
+# Terminal broker (Phase 5.1–5.3)
 
 A deliberately tiny, **non-internet-facing** service that is the only thing on
 the box allowed to reach Docker (via a socket-proxy), so the payment-handling
@@ -10,7 +10,7 @@ backend never touches the docker socket. See the full rationale in
 ```
 browser xterm.js
   → backend        (auth / ownership / Enterprise gate / mint broker token)   [P5.2]
-  → broker         (verify token → resolve container by EXACT label → exec)   [this dir]
+  → broker /exec   (verify token → resolve by EXACT label → non-root exec)    [P5.3]
   → socket-proxy   (allowlist: containers list/inspect + exec only)           docker-compose.broker.yml
   → /var/run/docker.sock
 ```
@@ -18,44 +18,76 @@ browser xterm.js
 The socket-proxy can't scope exec to a *specific* container — the Docker API
 has no such filter. **Per-container authorization is enforced here**, in
 `lib/resolve.js` (exact ownership match + refuse-on-ambiguity) plus a TOCTOU
-re-inspect in `index.js`.
+re-inspect in `index.js`, run again immediately before every exec.
 
-## What P5.1 includes (and deliberately does not)
+## What's built so far (and what's still missing)
 
 - `lib/resolve.js` — exact-ownership container matching (the security core). Tested.
 - `lib/token.js` — HMAC sign/verify with `BROKER_SIGNING_KEY`, distinct from the
   backend's `SESSION_SECRET`. Tested.
-- `lib/dockerClient.js` — list/inspect via the proxy. `execStream()` is a
-  **stub that throws** — the real hijacked PTY stream lands in **P5.3**.
-- `index.js` — HTTP `/health` (always) + `/resolve` (diagnostic, gated). The WS
-  `upgrade` returns **501** until P5.2/P5.3 wire mint + jail + recording.
-- Everything is inert unless `TERMINAL_ENABLED=true` **and** a valid
-  `BROKER_API_KEY` is presented — and even then only `/resolve` (no exec) works.
+- `lib/exec.js` — **P5.3.** Builds the non-root, `setsid`-wrapped exec payload
+  (`buildExecCreatePayload`) and enforces session caps — per-account (default 1),
+  global (default 20), idle timeout (default 5 min), absolute timeout (default
+  30 min) — via `SessionManager`, with injectable timers so it's fully unit
+  tested without real waiting.
+- `lib/dockerClient.js` — list/inspect/createExec/startExecStream via the proxy.
+  The exec *stream* is a real hijacked-HTTP-connection implementation now, not a
+  stub — but it has never run against a live Docker host (see the file's header
+  warning). Any failure there must surface as a real error, never a fake shell.
+- `index.js` — `GET /health` (always), `POST /resolve` (diagnostic, gated), and
+  `GET/Upgrade /exec` (**the real shell bridge**): verifies the broker token,
+  resolves + TOCTOU-rechecks the container, enforces session caps, opens a
+  non-root exec, and bridges stdin/stdout between the browser WS and the Docker
+  stream. Live-verified (from a dev machine, since these are pure gate checks
+  that never need a real Docker host): wrong path → 404, feature disabled →
+  503, missing broker key → 401, malformed/unresolvable token → 403 — all
+  *before* any Docker call is attempted.
+- **Not yet built:** session **recording** (P5.4 — the `record` hooks are
+  marked inline in `index.js` but not wired to storage), terminal **resize**
+  (control-frame is parsed but not yet forwarded to Docker's resize API), the
+  **orphan-process reaper** (a `setsid`-wrapped shell dies with the session,
+  but grandchildren re-parented to the container's PID 1 can still survive —
+  "closing the tab is not a security boundary" until the reaper sweep exists),
+  and the `requireAdmin` kill-switch on the backend side.
 
 ## Env
 
 | Var | Purpose |
 |-----|---------|
-| `TERMINAL_ENABLED` | Master gate. `false` (default) = 503 on everything but `/health`. |
+| `TERMINAL_ENABLED` | Master gate. `false` (default) = 503/404 on everything but `/health`. |
 | `BROKER_PORT` | Listen port (default 4600). |
-| `BROKER_API_KEY` | Shared secret for the internal backend→broker calls. |
+| `BROKER_API_KEY` | Shared secret for the internal backend→broker calls (both `/resolve` and `/exec`). |
 | `BROKER_SIGNING_KEY` | HMAC key for broker tokens. MUST differ from `SESSION_SECRET`. Broker refuses to start if `TERMINAL_ENABLED=true` and this is unset. |
 | `DOCKER_PROXY_URL` | socket-proxy endpoint, e.g. `http://socket-proxy:2375`. |
+| `TERMINAL_EXEC_USER` | Non-root `uid:gid` to exec as. Default `10001:10001` — **the tenant image must actually have this user**, or exec fails (which is the correct, safe failure mode — never falls back to root). |
+| `TERMINAL_IDLE_MS` / `TERMINAL_ABSOLUTE_MS` | Session timeouts. Defaults 5 min / 30 min. |
+| `TERMINAL_MAX_PER_ACCOUNT` / `TERMINAL_MAX_GLOBAL` | Concurrency caps. Defaults 1 / 20. |
 
 ## Run / test
 
 ```
-npm install && npm start          # local (needs DOCKER_PROXY_URL for /resolve)
-npm test                          # pure unit tests (resolve + token), no Docker
+npm install && npm start          # local (needs DOCKER_PROXY_URL for /resolve and /exec)
+npm test                          # pure unit tests (resolve + token + exec/session caps), no Docker
 docker compose -f ../docker-compose.broker.yml up   # full stack (VPS)
 ```
 
-## Verification (P5.1, from the VPS — not a dev machine)
+## Verification
 
+**From a dev machine (no Docker needed — pure gate/auth checks):**
+- `/exec` upgrade: wrong path → 404, `TERMINAL_ENABLED` unset → 503, missing/wrong
+  `x-broker-key` → 401, malformed or bad-signature token → 403 (rejected before
+  any Docker call). All confirmed working.
+
+**From the VPS only (first real exercise of `createExec`/`startExecStream`):**
 1. `docker compose -f docker-compose.broker.yml up` with `TERMINAL_ENABLED=false`
    → `curl broker:4600/health` returns `{"ok":true,"enabled":false}`.
-2. Flip `TERMINAL_ENABLED=true`, mint a token with `lib/token.js sign(...)` for a
-   real container's `resourceName`, `POST /resolve` with `x-broker-key` →
-   confirm it returns that container's id, and that a token for a **non-existent**
-   or **prefix** name returns `NO_MATCH`/refuses. Then tear down. No shell opens
-   at this phase (WS upgrade = 501 by design).
+2. Flip `TERMINAL_ENABLED=true`. Mint a real broker token for a throwaway
+   test container (same job-based pattern as the earlier Coolify verification
+   scripts), connect a WS client to `/exec`, confirm: the shell opens as the
+   configured non-root user (`whoami`/`id` inside), a fork bomb / `dd` stays
+   bounded by the P5.0 container caps (doesn't affect the host or siblings),
+   closing the WS actually kills the shell process, and a second session for
+   the same account is rejected (`ACCOUNT_CAP`) while the first is open.
+3. Confirm the ownership-resolution failure mode too: mint a token for a
+   name that doesn't match any running container and confirm `/exec` 403s
+   rather than falling back to any other container.

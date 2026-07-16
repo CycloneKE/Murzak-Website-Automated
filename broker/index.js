@@ -14,14 +14,18 @@
  */
 
 const http = require("http");
+const crypto = require("crypto");
+const { WebSocketServer } = require("ws");
 const { verify } = require("./lib/token");
 const docker = require("./lib/dockerClient");
 const { resolveOwnedContainerId, containerMatchesOwner } = require("./lib/resolve");
+const { buildExecCreatePayload, SessionManager } = require("./lib/exec");
 
 const PORT = Number(process.env.BROKER_PORT || 4600);
 const ENABLED = String(process.env.TERMINAL_ENABLED || "false").toLowerCase() === "true";
 const API_KEY = process.env.BROKER_API_KEY || "";
 const SIGNING_KEY = process.env.BROKER_SIGNING_KEY || "";
+const EXEC_WS_PATH = "/exec";
 
 function json(res, code, body) {
   res.writeHead(code, { "Content-Type": "application/json" });
@@ -96,11 +100,110 @@ const server = http.createServer(async (req, res) => {
   return json(res, 404, { error: "Not found." });
 });
 
-// The exec WebSocket upgrade lands here in P5.2/P5.3. Scaffolded closed so the
-// endpoint exists but never half-opens a shell before the jail/recording do.
-server.on("upgrade", (req, socket) => {
-  socket.write("HTTP/1.1 501 Not Implemented\r\n\r\n");
-  socket.destroy();
+// ---- Exec WebSocket: the jailed shell bridge (P5.3) ----
+// The backend (already having authenticated the customer + minted the token)
+// connects here with the broker token. We: verify → resolve+TOCTOU-recheck the
+// container → create a NON-ROOT exec → hijack the Docker stream → bridge it to
+// this WS, under session caps (idle/absolute/concurrency). Session recording
+// (P5.4) taps the same byte streams; a `record` hook is left where it attaches.
+const sessions = new SessionManager({
+  onExpire: (sid, reason) => {
+    const s = liveSockets.get(sid);
+    if (s) {
+      try { s.ws.send(JSON.stringify({ type: "notice", message: `Session ended: ${reason.replace("_", " ")}.` })); } catch {}
+      teardown(sid, reason);
+    }
+  },
+});
+// sessionId -> { ws, dockerStream } so the SessionManager's expiry can reach
+// the live transport to kill it.
+const liveSockets = new Map();
+
+function teardown(sessionId, _reason) {
+  const live = liveSockets.get(sessionId);
+  if (live) {
+    try { live.dockerStream && live.dockerStream.destroy(); } catch {}
+    try { live.ws && live.ws.close(1000, "session_end"); } catch {}
+    liveSockets.delete(sessionId);
+  }
+  sessions.close(sessionId);
+}
+
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", async (req, socket, head) => {
+  let url;
+  try { url = new URL(req.url, "http://localhost"); } catch { socket.destroy(); return; }
+  if (url.pathname !== EXEC_WS_PATH) { socket.write("HTTP/1.1 404 Not Found\r\n\r\n"); socket.destroy(); return; }
+  if (!ENABLED) { socket.write("HTTP/1.1 503 Service Unavailable\r\n\r\n"); socket.destroy(); return; }
+
+  // Auth: broker token (query param) + the internal shared key (header).
+  if (!API_KEY || req.headers["x-broker-key"] !== API_KEY) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return;
+  }
+  const token = url.searchParams.get("token");
+
+  let containerId, payload;
+  try {
+    const r = await resolveForToken(token);
+    containerId = r.containerId;
+    payload = r.payload;
+  } catch (e) {
+    console.warn("[broker] exec auth/resolve rejected:", e.code || e.message);
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n"); socket.destroy(); return;
+  }
+
+  // Concurrency caps BEFORE we spend a Docker exec.
+  const sessionId = crypto.randomBytes(12).toString("hex");
+  try {
+    sessions.open(sessionId, payload.webAccount);
+  } catch (e) {
+    console.warn("[broker] session cap:", e.code);
+    socket.write(`HTTP/1.1 429 Too Many Requests\r\n\r\n`); socket.destroy(); return;
+  }
+
+  wss.handleUpgrade(req, socket, head, async (ws) => {
+    let dockerStream;
+    try {
+      const execId = await docker.createExec(containerId, buildExecCreatePayload({ sessionId }));
+      dockerStream = await docker.startExecStream(execId);
+    } catch (e) {
+      console.error("[broker] exec open failed:", e.message);
+      try { ws.send(JSON.stringify({ type: "error", message: "Could not open a shell for this service. Contact support." })); } catch {}
+      ws.close(1011, "exec_failed");
+      sessions.close(sessionId);
+      return;
+    }
+
+    liveSockets.set(sessionId, { ws, dockerStream });
+
+    // Docker stdout/stderr -> browser (binary frames pass through untouched).
+    dockerStream.on("data", (chunk) => {
+      if (ws.readyState === ws.OPEN) ws.send(chunk);
+      // P5.4 record hook: recordChunk(sessionId, "out", chunk)
+    });
+    dockerStream.on("close", () => teardown(sessionId, "shell_exited"));
+    dockerStream.on("error", () => teardown(sessionId, "stream_error"));
+
+    // Browser stdin -> Docker; control frames (resize) handled as JSON.
+    ws.on("message", (data, isBinary) => {
+      sessions.touch(sessionId);
+      if (!isBinary) {
+        // A small JSON control channel for terminal resize; anything else is
+        // treated as raw keystrokes.
+        try {
+          const msg = JSON.parse(data.toString());
+          if (msg && msg.type === "resize") return; // exec resize API is a separate call; wired in a follow-up
+        } catch { /* not JSON -> raw input */ }
+      }
+      try { dockerStream.write(data); } catch {}
+      // P5.4 record hook: recordChunk(sessionId, "in", data)
+    });
+    ws.on("close", () => teardown(sessionId, "client_closed"));
+    ws.on("error", () => teardown(sessionId, "client_error"));
+
+    ws.send(JSON.stringify({ type: "ready" }));
+  });
 });
 
 if (require.main === module) {
