@@ -114,6 +114,21 @@ interface LoginProps {
    })();
   }, []);
 
+  // If a pending cloud-launch selection carries a repo URL (App Hosting),
+  // prefill the signup form's repo field so the visitor doesn't retype it.
+  useEffect(() => {
+    try {
+      const pendingRaw = localStorage.getItem("murzak_plan_selection_pending");
+      if (!pendingRaw) return;
+      const pending = JSON.parse(pendingRaw);
+      if (pending?.repoUrl) {
+        setFormData((prev) => (prev.sourceCode ? prev : { ...prev, sourceCode: pending.repoUrl }));
+      }
+    } catch (e) {
+      console.warn("Repo URL prefill failed", e);
+    }
+  }, []);
+
   const validate = () => {
     const errs: Record<string, string> = {};
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -186,6 +201,21 @@ const attachPendingSelection = async (currentUser?: User) => {
 
   // Update app user state immediately (portal will reflect changes)
   if (data?.user) onLogin(data.user);
+
+  // A cloud-launch selection may carry the repo URL for an App Hosting
+  // deploy; persist it now so provisioning has a repo to build from.
+  if (typeof pending.repoUrl === "string" && pending.repoUrl.trim()) {
+    try {
+      await fetch("/api/portal/account/repo", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ repoUrl: pending.repoUrl.trim() }),
+      });
+    } catch (e) {
+      console.warn("Pending repo URL save failed (editable later in Portal):", e);
+    }
+  }
 
   // ✅ success: clear pending selection + upgrade flags
   localStorage.removeItem("murzak_plan_selection_pending");
