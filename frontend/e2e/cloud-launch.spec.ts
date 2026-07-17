@@ -79,6 +79,9 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     const testEmail = `test_cloud_biz_${randomSuffix}@example.com`;
     const testPassword = 'TestPassword123!';
 
+    page.on('console', (msg) => console.log('BROWSER CONSOLE:', msg.text()));
+    page.on('pageerror', (err) => console.log('BROWSER ERROR:', err.message));
+
     // Bootstrap: register + buy a Business-plan service first (mirrors
     // customer-journey.spec.ts's POS purchase), so this account already has
     // a PAID Business plan before we touch the cloud picker.
@@ -116,7 +119,17 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.goto('/cloud?launch=starter-storage');
     const launchBtn = page.getByRole('button', { name: /Launch now/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
-    await launchBtn.click();
+
+    // Assert the add-on endpoint itself succeeded (not just that we landed
+    // on /payment/): the regression under test is that a paid customer's
+    // volume-class launch goes through /api/addons/invoice/create without a
+    // tier-mismatch rejection, and a status assertion won't degrade silently
+    // if backend error copy is ever reworded.
+    const [addonResp] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/addons/invoice/create')),
+      launchBtn.click(),
+    ]);
+    expect(addonResp.status()).toBe(200);
 
     await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
     const secondInvoiceId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
