@@ -1,0 +1,25 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "mpesa_checkout_request_id",
+    "label": "M-Pesa Checkout Request ID",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "no_copy": 1,
+    "in_standard_filter": 1,
+    "insert_after": "payment_gateway",
+    "description": "Daraja CheckoutRequestID from the STK push, used to match the async callback back to this invoice. Load-bearing: the callback cannot find the invoice without it."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "mpesa_receipt_number",
+    "label": "M-Pesa Receipt Number",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "no_copy": 1,
+    "insert_after": "mpesa_checkout_request_id",
+    "description": "Safaricom M-Pesa receipt number, persisted best-effort for reconciliation/audit once the callback confirms payment."
+  }
+]
