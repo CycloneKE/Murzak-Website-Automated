@@ -206,12 +206,15 @@ const attachPendingSelection = async (currentUser?: User) => {
   // deploy; persist it now so provisioning has a repo to build from.
   if (typeof pending.repoUrl === "string" && pending.repoUrl.trim()) {
     try {
-      await fetch("/api/portal/account/repo", {
+      const r = await fetch("/api/portal/account/repo", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ repoUrl: pending.repoUrl.trim() }),
       });
+      if (!r.ok) {
+        console.warn("Pending repo URL save failed (editable later in Portal):", r.status);
+      }
     } catch (e) {
       console.warn("Pending repo URL save failed (editable later in Portal):", e);
     }
