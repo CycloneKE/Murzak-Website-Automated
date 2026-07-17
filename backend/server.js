@@ -1125,10 +1125,13 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     // Block add-ons if plan not paid
     const paid = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
     if (!paid) {
-      return res.status(403).json({ error: "Pay your subscription plan first before purchasing add-ons." });
+      return res.status(403).json({ code: "PLAN_NOT_PAID", error: "Pay your subscription plan first before purchasing add-ons." });
     }
 
     const norm = normalizeSelectedServices(services);
+    if (norm.length === 0) {
+      return res.status(400).json({ error: "No add-on services selected." });
+    }
 
     // Every add-on must be a real, priced catalog service — no fabricated
     // pricing for something not in the catalog snapshot. Also enforce

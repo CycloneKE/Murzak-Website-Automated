@@ -134,7 +134,10 @@ export default function CloudLaunchModal({
     // Not paid on any plan yet (first-ever order) -> establish it via the
     // same call the bundled configurator already makes for a first Starter
     // order. Any other rejection (e.g. genuine plan conflict) surfaces as-is.
-    if (!/pay your subscription plan first/i.test(addonData?.error || "")) {
+    const planNotPaid =
+      addonData?.code === "PLAN_NOT_PAID" ||
+      /pay your subscription plan first/i.test(addonData?.error || "");
+    if (!planNotPaid) {
       throw new Error(addonData?.error || "Failed to launch resource.");
     }
 

@@ -155,7 +155,7 @@ interface LoginProps {
     return Object.keys(errs).length === 0;
   };
 
-const attachPendingSelection = async (currentUser?: User) => {
+const attachPendingSelection = async (currentUser?: User, opts?: { skipRepoPut?: boolean }) => {
   const pendingRaw = localStorage.getItem("murzak_plan_selection_pending");
   if (!pendingRaw) return;
 
@@ -204,7 +204,7 @@ const attachPendingSelection = async (currentUser?: User) => {
 
   // A cloud-launch selection may carry the repo URL for an App Hosting
   // deploy; persist it now so provisioning has a repo to build from.
-  if (typeof pending.repoUrl === "string" && pending.repoUrl.trim()) {
+  if (!opts?.skipRepoPut && typeof pending.repoUrl === "string" && pending.repoUrl.trim()) {
     try {
       const r = await fetch("/api/portal/account/repo", {
         method: "PUT",
@@ -315,7 +315,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!res.ok) throw new Error(data?.error || "Signup failed");
 
     try {
-      const generatedInvoiceId = await attachPendingSelection(data.user);
+      // /api/register just persisted the form's sourceCode — fresher than pending.repoUrl.
+      const generatedInvoiceId = await attachPendingSelection(data.user, { skipRepoPut: true });
       if (generatedInvoiceId) {
         onLogin(data.user, `/payment/${generatedInvoiceId}`);
         return;
