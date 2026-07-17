@@ -8,6 +8,8 @@ import {
   ServiceItem,
   DomainChoice,
   formatKes,
+  planForService,
+  PLAN_META,
 } from "../config/serviceCatalog";
 
 type Props = {
@@ -79,6 +81,8 @@ export default function CloudLaunchModal({
     setCategory(cat);
     const first = catalog[cat][0];
     setSelectedId(first?.id || "");
+    setRepoUrl("");
+    setDomainChoice("Use Murzak Subdomain");
     setErr("");
   };
 
@@ -96,6 +100,12 @@ export default function CloudLaunchModal({
 
   const launchLoggedIn = async () => {
     if (!selected) return;
+
+    // Save the repo URL BEFORE creating any invoice: a repo-save failure
+    // aborts cleanly with nothing created, while an invoice failure after a
+    // successful repo save leaves only harmless account metadata — never a
+    // stranded paid order without its repo.
+    await attachRepoIfNeeded();
 
     // Try the existing-customer add-on path first — the backend is the
     // single source of truth on whether this account has a paid plan yet.
@@ -117,7 +127,6 @@ export default function CloudLaunchModal({
     const addonData = await addonRes.json().catch(() => ({}));
 
     if (addonRes.ok) {
-      await attachRepoIfNeeded();
       onNavigate(`/payment/${addonData.invoiceId}`);
       return;
     }
@@ -134,7 +143,7 @@ export default function CloudLaunchModal({
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        planKey: "Starter",
+        planKey: planForService(selected.id) || "Starter",
         selectedServices: [
           {
             serviceId: selected.id,
@@ -149,8 +158,6 @@ export default function CloudLaunchModal({
     const attachData = await attachRes.json().catch(() => ({}));
     if (!attachRes.ok) throw new Error(attachData?.error || "Failed to launch resource.");
 
-    await attachRepoIfNeeded();
-
     const unpaid = (attachData?.invoices || []).find((inv: any) => inv.status === "Unpaid");
     if (!unpaid) throw new Error("Order created but no invoice was generated — contact support.");
     onNavigate(`/payment/${unpaid.docName || unpaid.name}`);
@@ -158,9 +165,10 @@ export default function CloudLaunchModal({
 
   const launchLoggedOut = () => {
     if (!selected) return;
+    const plan = planForService(selected.id) || "Starter";
     const payload = {
-      plan: "Starter",
-      planLabel: "Infrastructure Core",
+      plan,
+      planLabel: PLAN_META[plan].label,
       selectedServices: [
         {
           serviceId: selected.id,
