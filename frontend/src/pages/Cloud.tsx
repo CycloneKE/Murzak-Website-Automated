@@ -1,13 +1,28 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ArrowRight, Globe, Mail, Database, HardDrive, ShieldCheck, RefreshCw,
   Activity, Headphones, Smartphone,
 } from 'lucide-react';
 import { NavProps } from '../types';
 import { Button } from '../components/ui/Button';
+import CloudLaunchModal from '../components/CloudLaunchModal';
 
-const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
+type CloudProps = NavProps & { isLoggedIn?: boolean };
+
+const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
+  const [searchParams] = useSearchParams();
+  const [launchOpen, setLaunchOpen] = useState(false);
+  const [launchServiceId, setLaunchServiceId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const launch = searchParams.get('launch');
+    if (launch) {
+      setLaunchServiceId(launch);
+      setLaunchOpen(true);
+    }
+  }, [searchParams]);
   const whatYouCanHost = [
     { icon: <Globe size={20} />, t: 'Websites & online stores', s: 'WordPress, custom sites, light e-commerce — fast and SSL-secured.' },
     { icon: <Mail size={20} />, t: 'Business email', s: 'Professional mail on your domain, with spam filtering and admin controls.' },
@@ -37,8 +52,8 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
             billed in shillings. You get the result; we handle the servers.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('pricing')}>
-              Build my plan <ArrowRight size={18} />
+            <Button onClick={() => { setLaunchServiceId(undefined); setLaunchOpen(true); }}>
+              Launch a resource <ArrowRight size={18} />
             </Button>
             <Button variant="outlineOnDark" onClick={() => onNavigate('test-request')}>
               Try it free for 36h
@@ -121,6 +136,14 @@ const Cloud: React.FC<NavProps> = ({ onNavigate }) => {
           </div>
         </div>
       </section>
+
+      <CloudLaunchModal
+        isOpen={launchOpen}
+        onClose={() => setLaunchOpen(false)}
+        isLoggedIn={isLoggedIn}
+        onNavigate={onNavigate}
+        initialServiceId={launchServiceId}
+      />
     </main>
   );
 };
