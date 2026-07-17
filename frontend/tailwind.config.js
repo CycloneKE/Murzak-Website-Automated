@@ -1,5 +1,3 @@
-
-
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
@@ -11,22 +9,29 @@ export default {
     extend: {
       colors: {
         murzak: {
-          // Brand palette aligned to the M-monogram (violet -> electric blue gradient).
-          // Existing token names are kept so the whole app re-themes without churn.
-          navy: '#0E1A40',      // deep indigo-navy (dark panels + dark text)
-          blue: '#4F46E5',      // indigo mid-stop
-          violet: '#7C3AED',    // gradient start (purple)
-          cyan: '#2EA6FF',      // PRIMARY accent (electric blue) — was teal cyan
-          electric: '#2EA6FF',  // semantic alias of the accent for new code
-          deep: '#050816',      // near-black indigo
-          surface: '#0F1633',   // indigo surface
-          eggshell: '#F9FAFB',
-          gray: '#A7B6C2',
+          base: '#F8FAFB',
+          surface: '#FFFFFF',
+          ink: '#090C10',
+          muted: '#4B5270',
+          success: '#22C55E',
+          warning: '#F59E0B',
+          danger: '#EF4444',
+          border: '#DFE4F7',
+          accent: '#00BDFC',
+          brand1: '#882FFD',
+          brand2: '#3388F2',
         }
       },
       fontFamily: {
-        sans: ['Hanken Grotesk', 'Inter', 'sans-serif'],
-        display: ['Bricolage Grotesque', 'Hanken Grotesk', 'sans-serif'],
+        sans: ['Manrope', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      },
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(to right, #882FFD, #3388F2)',
+      },
+      boxShadow: {
+        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.05)',
+        'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
       },
       animation: {
         float: 'float 8s ease-in-out infinite',

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface InteractiveBackgroundProps {
@@ -6,17 +5,25 @@ interface InteractiveBackgroundProps {
 }
 
 /**
- * Decorative motion layer only — the muted backdrop image + base now live on the
- * body background (see index.css). This adds drifting brand-gradient auras above
- * that backdrop but below page content (transparent, non-interactive).
+ * Decorative motion layer. Provides the soft, airy glassmorphism gradients
+ * using the new Glass UI tokens (Brand Gradient and Accent).
  */
 const InteractiveBackground: React.FC<InteractiveBackgroundProps> = () => {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vh] rounded-full blur-[180px] bg-murzak-violet/10 animate-drift" />
+      {/* Top left purple/brand blob */}
+      <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vh] rounded-full blur-[180px] bg-murzak-brand1/15 animate-drift" />
+      
+      {/* Bottom right blue/accent blob */}
       <div
-        className="absolute bottom-[-25%] right-[-10%] w-[85vw] h-[85vh] rounded-full blur-[200px] bg-murzak-cyan/10 animate-drift-slow"
+        className="absolute bottom-[-25%] right-[-10%] w-[85vw] h-[85vh] rounded-full blur-[200px] bg-murzak-accent/15 animate-drift-slow"
         style={{ animationDelay: '8s' }}
+      />
+
+      {/* Additional subtle mid blob for texture */}
+      <div 
+        className="absolute top-[30%] left-[40%] w-[50vw] h-[50vh] rounded-full blur-[160px] bg-murzak-brand2/10 animate-float"
+        style={{ animationDelay: '4s' }}
       />
     </div>
   );

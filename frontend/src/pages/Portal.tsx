@@ -107,6 +107,7 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const location = useLocation();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSystemsNavOpen, setIsSystemsNavOpen] = useState(false);
   const [provisionProgress, setProvisionProgress] = useState(0);
   const [localUpdates, setLocalUpdates] = useState<ProjectUpdate[]>(user.updates || []);
   const [updatesLoading, setUpdatesLoading] = useState(false);
@@ -285,6 +286,10 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
     const last = location.pathname.split("/").filter(Boolean).pop();
     return isTab(last) ? last : "overview";
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (activeTab === "cloud") setIsSystemsNavOpen(true);
+  }, [activeTab]);
 
   const onTabClick = (tab: Tab) => {
     navigate(`/portal/${tab}`);
@@ -1089,30 +1094,30 @@ const renderCloudSystemsGrid = () => null;
     if (user.accountStatus === "Provisioning" && provisionProgress < 100) {
       return (
         <div className="space-y-12 animate-fade-in">
-          <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-white/5 relative overflow-hidden">
+          <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
             <div className="max-w-4xl relative z-10">
-              <div className="inline-flex items-center gap-3 bg-murzak-cyan/10 text-murzak-cyan px-4 py-2 rounded-full border border-murzak-cyan/20 mb-8">
+              <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-8">
                 <Activity className="w-4 h-4 animate-pulse" />
                 <span className="text-[10px] font-black uppercase tracking-widest">Live Launch Progress</span>
               </div>
 
               <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
                 Setting up <br />
-                <span className="text-murzak-cyan">Your System.</span>
+                <span className="text-murzak-accent">Your System.</span>
               </h2>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-end mb-2">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-murzak-cyan">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-murzak-accent">
                     Preparing...
                   </span>
                   <span className="text-2xl sm:text-4xl lg:text-5xl font-[900] tracking-tighter">
                     {provisionProgress}%
                   </span>
                 </div>
-                <div className="h-4 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                <div className="h-4 w-full bg-slate-100 dark:bg-black/5 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-murzak-cyan transition-all duration-500 ease-out"
+                    className="h-full bg-murzak-accent transition-all duration-500 ease-out"
                     style={{ width: `${provisionProgress}%` }}
                   />
                 </div>
@@ -1199,21 +1204,21 @@ const renderCloudSystemsGrid = () => null;
     return (
       <div className="space-y-8 animate-fade-in pb-12">
         {/* Welcome Hero */}
-        <div className="glass-card rounded-[3rem] p-10 relative overflow-hidden group border border-white/10">
-          <div className="absolute inset-0 bg-gradient-to-r from-murzak-navy to-transparent opacity-90 dark:opacity-50"></div>
+        <div className="glass-card rounded-[3rem] p-10 relative overflow-hidden group border border-murzak-border">
+          <div className="absolute inset-0 bg-gradient-to-r from-murzak-ink to-transparent opacity-90 dark:opacity-50"></div>
           <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 bg-[url('/portal-hero-bg.png')] bg-cover mix-blend-overlay blur-sm transition-transform duration-1000 group-hover:scale-105"></div>
           
           <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 mb-6 backdrop-blur-md">
-                <Crown className="w-4 h-4 text-murzak-cyan" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-white">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 mb-6 backdrop-blur-md">
+                <Crown className="w-4 h-4 text-murzak-accent" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-murzak-ink">
                   {user.plan} Plan
                 </span>
               </div>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tighter uppercase leading-[0.9] text-white">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tighter uppercase leading-[0.9] text-murzak-ink">
                 Welcome back,<br />
-                <span className="text-murzak-cyan">{(user.name || "User").split(' ')[0]}</span>.
+                <span className="text-murzak-accent">{(user.name || "User").split(' ')[0]}</span>.
               </h2>
             </div>
             
@@ -1222,12 +1227,12 @@ const renderCloudSystemsGrid = () => null;
                 <button 
                   key={`quick-${s.id}`}
                   onClick={() => onTabClick("cloud")} 
-                  className="px-6 py-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan font-black text-[10px] uppercase tracking-widest border border-murzak-cyan/20 hover:bg-murzak-cyan hover:text-murzak-navy hover:shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
+                  className="px-6 py-4 rounded-2xl bg-murzak-accent/10 text-murzak-accent font-black text-[10px] uppercase tracking-widest border border-murzak-accent/20 hover:bg-murzak-accent hover:text-murzak-ink hover:shadow-[0_0_20px_rgba(0,189,252,0.3)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
                 >
                   <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
                 </button>
               ))}
-              <button onClick={() => setIsContactOpen(true)} className="px-6 py-4 rounded-2xl bg-white/10 text-white font-black text-[10px] uppercase tracking-widest border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+              <button onClick={() => setIsContactOpen(true)} className="px-6 py-4 rounded-2xl bg-black/5 text-murzak-ink font-black text-[10px] uppercase tracking-widest border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                 <Headphones className="w-4 h-4" /> Get Support
               </button>
             </div>
@@ -1258,13 +1263,13 @@ const renderCloudSystemsGrid = () => null;
           {/* Main Dashboard Area */}
           <div className="lg:col-span-2 space-y-8">
             {/* System Health */}
-            <div className="glass-panel p-8 rounded-[3rem] border border-white/10">
+            <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-[12px] font-black uppercase tracking-widest text-white">System Health</h3>
-                  <p className="text-[10px] font-medium text-slate-400 mt-1">Live status of your active infrastructure</p>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">System Health</h3>
+                  <p className="text-[10px] font-medium text-slate-500 mt-1">Live status of your active infrastructure</p>
                 </div>
-                <button onClick={() => onTabClick("cloud")} className="text-murzak-cyan hover:text-white transition-colors p-2">
+                <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink transition-colors p-2">
                   <ArrowRight size={20} />
                 </button>
               </div>
@@ -1281,11 +1286,11 @@ const renderCloudSystemsGrid = () => null;
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 rounded-[2rem] border border-dashed border-white/10 bg-white/5">
+                <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
                   <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-2">No Active Services</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">No Active Services</p>
                   <p className="text-[10px] text-slate-500 max-w-xs mx-auto mb-6">You don't have any infrastructure running yet.</p>
-                  <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all inline-flex items-center gap-2">
+                  <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all inline-flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Deploy Services
                   </button>
                 </div>
@@ -1302,13 +1307,13 @@ const renderCloudSystemsGrid = () => null;
             </div>
 
             {/* General Upload */}
-            <div className="glass-panel p-8 rounded-[3rem] border border-white/10">
+            <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-[12px] font-black uppercase tracking-widest text-white">Project Files</h3>
-                  <p className="text-[10px] font-medium text-slate-400 mt-1">Upload assets for engineers</p>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Project Files</h3>
+                  <p className="text-[10px] font-medium text-slate-500 mt-1">Upload assets for engineers</p>
                 </div>
-                <label className="cursor-pointer px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest transition-all inline-flex items-center gap-2">
+                <label className="cursor-pointer px-4 py-2 rounded-xl bg-black/5 hover:bg-white/20 text-murzak-ink font-black text-[10px] uppercase tracking-widest transition-all inline-flex items-center gap-2">
                   <UploadCloud className="w-4 h-4" />
                   {uploading ? "Uploading..." : "Upload"}
                   <input
@@ -1339,12 +1344,12 @@ const renderCloudSystemsGrid = () => null;
                       href={f.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="glass-card p-3 rounded-xl flex items-center gap-2 hover:border-murzak-cyan/50 transition-colors group"
+                      className="glass-card p-3 rounded-xl flex items-center gap-2 hover:border-murzak-accent/50 transition-colors group"
                     >
-                      <div className="p-2 bg-white/5 rounded-lg group-hover:bg-murzak-cyan/10 group-hover:text-murzak-cyan transition-colors">
+                      <div className="p-2 bg-black/5 rounded-lg group-hover:bg-murzak-accent/10 group-hover:text-murzak-accent transition-colors">
                         <Download size={14} />
                       </div>
-                      <span className="text-[10px] font-bold text-slate-300 truncate">{f.name}</span>
+                      <span className="text-[10px] font-bold text-slate-600 truncate">{f.name}</span>
                     </a>
                   ))}
                 </div>
@@ -1357,8 +1362,8 @@ const renderCloudSystemsGrid = () => null;
           {/* Sidebar */}
           <div className="space-y-8">
             {/* Activity Timeline */}
-            <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full">
-              <h3 className="text-[12px] font-black uppercase tracking-widest text-white mb-8">Activity Hub</h3>
+            <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full">
+              <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink mb-8">Activity Hub</h3>
               <ActivityTimeline events={timelineEvents} />
             </div>
           </div>
@@ -1385,69 +1390,69 @@ const renderCloudSystemsGrid = () => null;
         <div className="xl:col-span-2 space-y-8">
           
           {/* Plan Card */}
-          <div className="glass-card rounded-[3rem] p-8 sm:p-10 relative overflow-hidden group border border-white/10">
-            <div className="absolute inset-0 bg-gradient-to-br from-murzak-navy to-murzak-navy/90 z-0"></div>
-            <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
+          <div className="glass-card rounded-[3rem] p-8 sm:p-10 relative overflow-hidden group border border-murzak-border">
+            <div className="absolute inset-0 bg-gradient-to-br from-murzak-ink to-murzak-ink/90 z-0"></div>
+            <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
             
             <div className="absolute top-8 right-8 opacity-10 group-hover:scale-110 transition-transform duration-700 z-0">
-              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
+              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-murzak-ink" />
             </div>
 
             <div className="relative z-10 flex flex-col md:flex-row gap-8 justify-between">
               <div>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full border border-white/20 mb-6 backdrop-blur-md">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-black/5 rounded-full border border-white/20 mb-6 backdrop-blur-md">
                   <div className={`w-2 h-2 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-murzak-ink">
                     {user.accountStatus} Subscription
                   </span>
                 </div>
 
-                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-white">
+                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-murzak-ink">
                   {user.plan}
                 </h3>
-                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-8">
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-8">
                   Monthly Billing • Next cycle in 14 days
                 </p>
 
                 <div className="flex gap-4">
-                  <button onClick={goToUpgrade} className="px-6 py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(46,166,255,0.3)] hover:scale-105 transition-all flex items-center gap-2">
+                  <button onClick={goToUpgrade} className="px-6 py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(0,189,252,0.3)] hover:scale-105 transition-all flex items-center gap-2">
                     <ArrowUpCircle className="w-4 h-4" /> Change Plan
                   </button>
-                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-white/10 text-white border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-black/5 text-murzak-ink border border-white/20 font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                     <Plus className="w-4 h-4" /> Add Services
                   </button>
                 </div>
               </div>
 
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md self-start min-w-[200px]">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Monthly Burn</p>
-                <p className="text-3xl font-black text-murzak-cyan tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
-                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Slots used</span>
-                  <span className="text-[10px] font-black text-white">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
+              <div className="bg-black/5 border border-murzak-border rounded-3xl p-6 backdrop-blur-md self-start min-w-[200px]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Monthly Burn</p>
+                <p className="text-3xl font-black text-murzak-accent tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
+                <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Slots used</span>
+                  <span className="text-[10px] font-black text-murzak-ink">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Included Services List */}
-          <div className="glass-panel rounded-[3rem] p-8 sm:p-10 border border-white/10">
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-white mb-8 flex items-center gap-3">
-              <Server className="w-5 h-5 text-murzak-cyan" /> Provisioned Services
+          <div className="glass-panel rounded-[3rem] p-8 sm:p-10 border border-murzak-border">
+            <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-murzak-ink mb-8 flex items-center gap-3">
+              <Server className="w-5 h-5 text-murzak-accent" /> Provisioned Services
             </h3>
 
             <div className="space-y-4">
               {selectedServices.length === 0 ? (
-                <div className="text-center py-12 rounded-[2rem] border border-dashed border-white/10 bg-white/5">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                     No services attached to this plan yet.
                   </p>
                 </div>
               ) : (
                 selectedServices.map((s) => (
-                  <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[2rem] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-murzak-cyan/30 transition-colors group">
+                  <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[2rem] bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border hover:border-murzak-accent/30 transition-colors group">
                     <div className="flex items-start sm:items-center gap-4">
-                      <div className={`p-3 rounded-2xl ${s.status === 'Active' ? 'bg-murzak-cyan/10 text-murzak-cyan' : 'bg-orange-500/10 text-orange-500'}`}>
+                      <div className={`p-3 rounded-2xl ${s.status === 'Active' ? 'bg-murzak-accent/10 text-murzak-accent' : 'bg-orange-500/10 text-orange-500'}`}>
                         {s.status === 'Active' ? <Zap className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
                       </div>
                       <div>
@@ -1460,8 +1465,8 @@ const renderCloudSystemsGrid = () => null;
                             navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
                           }}
                           className={`text-left text-sm font-black ${
-                            s.status === "Active" ? "hover:text-murzak-cyan" : "cursor-not-allowed"
-                          } text-murzak-navy dark:text-white transition-colors`}
+                            s.status === "Active" ? "hover:text-murzak-accent" : "cursor-not-allowed"
+                          } text-murzak-ink transition-colors`}
                         >
                           {s.name}
                         </button>
@@ -1473,8 +1478,8 @@ const renderCloudSystemsGrid = () => null;
 
                     <div className="flex items-center gap-3 self-end sm:self-auto">
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-navy dark:bg-white/10 text-white border border-slate-200 dark:border-white/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(46,166,255,0.15)] group-hover:shadow-[0_0_20px_rgba(46,166,255,0.3)]">
-                          <Terminal className="w-3 h-3 text-murzak-cyan" /> Developer Access
+                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-ink dark:bg-black/5 text-murzak-ink border border-slate-200 dark:border-white/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(0,189,252,0.15)] group-hover:shadow-[0_0_20px_rgba(0,189,252,0.3)]">
+                          <Terminal className="w-3 h-3 text-murzak-accent" /> Developer Access
                         </button>
                         
                         {s.status === "Active" ? (
@@ -1495,7 +1500,7 @@ const renderCloudSystemsGrid = () => null;
                       <button
                         type="button"
                         onClick={() => onRequestDelete(s, "billing")}
-                        className="p-2.5 rounded-xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2.5 rounded-xl bg-white/20 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
                         title="Remove service"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1510,10 +1515,10 @@ const renderCloudSystemsGrid = () => null;
 
         {/* Right Column: Invoices */}
         <div className="xl:col-span-1">
-          <div className="glass-panel rounded-[3rem] p-8 border border-white/10 h-full flex flex-col">
+          <div className="glass-panel rounded-[3rem] p-8 border border-murzak-border h-full flex flex-col">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-3">
-                <Receipt className="w-5 h-5 text-murzak-cyan" /> Invoices
+              <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest flex items-center gap-3">
+                <Receipt className="w-5 h-5 text-murzak-accent" /> Invoices
               </h3>
               <button
                 onClick={async () => {
@@ -1527,7 +1532,7 @@ const renderCloudSystemsGrid = () => null;
                   }
                 }}
                 disabled={downloadingAll || localInvoices.length === 0}
-                className="p-2 rounded-xl bg-white/50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:text-murzak-cyan hover:border-murzak-cyan/30 hover:bg-murzak-cyan/10 transition-all disabled:opacity-50"
+                className="p-2 rounded-xl bg-white/20 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/30 hover:bg-murzak-accent/10 transition-all disabled:opacity-50"
                 title="Download All"
               >
                 {downloadingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
@@ -1537,7 +1542,7 @@ const renderCloudSystemsGrid = () => null;
             <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[600px]">
               {localInvoices.length === 0 ? (
                 <div className="text-center py-16">
-                  <Receipt className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-4 opacity-50" />
+                  <Receipt className="w-10 h-10 mx-auto text-slate-600 dark:text-slate-600 mb-4 opacity-50" />
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                     No transactions yet.
                   </p>
@@ -1546,21 +1551,21 @@ const renderCloudSystemsGrid = () => null;
                 localInvoices.map((inv) => (
                   <div
                     key={inv.id}
-                    className="p-5 rounded-[1.75rem] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-murzak-cyan/20 transition-all group relative overflow-hidden"
+                    className="p-5 rounded-[1.75rem] bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border hover:border-murzak-accent/20 transition-all group relative overflow-hidden"
                   >
                     {/* Status accent line */}
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${inv.status === 'Paid' ? 'bg-green-500/50' : 'bg-orange-500/50'}`}></div>
                     
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">
                           {inv.date}
                         </p>
-                        <p className="text-xs font-black text-murzak-navy dark:text-white">
+                        <p className="text-xs font-black text-murzak-ink">
                           {(inv.type || "").toLowerCase().replace(/[^a-z]/g, "").includes("addon") ? "Add-on Invoice" : inv.type}
                         </p>
                         {inv.plan && (
-                          <p className="text-[9px] font-bold text-murzak-cyan uppercase tracking-widest mt-1">
+                          <p className="text-[9px] font-bold text-murzak-accent uppercase tracking-widest mt-1">
                             {inv.plan}
                           </p>
                         )}
@@ -1580,11 +1585,11 @@ const renderCloudSystemsGrid = () => null;
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-white/10">
+                    <div className="flex items-center gap-2 pt-4 border-t border-slate-200 dark:border-murzak-border">
                       {inv.status !== "Paid" && (
                         <button
                           onClick={() => navigate(`/payment/${encodeURIComponent(inv.docName)}`)}
-                          className="flex-1 py-2.5 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all text-center"
+                          className="flex-1 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all text-center"
                         >
                           Pay Now
                         </button>
@@ -1603,10 +1608,10 @@ const renderCloudSystemsGrid = () => null;
                             setDownloadingId(null);
                           }
                         }}
-                        className={`p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition-all ${inv.status === 'Paid' ? 'flex-1 flex justify-center items-center gap-2' : ''}`}
+                        className={`p-2.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/20 dark:bg-black/5 hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition-all ${inv.status === 'Paid' ? 'flex-1 flex justify-center items-center gap-2' : ''}`}
                       >
                         {downloadingId === inv.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
                         ) : (
                           <>
                             <Download className="w-4 h-4 text-slate-500" />
@@ -1635,7 +1640,7 @@ const renderCloudSystemsGrid = () => null;
                             setDeletingId(null);
                           }
                         }}
-                        className="p-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all text-slate-500 hover:text-red-500"
+                        className="p-2.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/20 dark:bg-black/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all text-slate-500 hover:text-red-500"
                       >
                         {deletingId === inv.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -1663,14 +1668,14 @@ const renderCloudSystemsGrid = () => null;
             Messages from our Nairobi team — and your support thread
           </p>
         </div>
-        <div className="bg-murzak-cyan/10 text-murzak-cyan px-4 py-2 rounded-xl border border-murzak-cyan/20 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(46,166,255,0.15)] flex items-center gap-2">
+        <div className="bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-xl border border-murzak-accent/20 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shadow-[0_0_15px_rgba(0,189,252,0.15)] flex items-center gap-2">
           <Clock className="w-4 h-4" /> Usually replies same day
         </div>
       </div>
 
       {/* Main Support CTA */}
       <div
-        className="glass-card rounded-[3rem] p-8 sm:p-10 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-8 group cursor-pointer relative overflow-hidden"
+        className="glass-card rounded-[3rem] p-8 sm:p-10 border border-murzak-border flex flex-col md:flex-row items-center justify-between gap-8 group cursor-pointer relative overflow-hidden"
         onClick={async () => {
           if (!user?.email) return;
 
@@ -1697,41 +1702,41 @@ const renderCloudSystemsGrid = () => null;
           await refreshChatUnread();
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-murzak-navy to-murzak-navy/90 z-0"></div>
-        <div className="absolute -right-24 top-1/2 -translate-y-1/2 w-64 h-64 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-murzak-ink to-murzak-ink/90 z-0"></div>
+        <div className="absolute -right-24 top-1/2 -translate-y-1/2 w-64 h-64 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 z-0"></div>
 
         <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
-          <div className="p-4 sm:p-5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl relative shadow-lg group-hover:scale-110 transition-transform duration-500">
-            <Headphones className="w-8 h-8 text-white" />
+          <div className="p-4 sm:p-5 bg-black/5 backdrop-blur-md border border-white/20 rounded-2xl relative shadow-lg group-hover:scale-110 transition-transform duration-500">
+            <Headphones className="w-8 h-8 text-murzak-ink" />
             {unreadChatCount > 0 && (
-              <span className="absolute -top-2 -right-2 min-w-[24px] h-[24px] px-1 rounded-full bg-murzak-cyan text-murzak-navy text-[11px] font-black flex items-center justify-center shadow-[0_0_10px_rgba(46,166,255,0.5)] border-2 border-murzak-navy animate-pulse">
+              <span className="absolute -top-2 -right-2 min-w-[24px] h-[24px] px-1 rounded-full bg-murzak-accent text-murzak-ink text-[11px] font-black flex items-center justify-center shadow-[0_0_10px_rgba(0,189,252,0.5)] border-2 border-murzak-ink animate-pulse">
                 {unreadChatCount}
               </span>
             )}
           </div>
 
           <div>
-            <h4 className="text-xl sm:text-2xl font-black tracking-tight text-white group-hover:text-murzak-cyan transition-colors">
+            <h4 className="text-xl sm:text-2xl font-black tracking-tight text-murzak-ink group-hover:text-murzak-accent transition-colors">
               Need a hand with something?
             </h4>
-            <p className="text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest mt-1">
+            <p className="text-[10px] sm:text-xs font-bold text-slate-600 uppercase tracking-widest mt-1">
               Open your support thread with our engineering team
             </p>
           </div>
         </div>
 
         <div className="relative z-10 w-full md:w-auto flex justify-end">
-          <div className="p-4 rounded-full bg-white/5 border border-white/10 group-hover:bg-murzak-cyan/20 group-hover:border-murzak-cyan/50 transition-all duration-300">
-            <ChevronRight className="w-6 h-6 text-murzak-cyan group-hover:translate-x-1 transition-transform" />
+          <div className="p-4 rounded-full bg-black/5 border border-murzak-border group-hover:bg-murzak-accent/20 group-hover:border-murzak-accent/50 transition-all duration-300">
+            <ChevronRight className="w-6 h-6 text-murzak-accent group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
       </div>      
 
-      <div className="glass-panel rounded-[3rem] p-8 border border-white/10">
+      <div className="glass-panel rounded-[3rem] p-8 border border-murzak-border">
         {/* Toolbar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-2">
-            <Bell className="w-5 h-5 text-murzak-cyan" /> Notifications
+          <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-murzak-ink flex items-center gap-2">
+            <Bell className="w-5 h-5 text-murzak-accent" /> Notifications
           </h3>
           
           <div className="flex flex-wrap items-center gap-3">
@@ -1739,28 +1744,28 @@ const renderCloudSystemsGrid = () => null;
               <select
                 value={updatesSort}
                 onChange={(e) => setUpdatesSort(e.target.value as any)}
-                className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 focus:outline-none focus:border-murzak-cyan/50 focus:ring-1 focus:ring-murzak-cyan/50"
+                className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-600 focus:outline-none focus:border-murzak-accent/50 focus:ring-1 focus:ring-murzak-accent/50"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="alpha">A–Z</option>
                 <option value="type">By Type</option>
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                 <ChevronRight className="w-4 h-4 rotate-90" />
               </div>
             </div>
 
             <button
               onClick={selectAll}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 hover:bg-slate-100 dark:hover:bg-black/5 text-[10px] font-black uppercase tracking-widest transition-colors"
             >
               Select all
             </button>
 
             <button
               onClick={clearSelection}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-colors"
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 hover:bg-slate-100 dark:hover:bg-black/5 text-[10px] font-black uppercase tracking-widest transition-colors"
             >
               Clear
             </button>
@@ -1783,7 +1788,7 @@ const renderCloudSystemsGrid = () => null;
 
             return (
               <div key={update.id} className={`glass-card rounded-[2rem] border transition-all duration-300 ${
-                isUnread ? 'border-murzak-cyan/30 shadow-[0_0_15px_rgba(46,166,255,0.1)]' : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]'
+                isUnread ? 'border-murzak-accent/30 shadow-[0_0_15px_rgba(0,189,252,0.1)]' : 'border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-white/[0.02]'
               } ${isOpen ? 'p-6' : 'p-4'}`}>
                 {/* row: checkbox + header + single delete */}
                 <div className="flex items-center gap-4">
@@ -1792,9 +1797,9 @@ const renderCloudSystemsGrid = () => null;
                       type="checkbox"
                       checked={selectedIds.has(update.id)}
                       onChange={() => toggleSelected(update.id)}
-                      className="w-5 h-5 rounded border-slate-300 dark:border-white/20 text-murzak-cyan focus:ring-murzak-cyan/50 cursor-pointer appearance-none bg-white dark:bg-white/10 checked:bg-murzak-cyan checked:border-murzak-cyan transition-all peer"
+                      className="w-5 h-5 rounded border-slate-300 dark:border-white/20 text-murzak-accent focus:ring-murzak-accent/50 cursor-pointer appearance-none bg-white dark:bg-black/5 checked:bg-murzak-accent checked:border-murzak-accent transition-all peer"
                     />
-                    <CheckCircle2 className="w-3.5 h-3.5 text-murzak-navy absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-murzak-ink absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
                   </div>
 
                   <button
@@ -1805,12 +1810,12 @@ const renderCloudSystemsGrid = () => null;
                     {/* collapsed title line */}
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex items-center gap-3">
-                        {isUnread && <div className="w-2 h-2 rounded-full bg-murzak-cyan shadow-[0_0_8px_#2ea6ff] animate-pulse"></div>}
-                        <span className={`text-[11px] font-black uppercase tracking-widest ${isUnread ? 'text-murzak-cyan' : 'text-slate-600 dark:text-slate-300'} group-hover:text-murzak-cyan transition-colors`}>
+                        {isUnread && <div className="w-2 h-2 rounded-full bg-murzak-accent shadow-[0_0_8px_#00bdfc] animate-pulse"></div>}
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${isUnread ? 'text-murzak-accent' : 'text-slate-600 dark:text-slate-600'} group-hover:text-murzak-accent transition-colors`}>
                           {title}
                         </span>
                       </div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 ml-5 sm:ml-0">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5 ml-5 sm:ml-0">
                         <Calendar className="w-3 h-3" />
                         {new Date(update.timestamp).toLocaleDateString()} •{" "}
                         {new Date(update.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1821,7 +1826,7 @@ const renderCloudSystemsGrid = () => null;
                   <button
                     type="button"
                     onClick={() => deleteOneUpdate(update.id)}
-                    className="p-2.5 rounded-xl hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors"
+                    className="p-2.5 rounded-xl hover:bg-red-500/10 text-slate-500 hover:text-red-500 transition-colors"
                     title="Delete notification"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1830,7 +1835,7 @@ const renderCloudSystemsGrid = () => null;
                   <button
                     type="button"
                     onClick={() => setExpandedId(isOpen ? null : update.id)}
-                    className={`p-2 rounded-full hover:bg-white/10 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                    className={`p-2 rounded-full hover:bg-black/5 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
                   >
                     <ChevronRight className="w-5 h-5 rotate-90" />
                   </button>
@@ -1839,11 +1844,11 @@ const renderCloudSystemsGrid = () => null;
                 {/* expanded details */}
                 <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-6' : 'grid-rows-[0fr] opacity-0'}`}>
                   <div className="overflow-hidden pl-9 pr-14">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 leading-relaxed bg-white/50 dark:bg-white/5 p-5 rounded-2xl border border-slate-100 dark:border-white/5">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-600 leading-relaxed bg-white/20 dark:bg-black/5 p-5 rounded-2xl border border-slate-100 dark:border-murzak-border/50">
                       {update.content}
                     </p>
 
-                    <div className="flex justify-end pt-5 mt-5 border-t border-slate-100 dark:border-white/10">
+                    <div className="flex justify-end pt-5 mt-5 border-t border-slate-100 dark:border-murzak-border">
                       {!update.acknowledged ? (
                         <button
                           onClick={async () => {
@@ -1856,12 +1861,12 @@ const renderCloudSystemsGrid = () => null;
                             });
                             await refreshUpdates();
                           }}
-                          className="bg-murzak-cyan text-murzak-navy px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-[0_0_15px_rgba(46,166,255,0.3)] flex items-center gap-2"
+                          className="bg-murzak-accent text-murzak-ink px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-[0_0_15px_rgba(0,189,252,0.3)] flex items-center gap-2"
                         >
                           Mark as read <CheckCircle2 className="w-4 h-4" />
                         </button>
                       ) : (
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4" /> Read
                         </span>
                       )}
@@ -1873,14 +1878,14 @@ const renderCloudSystemsGrid = () => null;
           })}
 
           {sortedUpdates.length === 0 && (
-            <div className="text-center py-20 bg-slate-50 dark:bg-white/5 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-white/10">
-              <div className="w-20 h-20 rounded-full bg-slate-200/50 dark:bg-white/5 flex items-center justify-center mx-auto mb-6">
-                <Bell className="w-8 h-8 text-slate-400" />
+            <div className="text-center py-20 bg-slate-50 dark:bg-black/5 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-murzak-border">
+              <div className="w-20 h-20 rounded-full bg-slate-200/50 dark:bg-black/5 flex items-center justify-center mx-auto mb-6">
+                <Bell className="w-8 h-8 text-slate-500" />
               </div>
               <p className="text-[12px] font-black text-slate-500 uppercase tracking-widest">
                 No updates yet
               </p>
-              <p className="text-[10px] font-bold text-slate-400 mt-2">
+              <p className="text-[10px] font-bold text-slate-500 mt-2">
                 We'll notify you here when there's news about your systems.
               </p>
             </div>
@@ -1908,7 +1913,7 @@ const renderCloudSystemsGrid = () => null;
           {cloudServiceId && (
             <button
               onClick={() => navigate("/portal/cloud")}
-              className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-200 font-black text-[9px] uppercase tracking-widest"
+              className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-600 dark:text-slate-200 font-black text-[9px] uppercase tracking-widest"
             >
               Back to Systems
             </button>
@@ -1917,7 +1922,7 @@ const renderCloudSystemsGrid = () => null;
           {!cloudServiceId && (
             <button
               onClick={() => openAddonsModal("cloud")}
-              className="px-5 py-3 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center gap-2"
+              className="px-5 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[9px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Services
             </button>
@@ -1947,15 +1952,15 @@ const renderCloudSystemsGrid = () => null;
         const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);
         const isActive = svc?.status === "Active";
         return (
-          <div className="rounded-[2.25rem] border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl p-7 sm:p-10">
+          <div className="rounded-[2.25rem] border border-slate-200 dark:border-murzak-border bg-white/80 dark:bg-white/60 backdrop-blur-xl p-7 sm:p-10">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="p-3.5 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Server className="w-6 h-6" /></div>
+                <div className="p-3.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-6 h-6" /></div>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                     {svc?.category || "Service"}{svc?.tier ? ` • ${svc.tier}` : ""}
                   </p>
-                  <h3 className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white mt-1">
+                  <h3 className="text-xl sm:text-2xl font-black text-murzak-ink mt-1">
                     {svc?.name || "Your service"}
                   </h3>
                 </div>
@@ -1969,10 +1974,10 @@ const renderCloudSystemsGrid = () => null;
               </span>
             </div>
 
-            <div className="mt-7 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
-              <Shield className="w-5 h-5 text-murzak-cyan shrink-0 mt-0.5" />
-              <p className="text-[13px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
-                This is a fully <span className="font-black text-murzak-navy dark:text-white">managed</span> service — our Nairobi team
+            <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
+              <Shield className="w-5 h-5 text-murzak-accent shrink-0 mt-0.5" />
+              <p className="text-[13px] font-medium text-slate-600 dark:text-slate-600 leading-relaxed">
+                This is a fully <span className="font-black text-murzak-ink">managed</span> service — our Nairobi team
                 runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
                 Message support and we’ll take care of it.
               </p>
@@ -1983,23 +1988,23 @@ const renderCloudSystemsGrid = () => null;
                 href={cloudAccessUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/5 p-5 hover:bg-murzak-cyan/10 transition-all group"
+                className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 p-5 hover:bg-murzak-accent/10 transition-all group"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2.5 rounded-xl bg-murzak-cyan/10 text-murzak-cyan shrink-0"><ExternalLink className="w-4 h-4" /></div>
+                  <div className="p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent shrink-0"><ExternalLink className="w-4 h-4" /></div>
                   <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Live</p>
-                    <p className="text-[13px] font-black text-murzak-navy dark:text-white truncate">{cloudAccessUrl}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Live</p>
+                    <p className="text-[13px] font-black text-murzak-ink truncate">{cloudAccessUrl}</p>
                   </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-murzak-cyan shrink-0 group-hover:translate-x-1 transition-transform" />
+                <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0 group-hover:translate-x-1 transition-transform" />
               </a>
             )}
 
             {isActive && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-5">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Connect your domain</p>
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-4">
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Connect your domain</p>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-500 mb-4">
                   Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -2008,12 +2013,12 @@ const renderCloudSystemsGrid = () => null;
                     value={domainInput}
                     onChange={(e) => setDomainInput(e.target.value)}
                     placeholder="shop.yourbusiness.co.ke"
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-[12px] font-bold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
                   <button
                     onClick={submitDomainAttach}
                     disabled={domainSubmitting || !domainInput.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   >
                     {domainSubmitting ? "Connecting…" : "Connect"}
                   </button>
@@ -2029,14 +2034,14 @@ const renderCloudSystemsGrid = () => null;
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setIsContactOpen(true)}
-                className="px-6 py-3.5 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                className="px-6 py-3.5 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
               >
                 <Headphones className="w-4 h-4" /> Message support
               </button>
               {!isActive && (
                 <button
                   onClick={() => onTabClick("billing")}
-                  className="px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-white/15 text-murzak-navy dark:text-white font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
+                  className="px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-white/15 text-murzak-ink font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-black/5 transition-all"
                 >
                   Pay & activate
                 </button>
@@ -2082,46 +2087,46 @@ const renderCloudSystemsGrid = () => null;
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
         {/* Personal Information */}
-        <div className="glass-card bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
+        <div className="glass-card bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700 pointer-events-none">
-            <UserIcon className="w-24 h-24 text-murzak-cyan" />
+            <UserIcon className="w-24 h-24 text-murzak-accent" />
           </div>
           
-          <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
-            <UserCircle className="w-5 h-5 text-murzak-cyan" /> Personal Information
+          <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
+            <UserCircle className="w-5 h-5 text-murzak-accent" /> Personal Information
           </h3>
           
           <div className="space-y-8 relative z-10">
             <div className="group/item">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Full Name
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Full Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.name}
               </p>
             </div>
             
             <div className="group/item">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Email Address
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
               </p>
-              <p className="text-lg sm:text-xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+              <p className="text-lg sm:text-xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.email}
               </p>
             </div>
             
             <div className="group/item">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Business Name
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-navy dark:text-white break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-cyan/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.company}
               </p>
             </div>
 
             <div className="group/item">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-cyan/50 group-hover/item:bg-murzak-cyan transition-colors"></span> Project Repository
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Project Repository
               </p>
               <p className="text-[10px] text-slate-500 mb-3 pl-3">
                 The Git repo we deploy your App Hosting services from. Add <span className="font-mono">#branch</span> to pin a branch.
@@ -2132,13 +2137,13 @@ const renderCloudSystemsGrid = () => null;
                   value={repoDraft}
                   onChange={(e) => { setRepoDraft(e.target.value); if (repoMsg) setRepoMsg(null); }}
                   placeholder="https://github.com/you/your-app"
-                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-semibold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-murzak-cyan/60"
+                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:border-murzak-accent/60"
                 />
                 <button
                   type="button"
                   onClick={saveRepo}
                   disabled={repoSaving || repoDraft.trim() === (user.sourceCode || "")}
-                  className="shrink-0 px-4 py-2.5 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest disabled:opacity-40 hover:scale-[1.02] transition-all"
+                  className="shrink-0 px-4 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest disabled:opacity-40 hover:scale-[1.02] transition-all"
                 >
                   {repoSaving ? "Saving…" : "Save"}
                 </button>
@@ -2153,47 +2158,47 @@ const renderCloudSystemsGrid = () => null;
         </div>
 
         {/* Service Plan */}
-        <div className="glass-card bg-murzak-navy text-white p-8 sm:p-10 rounded-[3rem] border border-white/10 shadow-xl flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-transparent to-murzak-cyan/5 z-0 pointer-events-none"></div>
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-cyan/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
+        <div className="glass-card glass-dark p-8 sm:p-10 rounded-[3rem] shadow-xl flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-transparent to-murzak-accent/5 z-0 pointer-events-none"></div>
+          <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
 
           <div className="relative z-10">
-            <h3 className="text-[12px] font-black text-white uppercase tracking-widest mb-8 flex items-center gap-3">
-              <Shield className="w-5 h-5 text-murzak-cyan" /> Service Plan
+            <h3 className="text-[12px] font-black text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3">
+              <Shield className="w-5 h-5 text-murzak-accent" /> Service Plan
             </h3>
             
             <div className="flex flex-col gap-2 mb-8">
-              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-white">
+              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-murzak-ink">
                 {user.plan || "None"}
               </p>
-              <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-md">
+              <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
                 <div className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">
                   Status: {user.accountStatus}
                 </span>
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm group-hover:bg-white/10 transition-colors">
+            <div className="rounded-3xl border border-murzak-border bg-black/5 p-6 backdrop-blur-sm group-hover:bg-black/5 transition-colors">
               <div className="flex justify-between items-center mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">
+                <p className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">
                   Provisioned Services
                 </p>
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                  <Server className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
+                  <Server className="w-4 h-4 text-murzak-ink" />
                 </div>
               </div>
               
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-black">{selectedServices.length}</span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pb-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pb-1">
                   Active
                 </span>
               </div>
               
-              <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Available Slots</span>
-                <span className="text-[10px] font-black text-white">{remainingSlots}</span>
+              <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Available Slots</span>
+                <span className="text-[10px] font-black text-murzak-ink">{remainingSlots}</span>
               </div>
             </div>
           </div>
@@ -2204,39 +2209,39 @@ const renderCloudSystemsGrid = () => null;
                 setAddonsError("");
                 setAddonsOpen(true);
               }}
-              className="w-full bg-murzak-cyan text-murzak-navy rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(46,166,255,0.2)] flex items-center justify-center gap-2"
+              className="w-full bg-murzak-accent text-murzak-ink rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(0,189,252,0.2)] flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Services
             </button>
 
             <button
               onClick={goToUpgrade}
-              className="w-full bg-white/5 border border-white/15 text-white rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:bg-white/10 transition-all backdrop-blur-md flex items-center justify-center gap-2"
+              className="w-full bg-black/5 border border-white/15 text-murzak-ink rounded-xl font-black text-[10px] uppercase tracking-widest py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
             >
-              <Crown className="w-4 h-4 text-murzak-cyan" /> Upgrade Plan
+              <Crown className="w-4 h-4 text-murzak-accent" /> Upgrade Plan
             </button>
           </div>
         </div>
       </div>
 
-      <div className="glass-panel p-8 sm:p-10 rounded-[3rem] border border-white/10">
-        <h3 className="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Settings className="w-5 h-5 text-murzak-cyan" /> Account Preferences
+      <div className="glass-panel p-8 sm:p-10 rounded-[3rem] border border-murzak-border">
+        <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3">
+          <Settings className="w-5 h-5 text-murzak-accent" /> Account Preferences
         </h3>
         
         <div className="space-y-6">
           <ChangePasswordCard />
           
-          <div className="pt-8 mt-8 border-t border-slate-200 dark:border-white/10 flex flex-col sm:flex-row justify-between items-center gap-6">
+          <div className="pt-8 mt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
             <div>
-              <h4 className="text-sm font-black text-murzak-navy dark:text-white">Welcome Tour</h4>
+              <h4 className="text-sm font-black text-murzak-ink">Welcome Tour</h4>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Re-run the onboarding experience</p>
             </div>
             <button
               onClick={() => setShowOnboarding(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 text-murzak-navy dark:text-white font-black text-[10px] uppercase tracking-widest hover:border-murzak-cyan hover:bg-murzak-cyan/5 transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-murzak-ink font-black text-[10px] uppercase tracking-widest hover:border-murzak-accent hover:bg-murzak-accent/5 transition-all"
             >
-              <Activity className="w-4 h-4 text-murzak-cyan" /> Replay Tour
+              <Activity className="w-4 h-4 text-murzak-accent" /> Replay Tour
             </button>
           </div>
         </div>
@@ -2255,28 +2260,28 @@ const renderCloudSystemsGrid = () => null;
         </div>
       </div>
 
-      <div className="glass-card bg-murzak-navy text-white p-8 sm:p-12 lg:p-16 rounded-[3rem] border border-white/10 shadow-2xl relative overflow-hidden group min-h-[400px] flex items-center justify-center text-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-murzak-navy to-murzak-navy/80 z-0"></div>
-        <div className="absolute -top-32 -right-32 w-96 h-96 bg-murzak-cyan/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
+      <div className="glass-card glass-dark p-8 sm:p-12 lg:p-16 rounded-[3rem] shadow-2xl relative overflow-hidden group min-h-[400px] flex items-center justify-center text-center">
+        <div className="absolute inset-0 bg-gradient-to-br from-murzak-ink to-murzak-ink/80 z-0"></div>
+        <div className="absolute -top-32 -right-32 w-96 h-96 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
         <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-blue-500/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
 
         <div className="relative z-10 max-w-lg mx-auto">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-xl relative group-hover:scale-110 transition-transform duration-700">
-            <div className="absolute inset-0 border border-murzak-cyan/30 rounded-full animate-ping opacity-20"></div>
-            <Navigation className="w-10 h-10 sm:w-12 sm:h-12 text-murzak-cyan" />
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-black/5 border border-murzak-border flex items-center justify-center mx-auto mb-8 shadow-xl relative group-hover:scale-110 transition-transform duration-700">
+            <div className="absolute inset-0 border border-murzak-accent/30 rounded-full animate-ping opacity-20"></div>
+            <Navigation className="w-10 h-10 sm:w-12 sm:h-12 text-murzak-accent" />
           </div>
           
-          <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase mb-4 text-white">
+          <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase mb-4 text-murzak-ink">
             Charting the Future
           </h3>
           
-          <p className="text-sm sm:text-base font-medium text-slate-400 leading-relaxed mb-10">
+          <p className="text-sm sm:text-base font-medium text-slate-500 leading-relaxed mb-10">
             Our engineering team is hard at work building the next generation of enterprise tools. The roadmap module will launch here shortly with interactive feature voting and progress tracking.
           </p>
 
-          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
-            <div className="w-2 h-2 rounded-full bg-murzak-cyan shadow-[0_0_8px_#2ea6ff] animate-pulse"></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+          <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-black/5 border border-murzak-border backdrop-blur-md">
+            <div className="w-2 h-2 rounded-full bg-murzak-accent shadow-[0_0_8px_#00bdfc] animate-pulse"></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">
               Module currently in development
             </span>
           </div>
@@ -2312,14 +2317,14 @@ const renderCloudSystemsGrid = () => null;
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-[100] w-72 sm:w-80 bg-white/95 dark:bg-murzak-navy/95 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl
-                    border-r border-slate-100 dark:border-white/5 flex flex-col transition-transform duration-500 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-[100] w-72 sm:w-80 bg-white/95 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl
+                    border-r border-slate-100 dark:border-murzak-border/50 flex flex-col transition-transform duration-500 lg:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="px-5 sm:px-7 pt-6 sm:pt-8 pb-4 flex items-center justify-between">
           <Logo className="h-7 sm:h-8" />
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 p-2">
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500 p-2">
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -2327,39 +2332,101 @@ const renderCloudSystemsGrid = () => null;
         {/* User profile */}
         <button
           onClick={() => onTabClick("profile")}
-          className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.03] p-3 text-left hover:border-murzak-cyan/40 transition-all"
+          className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-3 text-left hover:border-murzak-accent/40 transition-all"
         >
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-cyan/15 text-murzak-cyan flex items-center justify-center font-black text-sm">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-accent/15 text-murzak-accent flex items-center justify-center font-black text-sm">
             {(user.name || "U").split(" ").map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-murzak-navy dark:text-white truncate">{user.name}</p>
+            <p className="text-sm font-black text-murzak-ink truncate">{user.name}</p>
             <div className="mt-1 flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full bg-murzak-cyan/10 text-murzak-cyan text-[8px] font-black uppercase tracking-widest">
+              <span className="px-2 py-0.5 rounded-full bg-murzak-accent/10 text-murzak-accent text-[8px] font-black uppercase tracking-widest">
                 {user.plan || "No plan"}
               </span>
               <span className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === "Active" ? "bg-green-500" : "bg-orange-400"}`} />
-              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 truncate">{user.accountStatus}</span>
+              <span className="text-[8px] font-black uppercase tracking-widest text-slate-500 truncate">{user.accountStatus}</span>
             </div>
           </div>
         </button>
 
         <nav className="flex-grow px-4 sm:px-6 space-y-1.5 mt-3 overflow-y-auto">
-          {allMenuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onTabClick(item.id)}
-              className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
-                activeTab === item.id
-                  ? "bg-murzak-cyan text-murzak-navy shadow-md sm:shadow-lg shadow-murzak-cyan/20"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-murzak-navy dark:hover:text-white"
-              }`}
-            >
-              <span className="shrink-0">{item.icon}</span> {item.label}
-            </button>
-          ))}
+          {allMenuItems.map((item) => {
+            if (item.id !== "cloud") {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onTabClick(item.id)}
+                  className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
+                    activeTab === item.id
+                      ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
+                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                  }`}
+                >
+                  <span className="shrink-0">{item.icon}</span> {item.label}
+                </button>
+              );
+            }
+
+            // "My Systems" — expands to the account's real provisioned services
+            // (selectedServices, derived above from the Frappe web account —
+            // never fabricated). Sub-items reuse the same navigate(?service=)
+            // pattern already used by the service cards in the Cloud tab.
+            const hasServices = selectedServices.length > 0;
+            return (
+              <div key={item.id}>
+                <button
+                  onClick={() => {
+                    onTabClick("cloud");
+                    if (hasServices) setIsSystemsNavOpen((v) => activeTab === "cloud" ? !v : true);
+                  }}
+                  className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all ${
+                    activeTab === item.id
+                      ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
+                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                  }`}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {hasServices && (
+                    <ChevronRight
+                      className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSystemsNavOpen ? "rotate-90" : ""}`}
+                    />
+                  )}
+                </button>
+
+                {hasServices && isSystemsNavOpen && (
+                  <div className="ml-[1.35rem] mt-1 mb-1 pl-4 border-l-2 border-slate-100 dark:border-murzak-border space-y-0.5">
+                    {selectedServices.map((s) => (
+                      <button
+                        key={s.serviceId}
+                        type="button"
+                        disabled={s.status !== "Active"}
+                        onClick={() => {
+                          onTabClick("cloud");
+                          navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
+                        }}
+                        title={s.status !== "Active" ? `${s.name} — ${s.status || "pending"}` : s.name}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold text-left tracking-wide truncate transition-colors ${
+                          s.status === "Active"
+                            ? "text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                            : "text-slate-300 cursor-not-allowed"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            s.status === "Active" ? "bg-green-500" : s.status === "Setting up" ? "bg-blue-500" : "bg-orange-400"
+                          }`}
+                        />
+                        <span className="truncate">{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
-          <div className="mt-auto px-4 sm:px-6 pb-10 pt-4 border-t border-slate-100 dark:border-white/10 flex items-center gap-3">
+          <div className="mt-auto px-4 sm:px-6 pb-10 pt-4 border-t border-slate-100 dark:border-murzak-border flex items-center gap-3">
             <button
               onClick={onLogout}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3.5 rounded-2xl
@@ -2381,12 +2448,12 @@ const renderCloudSystemsGrid = () => null;
           paddingBottom: "calc(6rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-white/70 via-cyan-50/40 to-white/60 dark:from-murzak-navy/80 dark:via-murzak-deep/70 dark:to-black/90 backdrop-blur-md sm:backdrop-blur-xl" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-white/70 via-cyan-50/40 to-white/60 backdrop-blur-md sm:backdrop-blur-xl" />
         <div className="absolute inset-0 -z-10 opacity-50 bg-[radial-gradient(circle_at_15%_15%,rgba(34,211,238,0.25),transparent_55%),radial-gradient(circle_at_85%_25%,rgba(59,130,246,0.2),transparent_55%)]" />
 
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
           <div className="flex-grow">
-            <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-navy dark:text-white tracking-tighter uppercase leading-none">
+            <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink tracking-tighter uppercase leading-none">
               Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
             <p className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] sm:tracking-[0.4em] mt-3 sm:mt-4">
@@ -2397,7 +2464,7 @@ const renderCloudSystemsGrid = () => null;
           <button
             type="button"
             onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden fixed top-5 right-5 z-[140] p-3 bg-white dark:bg-murzak-navy rounded-xl shadow-lg flex items-center justify-center border border-slate-100 dark:border-white/10"
+            className="lg:hidden fixed top-5 right-5 z-[140] p-3 bg-white rounded-xl shadow-lg flex items-center justify-center border border-slate-100 dark:border-murzak-border"
             aria-label="Open menu"
             title="Menu"
           >
@@ -2413,17 +2480,17 @@ const renderCloudSystemsGrid = () => null;
             const tones = {
               red: "border-red-500/30 bg-red-500/10",
               amber: "border-amber-400/30 bg-amber-400/10",
-              cyan: "border-murzak-cyan/30 bg-murzak-cyan/10",
+              cyan: "border-murzak-accent/30 bg-murzak-accent/10",
             } as const;
             return (
               <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
                 <div className="shrink-0">{icon}</div>
-                <p className="flex-grow text-sm font-bold text-murzak-navy dark:text-white leading-relaxed">{text}</p>
+                <p className="flex-grow text-sm font-bold text-murzak-ink leading-relaxed">{text}</p>
                 {cta && (
                   <button
                     type="button"
                     onClick={cta.onClick}
-                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
+                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
                   >
                     {cta.label} <ArrowRight size={14} />
                   </button>
@@ -2443,7 +2510,7 @@ const renderCloudSystemsGrid = () => null;
           if (needsTrialVerify && trialVerifyInvoice?.docName) {
             return banner(
               "cyan",
-              <Zap size={22} className="text-murzak-cyan" />,
+              <Zap size={22} className="text-murzak-accent" />,
               <>Your free trial is ready. A one-time KES 1 verification confirms your payment method and starts your 36-hour sandbox immediately.</>,
               { label: "Verify & start trial", onClick: () => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`) }
             );
@@ -2467,7 +2534,7 @@ const renderCloudSystemsGrid = () => null;
           if (trialActive && trialEndStr) {
             return banner(
               "cyan",
-              <CheckCircle2 size={22} className="text-murzak-cyan" />,
+              <CheckCircle2 size={22} className="text-murzak-accent" />,
               <>Trial sandbox live — ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
               { label: "Choose a plan", onClick: () => navigate("/pricing") }
             );
@@ -2520,18 +2587,18 @@ const renderCloudSystemsGrid = () => null;
       {stopConfirmService && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => setStopConfirmService(null)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-murzak-navy rounded-[2rem] border border-slate-200 dark:border-white/10 p-7 shadow-2xl">
+          <div className="relative w-full max-w-md bg-white rounded-[2rem] border border-slate-200 dark:border-murzak-border p-7 shadow-2xl">
             <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Stop service</p>
-            <h3 className="text-lg font-black text-murzak-navy dark:text-white mt-2">
+            <h3 className="text-lg font-black text-murzak-ink mt-2">
               Stop {stopConfirmService.name}?
             </h3>
-            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
+            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-500 mt-3 leading-relaxed">
               This takes your service offline until you start it again. Visitors won't be able to reach it while stopped.
             </p>
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setStopConfirmService(null)}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-black/5 transition"
               >
                 Cancel
               </button>
@@ -2541,7 +2608,7 @@ const renderCloudSystemsGrid = () => null;
                   setStopConfirmService(null);
                   performServiceAction("stop", svc.id);
                 }}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition"
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition"
               >
                 Stop it
               </button>
@@ -2562,23 +2629,23 @@ const renderCloudSystemsGrid = () => null;
       {deleteTarget && (
         <div className="fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => !deleteLoading && setDeleteTarget(null)} />
-            <div className="relative max-w-lg mx-auto mt-24 bg-white dark:bg-murzak-navy rounded-[2rem] border border-slate-200 dark:border-white/10 p-6 shadow-2xl">
+            <div className="relative max-w-lg mx-auto mt-24 bg-white rounded-[2rem] border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
               <p className="text-[10px] font-black uppercase tracking-widest text-red-500">
                 Paid service deletion
               </p>
 
-              <p className="mt-3 text-sm font-black text-murzak-navy dark:text-white">
+              <p className="mt-3 text-sm font-black text-murzak-ink">
                 You are about to delete a paid service: {deleteTarget.name}
               </p>
 
-              <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-300">
+              <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-600">
                 Type <span className="font-black text-red-500">DELETE</span> to confirm removal.
               </p>
 
               <input
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="mt-4 w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 px-4 py-3 text-sm font-bold text-murzak-navy dark:text-white"
+                className="mt-4 w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 px-4 py-3 text-sm font-bold text-murzak-ink"
                 placeholder="Type DELETE"
               />
 
@@ -2593,7 +2660,7 @@ const renderCloudSystemsGrid = () => null;
                   type="button"
                   disabled={deleteLoading}
                   onClick={() => setDeleteTarget(null)}
-                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-black text-[10px] uppercase tracking-widest"
+                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-600 font-black text-[10px] uppercase tracking-widest"
                 >
                   Cancel
                 </button>
@@ -2604,8 +2671,8 @@ const renderCloudSystemsGrid = () => null;
                   onClick={() => void handleDelete(deleteTarget.serviceId, deleteConfirmText)}
                   className={`flex-1 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest ${
                     deleteConfirmText.trim() === "DELETE"
-                      ? "bg-red-500 text-white"
-                      : "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
+                      ? "bg-red-500 text-murzak-ink"
+                      : "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
                   }`}
                 >
                   {deleteLoading ? "Deleting..." : "Confirm Delete"}
@@ -2621,16 +2688,16 @@ const renderCloudSystemsGrid = () => null;
             className="absolute inset-0 bg-black/70 backdrop-blur-2xl"
             onClick={() => setUpgradePromptOpen(false)}
           />
-          <div className="relative max-w-xl mx-auto mt-24 bg-white dark:bg-murzak-navy rounded-[2rem] border border-slate-200 dark:border-white/10 p-6 shadow-2xl">
-            <p className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">
+          <div className="relative max-w-xl mx-auto mt-24 bg-white rounded-[2rem] border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">
               Upgrade plan
             </p>
 
-            <p className="mt-3 text-sm font-black text-murzak-navy dark:text-white">
+            <p className="mt-3 text-sm font-black text-murzak-ink">
               Your current plan is already paid.
             </p>
 
-            <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-300">
+            <p className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-600">
               Do you want to retain your current services as you switch plans?
             </p>
 
@@ -2642,7 +2709,7 @@ const renderCloudSystemsGrid = () => null;
                   setUpgradePromptOpen(false);
                   navigateToPricingUpgrade();
                 }}
-                className="py-3 rounded-xl bg-murzak-cyan text-murzak-navy font-black text-[10px] uppercase tracking-widest"
+                className="py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-[10px] uppercase tracking-widest"
               >
                 Retain services
               </button>
@@ -2665,42 +2732,42 @@ const renderCloudSystemsGrid = () => null;
 
       {/* Developer Upsell Modal */}
       {developerUpsellSvc && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-murzak-navy/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-cyan/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-murzak-ink/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
             
-            <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition z-10 text-slate-500">
+            <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-black/5 hover:bg-slate-200 dark:hover:bg-black/5 transition z-10 text-slate-500">
               <X className="w-5 h-5" />
             </button>
             
             <div className="relative z-10">
-              <div className="inline-flex p-4 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-6">
+              <div className="inline-flex p-4 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">
                 <Terminal className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-navy dark:text-white mb-2">Unlock Developer Tier</h3>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-6">
+              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-ink mb-2">Unlock Developer Tier</h3>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-500 mb-6">
                 Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
               </p>
               
               <div className="space-y-4 mb-8">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                  <Terminal className="w-5 h-5 text-murzak-cyan shrink-0" />
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
+                  <Terminal className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Jailed SSH Access</h4>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-ink mb-1">Jailed SSH Access</h4>
                     <p className="text-xs text-slate-500">Secure shell access directly into your service environment.</p>
                   </div>
                 </div>
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                  <Database className="w-5 h-5 text-murzak-cyan shrink-0" />
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
+                  <Database className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Direct DB Connection</h4>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-ink mb-1">Direct DB Connection</h4>
                     <p className="text-xs text-slate-500">Read/Write access to your isolated MariaDB instance.</p>
                   </div>
                 </div>
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                  <Shield className="w-5 h-5 text-murzak-cyan shrink-0" />
+                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
+                  <Shield className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-navy dark:text-white mb-1">Full Frappe Administrator</h4>
+                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-ink mb-1">Full Frappe Administrator</h4>
                     <p className="text-xs text-slate-500">Create custom doctypes, server scripts, and UI tweaks.</p>
                   </div>
                 </div>
@@ -2716,11 +2783,11 @@ const renderCloudSystemsGrid = () => null;
               <button 
                 onClick={handleDeveloperUpsell} 
                 disabled={requestingDeveloper}
-                className="w-full px-6 py-4 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
+                className="w-full px-6 py-4 rounded-xl bg-murzak-accent text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
               >
                 {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
               </button>
-              <p className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-widest mt-4">
+              <p className="text-[9px] font-bold text-slate-500 text-center uppercase tracking-widest mt-4">
                 Submitting creates a high-priority ticket with our engineering team.
               </p>
             </div>

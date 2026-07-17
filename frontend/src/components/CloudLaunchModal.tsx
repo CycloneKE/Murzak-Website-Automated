@@ -224,12 +224,12 @@ export default function CloudLaunchModal({
 
   return createPortal(
     <div className="fixed inset-0 z-[140]">
-      <div className="absolute inset-0 bg-murzak-deep/50 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
-        <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-navy/90 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col min-h-0 shadow-2xl">
-          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-murzak-cyan/20 bg-murzak-navy text-white flex items-start justify-between gap-3">
+        <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
+          <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-murzak-accent/20 bg-murzak-ink text-white flex items-start justify-between gap-3">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-murzak-cyan/90">
+              <p className="text-[9px] font-black uppercase tracking-widest text-murzak-accent/90">
                 Murzak Cloud
               </p>
               <h3 className="text-lg sm:text-2xl font-black tracking-tighter text-white mt-1">
@@ -238,7 +238,7 @@ export default function CloudLaunchModal({
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 rounded-xl p-2 border border-white/15 text-white/80 hover:text-murzak-cyan hover:border-murzak-cyan bg-white/5 hover:bg-white/10"
+              className="shrink-0 rounded-xl p-2 border border-white/15 text-white/80 hover:text-murzak-accent hover:border-murzak-accent bg-black/5 hover:bg-black/5"
               aria-label="Close"
             >
               <X size={20} />
@@ -254,8 +254,8 @@ export default function CloudLaunchModal({
                   onClick={() => handlePickCategory(cat)}
                   className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border transition-all ${
                     category === cat
-                      ? "bg-murzak-cyan text-murzak-navy border-murzak-cyan"
-                      : "border-white/15 text-slate-300 hover:border-murzak-cyan/50"
+                      ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
+                      : "border-white/15 text-slate-600 hover:border-murzak-accent/50"
                   }`}
                 >
                   {cat}
@@ -271,26 +271,26 @@ export default function CloudLaunchModal({
                   onClick={() => setSelectedId(svc.id)}
                   className={`text-left rounded-3xl p-5 border transition-all ${
                     selectedId === svc.id
-                      ? "border-murzak-cyan bg-murzak-cyan/10"
-                      : "border-white/10 bg-white/5 hover:border-murzak-cyan/40"
+                      ? "border-murzak-accent bg-murzak-accent/10"
+                      : "border-murzak-border bg-black/5 hover:border-murzak-accent/40"
                   }`}
                 >
-                  <p className="text-sm font-black text-white">{svc.name}</p>
-                  <p className="text-[11px] text-slate-400 font-medium mt-1 leading-relaxed">
+                  <p className="text-sm font-black text-murzak-ink">{svc.name}</p>
+                  <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
                     {svc.description}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-400">
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold text-slate-500">
                     <span>{svc.specs.ram} RAM</span>
                     <span>·</span>
                     <span>{svc.specs.storage}</span>
                   </div>
-                  <p className="mt-3 text-lg font-black text-murzak-cyan">
+                  <p className="mt-3 text-lg font-black text-murzak-accent">
                     {formatKes(svc.pricing.monthlyKes)}/mo
                   </p>
                 </button>
               ))}
               {servicesForCategory.length === 0 && (
-                <p className="text-sm font-bold text-slate-400 col-span-2">
+                <p className="text-sm font-bold text-slate-500 col-span-2">
                   No resources available in this category yet.
                 </p>
               )}
@@ -298,7 +298,7 @@ export default function CloudLaunchModal({
 
             {selected?.requiresRepo && (
               <div>
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
                   Repository URL
                 </label>
                 <input
@@ -306,14 +306,14 @@ export default function CloudLaunchModal({
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   placeholder="https://github.com/you/app"
-                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-white/10 text-white font-bold focus:outline-none focus:ring-2 focus:ring-murzak-cyan"
+                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                 />
               </div>
             )}
 
             {selected?.requiresDomainChoice && (
               <div>
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
                   Domain
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -324,8 +324,8 @@ export default function CloudLaunchModal({
                       onClick={() => setDomainChoice(choice)}
                       className={`px-4 py-2 rounded-full text-[11px] font-black border ${
                         domainChoice === choice
-                          ? "bg-murzak-cyan text-murzak-navy border-murzak-cyan"
-                          : "border-white/15 text-slate-300"
+                          ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
+                          : "border-white/15 text-slate-600"
                       }`}
                     >
                       {choice}
@@ -342,10 +342,10 @@ export default function CloudLaunchModal({
             )}
           </div>
 
-          <div className="p-5 sm:p-6 border-t border-white/10 flex items-center justify-between gap-4">
+          <div className="p-5 sm:p-6 border-t border-murzak-border flex items-center justify-between gap-4">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</p>
-              <p className="text-xl font-black text-white">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</p>
+              <p className="text-xl font-black text-murzak-ink">
                 {selected ? formatKes(selected.pricing.monthlyKes) : "—"}/mo
               </p>
             </div>
@@ -353,7 +353,7 @@ export default function CloudLaunchModal({
               type="button"
               onClick={handleLaunch}
               disabled={submitting || !selected}
-              className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-cyan text-murzak-navy flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center gap-2 disabled:opacity-50"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
               {submitting ? "Launching…" : "Launch now"}

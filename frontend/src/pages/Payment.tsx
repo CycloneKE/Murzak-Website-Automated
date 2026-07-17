@@ -195,6 +195,36 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
     setStep("form");
   };
 
+  // DEV-ONLY: reuses the backend's existing MOCK_PAYPAL_SUCCESS rail (see
+  // routes/paypalRoutes.js) to run the real activation pipeline (invoice ->
+  // Paid, services -> Active/Setting up, provisioning enqueued) without
+  // touching PayPal or M-Pesa. import.meta.env.DEV is compiled to `false` in
+  // production builds, and the backend independently refuses to boot with
+  // MOCK_FRAPPE=true when NODE_ENV=production — so this can't do anything in
+  // a real deployment even if the button were somehow reachable there.
+  const handleMockPay = async () => {
+    setIsProcessing(true);
+    setErrors((prev) => ({ ...prev, payment: "" }));
+    setStep("processing");
+    try {
+      const res = await fetch("/api/paypal/capture-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ invoiceDocName, orderID: "MOCK_PAYPAL_SUCCESS" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Mock payment failed.");
+      setStep("success");
+      onSuccess(data.user);
+    } catch (e: any) {
+      setErrors((prev) => ({ ...prev, payment: e?.message || "Mock payment failed." }));
+      setStep("form");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const methods = [
     { id: "mpesa", label: "M-Pesa", sub: "Pay from your phone • KES", icon: <Smartphone size={24} />, color: "text-green-500" },
     { id: "card", label: "Card", sub: "Visa / Mastercard • USD", icon: <CreditCard size={24} />, color: "text-slate-500" },
@@ -204,23 +234,23 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
   const services = invoice?.services || [];
 
   const orderSummary = (
-    <div className="mb-8 rounded-3xl border border-white/10 bg-black/10 p-6">
+    <div className="mb-8 rounded-3xl border border-murzak-border bg-black/10 p-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
           <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Order summary</p>
-          <p className="text-sm font-bold text-slate-400 mt-1">
+          <p className="text-sm font-bold text-slate-500 mt-1">
             Invoice {invoice?.invoiceNo || "…"}{invoice?.plan ? ` · ${invoice.plan} plan` : ""}
           </p>
         </div>
-        <span className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter whitespace-nowrap">
+        <span className="text-2xl font-black text-murzak-ink tracking-tighter whitespace-nowrap">
           {loadingInvoice ? "…" : `KES ${chargeKes.toLocaleString()}`}
         </span>
       </div>
       {services.length > 0 && (
-        <ul className="space-y-2 border-t border-white/10 pt-4">
+        <ul className="space-y-2 border-t border-murzak-border pt-4">
           {services.map((s) => (
-            <li key={s.serviceId || s.serviceName} className="flex items-center gap-2 text-sm font-bold text-slate-300">
-              <CheckCircle2 size={14} className="text-murzak-cyan shrink-0" />
+            <li key={s.serviceId || s.serviceName} className="flex items-center gap-2 text-sm font-bold text-slate-600">
+              <CheckCircle2 size={14} className="text-murzak-accent shrink-0" />
               {s.serviceName || s.serviceId}
               {s.tier ? <span className="text-slate-500 font-semibold">· {s.tier}</span> : null}
             </li>
@@ -228,8 +258,8 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
         </ul>
       )}
       {isVerification && (
-        <p className="mt-4 flex items-start gap-2 text-sm font-bold text-slate-400 leading-relaxed border-t border-white/10 pt-4">
-          <Info size={16} className="text-murzak-cyan shrink-0 mt-0.5" />
+        <p className="mt-4 flex items-start gap-2 text-sm font-bold text-slate-500 leading-relaxed border-t border-murzak-border pt-4">
+          <Info size={16} className="text-murzak-accent shrink-0 mt-0.5" />
           This is a one-time KES {chargeKes.toLocaleString()} verification charge to start your free trial —
           it confirms your payment method is real. Your trial begins the moment it goes through.
         </p>
@@ -239,34 +269,34 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col items-center justify-center py-20 lg:py-32 px-6 relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-murzak-navy">
+      <div className="absolute inset-0 -z-10 bg-murzak-ink">
         <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&w=1600&q=65" alt="" className="w-full h-full object-cover opacity-20 dark:opacity-40 grayscale" />
-        <div className="absolute inset-0 bg-gradient-to-b from-murzak-navy via-murzak-navy/95 to-murzak-navy/90 dark:from-murzak-deep"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
       <div className="max-w-4xl w-full relative z-10">
         <div className="text-center mb-12">
-          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-400 font-black text-[11px] uppercase tracking-[0.2em] mb-12 hover:text-white transition-colors">
+          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-500 font-black text-[11px] uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
             <ChevronLeft size={16} /> Back to your portal
           </button>
-          <h1 className="text-5xl lg:text-7xl font-black text-white mb-4 tracking-tighter leading-none">
-            Pay <span className="text-murzak-cyan">securely.</span>
+          <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink mb-4 tracking-tighter leading-none">
+            Pay <span className="text-murzak-accent">securely.</span>
           </h1>
-          <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-400">
-            <ShieldCheck size={16} className="text-murzak-cyan" />
+          <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-500">
+            <ShieldCheck size={16} className="text-murzak-accent" />
             Payments are processed by Safaricom M-Pesa and PayPal. We never see or store your card details.
           </p>
         </div>
-        <div className="glass-card shadow-2xl overflow-hidden min-h-[500px] flex flex-col transition-all duration-500 border border-white/10">
+        <div className="glass-card shadow-2xl overflow-hidden min-h-[500px] flex flex-col transition-all duration-500 border border-murzak-border">
           {step === 'form' ? (
             <div className="flex flex-col lg:flex-row h-full">
-              <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-white/10 p-8 lg:p-12 space-y-4 bg-black/10">
+              <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-murzak-border p-8 lg:p-12 space-y-4 bg-black/10">
                 <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-6">Payment method</h3>
                 {methods.map((m) => (
-                  <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-cyan shadow-[0_0_15px_rgba(46,166,255,0.2)]' : 'bg-transparent border-transparent hover:bg-white/5'}`}>
-                    <div className={`${method === m.id ? 'text-murzak-cyan' : 'text-slate-400'}`}>{m.icon}</div>
+                  <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-accent shadow-[0_0_15px_rgba(0,189,252,0.2)]' : 'bg-transparent border-transparent hover:bg-black/5'}`}>
+                    <div className={`${method === m.id ? 'text-murzak-accent' : 'text-slate-500'}`}>{m.icon}</div>
                     <div>
-                      <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-navy dark:text-white' : 'text-slate-500'}`}>{m.label}</span>
-                      <span className="text-[11px] font-bold text-slate-400">{m.sub}</span>
+                      <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-ink' : 'text-slate-500'}`}>{m.label}</span>
+                      <span className="text-[11px] font-bold text-slate-500">{m.sub}</span>
                     </div>
                   </button>
                 ))}
@@ -301,7 +331,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                         <input
                           type="tel"
                           placeholder="e.g. 0712 345 678"
-                          className={`w-full glass-input rounded-2xl px-8 py-5 text-xl font-black text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan ${errors.phoneNumber ? 'border-red-500 ring-1 ring-red-500/50' : ''}`}
+                          className={`w-full glass-input rounded-2xl px-8 py-5 text-xl font-black text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent ${errors.phoneNumber ? 'border-red-500 ring-1 ring-red-500/50' : ''}`}
                           value={phoneNumber}
                           onChange={(e) => { setPhoneNumber(e.target.value); if(errors.phoneNumber) setErrors({...errors, phoneNumber: ''}); }}
                         />
@@ -310,7 +340,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                         <button
                           type="submit"
                           disabled={isProcessing || loadingInvoice}
-                          className="w-full sm:w-auto bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
+                          className="w-full sm:w-auto bg-murzak-accent text-murzak-ink px-12 py-6 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
                         >
                           {isProcessing ? <>Sending…</> : <>Pay KES {chargeKes.toLocaleString()} <Lock size={16} /></>}
                         </button>
@@ -338,15 +368,27 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                     />
                   )}
                 </form>
+
+                {import.meta.env.DEV && (
+                  <button
+                    type="button"
+                    onClick={handleMockPay}
+                    disabled={isProcessing || loadingInvoice}
+                    className="w-full mt-6 border-2 border-dashed border-orange-400/60 text-orange-500 px-6 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-400/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Dev only: skips PayPal/M-Pesa and runs the real activation pipeline via the backend's MOCK_PAYPAL_SUCCESS rail (requires MOCK_FRAPPE=true)"
+                  >
+                    Dev: skip to mock payment success
+                  </button>
+                )}
               </div>
             </div>
           ) : step === 'processing' ? (
             pollTimedOut ? (
               <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
-                <Smartphone size={48} className="text-murzak-cyan mb-6" />
-                <h3 className="text-2xl sm:text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4">Waiting for your payment</h3>
-                <p className="text-sm font-bold text-slate-400 leading-relaxed mb-8">
-                  We sent a payment request to <span className="text-murzak-navy dark:text-white">{phoneNumber}</span> but haven't received confirmation yet.
+                <Smartphone size={48} className="text-murzak-accent mb-6" />
+                <h3 className="text-2xl sm:text-3xl font-black text-murzak-ink tracking-tighter mb-4">Waiting for your payment</h3>
+                <p className="text-sm font-bold text-slate-500 leading-relaxed mb-8">
+                  We sent a payment request to <span className="text-murzak-ink">{phoneNumber}</span> but haven't received confirmation yet.
                   If you entered your PIN, give it a moment and check again. If no prompt arrived, start over.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -354,7 +396,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                     type="button"
                     onClick={handleCheckStatus}
                     disabled={checkingStatus}
-                    className="bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-50">
+                    className="bg-murzak-accent text-murzak-ink px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-50">
                     {checkingStatus ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                     {checkingStatus ? "Checking..." : "I've paid — check now"}
                   </button>
@@ -362,7 +404,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                     type="button"
                     onClick={handleCancelProcessing}
                     disabled={checkingStatus}
-                    className="bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50">
+                    className="bg-slate-100 dark:bg-black/5 text-slate-600 dark:text-slate-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50">
                     Start over
                   </button>
                 </div>
@@ -374,21 +416,21 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
               </div>
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center p-20 text-center animate-fade-in">
-                <RefreshCw size={56} className="animate-spin text-murzak-cyan mb-8" />
-                <h3 className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4">Check your phone</h3>
-                <p className="text-sm font-bold text-slate-400">Enter your M-Pesa PIN to approve the payment of KES {chargeKes.toLocaleString()}.</p>
+                <RefreshCw size={56} className="animate-spin text-murzak-accent mb-8" />
+                <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4">Check your phone</h3>
+                <p className="text-sm font-bold text-slate-500">Enter your M-Pesa PIN to approve the payment of KES {chargeKes.toLocaleString()}.</p>
               </div>
             )
           ) : (
             <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
               <CheckCircle2 size={56} className="text-green-500 mb-8" />
-              <h3 className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4">Payment received</h3>
+              <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4">Payment received</h3>
               {mpesaReceipt && (
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-300 bg-white/5 border border-white/10 rounded-2xl px-5 py-3 mb-6">
-                  <Receipt size={16} className="text-murzak-cyan" /> M-Pesa confirmation: <span className="font-black text-white">{mpesaReceipt}</span>
+                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 bg-black/5 border border-murzak-border rounded-2xl px-5 py-3 mb-6">
+                  <Receipt size={16} className="text-murzak-accent" /> M-Pesa confirmation: <span className="font-black text-murzak-ink">{mpesaReceipt}</span>
                 </p>
               )}
-              <p className="text-sm font-bold text-slate-400 leading-relaxed">
+              <p className="text-sm font-bold text-slate-500 leading-relaxed">
                 {isVerification
                   ? "Your trial is starting now — head to your portal to begin exploring."
                   : "We're setting up your services. Instant services go live right away; managed setups (like Murzak ERP) are configured by our team within 24 hours — you can watch progress in your portal."}

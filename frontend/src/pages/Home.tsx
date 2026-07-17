@@ -55,11 +55,11 @@ function ConfigPeek() {
   }, [count]);
 
   return (
-    <div className="relative rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md backdrop-blur-xl p-5 sm:p-6 shadow-2xl">
+    <div className="relative rounded-3xl glass-dark p-5 sm:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-4">
         <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400">your plan</span>
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-murzak-cyan">
-          <span className="h-1.5 w-1.5 rounded-full bg-murzak-cyan animate-pulse" /> live
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-murzak-accent">
+          <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" /> live
         </span>
       </div>
       <ul className="space-y-2.5">
@@ -69,11 +69,11 @@ function ConfigPeek() {
             <li
               key={item.name}
               className={`flex items-center justify-between rounded-xl border px-3.5 py-2.5 transition-all duration-500 ${
-                on ? 'border-murzak-cyan/30 bg-murzak-cyan/10 opacity-100' : 'border-white/5 bg-murzak-navy/80 backdrop-blur-md opacity-40'
+                on ? 'border-murzak-accent/30 bg-murzak-accent/10 opacity-100' : 'glass-dark opacity-40'
               }`}
             >
               <span className="flex items-center gap-2 text-[13px] font-bold text-white">
-                <Check size={14} className={on ? 'text-murzak-cyan' : 'text-slate-600'} /> {item.name}
+                <Check size={14} className={on ? 'text-murzak-accent' : 'text-slate-600'} /> {item.name}
               </span>
               <span className="font-mono text-[12px] text-slate-300">KES {item.kes.toLocaleString()}</span>
             </li>
@@ -134,17 +134,20 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   return (
     <main className="text-white overflow-x-hidden">
       {/* 01 · HERO */}
-      <section className="relative min-h-[90vh] flex items-center pt-10 lg:pt-16 pb-20 overflow-hidden">
+      <section className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-man.jpg')" }} />
+        {/* Dark overlay to ensure white text is perfectly legible against the background image */}
+        <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
         {/* ambient */}
-        <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="pointer-events-none absolute inset-0 z-0">
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '32px 32px' }} />
-          <div className="absolute -top-40 right-[-10%] w-[680px] h-[680px] rounded-full blur-[140px] bg-murzak-gradient opacity-20 animate-drift-slow" />
+          <div className="absolute -top-40 right-[-10%] w-[680px] h-[680px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow" />
         </div>
 
-        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center">
+        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 mb-7">
-              <span className="h-1.5 w-1.5 rounded-full bg-murzak-cyan animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" />
               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-300">Nairobi · systems operational</span>
             </div>
 
@@ -178,8 +181,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
+        
+
       {/* 02 · TRUST STRIP */}
-      <section className="border-y border-white/5 bg-murzak-navy/80 backdrop-blur-md">
+      <section className="glass-dark">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 max-w-xs text-center lg:text-left">
             Trusted by teams who'd rather be doing their actual job
@@ -192,7 +200,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="flex gap-6 sm:gap-10">
             {[['Same-day', 'setup'], ['Daily', 'backups'], ['KES', 'billing']].map(([a, b]) => (
               <div key={b} className="text-center">
-                <div className="text-lg font-black text-murzak-cyan">{a}</div>
+                <div className="text-lg font-black text-murzak-accent">{a}</div>
                 <div className="font-mono text-[9px] uppercase tracking-widest text-slate-500">{b}</div>
               </div>
             ))}
@@ -210,8 +218,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { icon: <Activity size={20} />, big: '24/7', label: 'Monitoring', sub: 'We watch it for you' },
               { icon: <Banknote size={20} />, big: '100%', label: 'Billed in KES', sub: 'Pay by M-Pesa' },
             ].map((s) => (
-              <div key={s.label} className="bg-murzak-deep/40 p-7 lg:p-9 flex flex-col gap-2">
-                <span className="inline-flex p-2.5 rounded-xl bg-murzak-cyan/10 text-murzak-cyan w-fit mb-2">{s.icon}</span>
+              <div key={s.label} className="bg-murzak-ink/40 p-7 lg:p-9 flex flex-col gap-2">
+                <span className="inline-flex p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent w-fit mb-2">{s.icon}</span>
                 <div className="text-3xl lg:text-4xl font-[900] text-murzak-gradient tracking-tight tabular-nums">{s.big}</div>
                 <div className="text-sm font-black text-white">{s.label}</div>
                 <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{s.sub}</div>
@@ -244,7 +252,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section id="what-we-do" className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">What we do</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">What we do</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">
               Three ways we keep your business running.
             </h2>
@@ -255,13 +263,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <button
                 key={p.title}
                 onClick={() => onNavigate(p.page)}
-                className={`group text-left rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10 transition-all hover:border-murzak-cyan/40 hover:bg-white/[0.05] ${p.span}`}
+                className={`group text-left rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] ${p.span}`}
               >
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-6">{p.icon}</div>
+                <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-2">{p.tag}</p>
                 <h3 className="text-2xl font-black text-white mb-3">{p.title}</h3>
                 <p className="text-slate-400 font-medium leading-relaxed mb-6 max-w-md">{p.desc}</p>
-                <span className="inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-cyan group-hover:gap-3 transition-all">
+                <span className="inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">
                   {p.cta} <ArrowUpRight size={15} />
                 </span>
               </button>
@@ -274,7 +282,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">No hidden pricing</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">No hidden pricing</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight leading-tight">
               See the price before<br /> you talk to anyone.
             </h2>
@@ -286,7 +294,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </Button>
           </div>
           <div className="relative">
-            <div className="absolute -inset-6 rounded-[2.5rem] bg-murzak-gradient opacity-10 blur-2xl" />
+            <div className="absolute -inset-6 rounded-[2.5rem] bg-brand-gradient opacity-10 blur-2xl" />
             <div className="relative"><ConfigPeek /></div>
           </div>
         </div>
@@ -296,7 +304,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">How it works</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">How it works</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">From "we need this" to live — in four steps.</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -306,9 +314,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { n: '03', icon: <Rocket size={20} />, t: 'Go live', s: 'Most websites and standard apps are live the same day. ERP with migration takes a few days.' },
               { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support — for as long as you’re with us.' },
             ].map((step) => (
-              <div key={step.n} className="relative rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 lg:p-8">
+              <div key={step.n} className="relative rounded-3xl glass-dark p-7 lg:p-8">
                 <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-white/15">{step.n}</span>
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{step.icon}</div>
+                <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{step.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{step.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{step.s}</p>
               </div>
@@ -321,13 +329,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Products</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Products</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Buy what's ready. Build what isn't.</h2>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-5">
             {/* ready-made */}
-            <div className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10">
+            <div className="rounded-3xl glass-dark p-8 lg:p-10">
               <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
@@ -336,8 +344,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   { icon: <Database size={16} />, t: 'CRM & Helpdesk', s: 'Pipeline, tickets, follow-ups' },
                   { icon: <Mail size={16} />, t: 'Business Email', s: 'Your-name@your-domain, managed' },
                 ].map((r) => (
-                  <div key={r.t} className="flex items-center gap-4 rounded-2xl border border-white/5 bg-murzak-navy/80 backdrop-blur-md px-4 py-3.5">
-                    <span className="text-murzak-cyan">{r.icon}</span>
+                  <div key={r.t} className="flex items-center gap-4 rounded-2xl glass-dark px-4 py-3.5">
+                    <span className="text-murzak-accent">{r.icon}</span>
                     <div>
                       <div className="text-sm font-black text-white">{r.t}</div>
                       <div className="text-[12px] font-medium text-slate-400">{r.s}</div>
@@ -345,7 +353,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   </div>
                 ))}
               </div>
-              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-cyan hover:gap-3 transition-all">
+              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Browse products <ArrowUpRight size={15} />
               </button>
             </div>
@@ -354,15 +362,15 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
               <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-5">// bespoke build</p>
               <div className="space-y-2 text-[13px] leading-relaxed">
-                <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-cyan">"dispatch is run on WhatsApp"</span></p>
+                <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-accent">"dispatch is run on WhatsApp"</span></p>
                 <p className="text-slate-500">02 <span className="text-slate-300">we_build</span> <span className="text-white">delivery + tracking system</span></p>
                 <p className="text-slate-500">03 <span className="text-slate-300">integrate</span> <span className="text-white">M-Pesa, your stock, your team</span></p>
-                <p className="text-slate-500">04 <span className="text-slate-300">we_run_it</span> <span className="text-murzak-cyan">forever()</span></p>
+                <p className="text-slate-500">04 <span className="text-slate-300">we_run_it</span> <span className="text-murzak-accent">forever()</span></p>
               </div>
               <p className="mt-6 font-sans text-slate-400 text-sm font-medium leading-relaxed">
                 A customer portal, an M-Pesa integration, a system no one else sells — designed and built around your workflow.
               </p>
-              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-[11px] uppercase tracking-widest text-murzak-cyan hover:gap-3 transition-all">
+              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Start a build <ArrowUpRight size={15} />
               </button>
             </div>
@@ -374,7 +382,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Why Murzak</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Why Murzak</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Built for how Kenya actually does business.</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
@@ -383,8 +391,8 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { icon: <ShieldCheck size={22} />, t: 'Billed in shillings', s: 'What you see is what you pay. No forex games.' },
               { icon: <Headphones size={22} />, t: 'Support in your time zone', s: 'Real people in Nairobi, answering the same day.' },
             ].map((c) => (
-              <div key={c.t} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8">
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">{c.icon}</div>
+              <div key={c.t} className="rounded-3xl glass-dark p-8">
+                <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
                 <h3 className="text-xl font-black text-white mb-2">{c.t}</h3>
                 <p className="text-slate-400 font-medium leading-relaxed">{c.s}</p>
               </div>
@@ -397,12 +405,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Why businesses switch</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Why businesses switch</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">The usual way vs. the Murzak way.</h2>
           </div>
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
-            <div className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-8 lg:p-10">
+            <div className="rounded-3xl glass-dark p-8 lg:p-10">
               <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
@@ -419,9 +427,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </ul>
             </div>
             {/* the murzak way */}
-            <div className="relative rounded-3xl border border-murzak-cyan/30 bg-murzak-cyan/[0.06] p-8 lg:p-10 overflow-hidden">
-              <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-murzak-gradient opacity-20" />
-              <p className="font-mono text-[10px] uppercase tracking-widest text-murzak-cyan mb-6 relative">The Murzak way</p>
+            <div className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
+              <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-brand-gradient opacity-20" />
+              <p className="font-mono text-[10px] uppercase tracking-widest text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
                 {[
                   'Billed in shillings — pay by M-Pesa or card',
@@ -431,7 +439,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   'We set it up and stay accountable for keeping it up',
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-3 text-white font-bold text-[15px] leading-snug">
-                    <span className="mt-0.5 text-murzak-cyan"><Check size={17} /></span> {t}
+                    <span className="mt-0.5 text-murzak-accent"><Check size={17} /></span> {t}
                   </li>
                 ))}
               </ul>
@@ -445,12 +453,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
             <div className="max-w-2xl">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-4">Plans at a glance</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Plans at a glance</p>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Start free. Scale when you’re ready.</h2>
             </div>
             <button
               onClick={() => onNavigate('pricing')}
-              className="shrink-0 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-cyan hover:gap-3 transition-all"
+              className="shrink-0 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all"
             >
               See full pricing <ArrowUpRight size={15} />
             </button>
@@ -462,17 +470,17 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('pricing')}
                 className={`text-left rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
                   m.featured
-                    ? 'border-murzak-cyan/40 bg-murzak-cyan/[0.06]'
-                    : 'border-white/10 bg-murzak-navy/80 backdrop-blur-md hover:border-white/20'
+                    ? 'border-murzak-accent/40 bg-murzak-accent/[0.06]'
+                    : 'glass-dark hover:border-white/20'
                 }`}
               >
                 {m.featured && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-murzak-cyan/15 text-murzak-cyan px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest mb-4">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-murzak-accent/15 text-murzak-accent px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest mb-4">
                     <Star size={10} /> Most popular
                   </span>
                 )}
                 <h3 className="text-lg font-black text-white">{m.label}</h3>
-                <p className="font-mono text-[9px] uppercase tracking-widest text-murzak-cyan mb-4">{m.bestFor}</p>
+                <p className="font-mono text-[9px] uppercase tracking-widest text-murzak-accent mb-4">{m.bestFor}</p>
                 <div className="flex items-baseline gap-1.5 mb-4">
                   {m.startingKes != null && m.startingKes > 0 && (
                     <span className="font-mono text-[9px] uppercase tracking-widest text-slate-500">from</span>
@@ -483,7 +491,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   <span className="font-mono text-[9px] uppercase tracking-widest text-slate-500">{m.period}</span>
                 </div>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
-                <span className="mt-5 inline-flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-murzak-cyan">
+                <span className="mt-5 inline-flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-murzak-accent">
                   {m.cta} <ArrowRight size={13} />
                 </span>
               </button>
@@ -511,8 +519,6 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
       {/* 10 · FINAL CTA */}
       <section className="relative py-24 lg:py-36 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-murzak-surface/50 border-y border-white/10" />
-        <div className="absolute inset-0 -z-10 bg-murzak-gradient opacity-[0.16]" />
         <div className="absolute inset-0 -z-10 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '28px 28px' }} />
         <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-5xl font-[900] tracking-tight text-white">Let's get your business set up properly.</h2>
@@ -532,6 +538,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           </p>
         </div>
       </section>
+      </div>
     </main>
   );
 };

@@ -11,7 +11,7 @@ const ChangePasswordCard: React.FC = () => {
   const [success, setSuccess] = useState("");
 
   const inputCls =
-    "w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl pl-11 pr-11 py-3.5 text-sm font-semibold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition";
+    "w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-11 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,9 +50,9 @@ const ChangePasswordCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
+    <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
       <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
-        <Lock size={14} className="text-murzak-cyan" /> Security · Change Password
+        <Lock size={14} className="text-murzak-accent" /> Security · Change Password
       </h3>
 
       {error && (
@@ -68,7 +68,7 @@ const ChangePasswordCard: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
           <input
             type={show ? "text" : "password"}
             value={currentPassword}
@@ -79,7 +79,7 @@ const ChangePasswordCard: React.FC = () => {
           />
         </div>
         <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
           <input
             type={show ? "text" : "password"}
             value={newPassword}
@@ -91,14 +91,14 @@ const ChangePasswordCard: React.FC = () => {
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-murzak-cyan transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-500 hover:text-murzak-accent transition"
             aria-label={show ? "Hide passwords" : "Show passwords"}
           >
             {show ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
         <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
           <input
             type={show ? "text" : "password"}
             value={confirmPassword}
@@ -112,7 +112,7 @@ const ChangePasswordCard: React.FC = () => {
         <button
           type="submit"
           disabled={submitting || !currentPassword || !newPassword}
-          className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full bg-murzak-accent text-murzak-ink py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {submitting ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
           {submitting ? "Updating..." : "Update Password"}

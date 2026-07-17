@@ -29,27 +29,27 @@ function Metric({
     ? 'bg-red-500'
     : percent > 75
     ? 'bg-orange-500'
-    : 'bg-murzak-cyan';
+    : 'bg-murzak-accent';
   const textColor = !hasData
     ? 'text-slate-500'
     : percent > 90
     ? 'text-red-500'
     : percent > 75
     ? 'text-orange-500'
-    : 'text-murzak-cyan';
+    : 'text-murzak-accent';
 
   return (
     <div>
       <div className="flex justify-between items-end mb-2">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-300">{label}</span>
+          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-600">{label}</span>
         </div>
         <span className={`text-[10px] font-black tracking-widest ${textColor}`}>
           {hasData ? `${percent}%` : 'Not available yet'}
         </span>
       </div>
-      <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
+      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-murzak-border/50">
         <div
           className={`h-full ${color} transition-all duration-1000`}
           style={{ width: hasData ? `${percent}%` : '100%', opacity: hasData ? 1 : 0.15 }}
@@ -70,21 +70,21 @@ const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
   bandwidthUsagePercent,
 }) => {
   return (
-    <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full">
+    <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full">
       <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-murzak-cyan/10 rounded-2xl text-murzak-cyan">
+        <div className="p-3 bg-murzak-accent/10 rounded-2xl text-murzak-accent">
           <Activity size={20} />
         </div>
         <div>
-          <h3 className="text-[12px] font-black uppercase tracking-widest text-white">Resource Utilization</h3>
-          <p className="text-[10px] font-medium text-slate-400 mt-1">Limits for your infrastructure</p>
+          <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Resource Utilization</h3>
+          <p className="text-[10px] font-medium text-slate-500 mt-1">Limits for your infrastructure</p>
         </div>
       </div>
 
       <div className="space-y-8">
-        <Metric icon={<HardDrive size={14} className="text-slate-400" />} label="Storage Limit" percent={diskUsagePercent} />
-        <Metric icon={<Cpu size={14} className="text-slate-400" />} label="Memory (RAM)" percent={ramUsagePercent} />
-        <Metric icon={<Activity size={14} className="text-slate-400" />} label="Monthly Traffic" percent={bandwidthUsagePercent} />
+        <Metric icon={<HardDrive size={14} className="text-slate-500" />} label="Storage Limit" percent={diskUsagePercent} />
+        <Metric icon={<Cpu size={14} className="text-slate-500" />} label="Memory (RAM)" percent={ramUsagePercent} />
+        <Metric icon={<Activity size={14} className="text-slate-500" />} label="Monthly Traffic" percent={bandwidthUsagePercent} />
       </div>
     </div>
   );

@@ -60,18 +60,18 @@ const ContactPage: React.FC<ContactPageProps> = () => {
   };
 
   const inputCls = (k: string) =>
-    `w-full bg-slate-50 dark:bg-white/5 border ${
-      errors[k] ? "border-red-500" : "border-slate-200 dark:border-white/10"
-    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition`;
+    `w-full bg-slate-50 dark:bg-black/5 border ${
+      errors[k] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"
+    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition`;
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
       <div className="text-center mb-12 sm:mb-16">
-        <p className="font-mono text-[10px] font-black text-murzak-cyan uppercase tracking-[0.3em] mb-4">Get in touch</p>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-navy dark:text-white tracking-tighter">
+        <p className="font-mono text-[10px] font-black text-murzak-accent uppercase tracking-[0.3em] mb-4">Get in touch</p>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
-        <p className="mt-5 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-5 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto leading-relaxed">
           Tell us what you're trying to do — in plain words. Our Nairobi team usually replies within one business day.
         </p>
       </div>
@@ -79,25 +79,25 @@ const ContactPage: React.FC<ContactPageProps> = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-10">
         {/* Contact details */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-murzak-navy text-white p-7 sm:p-9 rounded-[2.5rem] border border-white/10 shadow-xl space-y-7">
+          <div className="bg-murzak-ink text-white p-7 sm:p-9 rounded-[2.5rem] border border-murzak-border shadow-xl space-y-7">
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-murzak-cyan/15 text-murzak-cyan"><Mail size={18} /></div>
+              <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Mail size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Email us</p>
-                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black hover:text-murzak-cyan transition break-all">{SUPPORT_EMAIL}</a>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Email us</p>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black hover:text-murzak-accent transition break-all">{SUPPORT_EMAIL}</a>
               </div>
             </div>
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-murzak-cyan/15 text-murzak-cyan"><MapPin size={18} /></div>
+              <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><MapPin size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Location</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Location</p>
                 <p className="text-sm font-black">Nairobi, Kenya</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
-              <div className="p-3 rounded-2xl bg-murzak-cyan/15 text-murzak-cyan"><Clock size={18} /></div>
+              <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Clock size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Hours</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hours</p>
                 <p className="text-sm font-black">Mon–Fri · 8:00–18:00 EAT</p>
               </div>
             </div>
@@ -106,18 +106,18 @@ const ContactPage: React.FC<ContactPageProps> = () => {
 
         {/* Form / success */}
         <div className="lg:col-span-3">
-          <div className="bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-xl border border-slate-100 dark:border-white/5 p-6 sm:p-10 rounded-[2.5rem] shadow-xl">
+          <div className="bg-white/80 dark:bg-white/60 backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-10 rounded-[2.5rem] shadow-xl">
             {success ? (
               <div className="text-center py-10 animate-fade-in">
                 <CheckCircle2 size={56} className="text-emerald-500 mx-auto mb-6" />
-                <h3 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tight mb-3">Message received</h3>
-                <p className="text-sm font-bold text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+                <h3 className="text-2xl font-black text-murzak-ink tracking-tight mb-3">Message received</h3>
+                <p className="text-sm font-bold text-slate-500 dark:text-slate-500 leading-relaxed max-w-md mx-auto">
                   Thanks{form.name ? `, ${form.name.split(" ")[0]}` : ""}! We've logged your enquiry{refId ? ` (ref ${refId})` : ""} and a
                   member of our team will reach out by email shortly.
                 </p>
                 <button
                   onClick={() => { setSuccess(false); setForm({ name: "", email: "", company: "", message: "" }); }}
-                  className="mt-8 text-[10px] font-black text-murzak-cyan uppercase tracking-widest hover:underline"
+                  className="mt-8 text-[10px] font-black text-murzak-accent uppercase tracking-widest hover:underline"
                 >
                   Send another message
                 </button>
@@ -132,14 +132,14 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <div className="relative">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                       <input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); if (errors.name) setErrors({ ...errors, name: "" }); }} placeholder="Full name" className={inputCls("name")} />
                     </div>
                     {errors.name && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.name}</p>}
                   </div>
                   <div>
                     <div className="relative">
-                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                       <input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); if (errors.company) setErrors({ ...errors, company: "" }); }} placeholder="Company" className={inputCls("company")} />
                     </div>
                     {errors.company && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.company}</p>}
@@ -147,14 +147,14 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                 </div>
                 <div>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                     <input type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); if (errors.email) setErrors({ ...errors, email: "" }); }} placeholder="Work email" className={inputCls("email")} autoComplete="email" />
                   </div>
                   {errors.email && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.email}</p>}
                 </div>
                 <div>
                   <div className="relative">
-                    <MessageSquare className="absolute left-4 top-4 text-slate-400" size={16} />
+                    <MessageSquare className="absolute left-4 top-4 text-slate-500" size={16} />
                     <textarea value={form.message} onChange={(e) => { setForm({ ...form, message: e.target.value }); if (errors.message) setErrors({ ...errors, message: "" }); }} placeholder="How can we help?" rows={5} className={`${inputCls("message")} resize-none pt-3.5`} />
                   </div>
                   {errors.message && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.message}</p>}
@@ -162,7 +162,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-[1.01] transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full bg-murzak-accent text-murzak-ink py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-[1.01] transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
                   {submitting ? "Sending..." : "Send message"}

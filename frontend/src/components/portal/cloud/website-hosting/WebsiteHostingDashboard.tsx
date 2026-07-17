@@ -40,25 +40,25 @@ type SetupTab = "overview" | "setup" | "requests";
 type LiveTab = "overview" | "files" | "deployments" | "subdomains" | "requests" | "activity";
 
 const cardClass =
-  "rounded-[1.75rem] border border-murzak-navy dark:border-white/10 bg-slate dark:bg-white/5 p-5 sm:p-6";
+  "rounded-[1.75rem] border border-murzak-border bg-white p-5 sm:p-6";
 
 const inputClass =
-  "w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-400 focus:border-murzak-cyan/60 focus:ring-2 focus:ring-murzak-cyan/10 transition-all";
+  "w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const textareaClass =
-  "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-400 focus:border-murzak-cyan/60 focus:ring-2 focus:ring-murzak-cyan/10 transition-all";
+  "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const primaryBtnClass =
-  "px-4 py-3 rounded-2xl bg-murzak-cyan text-murzak-navy font-black uppercase tracking-widest text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
+  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black uppercase tracking-widest text-[10px] disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
 
 const secondaryBtnClass =
-  "px-4 py-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-700 dark:text-slate-100 font-black uppercase tracking-widest text-[10px] transition-all hover:border-murzak-cyan/50 disabled:opacity-50 disabled:cursor-not-allowed";
+  "px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-700 dark:text-slate-100 font-black uppercase tracking-widest text-[10px] transition-all hover:border-murzak-accent/50 disabled:opacity-50 disabled:cursor-not-allowed";
 
 const tabClass = (active: boolean) =>
   `px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${
     active
-      ? "bg-murzak-cyan text-murzak-navy border-murzak-cyan shadow-sm"
-      : "bg-white dark:bg-white/5 border-murzak-navy border-2 dark:border-white/10 text-slate-500 dark:text-slate-300 hover:border-murzak-cyan/50"
+      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-sm"
+      : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-600 hover:border-murzak-accent/50"
   }`;
 
 const formatDateTime = (value?: string) => {
@@ -123,9 +123,9 @@ const badgeClass = (tone: "green" | "orange" | "blue" | "slate") => {
     return "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-orange-500/10 text-orange-600 border border-orange-500/20";
   }
   if (tone === "blue") {
-    return "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-murzak-cyan/10 text-murzak-cyan border border-murzak-cyan/20";
+    return "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-murzak-accent/10 text-murzak-accent border border-murzak-accent/20";
   }
-  return "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-white/10";
+  return "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-black/5 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-murzak-border";
 };
 
 function choiceMeta(choice: HostingDomainChoice | null) {
@@ -184,11 +184,11 @@ function FileList({
       {files.map((file) => (
         <div
           key={file.id}
-          className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+          className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-black text-murzak-navy dark:text-white break-all">
+              <p className="font-black text-murzak-ink break-all">
                 {file.fileName}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -203,7 +203,7 @@ function FileList({
                 <p className="mt-2 text-xs text-slate-500 break-all">{file.filePath}</p>
               ) : null}
               {file.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{file.notes}</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">{file.notes}</p>
               ) : null}
             </div>
           </div>
@@ -229,11 +229,11 @@ function DeploymentList({
       {deployments.map((dep) => (
         <div
           key={dep.id}
-          className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+          className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-black text-murzak-navy dark:text-white">
+              <p className="font-black text-murzak-ink">
                 {dep.sourceFile || "Deployment Request"}
               </p>
               <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -243,7 +243,7 @@ function DeploymentList({
                 <p className="mt-2 text-xs text-slate-500 break-all">Target: {dep.targetPath}</p>
               ) : null}
               {dep.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{dep.notes}</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">{dep.notes}</p>
               ) : null}
               <p className="mt-2 text-xs text-slate-500">{formatDateTime(dep.createdAt)}</p>
             </div>
@@ -597,44 +597,44 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Setup Type
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink">
             {choiceDetails.title}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Tier
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink">
             {payload.service.tier || "Standard"}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Open Requests
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink">
             {openRequestsCount}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Setup Progress
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink">
             {setupProgress}%
           </h3>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 rounded-[2rem] border border-murzak-cyan/25 bg-murzak-cyan/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="xl:col-span-2 rounded-[2rem] border border-murzak-accent/25 bg-murzak-accent/5 p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
             <ChoiceIcon className="w-20 h-20" />
           </div>
@@ -650,11 +650,11 @@ const WebsiteHostingDashboard: React.FC = () => {
               </span>
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-navy dark:text-white">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink">
               Finish setup to activate your hosting
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-300">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-600">
               {choiceDetails.description}
             </p>
 
@@ -670,7 +670,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Quick Status</h3>
+          <h3 className="text-lg font-black text-murzak-ink">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
@@ -689,7 +689,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               {setupSubmitted ? (
                 <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600" />
               ) : (
-                <Clock3 className="w-5 h-5 mt-0.5 text-slate-400" />
+                <Clock3 className="w-5 h-5 mt-0.5 text-slate-500" />
               )}
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-100">
@@ -702,7 +702,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 mt-0.5 text-slate-400" />
+              <ShieldCheck className="w-5 h-5 mt-0.5 text-slate-500" />
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-100">
                   Activation pending
@@ -717,14 +717,14 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-navy dark:text-white">Setup Checklist</h3>
+        <h3 className="text-lg font-black text-murzak-ink">Setup Checklist</h3>
 
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
             {domainChoice ? (
               <CheckCircle2 className="w-5 h-5 text-green-600" />
             ) : (
-              <Clock3 className="w-5 h-5 text-slate-400" />
+              <Clock3 className="w-5 h-5 text-slate-500" />
             )}
             <span className="font-semibold text-slate-700 dark:text-slate-100">
               Domain setup type identified
@@ -735,7 +735,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             {setupSubmitted ? (
               <CheckCircle2 className="w-5 h-5 text-green-600" />
             ) : (
-              <Clock3 className="w-5 h-5 text-slate-400" />
+              <Clock3 className="w-5 h-5 text-slate-500" />
             )}
             <span className="font-semibold text-slate-700 dark:text-slate-100">
               Initial setup request submitted
@@ -743,14 +743,14 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <Clock3 className="w-5 h-5 text-slate-400" />
+            <Clock3 className="w-5 h-5 text-slate-500" />
             <span className="font-semibold text-slate-700 dark:text-slate-100">
               DNS / infrastructure configuration
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <Clock3 className="w-5 h-5 text-slate-400" />
+            <Clock3 className="w-5 h-5 text-slate-500" />
             <span className="font-semibold text-slate-700 dark:text-slate-100">
               Site activation and hosting control panel
             </span>
@@ -764,8 +764,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Globe className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <Globe className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Request a Domain Purchase
           </h3>
         </div>
@@ -777,7 +777,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Domain Name
             </label>
             <input
@@ -794,7 +794,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Domain Extension
             </label>
             <select
@@ -811,11 +811,11 @@ const WebsiteHostingDashboard: React.FC = () => {
             </select>
           </div>
 
-          <div className="rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/5 px-4 py-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Full Domain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-navy dark:text-white break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
               {domainForm.requestedName
                 ? `${domainForm.requestedName}${domainForm.requestedTld}`
                 : `yourdomain${domainForm.requestedTld}`}
@@ -823,7 +823,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -846,7 +846,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="text-lg font-black text-murzak-ink">
             Your Domain Requests
           </h3>
 
@@ -857,18 +857,18 @@ const WebsiteHostingDashboard: React.FC = () => {
               payload.registerNewDomainRequests.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-navy dark:text-white break-all">
+                      <p className="font-black text-murzak-ink break-all">
                         {r.fullDomain}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                         Provider: {r.provider || "Murzak Cloud"}
                       </p>
                       {r.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
                           {r.notes}
                         </p>
                       ) : null}
@@ -882,7 +882,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="text-lg font-black text-murzak-ink">
             What Happens Next
           </h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
@@ -899,8 +899,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Wand2 className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <Wand2 className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Choose Your Murzak Subdomain
           </h3>
         </div>
@@ -912,7 +912,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Subdomain Name
             </label>
             <input
@@ -929,16 +929,16 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-navy dark:text-white break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
               {murzakPreview}
             </p>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Target Type
             </label>
             <select
@@ -953,7 +953,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Target Value
             </label>
             <input
@@ -965,7 +965,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -988,7 +988,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="text-lg font-black text-murzak-ink">
             Your Murzak Subdomains
           </h3>
 
@@ -999,18 +999,18 @@ const WebsiteHostingDashboard: React.FC = () => {
               payload.murzakSubdomains.map((s) => (
                 <div
                   key={s.id}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-navy dark:text-white break-all">
+                      <p className="font-black text-murzak-ink break-all">
                         {s.fullSubdomain}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                         {s.targetType || "folder"} {s.targetValue ? `• ${s.targetValue}` : ""}
                       </p>
                       {s.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
                           {s.notes}
                         </p>
                       ) : null}
@@ -1024,7 +1024,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Best Practice</h3>
+          <h3 className="text-lg font-black text-murzak-ink">Best Practice</h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
             <p>Choose a short, memorable label.</p>
             <p>Avoid spaces and special characters.</p>
@@ -1039,8 +1039,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <LinkIcon className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <LinkIcon className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Connect Your Existing Domain
           </h3>
         </div>
@@ -1052,7 +1052,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Domain Name
             </label>
             <input
@@ -1069,7 +1069,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Registrar
             </label>
             <input
@@ -1081,7 +1081,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -1104,7 +1104,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="text-lg font-black text-murzak-ink">
             Connected / Pending Domains
           </h3>
 
@@ -1115,18 +1115,18 @@ const WebsiteHostingDashboard: React.FC = () => {
               payload.externalDomains.map((d) => (
                 <div
                   key={d.id}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-navy dark:text-white break-all">
+                      <p className="font-black text-murzak-ink break-all">
                         {d.domainName}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                         {d.registrar || "Registrar not provided"}
                       </p>
                       {d.verificationNotes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
                           {d.verificationNotes}
                         </p>
                       ) : null}
@@ -1135,7 +1135,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                   </div>
 
                   {(d.nameserver1 || d.nameserver2 || d.aRecord) && (
-                    <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 p-3 text-xs text-slate-500">
+                    <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border p-3 text-xs text-slate-500">
                       {d.nameserver1 ? <p>NS1: {d.nameserver1}</p> : null}
                       {d.nameserver2 ? <p>NS2: {d.nameserver2}</p> : null}
                       {d.aRecord ? <p>A Record: {d.aRecord}</p> : null}
@@ -1148,7 +1148,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="text-lg font-black text-murzak-ink">
             DNS Connection Notes
           </h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
@@ -1189,15 +1189,15 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <LifeBuoy className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <LifeBuoy className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Submit Hosting Request
           </h3>
         </div>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Category
             </label>
             <select
@@ -1215,7 +1215,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Title
             </label>
             <input
@@ -1227,7 +1227,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Description
             </label>
             <textarea
@@ -1253,7 +1253,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-navy dark:text-white">Request History</h3>
+        <h3 className="text-lg font-black text-murzak-ink">Request History</h3>
 
         <div className="mt-4 space-y-3">
           {payload.requests.length === 0 ? (
@@ -1262,15 +1262,15 @@ const WebsiteHostingDashboard: React.FC = () => {
             payload.requests.map((r) => (
               <div
                 key={r.id}
-                className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-navy dark:text-white">{r.title}</p>
+                    <p className="font-black text-murzak-ink">{r.title}</p>
                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                       {r.category}
                     </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
                       {r.description}
                     </p>
                     <p className="text-xs text-slate-500 mt-2">{formatDateTime(r.createdAt)}</p>
@@ -1289,16 +1289,16 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Active Host
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white break-all">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink break-all">
             {activeSite?.primaryHost || "—"}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Hosting Status
           </p>
           <div className="mt-3">
@@ -1307,7 +1307,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             SSL Status
           </p>
           <div className="mt-3">
@@ -1318,10 +1318,10 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Storage Used
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-navy dark:text-white">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink">
             {formatMb(storageUsed)} / {isUnlimitedStorage ? "Unlimited" : formatMb(storageLimit)}
           </h3>
         </div>
@@ -1342,11 +1342,11 @@ const WebsiteHostingDashboard: React.FC = () => {
               {latestActiveBuild ? <span className={badgeClass("green")}>Build Active</span> : null}
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-navy dark:text-white break-all">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink break-all">
               {activeSite?.primaryHost}
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-300">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-600">
               Your hosting setup is active. You can now manage storage, files, deployments,
               subdomains, support requests and activity from this dashboard.
             </p>
@@ -1363,7 +1363,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Quick Status</h3>
+          <h3 className="text-lg font-black text-murzak-ink">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
@@ -1377,7 +1377,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-3">
-              <HardDrive className="w-5 h-5 mt-0.5 text-murzak-cyan" />
+              <HardDrive className="w-5 h-5 mt-0.5 text-murzak-accent" />
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-100">Storage usage</p>
                 <p className="text-xs text-slate-500 mt-1">
@@ -1387,7 +1387,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-3">
-              <Rocket className="w-5 h-5 mt-0.5 text-slate-400" />
+              <Rocket className="w-5 h-5 mt-0.5 text-slate-500" />
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-100">Latest deployment</p>
                 <p className="text-xs text-slate-500 mt-1">
@@ -1404,7 +1404,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-black text-murzak-navy dark:text-white">Storage Usage</h3>
+            <h3 className="text-lg font-black text-murzak-ink">Storage Usage</h3>
             <p className="mt-2 text-sm text-slate-500">
               Monitor how much hosting storage is being used by your uploaded site files.
             </p>
@@ -1415,9 +1415,9 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className="mt-5">
-          <div className="w-full h-4 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
+          <div className="w-full h-4 rounded-full bg-slate-100 dark:bg-black/5 overflow-hidden">
             <div
-              className="h-full rounded-full bg-murzak-cyan transition-all duration-700"
+              className="h-full rounded-full bg-murzak-accent transition-all duration-700"
               style={{ width: `${storagePercent ?? 0}%` }}
             />
           </div>
@@ -1477,7 +1477,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Site Details</h3>
+          <h3 className="text-lg font-black text-murzak-ink">Site Details</h3>
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">Plan</span>
@@ -1505,14 +1505,14 @@ const WebsiteHostingDashboard: React.FC = () => {
             </div>
           </div>
           {activeSite?.notes ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-white/10 p-4 text-sm text-slate-600 dark:text-slate-300">
+            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border p-4 text-sm text-slate-600 dark:text-slate-600">
               {activeSite.notes}
             </div>
           ) : null}
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Recent Activity</h3>
+          <h3 className="text-lg font-black text-murzak-ink">Recent Activity</h3>
           <div className="mt-4 space-y-3">
             {payload.activity.length === 0 ? (
               <p className="text-sm text-slate-500">No recent activity yet.</p>
@@ -1520,7 +1520,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               payload.activity.slice(0, 4).map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -1545,8 +1545,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Upload className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">Upload Files</h3>
+          <Upload className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">Upload Files</h3>
         </div>
 
         <p className="mt-3 text-sm text-slate-500">
@@ -1555,7 +1555,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Upload Category
             </label>
             <select
@@ -1571,7 +1571,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               File
             </label>
             <input
@@ -1592,7 +1592,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -1614,7 +1614,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-navy dark:text-white">Uploaded Files</h3>
+        <h3 className="text-lg font-black text-murzak-ink">Uploaded Files</h3>
         <div className="mt-4">
           <FileList files={payload.files} emptyText="No files uploaded yet." />
         </div>
@@ -1626,8 +1626,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Rocket className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <Rocket className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Request Deployment
           </h3>
         </div>
@@ -1638,7 +1638,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Source File
             </label>
             <input
@@ -1655,7 +1655,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Deployment Type
             </label>
             <select
@@ -1674,7 +1674,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -1696,7 +1696,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+        <h3 className="text-lg font-black text-murzak-ink">
           Deployment History
         </h3>
         <div className="mt-4">
@@ -1713,8 +1713,8 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Network className="w-5 h-5 text-murzak-cyan" />
-          <h3 className="text-lg font-black text-murzak-navy dark:text-white">
+          <Network className="w-5 h-5 text-murzak-accent" />
+          <h3 className="text-lg font-black text-murzak-ink">
             Request a Subdomain
           </h3>
         </div>
@@ -1725,7 +1725,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Subdomain Label
             </label>
             <input
@@ -1741,17 +1741,17 @@ const WebsiteHostingDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-murzak-cyan/20 bg-murzak-cyan/5 px-4 py-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-navy dark:text-white break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
               {liveSubdomainPreview}
             </p>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Target Type
             </label>
             <select
@@ -1766,7 +1766,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Target Value
             </label>
             <input
@@ -1778,7 +1778,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
               Notes
             </label>
             <textarea
@@ -1800,7 +1800,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-navy dark:text-white">Subdomains</h3>
+        <h3 className="text-lg font-black text-murzak-ink">Subdomains</h3>
         <div className="mt-4 space-y-3">
           {payload.murzakSubdomains.length === 0 ? (
             <p className="text-sm text-slate-500">No subdomains created for this site yet.</p>
@@ -1808,18 +1808,18 @@ const WebsiteHostingDashboard: React.FC = () => {
             payload.murzakSubdomains.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+                className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-navy dark:text-white break-all">
+                    <p className="font-black text-murzak-ink break-all">
                       {item.fullSubdomain}
                     </p>
                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                       {item.targetType || "folder"} {item.targetValue ? `• ${item.targetValue}` : ""}
                     </p>
                     {item.notes ? (
-                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">
                         {item.notes}
                       </p>
                     ) : null}
@@ -1837,7 +1837,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
   const renderLiveActivity = () => (
     <div className={cardClass}>
-      <h3 className="text-lg font-black text-murzak-navy dark:text-white">Hosting Activity</h3>
+      <h3 className="text-lg font-black text-murzak-ink">Hosting Activity</h3>
       <div className="mt-4 space-y-3">
         {payload.activity.length === 0 ? (
           <p className="text-sm text-slate-500">No hosting activity yet.</p>
@@ -1845,13 +1845,13 @@ const WebsiteHostingDashboard: React.FC = () => {
           payload.activity.map((item) => (
             <div
               key={item.id}
-              className="rounded-2xl border border-slate-200 dark:border-white/10 p-4"
+              className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-murzak-navy dark:text-white">{item.title}</p>
+                  <p className="font-black text-murzak-ink">{item.title}</p>
                   {item.description ? (
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">
                       {item.description}
                     </p>
                   ) : null}
@@ -1872,7 +1872,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         className={`rounded-[2rem] border p-6 sm:p-8 relative overflow-hidden ${
           isLiveMode
             ? "border-green-500/20 bg-green-500/5"
-            : "border-murzak-cyan/30 bg-murzak-cyan/5"
+            : "border-murzak-accent/30 bg-murzak-accent/5"
         }`}
       >
         <div className="absolute top-0 right-0 p-6 opacity-10">
@@ -1881,15 +1881,15 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Website Hosting • {payload.service.tier || "Standard"}
             </p>
 
-            <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-navy dark:text-white">
+            <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink">
               {isLiveMode ? "Hosting Control Panel" : "Website Hosting Setup"}
             </h2>
 
-            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-600">
               {isLiveMode
                 ? "Your hosting is active. Manage domain access, storage, uploads, deployments, subdomains and support from one place."
                 : "Complete your domain or subdomain setup. Once Murzak Tech finishes provisioning, this dashboard will automatically switch into live hosting mode."}
@@ -2003,13 +2003,13 @@ const WebsiteHostingDashboard: React.FC = () => {
         </>
       )}
 
-      <div className="rounded-[1.75rem] border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-5 sm:p-6">
+      <div className="rounded-[1.75rem] border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Need help next?
             </p>
-            <h3 className="mt-2 text-lg font-black text-murzak-navy dark:text-white">
+            <h3 className="mt-2 text-lg font-black text-murzak-ink">
               {isLiveMode
                 ? "Use requests for DNS, SSL, deployments and support"
                 : "Murzak Tech will complete provisioning after setup"}

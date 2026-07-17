@@ -163,13 +163,13 @@ useLayoutEffect(() => {
 
 return createPortal(
   <div className="fixed inset-0 z-[140]">
-    <div className="absolute inset-0 bg-murzak-deep/50 backdrop-blur-xl" onClick={onClose} />
+    <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
     <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
-      <div className="relative w-full max-w-6xl md:max-w-7xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-navy/90 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col min-h-0 shadow-2xl">
+      <div className="relative w-full max-w-6xl md:max-w-7xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
         {/* header */}
-        <div className="px-4 sm:px-8 py-3 sm:pt-5 sm:pb-5 border-b border-murzak-cyan/20 bg-murzak-navy text-white flex items-start justify-between gap-3 sm:gap-4">
+        <div className="px-4 sm:px-8 py-3 sm:pt-5 sm:pb-5 border-b border-murzak-accent/20 bg-murzak-ink text-white flex items-start justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
-            <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-murzak-cyan/90">
+            <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-murzak-accent/90">
               Add-ons for {planLabel}
             </p>
             <h3 className="text-base sm:text-2xl font-black tracking-tighter text-white mt-0.5 sm:mt-1 leading-tight">
@@ -185,7 +185,7 @@ return createPortal(
 
           <button
             onClick={onClose}
-            className="shrink-0 rounded-xl p-2 sm:p-3 border border-white/15 text-white/80 hover:text-murzak-cyan hover:border-murzak-cyan transition-all bg-white/5 hover:bg-white/10"
+            className="shrink-0 rounded-xl p-2 sm:p-3 border border-white/15 text-white/80 hover:text-murzak-accent hover:border-murzak-accent transition-all bg-black/5 hover:bg-black/5"
             aria-label="Close"
           >
             <X size={18} className="sm:hidden" />
@@ -202,7 +202,7 @@ return createPortal(
     style={{ WebkitOverflowScrolling: "touch" }}
   >
     {addons.length === 0 ? (
-      <div className="text-center py-16 rounded-[2rem] border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5">
+      <div className="text-center py-16 rounded-[2rem] border border-dashed border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
           No add-ons available for this plan tier yet.
         </p>
@@ -218,28 +218,28 @@ return createPortal(
               onClick={() => toggle(a.id)}
               className={`text-left rounded-[1.75rem] p-5 border transition-all ${
                 on
-                  ? "border-murzak-cyan bg-murzak-cyan/10 shadow-[0_0_0_3px_rgba(34,211,238,0.12)]"
-                  : "border-murzak-cyan/25 bg-white/60 dark:bg-white/5 hover:border-murzak-cyan/60"
+                  ? "border-murzak-accent bg-murzak-accent/10 shadow-[0_0_0_3px_rgba(34,211,238,0.12)]"
+                  : "border-murzak-accent/25 bg-white/60 dark:bg-black/5 hover:border-murzak-accent/60"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                     {a.category} • {a.tier}
                   </p>
-                  <p className="text-sm sm:text-base font-black text-murzak-navy dark:text-white mt-2">
+                  <p className="text-sm sm:text-base font-black text-murzak-ink mt-2">
                     {a.name}
                   </p>
-                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-500 mt-2 line-clamp-2">
                     {a.description}
                   </p>
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                     Monthly
                   </p>
-                  <p className="text-lg font-black text-murzak-navy dark:text-white">
+                  <p className="text-lg font-black text-murzak-ink">
                     KES {Number(a?.pricing?.monthlyKes || 0).toLocaleString()}
                   </p>
                 </div>
@@ -261,16 +261,16 @@ return createPortal(
   </div>
 
   {/* RIGHT: desktop sticky summary */}
-  <div className="hidden sm:block sm:w-[32%] border-l border-slate-200 dark:border-white/10 p-5 sm:p-6">
+  <div className="hidden sm:block sm:w-[32%] border-l border-slate-200 dark:border-murzak-border p-5 sm:p-6">
     <div className="sticky top-4 space-y-4">
       {/* Selected list */}
-      <div className="rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 p-5">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+      <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">
           Selected
         </p>
 
         {selectedDisplay.length === 0 ? (
-          <p className="mt-4 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+          <p className="mt-4 text-[10px] font-bold text-slate-500 dark:text-slate-500">
             Pick add-ons to continue.
           </p>
         ) : (
@@ -278,30 +278,30 @@ return createPortal(
             {selectedDisplay.map((row, idx) => (
               <div
                 key={row.id}
-                className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-black/10 p-4"
+                className="rounded-2xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/10 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                       #{idx + 1} • {row.tier}
                     </p>
-                    <p className="text-sm font-black text-murzak-navy dark:text-white mt-1 truncate">
+                    <p className="text-sm font-black text-murzak-ink mt-1 truncate">
                       {row.name}
                     </p>
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-black text-murzak-cyan">
+                    <p className="text-sm font-black text-murzak-accent">
                       KES {Number(row.price || 0).toLocaleString()}
                     </p>
                     <button
                       type="button"
                       onClick={() => removeSelected(row.id)}
-                      className="mt-2 rounded-xl p-2 border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all"
+                      className="mt-2 rounded-xl p-2 border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all"
                       aria-label={`Remove ${row.name}`}
                       title="Remove"
                     >
-                      <X className="w-4 h-4 text-slate-400" />
+                      <X className="w-4 h-4 text-slate-500" />
                     </button>
                   </div>
                 </div>
@@ -312,16 +312,23 @@ return createPortal(
       </div>
 
       {/* Total + CTA */}
-      <div className="rounded-[2rem] border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 p-5">
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+      <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
           Total monthly
         </p>
-        <p className="text-2xl font-black text-murzak-cyan mt-2">
+        <p className="text-2xl font-black text-murzak-accent mt-2">
           KES {total.toLocaleString()}
         </p>
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-2">
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-2">
           Selected: {selectedList.length}
         </p>
+
+        {disabledReason && (
+          <div className="mt-4 p-3 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-600 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <p className="text-[10px] font-bold leading-relaxed">{disabledReason}</p>
+          </div>
+        )}
 
         <button
           type="button"
@@ -329,8 +336,8 @@ return createPortal(
           disabled={submitting || !!disabledReason || addons.length === 0}
           className={`mt-5 w-full px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
             submitting || !!disabledReason || addons.length === 0
-              ? "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
-              : "bg-murzak-cyan text-murzak-navy hover:scale-[1.02]"
+              ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
+              : "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
           }`}
         >
           {submitting ? (
@@ -349,16 +356,16 @@ return createPortal(
 </div>
 
 {/* MOBILE: compact fixed footer */}
-<div className="sm:hidden p-4 border-t border-slate-200 dark:border-white/10 bg-white/95 dark:bg-murzak-navy/95">
+<div className="sm:hidden p-4 border-t border-slate-200 dark:border-murzak-border bg-white/95">
   <div className="flex items-center justify-between gap-3">
     <div>
-      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+      <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">
         Total monthly
       </p>
-      <p className="text-lg font-black text-murzak-cyan">
+      <p className="text-lg font-black text-murzak-accent">
         KES {total.toLocaleString()}
       </p>
-      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+      <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">
         Selected: {selectedList.length}
       </p>
     </div>
@@ -369,8 +376,8 @@ return createPortal(
       disabled={submitting || !!disabledReason || addons.length === 0}
       className={`px-4 py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
         submitting || !!disabledReason || addons.length === 0
-          ? "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
-          : "bg-murzak-cyan text-murzak-navy"
+          ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
+          : "bg-murzak-accent text-murzak-ink"
       }`}
     >
       {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -378,30 +385,37 @@ return createPortal(
     </button>
   </div>
 
+  {disabledReason && (
+    <div className="mt-3 p-3 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-600 flex items-start gap-2">
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+      <p className="text-[10px] font-bold leading-relaxed">{disabledReason}</p>
+    </div>
+  )}
+
   {/* Mobile selected list (small) */}
   {selectedDisplay.length > 0 && (
     <div className="mt-3 max-h-[22vh] overflow-y-auto space-y-2 pr-1">
       {selectedDisplay.map((row) => (
         <div
           key={row.id}
-          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 p-3"
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 p-3"
         >
           <div className="min-w-0">
-            <p className="text-[9px] font-black truncate text-murzak-navy dark:text-white">
+            <p className="text-[9px] font-black truncate text-murzak-ink">
               {row.name}
             </p>
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+            <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">
               KES {Number(row.price || 0).toLocaleString()}
             </p>
           </div>
           <button
             type="button"
             onClick={() => removeSelected(row.id)}
-            className="rounded-lg p-2 border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5"
+            className="rounded-lg p-2 border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5"
             aria-label={`Remove ${row.name}`}
             title="Remove"
           >
-            <X className="w-4 h-4 text-slate-400" />
+            <X className="w-4 h-4 text-slate-500" />
           </button>
         </div>
       ))}

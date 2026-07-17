@@ -323,6 +323,7 @@ function requireAuth(req, res, next) {
         invoices: []
       };
     }
+    req.session.webAccount = req.session.user.id;
     return next();
   }
 
@@ -382,7 +383,7 @@ function frappeClient() {
       // Seed a Web Account so provisioning / billing flows have something to read.
       global.__mockFrappeStore['Web Account'] = [
         {
-          name: 'MOCK_ACCOUNT', account_holder_name: 'Admin User',
+          name: 'dev-user@example.com', account_holder_name: 'Admin User',
           work_email: 'dev-user@example.com', plan: 'Business',
           password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
           account_status: 'Active', 

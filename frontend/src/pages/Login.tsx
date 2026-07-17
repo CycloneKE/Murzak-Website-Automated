@@ -440,18 +440,21 @@ const handleReset = async (e: React.FormEvent) => {
 };
 
   const inputStyles = (name: string) => `
-    w-full bg-slate-100/50 dark:bg-white/10
-    border ${fieldErrors[name] ? "border-red-500" : "border-slate-200 dark:border-white/20"} rounded-xl sm:rounded-2xl py-3 sm:py-4
-    pl-11 sm:pl-12 pr-10 text-sm sm:text-base font-semibold text-murzak-navy dark:text-white
-    placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition-all duration-200
+    w-full bg-white/60
+    border ${fieldErrors[name] ? "border-murzak-danger" : "border-murzak-border"} rounded-xl py-3
+    pl-10 pr-10 text-sm font-semibold text-murzak-ink
+    placeholder:text-murzak-muted/50 focus:outline-none focus:ring-2 focus:ring-murzak-accent/20 focus:border-murzak-accent transition-all duration-200
   `;
 
-  const labelStyles = "text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 mb-2 block";
+  const labelStyles = "text-xs font-semibold text-murzak-muted mb-2 block ml-1";
 
   return (
-    <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-murzak-base flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
+      <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/Data center.jpg')" }} />
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent" />
+      <div className="absolute inset-0 z-0 bg-murzak-accent/10 mix-blend-color" />
       <div className="absolute top-6 lg:top-10 left-6 lg:left-10 z-20">
-        <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-300 font-black text-[10px] uppercase tracking-[0.2em] hover:text-murzak-cyan transition-colors drop-shadow">
+        <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-[10px] uppercase tracking-[0.2em] hover:text-murzak-accent transition-colors drop-shadow">
           <ChevronLeft size={16} /> Back
         </button>
       </div>
@@ -459,7 +462,7 @@ const handleReset = async (e: React.FormEvent) => {
       <div className="max-w-4xl w-full relative z-10 py-10">
         <div className="text-center mb-10">
           <Logo className="h-12 lg:h-14 mx-auto mb-8" />
-          <h1 className="text-3xl lg:text-5xl font-[900] text-white tracking-tighter uppercase drop-shadow-lg">
+          <h1 className="text-3xl lg:text-4xl font-bold text-murzak-ink tracking-tight">
             {mode === 'login' && 'Client Dashboard'}
             {mode === 'signup' && 'Account Setup'}
             {mode === 'forgot' && 'Reset Password'}
@@ -467,8 +470,8 @@ const handleReset = async (e: React.FormEvent) => {
           </h1>
         </div>
 
-        <form noValidate onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className=" bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md sm:backdrop-blur-xl lg:backdrop-blur-2xl p-5 sm:p-8 lg:p-14
-           rounded-[2.25rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl lg:shadow-3xl border border-slate-100 dark:border-white/5 space-y-6 sm:space-y-8">
+        <form noValidate onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className="glass-panel p-5 sm:p-8 lg:p-14
+           rounded-[2rem] sm:rounded-[2.5rem] space-y-6 sm:space-y-8">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-xs font-bold text-center flex items-center justify-center gap-2">
               <AlertCircle size={16} /> {error}
@@ -482,13 +485,13 @@ const handleReset = async (e: React.FormEvent) => {
 
           {mode === 'forgot' && (
             <div className="space-y-4">
-              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-500 text-center leading-relaxed">
                 Enter the email tied to your account and we'll send you a secure reset link.
               </p>
               <div className="space-y-1">
                 <label className={labelStyles}>Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                   <input type="email" value={formData.email}
                     onChange={e => { setFormData({ ...formData, email: e.target.value }); if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' }); }}
                     placeholder="sam@company.co.ke" className={inputStyles('email')} autoComplete="email" inputMode="email" />
@@ -500,18 +503,18 @@ const handleReset = async (e: React.FormEvent) => {
 
           {mode === 'reset' && (
             <div className="space-y-4">
-              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-500 text-center leading-relaxed">
                 Choose a new password (minimum 8 characters).
               </p>
               <div className="space-y-1">
                 <label className={labelStyles}>New Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                   <input type={showPassword ? "text" : "password"} value={formData.password}
                     onChange={e => { setFormData({ ...formData, password: e.target.value }); if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' }); }}
                     placeholder="••••••••" className={inputStyles('password')} autoComplete="new-password" />
                   <button type="button" onClick={() => setShowPassword(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-murzak-cyan transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-500 hover:text-murzak-accent transition"
                     aria-label={showPassword ? "Hide password" : "Show password"}>
                     {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
@@ -524,20 +527,20 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             <div className="space-y-6">
-              <h3 className="text-[10px] font-black text-murzak-cyan uppercase tracking-[0.4em] mb-4">Your Details</h3>
+              <h3 className="text-[10px] font-black text-murzak-accent uppercase tracking-[0.4em] mb-4">Your Details</h3>
               {mode === 'signup' && (
                 <>
                   <div className="space-y-1">
                     <label className={labelStyles}>Full Name</label>
                     <div className="relative">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="text" value={formData.name} onChange={e => { setFormData({...formData, name: e.target.value}); if(fieldErrors.name) setFieldErrors({...fieldErrors, name: ''}); }} placeholder="Samuel Okoth" className={inputStyles('name')} />                      
                     </div>
                   </div>
                   <div className="space-y-1">
                     <label className={labelStyles}>Business Name</label>
                     <div className="relative">
-                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="text" value={formData.company} onChange={e => { setFormData({...formData, company: e.target.value}); if(fieldErrors.company) setFieldErrors({...fieldErrors, company: ''}); }} placeholder="My Company Ltd" className={inputStyles('company')} />
                     </div>
                     {fieldErrors.company && <p className="text-[8px] text-red-500 font-bold uppercase tracking-widest mt-1 ml-1">{fieldErrors.company}</p>}
@@ -547,7 +550,7 @@ const handleReset = async (e: React.FormEvent) => {
               <div className="space-y-1">
                 <label className={labelStyles}>Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                   <input type="email" value={formData.email} 
                     onChange={e => { 
                       setFormData({...formData, email: e.target.value}); 
@@ -564,7 +567,7 @@ const handleReset = async (e: React.FormEvent) => {
               <div className="space-y-1">
                 <label className={labelStyles}>Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/3 -translate-y-1/2 text-slate-400" size={18} />
+                  <Lock className="absolute left-4 top-1/3 -translate-y-1/2 text-slate-500" size={18} />
 
                   <input type={showPassword ? "text" : "password"}
                     value={formData.password}
@@ -580,7 +583,7 @@ const handleReset = async (e: React.FormEvent) => {
                   {/* Show/Hide toggle button */}
                   <button type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/4 -translate-y-1/3 p-2 rounded-lg text-slate-400 hover:text-murzak-cyan hover:bg-slate-200/50 dark:hover:bg-white/10 transition"
+                    className="absolute right-3 top-1/4 -translate-y-1/3 p-2 rounded-lg text-slate-500 hover:text-murzak-accent hover:bg-slate-200/50 dark:hover:bg-black/5 transition"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     title={showPassword ? "Hide password" : "Show password"}
                   >
@@ -598,11 +601,11 @@ const handleReset = async (e: React.FormEvent) => {
 
             {mode === 'signup' ? (
               <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-murzak-cyan uppercase tracking-[0.4em] mb-4">Project Setup</h3>
+                <h3 className="text-[10px] font-black text-murzak-accent uppercase tracking-[0.4em] mb-4">Project Setup</h3>
                 <div className="space-y-1">
                   <label className={labelStyles}>What is the goal of this project?</label>
                   <div className="relative">
-                    <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                     <input type="text" value={formData.purpose} onChange={e => { setFormData({...formData, purpose: e.target.value}); if(fieldErrors.purpose) setFieldErrors({...fieldErrors, purpose: ''}); }} placeholder="e.g. Launching Logistics App" className={inputStyles('purpose')} />
                   </div>
                   {fieldErrors.purpose && <p className="text-[8px] text-red-500 font-bold uppercase tracking-widest mt-1 ml-1">{fieldErrors.purpose}</p>}
@@ -610,7 +613,7 @@ const handleReset = async (e: React.FormEvent) => {
                 <div className="space-y-1">
                   <label className={labelStyles}>Link to your Project Files (optional)</label>
                   <div className="relative">
-                    <Code className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Code className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                     <input type="text" value={formData.sourceCode} onChange={e => setFormData({...formData, sourceCode: e.target.value})} placeholder="e.g. GitHub URL or App Link" className={inputStyles('sourceCode')} />
                   </div>
                 </div>
@@ -618,19 +621,19 @@ const handleReset = async (e: React.FormEvent) => {
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, authorized: !formData.authorized})}
-                    className={`w-full p-5 rounded-[1.5rem] border flex items-center gap-4 transition-all ${formData.authorized ? 'bg-murzak-cyan/10 border-murzak-cyan shadow-lg' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10'}`}
+                    className={`w-full p-5 rounded-[1.5rem] border flex items-center gap-4 transition-all ${formData.authorized ? 'bg-murzak-accent/10 border-murzak-accent shadow-lg' : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border'}`}
                   >
-                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all flex-shrink-0 ${formData.authorized ? 'bg-murzak-cyan border-murzak-cyan text-murzak-navy' : 'border-slate-300'}`}>
+                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all flex-shrink-0 ${formData.authorized ? 'bg-murzak-accent border-murzak-accent text-murzak-ink' : 'border-slate-300'}`}>
                       {formData.authorized && <CheckSquare size={14} />}
                     </div>
                     <span className="text-[9px] font-black uppercase text-left tracking-widest leading-tight">I authorize Murzak to help set up and host my system securely.</span>
                   </button>
-                  {mode === 'signup' && !formData.authorized && <p className="text-[7px] font-black uppercase tracking-widest text-slate-400 mt-2 text-center">Authorization required to proceed</p>}
+                  {mode === 'signup' && !formData.authorized && <p className="text-[7px] font-black uppercase tracking-widest text-slate-500 mt-2 text-center">Authorization required to proceed</p>}
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-6 sm:p-10 text-center space-y-6 bg-slate-50 dark:bg-white/5 rounded-[2.25rem] sm:rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10">
-                <ShieldCheck className="w-10 h-10 sm:w-16 sm:h-16 text-murzak-cyan opacity-40 animate-pulse" />
+              <div className="flex flex-col items-center justify-center p-6 sm:p-10 text-center space-y-6 bg-slate-50 dark:bg-black/5 rounded-[2.25rem] sm:rounded-[3rem] border border-dashed border-slate-200 dark:border-murzak-border">
+                <ShieldCheck className="w-10 h-10 sm:w-16 sm:h-16 text-murzak-accent opacity-40 animate-pulse" />
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-relaxed">Secure Login <br /> Encrypted connection active.</p>
               </div>
             )}
@@ -641,7 +644,7 @@ const handleReset = async (e: React.FormEvent) => {
             <div className="text-right -mt-2">
               <button type="button"
                 onClick={() => { setMode('forgot'); setError(''); setInfo(''); setFieldErrors({}); }}
-                className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.18em] hover:text-murzak-cyan transition-colors">
+                className="text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-[0.18em] hover:text-murzak-accent transition-colors">
                 Forgot password?
               </button>
             </div>
@@ -650,7 +653,7 @@ const handleReset = async (e: React.FormEvent) => {
           <button
             type="submit"
             disabled={isSubmitting || (mode === 'signup' && !formData.authorized)}
-            className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-6 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl
+            className="w-full bg-murzak-accent text-murzak-ink px-6 sm:px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl
                         font-black text-sm sm:text-base lg:text-lg hover:scale-[1.02] sm:hover:scale-105 transition-all shadow-xl sm:shadow-2xl flex items-center justify-center group disabled:opacity-50">
             {isSubmitting ? (
               <RefreshCw className="animate-spin w-5 h-5 sm:w-6 sm:h-6" />
@@ -668,15 +671,15 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && firebaseEnabled && (
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400">Or</span>
-                <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+                <div className="h-px flex-1 bg-slate-200 dark:bg-black/5" />
+                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500">Or</span>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-black/5" />
               </div>
               <button
                 type="button"
                 onClick={handleGoogle}
                 disabled={googleLoading || isSubmitting}
-                className="w-full bg-white dark:bg-white/10 border border-slate-200 dark:border-white/15 text-murzak-navy dark:text-white
+                className="w-full bg-white dark:bg-black/5 border border-slate-200 dark:border-white/15 text-murzak-ink
                            px-6 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-white/15
                            transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50">
                 {googleLoading ? (
@@ -701,14 +704,14 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'forgot' || mode === 'reset') ? (
             <button
               onClick={() => { setMode('login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] hover:text-murzak-cyan transition-colors drop-shadow"
+              className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] hover:text-murzak-accent transition-colors drop-shadow"
             >
               ← Back to Log In
             </button>
           ) : (
             <button
               onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] hover:text-murzak-cyan transition-colors drop-shadow"
+              className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] hover:text-murzak-accent transition-colors drop-shadow"
             >
               {mode === 'login' ? "Need a New Account? Get Started" : "Already Have an Account? Log In"}
             </button>

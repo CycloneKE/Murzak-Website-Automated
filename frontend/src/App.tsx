@@ -133,10 +133,6 @@ const App: React.FC = () => {
   const [booting, setBooting] = useState(true);
   const [isBackendDown, setIsBackendDown] = useState(false);
 
-  // Dark-only: the marketing pages render light text on the fixed dark site
-  // backdrop, so a light theme leaves the header, gradients and hero copy
-  // unreadable. Light mode was removed; the app is committed to the dark brand.
-
   // Single authoritative session hydration. /api/auth/me reads the server-side
   // session (httpOnly cookie); on any failure we reset to logged-out so a stale
   // client state can never keep the portal open after the server says otherwise.
@@ -178,11 +174,6 @@ const App: React.FC = () => {
     };
     window.addEventListener('api-gateway-error', handleApiError);
     return () => window.removeEventListener('api-gateway-error', handleApiError);
-  }, []);
-
-  useEffect(() => {
-    window.document.documentElement.classList.add("dark");
-    localStorage.setItem("theme", "dark");
   }, []);
 
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
@@ -270,13 +261,13 @@ const App: React.FC = () => {
 
   if (booting) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden bg-murzak-deep">
-        <InteractiveBackground isDarkMode={true} />
+      <div className="h-screen w-screen flex flex-col items-center justify-center relative overflow-hidden bg-murzak-base">
+        <InteractiveBackground isDarkMode={false} />
         <div className="relative z-10 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center shadow-[0_0_30px_rgba(46,166,255,0.2)] animate-glow-pulse mb-6">
-            <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-cyan animate-spin"></div>
+          <div className="w-16 h-16 rounded-2xl bg-black/5 backdrop-blur-xl border border-murzak-border flex items-center justify-center shadow-[0_0_30px_rgba(0,189,252,0.2)] animate-glow-pulse mb-6">
+            <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-accent animate-spin"></div>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 animate-pulse">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">
             Authenticating...
           </p>
         </div>
@@ -286,9 +277,9 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
-      <InteractiveBackground isDarkMode={true} />
+      <InteractiveBackground isDarkMode={false} />
 
-      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-deep backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
+      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {!hideChrome && (
           <Header
             activePage={activePage}
@@ -371,13 +362,13 @@ const App: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Service Temporarily Unavailable</h2>
+            <h2 className="text-2xl font-bold text-murzak-ink mb-2">Service Temporarily Unavailable</h2>
             <p className="text-gray-400 mb-6">
               Our backend systems are currently undergoing maintenance or experiencing high traffic. Please try again in a few minutes.
             </p>
             <button 
               onClick={() => window.location.reload()} 
-              className="bg-murzak-green hover:bg-murzak-green/90 text-black font-semibold py-3 px-6 rounded-lg transition-colors w-full"
+              className="bg-murzak-success hover:bg-murzak-success/90 text-black font-semibold py-3 px-6 rounded-lg transition-colors w-full"
             >
               Reload Page
             </button>

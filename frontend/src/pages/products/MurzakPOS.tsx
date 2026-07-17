@@ -29,25 +29,25 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-white overflow-x-hidden">
+    <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-gradient opacity-20 animate-drift-slow -z-10" />
+        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">Murzak POS & Inventory</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Murzak POS & Inventory</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Sell fast. Know your stock. <span className="text-murzak-gradient">Every branch, one system.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
             Built from scratch for Kenyan retail — not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
               Start from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo <ArrowRight size={18} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => setSalesOpen(true)}>
+            <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Book a Demo
             </Button>
           </div>
@@ -55,43 +55,43 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </section>
 
       {/* Feature Grid */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-3">Core Features</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">Core Features</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything you need to run your shop.</h2>
         </div>
         <div className="grid sm:grid-cols-2 gap-5">
           {features.map((f, i) => (
-            <div key={i} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7">
-              <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7">
+              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
                 {f.icon}
               </div>
-              <h3 className="text-lg font-black text-white mb-2">{f.title}</h3>
-              <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{f.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink mb-2">{f.title}</h3>
+              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </Section>
 
       {/* Deep Dive: POS Mockup */}
-      <Section className="border-t border-white/5 bg-white/[0.02]">
+      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Checkout made effortless.</h2>
-            <p className="text-slate-400 font-medium leading-relaxed mb-6">
+            <p className="text-slate-500 font-medium leading-relaxed mb-6">
               Ring up items with a barcode scanner or tap the screen. Apply discounts, process M-Pesa payments instantly, and print receipts without touching a mouse. 
               Your cashiers will love how fast it is.
             </p>
             <ul className="space-y-3">
               {['Barcode scanning support', 'Quick-add categories', 'Instant M-Pesa STK push', 'Custom receipt printing'].map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm font-bold text-white">
-                  <Check size={16} className="text-murzak-cyan" /> {item}
+                <li key={item} className="flex items-center gap-3 text-sm font-bold text-murzak-ink">
+                  <Check size={16} className="text-murzak-accent" /> {item}
                 </li>
               ))}
             </ul>
           </div>
           
-          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 group">
+          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
             <img 
               src="/images/pos-dashboard.png" 
               alt="Murzak POS Dashboard showing checkout interface with M-Pesa payment" 
@@ -104,14 +104,14 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Who it's for */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-3xl font-[900] tracking-tight text-white mb-4">Built for Kenyan Retail</h2>
-            <p className="text-slate-400 font-medium">Whether you have one shop or fifty branches, Murzak POS scales with you.</p>
+            <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-4">Built for Kenyan Retail</h2>
+            <p className="text-slate-500 font-medium">Whether you have one shop or fifty branches, Murzak POS scales with you.</p>
          </div>
          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {['Supermarkets', 'Pharmacies', 'Hardware Stores', 'Boutiques & Apparel'].map(item => (
-              <div key={item} className="p-6 rounded-2xl bg-white/5 border border-white/10 text-center font-bold text-sm text-white">
+              <div key={item} className="p-6 rounded-2xl bg-black/5 border border-murzak-border text-center font-bold text-sm text-murzak-ink">
                 {item}
               </div>
             ))}
@@ -119,20 +119,20 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-white/5">
+      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-murzak-gradient opacity-[0.16]" />
+        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white mb-6">Stop guessing your stock.</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink mb-6">Stop guessing your stock.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="onDark" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
+            <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
               Configure POS <ArrowRight size={17} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => setSalesOpen(true)}>
+            <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Talk to Sales
             </Button>
           </div>

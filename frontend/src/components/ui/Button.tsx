@@ -1,31 +1,31 @@
 import React from "react";
 
-// Canonical button. Collapses the three competing "primary" looks across the
-// app (bg-murzak-cyan / bg-white / bg-murzak-navy) into ONE primary plus a
-// secondary and a ghost variant. Adopt incrementally for CTAs.
+// Glass UI Button Component
+// Implements the primary gradient, secondary outline, and ghost variants.
 
-type Variant = "primary" | "secondary" | "ghost" | "onDark" | "outlineOnDark";
-type Size = "md" | "lg";
+type Variant = "primary" | "secondary" | "ghost" | "onDark";
+type Size = "sm" | "md" | "lg";
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-2xl font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-murzak-muted disabled:border-none disabled:shadow-none";
 
 const SIZES: Record<Size, string> = {
-  md: "px-6 py-3.5 text-[10px] sm:text-[11px]",
-  lg: "px-8 py-4 text-[11px] sm:text-sm",
+  sm: "px-4 py-2 text-sm",
+  md: "px-6 py-2.5 text-base",
+  lg: "px-8 py-3.5 text-lg",
 };
 
 const VARIANTS: Record<Variant, string> = {
-  // The one true primary: brand cyan on navy.
-  primary: "bg-murzak-cyan text-murzak-navy hover:scale-[1.03] shadow-lg shadow-murzak-cyan/20",
+  // Primary: Brand Gradient with subtle hover glow
+  primary: "bg-brand-gradient text-murzak-ink hover:scale-[1.02] shadow-md hover:shadow-murzak-brand2/30",
+  // Secondary: White with light border
   secondary:
-    "bg-murzak-navy text-white dark:bg-white/10 dark:text-white hover:bg-murzak-navy/90 dark:hover:bg-white/15",
+    "bg-white border border-murzak-border text-murzak-ink hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
+  // Ghost: No background, subtle hover
   ghost:
-    "border border-slate-200 dark:border-white/20 text-murzak-navy dark:text-white hover:border-murzak-cyan",
-  // For use on dark gradient/CTA bands where a white button reads best.
-  onDark: "bg-white text-murzak-navy hover:scale-[1.03] shadow-xl",
-  // Outline on a dark surface (theme-independent — always white on dark).
-  outlineOnDark: "border-2 border-white/40 text-white hover:bg-white/10",
+    "bg-transparent text-murzak-ink hover:bg-slate-100/50",
+  // For use on dark glass/spatial panels
+  onDark: "bg-black/5 border border-white/20 text-murzak-ink hover:bg-white/20",
 };
 
 type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
@@ -35,7 +35,7 @@ type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {
 
 export function Button({
   variant = "primary",
-  size = "lg",
+  size = "md",
   className = "",
   children,
   ...rest
@@ -48,3 +48,4 @@ export function Button({
 }
 
 export default Button;
+

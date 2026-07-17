@@ -17,7 +17,7 @@ function jobStatusClasses(s?: string) {
     case "queued": return "bg-cyan-500/15 text-cyan-300 border-cyan-500/20";
     case "failed": return "bg-red-500/15 text-red-400 border-red-500/20";
     case "needs_human": return "bg-orange-500/15 text-orange-300 border-orange-500/20";
-    default: return "bg-slate-500/10 text-slate-300 border-white/10";
+    default: return "bg-slate-500/10 text-slate-600 border-murzak-border";
   }
 }
 
@@ -28,13 +28,13 @@ function Dot({ ok }: { ok: boolean }) {
 }
 
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/80 dark:bg-murzak-navy/80 backdrop-blur-md border border-slate-100 dark:border-white/5 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+  <div className={`bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );
 
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{children}</p>
+  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">{children}</p>
 );
 
 const AdminProvisioning: React.FC = () => {
@@ -127,17 +127,17 @@ const AdminProvisioning: React.FC = () => {
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Provisioning</h2>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2">
             Go-live readiness, capacity, and the job queue.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refresh()} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-[10px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-[10px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           <button onClick={onRun} disabled={running} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition disabled:opacity-60">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition disabled:opacity-60">
             {running ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Run queue now
           </button>
         </div>
@@ -156,12 +156,12 @@ const AdminProvisioning: React.FC = () => {
 
       {/* Readiness */}
       <Card className="mb-6">
-        <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between gap-4">
+        <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><ShieldCheck className="w-[18px] h-[18px]" /></div>
+            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><ShieldCheck className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Go-live readiness</Label>
-              <p className="text-sm font-black text-murzak-navy dark:text-white">
+              <p className="text-sm font-black text-murzak-ink">
                 {readiness ? (readiness.ready ? "Ready to go live" : "Not ready — see below") : "—"}
               </p>
             </div>
@@ -181,13 +181,13 @@ const AdminProvisioning: React.FC = () => {
             <div key={grp.title}>
               <Label>{grp.title}</Label>
               <ul className="mt-3 space-y-2.5">
-                {grp.items.length === 0 && <li className="text-[11px] font-bold text-slate-400">—</li>}
+                {grp.items.length === 0 && <li className="text-[11px] font-bold text-slate-500">—</li>}
                 {grp.items.map((c) => (
                   <li key={c.key} className="flex items-start gap-2.5">
                     <Dot ok={c.ok} />
                     <div className="min-w-0">
-                      <p className="text-[12px] font-bold text-murzak-navy dark:text-white leading-tight">{c.label}</p>
-                      {c.detail && <p className="text-[10px] font-semibold text-slate-400 leading-tight mt-0.5">{c.detail}</p>}
+                      <p className="text-[12px] font-bold text-murzak-ink leading-tight">{c.label}</p>
+                      {c.detail && <p className="text-[10px] font-semibold text-slate-500 leading-tight mt-0.5">{c.detail}</p>}
                     </div>
                   </li>
                 ))}
@@ -200,25 +200,25 @@ const AdminProvisioning: React.FC = () => {
       {/* Queue + Capacity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
-          <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Activity className="w-[18px] h-[18px]" /></div>
+          <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Activity className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Dispatcher</Label>
-              <p className="text-sm font-black text-murzak-navy dark:text-white">mode: {queue?.mode || "—"}</p>
+              <p className="text-sm font-black text-murzak-ink">mode: {queue?.mode || "—"}</p>
             </div>
           </div>
           <div className="p-6">
             {queue?.counts ? (
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {Object.entries(queue.counts).map(([k, v]) => (
-                  <div key={k} className="rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 p-3 text-center">
-                    <p className="text-lg font-black text-murzak-navy dark:text-white">{v}</p>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{k}</p>
+                  <div key={k} className="rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border p-3 text-center">
+                    <p className="text-lg font-black text-murzak-ink">{v}</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mt-0.5">{k}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-[11px] font-bold text-slate-400">
+              <p className="text-[11px] font-bold text-slate-500">
                 {queue?.mode === "poll" ? "Poll mode — no queue counters (jobs are read from the doctype each pass)." : "No queue metrics."}
               </p>
             )}
@@ -226,11 +226,11 @@ const AdminProvisioning: React.FC = () => {
         </Card>
 
         <Card>
-          <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan"><Server className="w-[18px] h-[18px]" /></div>
+          <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Capacity (RAM per box)</Label>
-              <p className="text-sm font-black text-murzak-navy dark:text-white">{capacity?.targets.length || 0} box(es)</p>
+              <p className="text-sm font-black text-murzak-ink">{capacity?.targets.length || 0} box(es)</p>
             </div>
           </div>
           <div className="p-6 space-y-4">
@@ -240,11 +240,11 @@ const AdminProvisioning: React.FC = () => {
               return (
                 <div key={t.id}>
                   <div className="flex items-center justify-between text-[11px] font-black mb-1.5">
-                    <span className="text-murzak-navy dark:text-white uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
-                    <span className="text-slate-400">{t.reservedRamMb} / {t.limitRamMb} MB</span>
+                    <span className="text-murzak-ink uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
+                    <span className="text-slate-500">{t.reservedRamMb} / {t.limitRamMb} MB</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/10 overflow-hidden">
-                    <div className={`h-full rounded-full ${hot ? "bg-orange-400" : "bg-murzak-cyan"}`} style={{ width: `${pct}%` }} />
+                  <div className="h-2.5 rounded-full bg-slate-100 dark:bg-black/5 overflow-hidden">
+                    <div className={`h-full rounded-full ${hot ? "bg-orange-400" : "bg-murzak-accent"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -267,14 +267,14 @@ const AdminProvisioning: React.FC = () => {
 
       {/* Jobs */}
       <Card>
-        <div className="p-6 border-b border-slate-100 dark:border-white/10">
+        <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <Label>Provisioning jobs</Label>
             <div className="flex items-center gap-1.5 flex-wrap">
               {JOB_STATUSES.map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} type="button"
                   className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition ${
-                    statusFilter === s ? "bg-murzak-cyan text-murzak-navy border-murzak-cyan" : "bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 hover:text-murzak-cyan"
+                    statusFilter === s ? "bg-murzak-accent text-murzak-ink border-murzak-accent" : "bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent"
                   }`}>
                   {s}
                 </button>
@@ -285,12 +285,12 @@ const AdminProvisioning: React.FC = () => {
         <div className="overflow-x-auto">
           {jobs.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">No jobs for this filter.</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No jobs for this filter.</p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-white/10">
+                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 dark:border-murzak-border">
                   <th className="p-4">Service</th>
                   <th className="p-4">Lane / Box</th>
                   <th className="p-4">Status</th>
@@ -303,14 +303,14 @@ const AdminProvisioning: React.FC = () => {
                 {jobs.map((j) => {
                   const canRetry = j.status === "failed" || j.status === "needs_human";
                   return (
-                    <tr key={j.name} className="border-b border-slate-50 dark:border-white/5 align-top">
+                    <tr key={j.name} className="border-b border-slate-50 dark:border-murzak-border/50 align-top">
                       <td className="p-4">
-                        <p className="text-[13px] font-black text-murzak-navy dark:text-white">{j.service_name || j.service_id}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
+                        <p className="text-[13px] font-black text-murzak-ink">{j.service_name || j.service_id}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-[11px] font-black text-murzak-navy dark:text-white">{j.lane || "—"}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{j.target || "box-1"}</p>
+                        <p className="text-[11px] font-black text-murzak-ink">{j.lane || "—"}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{j.target || "box-1"}</p>
                       </td>
                       <td className="p-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${jobStatusClasses(j.status)}`}>
@@ -318,20 +318,20 @@ const AdminProvisioning: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="text-[10px] font-bold text-slate-400">bk: {j.backup_status || "—"}</p>
-                        <p className="text-[10px] font-bold text-slate-400">edge: {j.edge_status || "—"}</p>
+                        <p className="text-[10px] font-bold text-slate-500">bk: {j.backup_status || "—"}</p>
+                        <p className="text-[10px] font-bold text-slate-500">edge: {j.edge_status || "—"}</p>
                       </td>
                       <td className="p-4 max-w-[260px]">
                         {j.error
                           ? <p className="text-[10px] font-semibold text-red-400 break-words">{j.error}</p>
                           : j.external_ref
                           ? <p className="text-[10px] font-semibold text-emerald-400 break-words">{j.external_ref}</p>
-                          : <span className="text-[10px] text-slate-400">—</span>}
+                          : <span className="text-[10px] text-slate-500">—</span>}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setConsoleJob(j)} type="button"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
                             <Terminal className="w-3.5 h-3.5" /> Console
                           </button>
                           {canRetry && (
@@ -341,11 +341,11 @@ const AdminProvisioning: React.FC = () => {
                                 setResolveRef("");
                                 setResolveAccess("");
                               }} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
                                 Resolve Manually
                               </button>
                               <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-[9px] font-black uppercase tracking-widest hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 transition disabled:opacity-60">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition disabled:opacity-60">
                                 {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
                               </button>
                             </>
@@ -362,26 +362,26 @@ const AdminProvisioning: React.FC = () => {
       </Card>
 
       {resolveModalJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-navy/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-murzak-navy w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-white/10 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
             <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">Job: {resolveModalJob}</p>
             
             <form onSubmit={onResolveSubmit} className="space-y-4">
               <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">External Ref (e.g. UUID, IP)</label>
                 <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent" />
               </div>
               <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Access Credentials (JSON)</label>
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Access Credentials (JSON)</label>
                 <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan font-mono text-[11px]" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-[11px]" />
               </div>
               
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-white/5 transition">Cancel</button>
-                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition disabled:opacity-50">
+                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-black/5 transition">Cancel</button>
+                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-accent text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition disabled:opacity-50">
                   {resolving ? "Resolving..." : "Mark Active"}
                 </button>
               </div>
@@ -391,9 +391,9 @@ const AdminProvisioning: React.FC = () => {
       )}
 
       {consoleJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-navy/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-sm">
           <div className="w-full max-w-3xl max-h-[85vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
+            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-murzak-border">
               <div className="flex items-center text-gray-300 text-sm min-w-0">
                 <Terminal className="w-4 h-4 mr-2 shrink-0" />
                 <span className="truncate">
@@ -403,7 +403,7 @@ const AdminProvisioning: React.FC = () => {
                   {consoleJob.status || "unknown"}
                 </span>
               </div>
-              <button className="text-gray-500 hover:text-white transition-colors p-1 shrink-0" onClick={() => setConsoleJob(null)}>
+              <button className="text-gray-500 hover:text-murzak-ink transition-colors p-1 shrink-0" onClick={() => setConsoleJob(null)}>
                 <X className="w-4 h-4" />
               </button>
             </div>

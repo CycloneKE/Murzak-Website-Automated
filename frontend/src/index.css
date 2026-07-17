@@ -1,83 +1,73 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* Distinctive display face for all headings; body stays Hanken Grotesk.
-     Applied globally so headlines pick it up without per-element classes. */
+  /* Set base font to Manrope. JetBrains Mono used via explicit class. */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Bricolage Grotesque', 'Hanken Grotesk', sans-serif;
+    font-family: 'Manrope', sans-serif;
   }
 }
 
-/* Universal site backdrop, painted on the body canvas so it sits behind ALL
-   transparent content without stacking-order issues. Layers (top → bottom):
-   tactical dot-grid · dark veil to mute the image · the image · solid base. */
-html { background-color: #050816; }
+html { background-color: #F8FAFB; }
 body {
-  background-color: #050816;
-  background-image:
-    radial-gradient(rgba(46, 166, 255, 0.06) 1.2px, transparent 1.2px),
-    linear-gradient(to bottom, rgba(5, 8, 22, 0.45), rgba(5, 8, 22, 0.62)),
-    url("/site-backdrop.webp");
-  background-size: 60px 60px, cover, cover;
-  background-position: 0 0, center, center;
-  background-repeat: repeat, no-repeat, no-repeat;
-  background-attachment: fixed, fixed, fixed;
+  /* Base background. The gradient effects will be applied in Layout wrappers */
+  background-color: #F8FAFB;
 }
 
 @layer utilities {
-  /* Brand gradient: violet -> electric blue, mirrors the M monogram. */
-  .bg-murzak-gradient {
-    background-image: linear-gradient(135deg, #7C3AED 0%, #4F46E5 45%, #2EA6FF 100%);
-  }
-  .bg-murzak-gradient-soft {
-    background-image: linear-gradient(135deg, rgba(124, 58, 237, 0.14) 0%, rgba(46, 166, 255, 0.14) 100%);
-  }
+  /* Brand gradient text */
   .text-murzak-gradient {
-    background-image: linear-gradient(135deg, #8B5CF6 0%, #2EA6FF 100%);
+    background-image: linear-gradient(to right, #882FFD, #3388F2);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
-  /* Gradient outline (use on a wrapper; inner element gets the solid bg). */
-  .ring-murzak-gradient {
-    background-image: linear-gradient(135deg, #7C3AED 0%, #2EA6FF 100%);
-  }
   
-  /* Glassmorphism Utilities */
+  /* Glassmorphism Utilities - Light Mode */
   .glass-panel {
-    background: rgba(15, 22, 51, 0.4);
+    background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(223, 228, 247, 0.8); /* Border color */
+    box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
+  }
+
+  .glass-light {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(223, 228, 247, 0.5);
+    box-shadow: 0 4px 16px -4px rgba(9, 12, 16, 0.03);
   }
   
-  .glass-card {
-    background: rgba(15, 22, 51, 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Interactive Glass Hover */
+  .glass-interactive {
     transition: all 0.3s ease;
   }
-  
-  .glass-card:hover {
-    border-color: rgba(46, 166, 255, 0.3);
-    box-shadow: 0 8px 32px -8px rgba(46, 166, 255, 0.15);
+  .glass-interactive:hover {
+    border-color: rgba(0, 189, 252, 0.5); /* Accent cyan */
+    box-shadow: 0 8px 32px -8px rgba(0, 189, 252, 0.15);
     transform: translateY(-2px);
   }
   
-  .glass-input {
-    background: rgba(5, 8, 22, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Immersive Overlay - Spatial Glass (Dark) */
+  .glass-dark {
+    background: rgba(24, 26, 30, 0.42);
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     color: white;
-    transition: all 0.2s ease;
   }
-  
-  .glass-input:focus {
-    border-color: #2EA6FF;
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(46, 166, 255, 0.2);
+
+  /* Pill Controls on Dark Glass */
+  .glass-pill {
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+  }
+  .glass-pill-inactive {
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 999px;
   }
 }
+

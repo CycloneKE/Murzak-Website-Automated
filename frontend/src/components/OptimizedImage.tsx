@@ -33,7 +33,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
 
   return (
     <div 
-      className={`relative overflow-hidden bg-slate-200 dark:bg-white/5 ${className}`}
+      className={`relative overflow-hidden bg-slate-200 dark:bg-black/5 ${className}`}
       style={{ aspectRatio }}
     >
       <img
@@ -47,7 +47,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       />
       
       {!isLoaded && (
-        <div className="absolute inset-0 bg-slate-200 dark:bg-white/5 animate-shimmer" 
+        <div className="absolute inset-0 bg-slate-200 dark:bg-black/5 animate-shimmer" 
              style={{ backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent)', backgroundSize: '200% 100%' }} />
       )}
     </div>

@@ -30,25 +30,25 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-white overflow-x-hidden">
+    <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-gradient opacity-20 animate-drift-slow -z-10" />
+        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">Murzak ERP</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Murzak ERP</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
             The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
               Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => setSalesOpen(true)}>
+            <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Book a Demo
             </Button>
           </div>
@@ -56,50 +56,50 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </section>
 
       {/* Modules Grid */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-3">Core Modules</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">Core Modules</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything connects automatically.</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {modules.map((m, i) => (
-            <div key={i} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 hover:border-murzak-cyan/40 transition-colors">
-              <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
+              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
                 {m.icon}
               </div>
-              <h3 className="text-lg font-black text-white mb-2">{m.title}</h3>
-              <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink mb-2">{m.title}</h3>
+              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{m.desc}</p>
             </div>
           ))}
         </div>
       </Section>
 
       {/* Deep Dive */}
-      <Section className="border-t border-white/5 bg-white/[0.02]">
+      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="order-2 lg:order-1 relative p-8 rounded-[2rem] bg-slate-900 border border-white/10 shadow-2xl overflow-hidden">
+          <div className="order-2 lg:order-1 relative p-8 rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl overflow-hidden">
             <div className="absolute top-0 right-0 p-4">
-              <ShieldCheck className="text-murzak-green" size={24} />
+              <ShieldCheck className="text-murzak-success" size={24} />
             </div>
             <div className="space-y-4">
               <div className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-2">Tax Settings</div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
                 <span className="font-bold">VAT (16%)</span>
-                <span className="text-murzak-cyan text-sm">Active</span>
+                <span className="text-murzak-accent text-sm">Active</span>
               </div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
                 <span className="font-bold">KRA eTIMS Integration</span>
-                <span className="text-murzak-cyan text-sm">Configured</span>
+                <span className="text-murzak-accent text-sm">Configured</span>
               </div>
-              <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl">
+              <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
                 <span className="font-bold">PAYE & NHIF Rates</span>
-                <span className="text-murzak-cyan text-sm">Updated 2024</span>
+                <span className="text-murzak-accent text-sm">Updated 2024</span>
               </div>
             </div>
           </div>
           <div className="order-1 lg:order-2">
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Built for Kenyan compliance.</h2>
-            <p className="text-slate-400 font-medium leading-relaxed mb-6">
+            <p className="text-slate-500 font-medium leading-relaxed mb-6">
               Forget clunky workarounds. Murzak ERP comes pre-configured with Kenyan tax laws, statutory deductions for payroll, and supports eTIMS API integrations out of the box.
             </p>
           </div>
@@ -107,42 +107,42 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Pricing Tiers */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto text-center mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">Transparent Pricing</h2>
-           <p className="text-slate-400 font-medium">Choose the tier that fits your team size. We handle the hosting, backups, and security.</p>
+           <p className="text-slate-500 font-medium">Choose the tier that fits your team size. We handle the hosting, backups, and security.</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-           <div className="p-8 rounded-3xl border border-white/10 bg-murzak-navy/80">
+           <div className="p-8 rounded-3xl border border-murzak-border bg-white/60">
               <h3 className="text-xl font-black mb-2">Light (1-3 Users)</h3>
               <div className="text-3xl font-black text-murzak-gradient mb-6">{formatKes(serviceMonthlyKes('biz-erp-light'))}<span className="text-sm text-slate-500">/mo</span></div>
-              <p className="text-sm text-slate-400 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
+              <p className="text-sm text-slate-500 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
               <Button className="w-full" variant="ghost" onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>Select Light</Button>
            </div>
-           <div className="p-8 rounded-3xl border border-murzak-cyan/40 bg-murzak-cyan/[0.05]">
+           <div className="p-8 rounded-3xl border border-murzak-accent/40 bg-murzak-accent/[0.05]">
               <h3 className="text-xl font-black mb-2">Configured (5-20 Users)</h3>
-              <div className="text-3xl font-black text-white mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500">/mo</span></div>
-              <p className="text-sm text-slate-400 mb-6">Data migration, training, and tailored workflows included.</p>
+              <div className="text-3xl font-black text-murzak-ink mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500">/mo</span></div>
+              <p className="text-sm text-slate-500 mb-6">Data migration, training, and tailored workflows included.</p>
               <Button className="w-full" onClick={() => onNavigate('/pricing?configure=biz-erp-configured')}>Select Configured</Button>
            </div>
         </div>
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-white/5">
+      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-murzak-gradient opacity-[0.16]" />
+        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white mb-6">Upgrade your operations today.</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink mb-6">Upgrade your operations today.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="onDark" onClick={() => setSalesOpen(true)}>
+            <Button variant="primary" onClick={() => setSalesOpen(true)}>
               Get a Quote <ArrowRight size={17} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => onNavigate('pricing')}>
+            <Button variant="outline" onClick={() => onNavigate('pricing')}>
               View Plans
             </Button>
           </div>

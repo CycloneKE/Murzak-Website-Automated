@@ -29,25 +29,25 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-white overflow-x-hidden">
+    <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-gradient opacity-20 animate-drift-slow -z-10" />
+        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">Custom Software Development</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Custom Software Development</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
             We design and build the exact system your business needs. And unlike typical agencies, we don't just hand over the code and disappear — we host it and keep it running.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => setSalesOpen(true)}>
               Start a Build — Get a Quote <ArrowRight size={18} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => onNavigate('products')}>
+            <Button variant="outline" onClick={() => onNavigate('products')}>
               View Ready-Made Products
             </Button>
           </div>
@@ -55,78 +55,78 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
       </section>
 
       {/* The Process */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-cyan mb-3">How we work</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">How we work</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">One team. No ghosting.</h2>
         </div>
         
         <div className="grid md:grid-cols-4 gap-6">
-           <div className="p-6 rounded-2xl bg-white/5 border border-white/10 relative">
+           <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
               <div className="absolute top-4 right-4 text-slate-600 font-black text-4xl opacity-30">1</div>
-              <h3 className="font-bold text-white mb-2 text-lg">We Listen</h3>
-              <p className="text-sm text-slate-400">We map out your current bottlenecks, spreadsheets, and manual processes.</p>
+              <h3 className="font-bold text-murzak-ink mb-2 text-lg">We Listen</h3>
+              <p className="text-sm text-slate-500">We map out your current bottlenecks, spreadsheets, and manual processes.</p>
            </div>
-           <div className="p-6 rounded-2xl bg-white/5 border border-white/10 relative">
+           <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
               <div className="absolute top-4 right-4 text-slate-600 font-black text-4xl opacity-30">2</div>
-              <h3 className="font-bold text-white mb-2 text-lg">Design & Quote</h3>
-              <p className="text-sm text-slate-400">You get a clickable wireframe and a fixed-price quote before writing any code.</p>
+              <h3 className="font-bold text-murzak-ink mb-2 text-lg">Design & Quote</h3>
+              <p className="text-sm text-slate-500">You get a clickable wireframe and a fixed-price quote before writing any code.</p>
            </div>
-           <div className="p-6 rounded-2xl bg-murzak-cyan/10 border border-murzak-cyan/30 relative">
-              <div className="absolute top-4 right-4 text-murzak-cyan/20 font-black text-4xl">3</div>
-              <h3 className="font-bold text-white mb-2 text-lg">We Build</h3>
-              <p className="text-sm text-slate-400">Our Nairobi-based engineers build your system with weekly demo updates.</p>
+           <div className="p-6 rounded-2xl bg-murzak-accent/10 border border-murzak-accent/30 relative">
+              <div className="absolute top-4 right-4 text-murzak-accent/20 font-black text-4xl">3</div>
+              <h3 className="font-bold text-murzak-ink mb-2 text-lg">We Build</h3>
+              <p className="text-sm text-slate-500">Our Nairobi-based engineers build your system with weekly demo updates.</p>
            </div>
-           <div className="p-6 rounded-2xl bg-murzak-navy/80 border border-white/10 relative">
+           <div className="p-6 rounded-2xl bg-white/60 border border-murzak-border relative">
               <div className="absolute top-4 right-4 text-slate-600 font-black text-4xl opacity-30">4</div>
-              <h3 className="font-bold text-white mb-2 text-lg">We Run It</h3>
-              <p className="text-sm text-slate-400">We deploy it to Murzak Cloud, handle the backups, and provide ongoing support.</p>
+              <h3 className="font-bold text-murzak-ink mb-2 text-lg">We Run It</h3>
+              <p className="text-sm text-slate-500">We deploy it to Murzak Cloud, handle the backups, and provide ongoing support.</p>
            </div>
         </div>
       </Section>
 
       {/* What we build */}
-      <Section className="border-t border-white/5 bg-white/[0.02]">
+      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="text-center max-w-2xl mx-auto mb-12">
-           <h2 className="text-3xl font-[900] tracking-tight text-white mb-4">Examples of what we build</h2>
-           <p className="text-slate-400 font-medium">If your team is doing it manually on WhatsApp or Excel, we can automate it.</p>
+           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-4">Examples of what we build</h2>
+           <p className="text-slate-500 font-medium">If your team is doing it manually on WhatsApp or Excel, we can automate it.</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {whatWeBuild.map((w, i) => (
-            <div key={i} className="rounded-3xl border border-white/10 bg-slate-900/50 p-7">
-              <div className="text-murzak-cyan mb-4">
+            <div key={i} className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
+              <div className="text-murzak-accent mb-4">
                 {w.icon}
               </div>
-              <h3 className="text-md font-black text-white mb-2">{w.title}</h3>
-              <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{w.desc}</p>
+              <h3 className="text-md font-black text-murzak-ink mb-2">{w.title}</h3>
+              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{w.desc}</p>
             </div>
           ))}
         </div>
       </Section>
 
       {/* Deep Dive: Code viz */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
            <div>
               <h2 className="text-3xl font-[900] tracking-tight mb-5">Built on modern, robust technology.</h2>
-              <p className="text-slate-400 font-medium leading-relaxed mb-6">
+              <p className="text-slate-500 font-medium leading-relaxed mb-6">
                  We don't use fragile drag-and-drop builders. We write clean, scalable code using industry-standard frameworks ensuring your application is fast, secure, and maintainable for years to come.
               </p>
               <div className="flex flex-wrap gap-2">
                  {['React', 'Node.js', 'Python', 'PostgreSQL', 'Flutter', 'Tailwind'].map(tech => (
-                   <span key={tech} className="px-3 py-1 rounded-full bg-white/10 text-xs font-mono text-slate-300">
+                   <span key={tech} className="px-3 py-1 rounded-full bg-black/5 text-xs font-mono text-slate-600">
                      {tech}
                    </span>
                  ))}
               </div>
            </div>
-           <div className="rounded-[2rem] bg-[#0d1117] border border-white/10 shadow-2xl p-6 font-mono text-[11px] sm:text-xs overflow-hidden">
+           <div className="rounded-[2rem] bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-[11px] sm:text-xs overflow-hidden">
               <div className="flex gap-2 mb-4">
                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
                  <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
               </div>
-              <div className="text-slate-400">
+              <div className="text-slate-500">
                 <span className="text-purple-400">export</span> <span className="text-purple-400">const</span> <span className="text-blue-400">processMpesaPayment</span> = <span className="text-purple-400">async</span> (req: Request) =&gt; {'{'}
                 <br />
                 &nbsp;&nbsp;<span className="text-purple-400">const</span> {'{'} phoneNumber, amount, reference {'}'} = req.body;
@@ -167,7 +167,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-white/5">
+      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
 

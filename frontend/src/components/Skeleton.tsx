@@ -6,11 +6,11 @@ interface SkeletonProps {
 }
 
 export const Skeleton: React.FC<SkeletonProps> = ({ className = "" }) => (
-  <div className={`animate-pulse bg-slate-200 dark:bg-white/5 rounded-lg ${className}`} />
+  <div className={`animate-pulse bg-slate-200 dark:bg-black/5 rounded-lg ${className}`} />
 );
 
 export const SkeletonHero: React.FC = () => (
-  <div className="relative min-h-[80vh] w-full flex items-center pt-24 pb-32 overflow-hidden bg-slate-100 dark:bg-murzak-deep/50">
+  <div className="relative min-h-[80vh] w-full flex items-center pt-24 pb-32 overflow-hidden bg-slate-100">
     <div className="max-w-7xl mx-auto px-6 lg:px-12 w-full space-y-10">
       <Skeleton className="h-10 w-64 rounded-full" />
       <div className="space-y-4">
@@ -27,7 +27,7 @@ export const SkeletonHero: React.FC = () => (
 );
 
 export const SkeletonCard: React.FC = () => (
-  <div className="bg-white dark:bg-murzak-surface rounded-[3rem] overflow-hidden border border-slate-100 dark:border-white/5 h-full">
+  <div className="bg-white dark:bg-murzak-surface rounded-[3rem] overflow-hidden border border-slate-100 dark:border-murzak-border/50 h-full">
     <Skeleton className="h-48 lg:h-64 rounded-none" />
     <div className="p-8 lg:p-12 space-y-6">
       <Skeleton className="h-10 w-10 rounded-xl" />

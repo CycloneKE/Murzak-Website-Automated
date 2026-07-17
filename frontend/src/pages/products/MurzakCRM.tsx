@@ -27,25 +27,25 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-white overflow-x-hidden">
+    <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-gradient opacity-20 animate-drift-slow -z-10" />
+        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">Murzak CRM & Helpdesk</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Murzak CRM & Helpdesk</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Every lead tracked. <span className="text-murzak-gradient">Every ticket answered.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
             Stop losing leads in personal WhatsApp threads. Centralize your sales and customer support in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => onNavigate('/pricing?configure=biz-crm-helpdesk')}>
               Start from {formatKes(serviceMonthlyKes('biz-crm-helpdesk'))}/mo <ArrowRight size={18} />
             </Button>
-            <Button variant="outlineOnDark" onClick={() => setSalesOpen(true)}>
+            <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Book a Demo
             </Button>
           </div>
@@ -53,38 +53,38 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       </section>
 
       {/* Feature Grid */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {features.map((f, i) => (
-            <div key={i} className="rounded-3xl border border-white/10 bg-murzak-navy/80 backdrop-blur-md p-7 hover:border-murzak-cyan/40 transition-colors">
-              <div className="inline-flex p-3 rounded-2xl bg-murzak-cyan/10 text-murzak-cyan mb-5">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
+              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
                 {f.icon}
               </div>
-              <h3 className="text-lg font-black text-white mb-2">{f.title}</h3>
-              <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{f.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink mb-2">{f.title}</h3>
+              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
       </Section>
 
       {/* Deep Dive */}
-      <Section className="border-t border-white/5 bg-white/[0.02]">
+      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Visual sales pipelines.</h2>
-            <p className="text-slate-400 font-medium leading-relaxed mb-6">
+            <p className="text-slate-500 font-medium leading-relaxed mb-6">
               Know exactly where every deal stands. Customize your pipeline stages to match your actual sales process, and drag deals across the board as they progress.
             </p>
             <ul className="space-y-3">
                {['Automated follow-up reminders', 'Revenue forecasting', 'Deal win/loss analysis'].map((item, idx) => (
-                 <li key={idx} className="flex items-center gap-3 text-sm font-bold text-white">
-                   <CheckCircle size={16} className="text-murzak-cyan" /> {item}
+                 <li key={idx} className="flex items-center gap-3 text-sm font-bold text-murzak-ink">
+                   <CheckCircle size={16} className="text-murzak-accent" /> {item}
                  </li>
                ))}
             </ul>
           </div>
           
-          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-white/10 group">
+          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
             <img 
               src="/images/crm-kanban.png" 
               alt="Murzak CRM Kanban board showing sales pipeline stages" 
@@ -97,17 +97,17 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-white/5">
+      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-murzak-gradient opacity-[0.16]" />
+        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-white mb-6">Never miss a follow-up.</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink mb-6">Never miss a follow-up.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="onDark" onClick={() => onNavigate('/pricing?configure=biz-crm-helpdesk')}>
+            <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-crm-helpdesk')}>
               Configure CRM <ArrowRight size={17} />
             </Button>
           </div>

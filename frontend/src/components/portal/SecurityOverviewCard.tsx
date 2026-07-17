@@ -8,8 +8,8 @@ import { ShieldCheck, Server, Lock } from 'lucide-react';
 // of the "Today, 02:00" / random-number placeholders this used to render.
 const SecurityOverviewCard: React.FC = () => {
   return (
-    <div className="glass-panel p-8 rounded-[3rem] border border-white/10 h-full relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-murzak-cyan/5 rounded-bl-full blur-3xl transition-all duration-1000 group-hover:bg-murzak-cyan/10"></div>
+    <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-murzak-accent/5 rounded-bl-full blur-3xl transition-all duration-1000 group-hover:bg-murzak-accent/10"></div>
 
       <div className="flex items-center justify-between mb-8 relative z-10">
         <div className="flex items-center gap-3">
@@ -17,41 +17,41 @@ const SecurityOverviewCard: React.FC = () => {
             <ShieldCheck size={20} />
           </div>
           <div>
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-white">Security & Integrity</h3>
-            <p className="text-[10px] font-medium text-slate-400 mt-1">Automated protection active</p>
+            <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Security & Integrity</h3>
+            <p className="text-[10px] font-medium text-slate-500 mt-1">Automated protection active</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-6 relative z-10">
-        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-black/5 border border-murzak-border/50 rounded-2xl">
           <div className="flex items-center gap-3">
-            <Server size={16} className="text-murzak-cyan" />
+            <Server size={16} className="text-murzak-accent" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Uptime SLA</p>
-              <p className="text-xs text-slate-400">Contractual commitment</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Uptime SLA</p>
+              <p className="text-xs text-slate-500">Contractual commitment</p>
             </div>
           </div>
-          <span className="text-lg font-black text-white">99.9%</span>
+          <span className="text-lg font-black text-murzak-ink">99.9%</span>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-black/5 border border-murzak-border/50 rounded-2xl">
           <div className="flex items-center gap-3">
             <ShieldCheck size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Last Backup</p>
-              <p className="text-xs text-slate-400">Verified & encrypted, when run</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Last Backup</p>
+              <p className="text-xs text-slate-500">Verified & encrypted, when run</p>
             </div>
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-black/5 border border-murzak-border/50 rounded-2xl">
           <div className="flex items-center gap-3">
             <Lock size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Firewall Blocks</p>
-              <p className="text-xs text-slate-400">Past 7 days</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Firewall Blocks</p>
+              <p className="text-xs text-slate-500">Past 7 days</p>
             </div>
           </div>
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>

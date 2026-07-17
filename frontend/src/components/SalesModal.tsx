@@ -112,36 +112,36 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
 
   if (!isOpen) return null;
 
-  const inputClasses = (name: string) => `w-full bg-slate-50 dark:bg-white/5 border ${errors[name] ? "border-red-500" : "border-slate-200 dark:border-white/10"} rounded-xl px-11 sm:px-12
-    py-3.5 sm:py-4 text-sm font-bold text-murzak-navy dark:text-white placeholder:text-slate-400
-    focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition-all
+  const inputClasses = (name: string) => `w-full bg-slate-50 dark:bg-black/5 border ${errors[name] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"} rounded-xl px-11 sm:px-12
+    py-3.5 sm:py-4 text-sm font-bold text-murzak-ink placeholder:text-slate-500
+    focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all
   `;
 
-  const labelClasses = "block text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1";
+  const labelClasses = "block text-[9px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-3 sm:p-6 lg:p-8">
       <div className="absolute inset-0 bg-black/20 dark:bg-black/35 backdrop-blur-sm sm:backdrop-blur-md"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-4xl bg-white dark:bg-murzak-navy rounded-[1.75rem] sm:rounded-[3rem] shadow-xl sm:shadow-3xl overflow-hidden
-                       border border-slate-100 dark:border-white/5 flex flex-col md:flex-row transition-all animate-fade-in max-h-[92vh] sm:max-h-[88vh]">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-murzak-ink rounded-[1.75rem] sm:rounded-[3rem] shadow-xl sm:shadow-3xl overflow-hidden
+                       border border-slate-100 dark:border-murzak-border/50 flex flex-col md:flex-row transition-all animate-fade-in max-h-[92vh] sm:max-h-[88vh]">
         {/* Left Side: Brand Context */}
-        <div className="w-full md:w-2/5 bg-murzak-navy p-6 sm:p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden text-white">
+        <div className="w-full md:w-2/5 bg-murzak-ink p-6 sm:p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden text-white">
            <div className="absolute -top-10 -right-10 opacity-10 rotate-12">
              <Terminal className="w-40 h-40 sm:w-56 sm:h-56 lg:w-[300px] lg:h-[300px]" /></div>
            <div className="relative z-10">
-              <h2 className="text-3xl lg:text-5xl font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-cyan">With Us.</span></h2>
-              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+              <h2 className="text-3xl lg:text-5xl font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-accent">With Us.</span></h2>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                 Nairobi software &amp; cloud team <br /> Real people, usually replying same day
               </p>
            </div>
            <div className="relative z-10 mt-6 md:mt-0 hidden sm:block">
              <div className="space-y-4">
-                <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-cyan">
+                <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-accent">
                    <CheckCircle2 size={16} /> Hosted &amp; supported in Kenya
                 </div>
-                <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-cyan">
+                <div className="flex items-center gap-3 text-xs font-black uppercase tracking-widest text-murzak-accent">
                    <CheckCircle2 size={16} /> Billed in KES, M-Pesa ready
                 </div>
              </div>
@@ -155,11 +155,11 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
                 <CheckCircle2 size={40} />
               </div>
-              <h3 className="text-3xl font-black text-murzak-navy dark:text-white tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
-              <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
-                Your reference is <span className="text-murzak-cyan font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
+              <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
+              <p className="text-sm font-bold text-slate-500 dark:text-slate-500 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
+                Your reference is <span className="text-murzak-accent font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
               </p>
-              <button onClick={onClose} className="bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-10 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">Done</button>
+              <button onClick={onClose} className="bg-murzak-accent text-murzak-ink px-10 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">Done</button>
             </div>
           ) : mode === 'select' ? (
             <div className="space-y-8 animate-fade-in">
@@ -168,7 +168,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                 <button
                   onClick={onClose}
                   aria-label="Close"
-                  className="text-slate-400 hover:text-murzak-cyan transition-colors"
+                  className="text-slate-500 hover:text-murzak-accent transition-colors"
                 >
                   <X className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
@@ -177,36 +177,36 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <button 
                   onClick={() => setMode('demo')}
-                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-cyan transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
+                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
                 >
-                  <div className="w-14 h-14 bg-murzak-cyan/10 text-murzak-cyan rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Package size={28} />
                   </div>
-                  <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">See a Demo</h4>
+                  <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">See a Demo</h4>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
                 <button 
                   onClick={() => setMode('quote')}
-                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-cyan transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
+                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
                 >
-                  <div className="w-14 h-14 bg-murzak-cyan/10 text-murzak-cyan rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Briefcase size={28} />
                   </div>
-                  <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tighter mb-2 uppercase">Get a Quote</h4>
+                  <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">Get a Quote</h4>
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
                 </button>
                 
               </div>
-              <p className="text-center text-[9px] font-black uppercase tracking-widest text-slate-400 mt-8">Nairobi-based · we usually reply the same business day</p>
+              <p className="text-center text-[9px] font-black uppercase tracking-widest text-slate-500 mt-8">Nairobi-based · we usually reply the same business day</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between mb-8">
-                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-400 hover:text-murzak-cyan transition-colors">
+                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 hover:text-murzak-accent transition-colors">
                   <ChevronLeft size={16} /> Back to Selection
                 </button>
-                <h3 className="text-xs font-black text-murzak-cyan uppercase tracking-widest">
+                <h3 className="text-xs font-black text-murzak-accent uppercase tracking-widest">
                   {mode === 'demo' ? 'Demo Details' : 'Project Scope'}
                 </h3>
               </div>
@@ -215,7 +215,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                  <div className="space-y-1">
                     <label className={labelClasses}>Full Name</label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="text" placeholder="e.g. Samuel Okoth" className={inputClasses('name')} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
                     {errors.name && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.name}</p>}
@@ -223,7 +223,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                  <div className="space-y-1">
                     <label className={labelClasses}>Work Email</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="email" placeholder="sam@company.co.ke" className={inputClasses('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                     </div>
                     {errors.email && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.email}</p>}
@@ -233,7 +233,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="space-y-1">
                  <label className={labelClasses}>Company Name</label>
                  <div className="relative">
-                    <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                     <input type="text" placeholder="Enterprise or Startup Name" className={inputClasses('company')} value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} />
                  </div>
               </div>
@@ -246,8 +246,8 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                         <button key={item} type="button" onClick={() => setFormData({...formData, interest: item})} 
                         className={`p-3 sm:p-4 rounded-xl border text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center transition-all ${
                           formData.interest === item
-                          ? 'bg-murzak-cyan text-murzak-navy border-murzak-cyan shadow-lg'
-                          : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:border-murzak-cyan'
+                          ? 'bg-murzak-accent text-murzak-ink border-murzak-accent shadow-lg'
+                          : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:border-murzak-accent'
                         }`}>
                           {item}
                         </button>
@@ -268,8 +268,8 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                          <button key={b} type="button" onClick={() => setFormData({...formData, budget: b})} 
                          className={`p-3 sm:p-4 rounded-xl border text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center transition-all
                           ${formData.budget === b
-                           ? 'bg-murzak-cyan text-murzak-navy border-murzak-cyan shadow-lg'
-                           : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 hover:border-murzak-cyan'
+                           ? 'bg-murzak-accent text-murzak-ink border-murzak-accent shadow-lg'
+                           : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:border-murzak-accent'
                          }`}>
                            {b}
                          </button>
@@ -285,7 +285,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                   {errors.submit}
                 </div>
               )}
-              <button type="submit" disabled={isSubmitting} className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black py-4 sm:py-5 rounded-xl sm:rounded-2xl hover:scale-[1.01] sm:hover:scale-[1.02] transition-all text-[12px] sm:text-sm uppercase tracking-widest shadow-xl flex items-center justify-center group disabled:opacity-70 mt-4">
+              <button type="submit" disabled={isSubmitting} className="w-full bg-murzak-accent text-murzak-ink font-black py-4 sm:py-5 rounded-xl sm:rounded-2xl hover:scale-[1.01] sm:hover:scale-[1.02] transition-all text-[12px] sm:text-sm uppercase tracking-widest shadow-xl flex items-center justify-center group disabled:opacity-70 mt-4">
                 {isSubmitting ? <RefreshCw className="animate-spin mr-3" /> : <>Send Request <Send size={18} className="ml-3 group-hover:translate-x-2 transition-transform" /></>}
               </button>
             </form>

@@ -26,35 +26,35 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-white overflow-x-hidden">
+    <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 left-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-cyan/20 animate-drift-slow -z-10" />
+        <div className="pointer-events-none absolute -top-40 left-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-accent/20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/10 border border-murzak-cyan/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan">All Products</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">All Products</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Software built for <span className="text-murzak-gradient">how Kenya works.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
             From ready-made business systems to custom operational tools, we build and run the technology that powers growing companies.
           </p>
         </div>
       </section>
 
       {/* Ready-Made Business Systems */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">Ready-Made Systems</h2>
-           <p className="text-slate-400 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in 24 hours.</p>
+           <p className="text-slate-500 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in 24 hours.</p>
         </div>
         <div className="grid sm:grid-cols-3 gap-6">
            {businessSystems.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-white/10 bg-murzak-navy/80 hover:border-murzak-cyan/40 transition-all flex flex-col h-full">
-                <h3 className="text-xl font-black mb-3 text-white">{item.title}</h3>
-                <p className="text-sm text-slate-400 mb-6 flex-grow">{item.desc}</p>
-                <div className="text-murzak-cyan text-sm font-bold flex items-center justify-between">
+             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
+                <h3 className="text-xl font-black mb-3 text-murzak-ink">{item.title}</h3>
+                <p className="text-sm text-slate-500 mb-6 flex-grow">{item.desc}</p>
+                <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">
                   <span className="text-slate-500 text-xs font-mono uppercase">From {formatKes(serviceMonthlyKes(item.priceId))}/mo</span>
                   <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">View <ArrowRight size={14} /></span>
                 </div>
@@ -64,28 +64,28 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Cloud & Custom */}
-      <Section className="border-t border-white/5 bg-white/[0.02]">
+      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid md:grid-cols-2 gap-6">
-           <div className="p-10 rounded-[2rem] border border-white/10 bg-slate-900 overflow-hidden relative group">
-              <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-cyan group-hover:scale-110 transition-transform duration-700">
+           <div className="p-10 rounded-[2rem] border border-murzak-border bg-slate-900 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-accent group-hover:scale-110 transition-transform duration-700">
                 <Terminal size={120} strokeWidth={1} />
               </div>
               <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-[10px] font-black uppercase tracking-widest mb-6">Custom Build</div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 text-murzak-ink text-[10px] font-black uppercase tracking-widest mb-6">Custom Build</div>
                 <h3 className="text-3xl font-black mb-4">Custom Software Development</h3>
-                <p className="text-slate-400 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
+                <p className="text-slate-500 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
                 <Button variant="ghost" onClick={() => onNavigate('custom-software')}>Learn more</Button>
               </div>
            </div>
            
-           <div className="p-10 rounded-[2rem] border border-murzak-cyan/30 bg-murzak-cyan/5 overflow-hidden relative group">
-              <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-cyan group-hover:scale-110 transition-transform duration-700">
+           <div className="p-10 rounded-[2rem] border border-murzak-accent/30 bg-murzak-accent/5 overflow-hidden relative group">
+              <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-accent group-hover:scale-110 transition-transform duration-700">
                 <Cloud size={120} strokeWidth={1} />
               </div>
               <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-cyan/20 text-murzak-cyan text-[10px] font-black uppercase tracking-widest mb-6">Infrastructure</div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-murzak-accent text-[10px] font-black uppercase tracking-widest mb-6">Infrastructure</div>
                 <h3 className="text-3xl font-black mb-4">Murzak Cloud</h3>
-                <p className="text-slate-400 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
+                <p className="text-slate-500 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
                 <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>
               </div>
            </div>
@@ -93,15 +93,15 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Industries */}
-      <Section className="border-t border-white/5">
+      <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">Built for your industry</h2>
-           <p className="text-slate-400 font-medium">See how our stack solves specific problems for your sector.</p>
+           <p className="text-slate-500 font-medium">See how our stack solves specific problems for your sector.</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {industries.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-6 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all text-center">
-                <div className="text-slate-400 group-hover:text-murzak-cyan transition-colors mb-4 flex justify-center">{item.icon}</div>
+             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-6 rounded-2xl border border-murzak-border bg-black/5 hover:bg-black/5 transition-all text-center">
+                <div className="text-slate-500 group-hover:text-murzak-accent transition-colors mb-4 flex justify-center">{item.icon}</div>
                 <h4 className="font-bold text-sm">{item.title}</h4>
              </div>
            ))}
@@ -109,11 +109,11 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Final CTA */}
-      <section className="relative py-24 overflow-hidden border-t border-white/5">
-        <div className="absolute inset-0 -z-10 bg-murzak-gradient opacity-[0.16]" />
+      <section className="relative py-24 overflow-hidden border-t border-murzak-border/50">
+        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-white mb-6">Ready to see prices?</h2>
-          <Button variant="onDark" onClick={() => onNavigate('pricing')}>
+          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-6">Ready to see prices?</h2>
+          <Button variant="primary" onClick={() => onNavigate('pricing')}>
             Build your plan <ArrowRight size={17} />
           </Button>
         </div>

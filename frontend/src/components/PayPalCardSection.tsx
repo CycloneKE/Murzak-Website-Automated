@@ -64,7 +64,7 @@ const SubmitCardButton: React.FC<{
       type="button"
       onClick={handleClick}
       disabled={submitting}
-      className="w-full bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
+      className="w-full bg-murzak-accent text-murzak-ink px-12 py-6 rounded-2xl font-black text-[12px] uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-transform disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100"
     >
       {submitting ? "Processing…" : "Pay by Card"}
     </button>
@@ -161,9 +161,9 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
         style={fieldStyle}
       >
         <div className="space-y-8 animate-fade-in">
-          <div className="flex items-center gap-4 p-6 bg-murzak-cyan/5 border border-murzak-cyan/20 rounded-3xl">
-            <ShieldCheck size={20} className="text-murzak-cyan" />
-            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-relaxed">
+          <div className="flex items-center gap-4 p-6 bg-murzak-accent/5 border border-murzak-accent/20 rounded-3xl">
+            <ShieldCheck size={20} className="text-murzak-accent" />
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest leading-relaxed">
               Secure card payment processed by PayPal
             </p>
           </div>
@@ -172,7 +172,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
             <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
               Invoice amount
             </div>
-            <div className="mt-2 text-xl font-black text-murzak-navy dark:text-white">
+            <div className="mt-2 text-xl font-black text-murzak-ink">
               KES {Number(amountKes || 0).toLocaleString()}
             </div>
             <div className="mt-1 text-[11px] font-bold text-slate-500">
@@ -195,7 +195,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
                 Card Number
               </label>
               <div className="relative w-full glass-input rounded-2xl px-16 py-5">
-                <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <CreditCard className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                 <PayPalNumberField />
               </div>
             </div>

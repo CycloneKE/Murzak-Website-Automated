@@ -95,7 +95,7 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
       <div className="w-full max-w-5xl bg-[#0a0a0a] border border-white/20 rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden font-mono flex flex-col" style={{ height: isMinimized ? '400px' : '400px' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-white/10 cursor-pointer select-none" onClick={() => setIsMinimized(!isMinimized)}>
+        <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-murzak-border cursor-pointer select-none" onClick={() => setIsMinimized(!isMinimized)}>
           <div className="flex items-center text-gray-300 text-sm">
             <Terminal className="w-4 h-4 mr-2" />
             <span>provisioning activity: {activeService?.name || activeService?.category}</span>
@@ -104,14 +104,14 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
               </span>
             ) : (
-              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-white/10 text-gray-300">Recorded</span>
+              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-black/5 text-gray-300">Recorded</span>
             )}
           </div>
           <div className="flex items-center space-x-2 text-gray-500">
-            <button className="hover:text-white transition-colors p-1" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh">
+            <button className="hover:text-murzak-ink transition-colors p-1" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button className="hover:text-white transition-colors p-1" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+            <button className="hover:text-murzak-ink transition-colors p-1" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
               {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
             </button>
             <button className="hover:text-red-400 transition-colors p-1" onClick={(e) => { e.stopPropagation(); onClose(); }}>

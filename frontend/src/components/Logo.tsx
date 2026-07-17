@@ -13,8 +13,8 @@ const Logo: React.FC<LogoProps> = ({ className = "", variant = 'full', theme, ma
   // Wordmark ("MURZAK") follows the surface: dark on light, white on dark.
   const wordmarkColor =
     theme === 'dark' ? 'text-white'
-    : theme === 'light' ? 'text-murzak-navy'
-    : 'text-murzak-navy dark:text-white';
+    : theme === 'light' ? 'text-murzak-ink'
+    : 'text-murzak-ink';
 
   const secondary = variant === 'cloud-only' ? 'Cloud' : 'Technologies';
 

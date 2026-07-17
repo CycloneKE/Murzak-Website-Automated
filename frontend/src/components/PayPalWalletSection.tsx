@@ -59,7 +59,7 @@ const PayPalWalletSection: React.FC<PayPalWalletSectionProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col items-center justify-center py-10 bg-slate-50 dark:bg-white/5 rounded-[3rem] border border-dashed border-slate-200 dark:border-white/10 text-center">
+      <div className="flex flex-col items-center justify-center py-10 bg-slate-50 dark:bg-black/5 rounded-[3rem] border border-dashed border-slate-200 dark:border-murzak-border text-center">
         <Wallet size={48} className="text-blue-500 mb-4 opacity-50" />
         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
           Complete payment using your PayPal account

@@ -29,19 +29,19 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
   };
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20 p-4">
-      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2.5">
+    <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/20 p-4">
+      <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2.5">
         Find your domain
       </div>
 
       <form onSubmit={run} className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="yourbusiness"
-            className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-navy dark:text-white focus:outline-none focus:ring-2 focus:ring-murzak-cyan"
+            className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent"
           />
         </div>
         <button
@@ -49,8 +49,8 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
           disabled={loading || !normalizeLabel(query)}
           className={`shrink-0 rounded-xl px-4 py-2.5 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
             loading || !normalizeLabel(query)
-              ? "bg-slate-100 dark:bg-white/10 text-slate-400 cursor-not-allowed"
-              : "bg-murzak-cyan text-murzak-navy hover:scale-[1.02]"
+              ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
+              : "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
           }`}
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Search"}
@@ -66,17 +66,17 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                 key={r.domain}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 ${
                   isChosen
-                    ? "border-murzak-cyan bg-murzak-cyan/10"
-                    : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/5"
+                    ? "border-murzak-accent bg-murzak-accent/10"
+                    : "border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5"
                 }`}
               >
                 <div className="min-w-0 flex items-center gap-2">
                   {r.available ? (
                     <Check className="w-4 h-4 text-green-500 shrink-0" />
                   ) : (
-                    <CircleSlash className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
+                    <CircleSlash className="w-4 h-4 text-slate-600 dark:text-slate-600 shrink-0" />
                   )}
-                  <span className={`text-sm font-black truncate ${r.available ? "text-murzak-navy dark:text-white" : "text-slate-400 line-through"}`}>
+                  <span className={`text-sm font-black truncate ${r.available ? "text-murzak-ink" : "text-slate-500 line-through"}`}>
                     {r.domain}
                   </span>
                 </div>
@@ -84,7 +84,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                 <div className="shrink-0 flex items-center gap-3">
                   {r.available ? (
                     <>
-                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-300">
+                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-600">
                         {formatKes(r.priceKes)}/yr
                       </span>
                       <button
@@ -92,15 +92,15 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                         onClick={() => onSelect(r.domain, r.priceKes)}
                         className={`rounded-lg px-3 py-1.5 font-black text-[9px] uppercase tracking-widest transition-all ${
                           isChosen
-                            ? "bg-murzak-cyan text-murzak-navy"
-                            : "border border-murzak-cyan text-murzak-cyan hover:bg-murzak-cyan hover:text-murzak-navy"
+                            ? "bg-murzak-accent text-murzak-ink"
+                            : "border border-murzak-accent text-murzak-accent hover:bg-murzak-accent hover:text-murzak-ink"
                         }`}
                       >
                         {isChosen ? "Selected" : "Select"}
                       </button>
                     </>
                   ) : (
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Taken</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Taken</span>
                   )}
                 </div>
               </li>
@@ -110,7 +110,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
       )}
 
       {selectedDomain && (
-        <p className="mt-3 text-[10px] font-bold text-murzak-cyan">
+        <p className="mt-3 text-[10px] font-bold text-murzak-accent">
           Registering <span className="font-black">{selectedDomain}</span> — billed yearly, added to your first invoice.
         </p>
       )}

@@ -239,34 +239,34 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
   const messages = thread?.messages || [];
 
   const inputBase =
-    "w-full bg-slate-50 dark:bg-white/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-navy dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-murzak-cyan transition-all";
+    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all";
 
   const inputClasses = (key: string) =>
-    `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-white/10"}`;
+    `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
 
   const labelClasses =
-    "block text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 ml-1";
+    "block text-[9px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
       <div
-        className="absolute inset-0 bg-murzak-navy/10 dark:bg-black/20 backdrop-blur-[2px] sm:backdrop-blur-[4px]"
+        className="absolute inset-0 bg-black/20 backdrop-blur-[2px] sm:backdrop-blur-[4px]"
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-4xl bg-murzak-cyan/20 dark:bg-murzak-navy rounded-[1.75rem] sm:rounded-[2.5rem] shadow-xl sm:shadow-3xl overflow-hidden border-2 border-murzak-navy dark:border-white">
+      <div className="relative w-full max-w-4xl bg-murzak-ink rounded-[1.75rem] sm:rounded-[2.5rem] shadow-xl sm:shadow-3xl overflow-hidden border-2 border-white">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6
-          border-b border-slate-100 dark:border-white/10 bg-murzak-navy dark:bg-white/10">
+          border-b border-slate-100 dark:border-murzak-border bg-black/5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-murzak-cyan/10 text-murzak-cyan">
+            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-murzak-accent/10 text-murzak-accent">
               <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-white dark:text-white">
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-murzak-ink dark:text-murzak-ink">
                 Chat with support
               </h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
                 Signed in as {email}
               </p>
             </div>
@@ -274,7 +274,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-murzak-navy dark:hover:text-white transition-colors"
+            className="text-slate-500 hover:text-murzak-ink transition-colors"
             type="button"
           >
             <X className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
@@ -285,7 +285,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
         <div className="p-5 sm:p-8">
           <div className="h-[52vh] sm:h-[380px] md:h-[460px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
             {messages.length === 0 ? (
-              <div className="text-center py-12 sm:py-16 bg-slate-50 dark:bg-white/5 rounded-[1.75rem] sm:rounded-3xl border border-dashed border-slate-200 dark:border-white/10">
+              <div className="text-center py-12 sm:py-16 bg-slate-50 dark:bg-black/5 rounded-[1.75rem] sm:rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                   No messages yet. Start the conversation below.
                 </p>
@@ -299,8 +299,8 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                     <div
                       className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
                         isUser
-                          ? "bg-murzak-navy dark:bg-murzak-cyan/20 text-white border-murzak-cyan"
-                          : "bg-slate-50 dark:bg-murzak-cyan/20 text-murzak-navy dark:text-white border-slate-200 dark:border-white/10"
+                          ? "bg-murzak-accent/20 text-murzak-ink border-murzak-accent"
+                          : "bg-slate-50 text-murzak-ink border-slate-200 dark:border-murzak-border"
                       }`}
                     >
                       <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">{m.message}</p>
@@ -339,7 +339,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
             <div className="flex-grow min-w-0">
               <label className={labelClasses}>Message</label>
               {(uploading || uploadedUrl) && (
-                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-4 py-3">
+                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
                   <div className="text-[10px] font-black uppercase tracking-widest text-slate-200">
                     {uploading ? "Uploading..." : "Attachment ready"}
                     {!uploading && uploadedName ? `: ${uploadedName}` : ""}
@@ -353,7 +353,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                         setUploadedUrl("");
                         setUploadedName("");
                       }}
-                      className="text-[10px] font-black uppercase tracking-widest text-murzak-cyan hover:opacity-80">
+                      className="text-[10px] font-black uppercase tracking-widest text-murzak-accent hover:opacity-80">
                         Remove
                     </button>
                   )}
@@ -415,15 +415,15 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
             <div className="flex flex-col justify-center gap-2 self-center">
               <label htmlFor="attach"
                 className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-xl
-                  border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5
+                  border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5
                   text-[9px] sm:text-[10px] font-black uppercase tracking-widest cursor-pointer select-none
-                  hover:border-murzak-cyan/40 hover:bg-murzak-cyan/10 dark:hover:bg-white/10 transition">
+                  hover:border-murzak-accent/40 hover:bg-murzak-accent/10 dark:hover:bg-black/5 transition">
                 {uploading ? "Uploading..." : uploadedUrl ? "Attached" : "Attach"}
               </label>
 
               <button type="submit"
                 disabled={isSubmitting}
-                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-navy dark:bg-murzak-cyan text-white dark:text-murzak-navy font-black px-4 rounded-xl
+                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-accent text-murzak-ink font-black px-4 rounded-xl
                   hover:scale-[1.01] transition-all shadow-md sm:shadow-lg inline-flex items-center justify-center gap-2 disabled:opacity-70">
                 {isSubmitting ? <RefreshCw className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-widest">Send</span>

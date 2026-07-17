@@ -87,48 +87,48 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
 
   return (
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-murzak-deep/50 backdrop-blur-xl" onClick={close} />
+      <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={close} />
 
-      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-murzak-surface/90 backdrop-blur-xl overflow-hidden shadow-2xl border border-white/10">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-murzak-surface/90 backdrop-blur-xl overflow-hidden shadow-2xl border border-murzak-border">
         {/* header */}
-        <div className="bg-murzak-gradient px-6 py-5 flex items-center justify-between">
+        <div className="bg-brand-gradient px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Wand2 className="w-5 h-5 text-white" />
+            <Wand2 className="w-5 h-5 text-murzak-ink" />
             <div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-white/80">Plan advisor</div>
-              <h3 className="text-lg font-black text-white tracking-tight">Find your perfect fit</h3>
+              <div className="text-[9px] font-black uppercase tracking-widest text-murzak-ink/80">Plan advisor</div>
+              <h3 className="text-lg font-black text-murzak-ink tracking-tight">Find your perfect fit</h3>
             </div>
           </div>
-          <button onClick={close} aria-label="Close" className="rounded-xl p-2 text-white/80 hover:text-white hover:bg-white/10 transition">
+          <button onClick={close} aria-label="Close" className="rounded-xl p-2 text-murzak-ink/80 hover:text-murzak-ink hover:bg-black/5 transition">
             <X size={20} />
           </button>
         </div>
 
         {/* progress */}
-        <div className="h-1 w-full bg-slate-100 dark:bg-white/10">
-          <div className="h-full bg-murzak-cyan transition-all duration-300" style={{ width: `${((step + 1) / 3) * 100}%` }} />
+        <div className="h-1 w-full bg-slate-100 dark:bg-black/5">
+          <div className="h-full bg-murzak-accent transition-all duration-300" style={{ width: `${((step + 1) / 3) * 100}%` }} />
         </div>
 
         <div className="p-6 sm:p-8">
           {/* Step 0 — need */}
           {step === 0 && (
             <div className="animate-fade-in">
-              <p className="text-base font-black text-murzak-navy dark:text-white mb-1">What do you want to host?</p>
-              <p className="text-[11px] font-bold text-slate-400 mb-5">Pick the closest match.</p>
+              <p className="text-base font-black text-murzak-ink mb-1">What do you want to host?</p>
+              <p className="text-[11px] font-bold text-slate-500 mb-5">Pick the closest match.</p>
               <div className="space-y-2.5">
                 {NEEDS.map((n) => (
                   <button
                     key={n.key}
                     onClick={() => { setNeed(n.key); setStep(1); }}
                     className={`w-full text-left rounded-2xl border p-4 transition-all flex items-center justify-between gap-3 ${
-                      need === n.key ? "border-murzak-cyan bg-murzak-cyan/10" : "border-slate-200 dark:border-white/10 hover:border-murzak-cyan/50"
+                      need === n.key ? "border-murzak-accent bg-murzak-accent/10" : "border-slate-200 dark:border-murzak-border hover:border-murzak-accent/50"
                     }`}
                   >
                     <span>
-                      <span className="block text-sm font-black text-murzak-navy dark:text-white">{n.label}</span>
-                      <span className="block text-[11px] font-bold text-slate-400">{n.sub}</span>
+                      <span className="block text-sm font-black text-murzak-ink">{n.label}</span>
+                      <span className="block text-[11px] font-bold text-slate-500">{n.sub}</span>
                     </span>
-                    <ArrowRight className="w-4 h-4 text-murzak-cyan shrink-0" />
+                    <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0" />
                   </button>
                 ))}
               </div>
@@ -138,22 +138,22 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {/* Step 1 — size */}
           {step === 1 && (
             <div className="animate-fade-in">
-              <p className="text-base font-black text-murzak-navy dark:text-white mb-1">How big is your team?</p>
-              <p className="text-[11px] font-bold text-slate-400 mb-5">This helps us size the right capacity.</p>
+              <p className="text-base font-black text-murzak-ink mb-1">How big is your team?</p>
+              <p className="text-[11px] font-bold text-slate-500 mb-5">This helps us size the right capacity.</p>
               <div className="grid grid-cols-2 gap-2.5">
                 {SIZES.map((s) => (
                   <button
                     key={s.key}
                     onClick={() => { setSize(s.key); setStep(2); }}
                     className={`rounded-2xl border p-4 text-sm font-black transition-all ${
-                      size === s.key ? "border-murzak-cyan bg-murzak-cyan/10 text-murzak-navy dark:text-white" : "border-slate-200 dark:border-white/10 text-murzak-navy dark:text-white hover:border-murzak-cyan/50"
+                      size === s.key ? "border-murzak-accent bg-murzak-accent/10 text-murzak-ink" : "border-slate-200 dark:border-murzak-border text-murzak-ink hover:border-murzak-accent/50"
                     }`}
                   >
                     {s.label}
                   </button>
                 ))}
               </div>
-              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-murzak-cyan">
+              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-accent">
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
             </div>
@@ -162,34 +162,34 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {/* Step 2 — recommendation */}
           {step === 2 && rec && recMeta && (
             <div className="animate-fade-in text-center">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-murzak-cyan/10 text-murzak-cyan px-3 py-1 text-[9px] font-black uppercase tracking-widest mb-4">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-[9px] font-black uppercase tracking-widest mb-4">
                 <CheckCircle2 size={12} /> Our recommendation
               </div>
-              <h4 className="text-2xl font-black text-murzak-navy dark:text-white tracking-tight">
+              <h4 className="text-2xl font-black text-murzak-ink tracking-tight">
                 {recMeta.label}
                 {recMeta.startingKes != null && recMeta.startingKes > 0 && (
                   <span className="text-murzak-gradient"> · from {formatKes(recMeta.startingKes)}/mo</span>
                 )}
               </h4>
-              <p className="mt-3 text-[13px] font-bold text-slate-500 dark:text-slate-300 leading-relaxed">{rec.reason}</p>
+              <p className="mt-3 text-[13px] font-bold text-slate-500 dark:text-slate-600 leading-relaxed">{rec.reason}</p>
 
               <div className="mt-6 space-y-3">
                 {rec.plan === "Enterprise" ? (
                   <button
                     onClick={() => { onTalkToSales(); close(); }}
-                    className="w-full py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                   >
                     Talk to sales <ArrowRight size={16} />
                   </button>
                 ) : (
                   <button
                     onClick={() => { onChoosePlan(rec.plan, rec.serviceIds); close(); }}
-                    className="w-full py-4 rounded-2xl bg-murzak-cyan text-murzak-navy font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                   >
                     Configure this plan <ArrowRight size={16} />
                   </button>
                 )}
-                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-murzak-cyan">
+                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-accent">
                   <RefreshCw className="w-3.5 h-3.5" /> Start over
                 </button>
               </div>
