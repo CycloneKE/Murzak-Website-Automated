@@ -74,7 +74,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
                   <Command.Item
                     key={service.serviceId}
                     onSelect={() => runCommand(() => navigate('/portal'))} // Can be wired to open specific service details
-                    className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-green/10 aria-selected:text-murzak-green transition-colors"
+                    className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-accent/10 aria-selected:text-murzak-accent transition-colors"
                   >
                     <Server className="w-4 h-4 mr-3" />
                     <span>Manage {service.name || service.category}</span>
@@ -87,21 +87,21 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
             <Command.Group heading="Navigation" className="text-xs font-semibold text-gray-400 px-2 py-1 mt-2 mb-1 uppercase tracking-wider">
               <Command.Item
                 onSelect={() => runCommand(() => navigate('/portal'))}
-                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-green/10 aria-selected:text-murzak-green transition-colors"
+                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-accent/10 aria-selected:text-murzak-accent transition-colors"
               >
                 <LayoutDashboard className="w-4 h-4 mr-3" />
                 <span>Dashboard Overview</span>
               </Command.Item>
               <Command.Item
                 onSelect={() => runCommand(() => navigate('/portal?tab=billing'))}
-                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-green/10 aria-selected:text-murzak-green transition-colors"
+                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-accent/10 aria-selected:text-murzak-accent transition-colors"
               >
                 <CreditCard className="w-4 h-4 mr-3" />
                 <span>Billing & Invoices</span>
               </Command.Item>
               <Command.Item
                 onSelect={() => runCommand(() => navigate('/portal?tab=profile'))}
-                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-green/10 aria-selected:text-murzak-green transition-colors"
+                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-accent/10 aria-selected:text-murzak-accent transition-colors"
               >
                 <UserIcon className="w-4 h-4 mr-3" />
                 <span>Profile Settings</span>
@@ -111,7 +111,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
             <Command.Group heading="Support & Actions" className="text-xs font-semibold text-gray-400 px-2 py-1 mt-2 mb-1 uppercase tracking-wider">
               <Command.Item
                 onSelect={() => runCommand(() => navigate('/contact'))}
-                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-green/10 aria-selected:text-murzak-green transition-colors"
+                className="flex items-center px-4 py-3 cursor-pointer text-gray-200 rounded-lg hover:bg-white/5 aria-selected:bg-murzak-accent/10 aria-selected:text-murzak-accent transition-colors"
               >
                 <LifeBuoy className="w-4 h-4 mr-3" />
                 <span>Contact Support</span>

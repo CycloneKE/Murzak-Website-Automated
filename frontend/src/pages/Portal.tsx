@@ -359,11 +359,6 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
 const renderCloudSystemsGrid = () => null;
 
   useEffect(() => {
-    if (!user?.id) return;
-    refreshUpdates();
-  }, [user?.id]);
-
-  useEffect(() => {
     if (isAdmin) navigate("/portal/admin", { replace: true });
   }, [isAdmin]);
 
@@ -428,20 +423,6 @@ const renderCloudSystemsGrid = () => null;
       clearInterval(interval);
     };
   }, [user?.selectedServices, onUserUpdate]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/portal/updates", { credentials: "include" });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && Array.isArray(data?.updates)) {
-          setLocalUpdates(data.updates);
-        }
-      } catch (e) {
-        console.warn("Failed to load portal updates", e);
-      }
-    })();
-  }, []);
 
   useEffect(() => {
     refreshUpdates();

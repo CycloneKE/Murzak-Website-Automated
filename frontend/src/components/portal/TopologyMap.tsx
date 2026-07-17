@@ -21,14 +21,14 @@ const ServiceNode = ({ data }: any) => {
   return (
     <div 
       className={`px-4 py-3 shadow-xl rounded-xl border ${
-        isHealthy ? 'border-murzak-green/30 bg-murzak-green/5' : 
+        isHealthy ? 'border-murzak-success/30 bg-murzak-success/5' : 
         isPending ? 'border-orange-500/30 bg-orange-500/5' : 
         'border-red-500/30 bg-red-500/5'
       } backdrop-blur-md min-w-[150px] flex flex-col items-center justify-center relative cursor-pointer hover:scale-105 transition-transform`}
       onClick={data.onClick}
     >
       <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
-        isHealthy ? 'bg-murzak-green shadow-[0_0_10px_#00ff00] animate-pulse' : 
+        isHealthy ? 'bg-murzak-success shadow-[0_0_10px_#00ff00] animate-pulse' : 
         isPending ? 'bg-orange-500 shadow-[0_0_10px_#ffa500] animate-pulse' : 
         'bg-red-500 shadow-[0_0_10px_#ff0000] animate-pulse'
       }`} />
@@ -110,7 +110,7 @@ const TopologyMap: React.FC<TopologyMapProps> = ({ services, onNodeClick }) => {
           label: svc.name || svc.category,
           sublabel: svc.status,
           status: svc.status,
-          icon: <Server className={`w-8 h-8 ${svc.status === 'Active' ? 'text-murzak-green' : 'text-orange-400'}`} />,
+          icon: <Server className={`w-8 h-8 ${svc.status === 'Active' ? 'text-murzak-success' : 'text-orange-400'}`} />,
           onClick: () => onNodeClick(svc.serviceId)
         }
       });
@@ -150,7 +150,7 @@ const TopologyMap: React.FC<TopologyMapProps> = ({ services, onNodeClick }) => {
       
       <div className="absolute top-4 left-4 pointer-events-none">
         <h3 className="text-xl font-bold tracking-tight text-white flex items-center">
-          <Activity className="w-5 h-5 mr-2 text-murzak-green" />
+          <Activity className="w-5 h-5 mr-2 text-murzak-success" />
           Live Topology
         </h3>
         <p className="text-sm text-gray-400">Interactive logical architecture mapping</p>
