@@ -340,6 +340,15 @@ router.get("/api/billing/invoice/:docName", requireAuth, async (req, res) => {
       }))
       .filter(s => s.serviceId || s.serviceName);
     const chargeKes = effectiveChargeKes(inv.amount);
+    // A missing/invalid KES_TO_USD_RATE only affects the PayPal-USD estimate
+    // shown on this page — it must not block loading the invoice itself
+    // (M-Pesa checkout never uses this value).
+    let paypalAmountUsd = null;
+    try {
+      paypalAmountUsd = convertKesToPaypalAmount(chargeKes);
+    } catch (rateErr) {
+      console.error("GET INVOICE: PayPal USD conversion unavailable:", rateErr.message);
+    }
     return res.json({
       ok: true,
       invoice: {
@@ -348,7 +357,7 @@ router.get("/api/billing/invoice/:docName", requireAuth, async (req, res) => {
         amount: Number(inv.amount || 0),
         chargeKes,
         verificationOnly: isVerificationOnly(inv.amount),
-        paypalAmountUsd: convertKesToPaypalAmount(chargeKes),
+        paypalAmountUsd,
         status: inv.status,
         type: inv.type,
         plan: inv.plan,
