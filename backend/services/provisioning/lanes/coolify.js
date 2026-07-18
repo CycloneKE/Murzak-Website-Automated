@@ -17,6 +17,7 @@
 
 const axios = require("axios");
 const { CAPACITY } = require("../catalog");
+const appDomain = require("../appDomain");
 
 // Server-wide budget (from the generated catalog snapshot: KVM 4 = 4 vCPU /
 // 12.8GB sellable). Used to derive a proportional CPU quota per container.
@@ -133,6 +134,171 @@ function parseRepoRef(repoRef) {
   return { url: raw.slice(0, hash), branch: raw.slice(hash + 1) || "main" };
 }
 
+// ---------------------------------------------------------------------------
+// Build-wait plumbing (BYOA). A job is only "active" once Coolify reports the
+// DEPLOYMENT finished — never on resource creation alone. Pure helpers are
+// exported for unit tests; network calls take the axios client as a param so
+// tests can script them.
+// ---------------------------------------------------------------------------
+
+const buildPollMs = () => Math.max(2000, Number(process.env.COOLIFY_BUILD_POLL_MS || 10000));
+const buildTimeoutMs = () =>
+  Math.max(60000, Number(process.env.COOLIFY_BUILD_TIMEOUT_MS || 600000));
+
+/** Map Coolify's deployment status strings to success | failure | pending. */
+function classifyDeploymentStatus(status) {
+  const s = String(status || "").toLowerCase();
+  if (/finished|success/.test(s)) return "success";
+  if (/failed|error|cancelled/.test(s)) return "failure";
+  return "pending";
+}
+
+/**
+ * Last `max` chars of a deployment's build log. Coolify stores logs either as
+ * a plain string or a JSON array of {output} lines — handle both, defensively.
+ */
+function extractLogTail(deployment, max = 2000) {
+  let raw = deployment?.logs ?? deployment?.log ?? "";
+  if (typeof raw !== "string") {
+    try {
+      raw = JSON.stringify(raw);
+    } catch {
+      raw = String(raw);
+    }
+  }
+  if (raw.trim().startsWith("[")) {
+    try {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        raw = arr
+          .map((l) => (l && typeof l === "object" ? l.output ?? "" : String(l)))
+          .filter(Boolean)
+          .join("\n");
+      }
+    } catch {
+      /* not JSON after all — keep the raw string */
+    }
+  }
+  return raw.length > max ? raw.slice(-max) : raw;
+}
+
+/** An error the runner must NOT retry (e.g. the customer's build failed). */
+function permanentError(message, extra = {}) {
+  const err = new Error(message);
+  err.permanent = true;
+  return Object.assign(err, extra);
+}
+
+async function triggerDeploy(client, appUuid) {
+  const res = await client.post(`/api/v1/deploy?uuid=${encodeURIComponent(appUuid)}`);
+  const d = res.data?.data || res.data || {};
+  const list = Array.isArray(d.deployments) ? d.deployments : [];
+  return String(list[0]?.deployment_uuid || d.deployment_uuid || "");
+}
+
+/**
+ * Trigger (or resume) a deployment and poll it to a terminal state.
+ *  - success  → { deploymentUuid, logTail }
+ *  - build failed → throws PERMANENT (runner goes straight to needs_human)
+ *  - still running at timeout → throws retryable with .deploymentUuid so the
+ *    runner's backoff re-entry RESUMES this deployment instead of re-building.
+ */
+async function deployAndWait(
+  client,
+  appUuid,
+  { pollMs = buildPollMs(), timeoutMs = buildTimeoutMs(), deploymentUuid = "", sleep } = {}
+) {
+  const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  let depUuid = String(deploymentUuid || "");
+  if (!depUuid) depUuid = await triggerDeploy(client, appUuid);
+  if (!depUuid) {
+    // Can't track the build — retryable, never assumed successful.
+    throw new Error("coolify: deploy trigger returned no deployment_uuid — cannot confirm build");
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  let last = {};
+  while (Date.now() < deadline) {
+    await wait(pollMs);
+    const res = await client.get(`/api/v1/deployments/${encodeURIComponent(depUuid)}`);
+    last = res.data?.data || res.data || {};
+    const cls = classifyDeploymentStatus(last.status || last.deployment_status);
+    if (cls === "success") return { deploymentUuid: depUuid, logTail: extractLogTail(last) };
+    if (cls === "failure") {
+      throw permanentError(
+        `coolify: build failed (deployment ${depUuid}, status=${last.status || last.deployment_status})`,
+        { logTail: extractLogTail(last), deploymentUuid: depUuid }
+      );
+    }
+  }
+  const err = new Error(
+    `coolify: build still running after ${Math.round(timeoutMs / 60000)}m (deployment ${depUuid}) — will re-check`
+  );
+  err.deploymentUuid = depUuid;
+  err.logTail = extractLogTail(last);
+  throw err;
+}
+
+/** The app's own URL from Coolify (fqdn/domains) — used when APP_DOMAIN_BASE is unset. */
+async function fetchAppUrl(client, appUuid) {
+  try {
+    const res = await client.get(`/api/v1/applications/${encodeURIComponent(appUuid)}`);
+    const d = res.data?.data || res.data || {};
+    const first = String(d.fqdn || d.domains || "").split(",")[0].trim();
+    if (!first) return "";
+    return /^https?:\/\//i.test(first) ? first : `https://${first}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Shared by the create path AND the crash-recovery path: attach the customer
+ * hostname, run the deployment to completion, and build the job result with a
+ * REAL customer URL (never the Coolify admin panel).
+ */
+async function finalizeApp(client, c, job, appUuid, repo, opts, { recovered = false } = {}) {
+  const name = resourceName(job);
+  const slug = appDomain.slugWithSuffix(name, job.name);
+  const fqdn = appDomain.fqdnFor(slug);
+
+  // Attach the customer hostname BEFORE deploying so the proxy config and any
+  // URL-aware build steps pick it up. Best-effort: a rejected PATCH must not
+  // block the deploy — the URL then falls back to Coolify's auto-generated one.
+  if (fqdn) {
+    try {
+      await client.patch(`/api/v1/applications/${encodeURIComponent(appUuid)}`, { domains: fqdn });
+    } catch (e) {
+      console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
+    }
+  }
+
+  const { deploymentUuid, logTail } = await deployAndWait(client, appUuid, {
+    deploymentUuid: String(job.deployment_uuid || ""),
+  });
+
+  const url = fqdn || (await fetchAppUrl(client, appUuid));
+  return {
+    externalRef: String(appUuid),
+    deploymentUuid,
+    access: {
+      lane: "coolify",
+      kind: "application",
+      target: opts?.target?.id || "box-1",
+      resource: name,
+      repo: repo.url,
+      branch: repo.branch,
+      url,
+      manageUrl: c.baseUrl.replace(/\/+$/, ""),
+      uuid: String(appUuid),
+    },
+    log:
+      `coolify: ${recovered ? "recovered" : "created"} application "${name}" (uuid=${appUuid}) ` +
+      `from ${repo.url}#${repo.branch}; deployment ${deploymentUuid} finished; url=${url || "(pending)"}` +
+      (logTail ? `\n--- build log tail ---\n${logTail}` : ""),
+  };
+}
+
 /**
  * BYOA lane — deploy the customer's own app from its Git repository as a
  * Coolify APPLICATION (git-sourced build), not a blank "service".
@@ -151,25 +317,14 @@ async function provisionApp(job, opts) {
   const limits = resourceLimits(job);
 
   // Idempotency: recover an application created on a previous crashed attempt.
+  // The recovery path goes through the SAME finalizeApp as a fresh create —
+  // before this, recovery returned success without ever checking a deployment.
   try {
     const listRes = await client.get("/api/v1/applications");
     const existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
     if (existing) {
       const uuid = existing.uuid || existing.id || name;
-      return {
-        externalRef: String(uuid),
-        access: {
-          lane: "coolify",
-          kind: "application",
-          target: opts?.target?.id || "box-1",
-          resource: name,
-          repo: repo.url,
-          branch: repo.branch,
-          manageUrl: c.baseUrl.replace(/\/+$/, ""),
-          uuid: String(uuid),
-        },
-        log: `coolify: recovered existing application "${name}" (uuid=${uuid}) from ${repo.url}#${repo.branch}`,
-      };
+      return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: true });
     }
   } catch (e) {
     console.warn(`[coolify] app idempotency GET failed for ${name}: ${e.message}`);
@@ -186,7 +341,9 @@ async function provisionApp(job, opts) {
     // be flipped to build_pack "dockerfile" from the Coolify UI by staff.
     build_pack: "nixpacks",
     ports_exposes: String(job.app_port || process.env.COOLIFY_DEFAULT_APP_PORT || 3000),
-    instant_deploy: true,
+    // Deployment is triggered + awaited explicitly in finalizeApp — a job is
+    // only ever reported active once Coolify says the build FINISHED.
+    instant_deploy: false,
     limits_memory: `${limits.ramMb}M`,
     limits_cpus: String(limits.cpus),
     limits_pids: limits.pidsLimit,
@@ -199,20 +356,7 @@ async function provisionApp(job, opts) {
   const data = res.data?.data || res.data || {};
   const uuid = data.uuid || data.id || name;
 
-  return {
-    externalRef: String(uuid),
-    access: {
-      lane: "coolify",
-      kind: "application",
-      target: opts?.target?.id || "box-1",
-      resource: name,
-      repo: repo.url,
-      branch: repo.branch,
-      manageUrl: c.baseUrl.replace(/\/+$/, ""),
-      uuid: String(uuid),
-    },
-    log: `coolify: created application "${name}" (uuid=${uuid}) from ${repo.url}#${repo.branch} buildpack=nixpacks mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
-  };
+  return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: false });
 }
 
 /**
@@ -315,20 +459,30 @@ async function provision(job, opts) {
  * this throws (axios 404/network error) and the caller must treat that as
  * a real failure — never swallow it into a fake success.
  */
-async function serviceAction(externalRef, action, opts) {
+// Coolify v4 splits per-resource routes: git-sourced APPLICATIONS live under
+// /api/v1/applications/{uuid}/..., composed SERVICES under /api/v1/services/.
+// Callers pass opts.kind ("application" | anything else = service), read from
+// the job's access JSON (access.kind is written by provision/provisionApp).
+function pathRoot(opts) {
+  return opts?.kind === "application" ? "applications" : "services";
+}
+
+async function resourceAction(externalRef, action, opts) {
   const client = http(opts);
-  const res = await client.get(`/api/v1/services/${encodeURIComponent(externalRef)}/${action}`);
+  const res = await client.get(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/${action}`
+  );
   return res.data;
 }
 
 function restart(externalRef, opts) {
-  return serviceAction(externalRef, "restart", opts);
+  return resourceAction(externalRef, "restart", opts);
 }
 function stop(externalRef, opts) {
-  return serviceAction(externalRef, "stop", opts);
+  return resourceAction(externalRef, "stop", opts);
 }
 function start(externalRef, opts) {
-  return serviceAction(externalRef, "start", opts);
+  return resourceAction(externalRef, "start", opts);
 }
 
 /**
@@ -345,7 +499,7 @@ function start(externalRef, opts) {
  */
 async function getUsage(externalRef, opts) {
   const client = http(opts);
-  const res = await client.get(`/api/v1/services/${encodeURIComponent(externalRef)}`);
+  const res = await client.get(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`);
   const d = res.data?.data || res.data || {};
   return {
     cpuPercent: d.cpu_usage_percent ?? d.cpu_percent ?? null,
@@ -369,9 +523,10 @@ async function getUsage(externalRef, opts) {
  */
 async function attachDomain(externalRef, domain, opts) {
   const client = http(opts);
-  const res = await client.patch(`/api/v1/services/${encodeURIComponent(externalRef)}`, {
-    domains: domain,
-  });
+  const res = await client.patch(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`,
+    { domains: domain }
+  );
   return res.data;
 }
 
@@ -389,4 +544,10 @@ module.exports = {
   attachDomain,
   resourceName,
   resourceLimits,
+  // Build-wait plumbing (exported for unit tests + the smoke probe).
+  classifyDeploymentStatus,
+  extractLogTail,
+  deployAndWait,
+  finalizeApp,
+  fetchAppUrl,
 };

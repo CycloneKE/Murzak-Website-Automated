@@ -340,6 +340,160 @@ const okLane = {
     ok(seenRepo === "https://github.com/cust/app#main" && PJ(s).JB.status === "active", "runner passes repo_url through the projected fetch to the lane");
   }
 
+  section("BYOA build-wait: deployment classification + log tail");
+  {
+    ok(coolify.classifyDeploymentStatus("finished") === "success", "finished -> success");
+    ok(coolify.classifyDeploymentStatus("Success") === "success", "Success (any case) -> success");
+    ok(coolify.classifyDeploymentStatus("failed") === "failure", "failed -> failure");
+    ok(coolify.classifyDeploymentStatus("cancelled") === "failure", "cancelled -> failure");
+    ok(coolify.classifyDeploymentStatus("in_progress") === "pending", "in_progress -> pending");
+    ok(coolify.classifyDeploymentStatus("") === "pending", "empty/unknown -> pending (never assumed done)");
+
+    ok(coolify.extractLogTail({ logs: "hello world" }) === "hello world", "plain string logs pass through");
+    const arrLogs = JSON.stringify([{ output: "line1" }, { output: "line2" }]);
+    ok(coolify.extractLogTail({ logs: arrLogs }) === "line1\nline2", "JSON-array logs joined by output");
+    ok(coolify.extractLogTail({ logs: "x".repeat(5000) }, 2000).length === 2000, "log tail truncates to last N chars");
+    ok(coolify.extractLogTail({}) === "", "missing logs -> empty string");
+  }
+
+  section("BYOA build-wait: deployAndWait against a scripted client");
+  {
+    const noSleep = async () => {};
+    // Scripted client: deploy trigger returns a deployment_uuid; polls walk a
+    // status sequence.
+    const scripted = (sequence) => {
+      let i = 0;
+      return {
+        post: async (url) => {
+          if (url.startsWith("/api/v1/deploy")) return { data: { deployments: [{ deployment_uuid: "DEP-1" }] } };
+          throw new Error("unexpected POST " + url);
+        },
+        get: async (url) => {
+          if (url.startsWith("/api/v1/deployments/")) {
+            const status = sequence[Math.min(i++, sequence.length - 1)];
+            return { data: { data: { status, logs: `log-at-${status}` } } };
+          }
+          throw new Error("unexpected GET " + url);
+        },
+      };
+    };
+
+    const okRun = await coolify.deployAndWait(scripted(["in_progress", "finished"]), "APP-1", { pollMs: 1, timeoutMs: 60000, sleep: noSleep });
+    ok(okRun.deploymentUuid === "DEP-1" && /finished/.test(okRun.logTail), "finished deployment -> success with log tail");
+
+    let permErr = null;
+    try {
+      await coolify.deployAndWait(scripted(["in_progress", "failed"]), "APP-1", { pollMs: 1, timeoutMs: 60000, sleep: noSleep });
+    } catch (e) { permErr = e; }
+    ok(permErr?.permanent === true && permErr?.deploymentUuid === "DEP-1" && /log-at-failed/.test(permErr?.logTail || ""), "failed build -> PERMANENT error with deployment uuid + log tail");
+
+    let timeoutErr = null;
+    try {
+      await coolify.deployAndWait(scripted(["in_progress"]), "APP-1", { pollMs: 1, timeoutMs: 3, sleep: noSleep });
+    } catch (e) { timeoutErr = e; }
+    ok(timeoutErr && timeoutErr.permanent !== true && timeoutErr.deploymentUuid === "DEP-1", "timeout -> RETRYABLE error carrying deployment uuid for resume");
+
+    // Resume path: an existing deploymentUuid skips the trigger POST entirely.
+    const noPost = {
+      post: async () => { throw new Error("must not re-trigger deploy on resume"); },
+      get: async () => ({ data: { data: { status: "finished", logs: "resumed" } } }),
+    };
+    const resumed = await coolify.deployAndWait(noPost, "APP-1", { pollMs: 1, timeoutMs: 60000, deploymentUuid: "DEP-9", sleep: noSleep });
+    ok(resumed.deploymentUuid === "DEP-9" && resumed.logTail === "resumed", "resume polls the EXISTING deployment, never re-triggers a build");
+  }
+
+  section("runner: permanent failure short-circuits retries");
+  {
+    const permLane = {
+      isConfigured: () => true,
+      configError: () => null,
+      provision: async () => {
+        const e = new Error("build failed hard");
+        e.permanent = true;
+        e.logTail = "npm ERR! missing script: build";
+        e.deploymentUuid = "DEP-X";
+        throw e;
+      },
+    };
+    let s2 = makeStore([{ name: "JP", service_id: "starter-app-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 1024, repo_url: "https://github.com/cust/app" }]);
+    await runner.processQueue(s2, { lanes: { coolify: permLane } });
+    const jp = PJ(s2).JP;
+    ok(jp.status === "needs_human" && jp.attempts === 1, "permanent failure -> needs_human on FIRST attempt (no retry burn)");
+    ok(/Permanent failure/.test(jp.error || ""), "error labels the failure permanent");
+    ok(/missing script: build/.test(jp.log || ""), "build log tail preserved on the job");
+    ok(jp.deployment_uuid === "DEP-X", "deployment uuid recorded for staff diagnosis");
+
+    // Retryable timeout hands its deployment_uuid to the queued retry.
+    const timeoutLane = {
+      isConfigured: () => true,
+      configError: () => null,
+      provision: async () => {
+        const e = new Error("build still running after 10m");
+        e.deploymentUuid = "DEP-T";
+        throw e;
+      },
+    };
+    s2 = makeStore([{ name: "JT", service_id: "starter-app-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 1024, repo_url: "https://github.com/cust/app" }]);
+    await runner.processQueue(s2, { lanes: { coolify: timeoutLane } });
+    const jt = PJ(s2).JT;
+    ok(jt.status === "queued" && jt.attempts === 1 && jt.deployment_uuid === "DEP-T", "timed-out build -> queued retry carrying deployment_uuid for resume");
+  }
+
+  section("app_port threading (enqueue -> claimable fetch -> lane)");
+  {
+    const p = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "https://github.com/x/y", appPort: 8080 });
+    ok(p.app_port === 8080, "buildJobPayload copies a valid app_port onto BYOA jobs");
+    const pDefault = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "https://github.com/x/y" });
+    ok(pDefault.app_port === undefined, "no appPort -> field omitted (lane falls back to 3000)");
+    const pBad = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "https://github.com/x/y", appPort: 99999 });
+    ok(pBad.app_port === undefined, "out-of-range appPort rejected, not written");
+    const pNonByoa = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "starter-web-hosting", repoUrl: "", appPort: 8080 });
+    ok(pNonByoa.app_port === undefined, "non-BYOA service never carries app_port");
+
+    // Enqueue reads app_port off the Web Account alongside source_code.
+    let s3 = makeStore([]);
+    s3.docs["Web Account"]["WAP"] = { name: "WAP", source_code: "https://github.com/cust/app", app_port: 4321 };
+    const eqp = await svc.enqueueProvisioningForInvoice({ client: s3, webAccount: "WAP", invoiceDocName: "INV-20", serviceIds: ["starter-app-hosting"] });
+    ok(eqp.created.length === 1 && eqp.created[0].app_port === 4321, "enqueue attaches account app_port to BYOA job");
+
+    // Same bug class as repo_url: the projected claimable fetch must include
+    // app_port + deployment_uuid or the lane silently loses them.
+    let seenPort = null, seenDep = null;
+    const portLane = {
+      isConfigured: () => true,
+      configError: () => null,
+      provision: async (job) => { seenPort = job.app_port; seenDep = job.deployment_uuid; return { externalRef: "APP-2", access: {}, log: "ok" }; },
+    };
+    s3 = makeStore([{ name: "JPORT", service_id: "starter-app-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 1024, repo_url: "https://github.com/cust/app", app_port: 4321, deployment_uuid: "DEP-R" }]);
+    await runner.processQueue(s3, { lanes: { coolify: portLane } });
+    ok(seenPort === 4321 && seenDep === "DEP-R", "runner passes app_port + deployment_uuid through the projected fetch to the lane");
+  }
+
+  section("appDomain: slug + fqdn helpers");
+  {
+    const appDomain = require("../services/provisioning/appDomain");
+    const savedBase = process.env.APP_DOMAIN_BASE;
+
+    delete process.env.APP_DOMAIN_BASE;
+    ok(appDomain.isConfigured() === false, "unset APP_DOMAIN_BASE -> not configured");
+    ok(appDomain.fqdnFor("shop") === "", "unconfigured -> empty fqdn (URL pending, never fabricated)");
+
+    process.env.APP_DOMAIN_BASE = "apps.murzaktech.tech";
+    ok(appDomain.isConfigured() === true, "set APP_DOMAIN_BASE -> configured");
+    ok(appDomain.fqdnFor("shop") === "https://shop.apps.murzaktech.tech", "fqdnFor builds https URL under the base");
+
+    process.env.APP_DOMAIN_BASE = "https://apps.murzaktech.tech/";
+    ok(appDomain.fqdnFor("shop") === "https://shop.apps.murzaktech.tech", "scheme/trailing junk in env tolerated");
+
+    const s1 = appDomain.slugWithSuffix("wa-starter-app-hosting", "PRV-1");
+    const s2b = appDomain.slugWithSuffix("wa-starter-app-hosting", "PRV-2");
+    ok(s1 !== s2b, "same slug, different jobs -> different suffixed slugs (collision-safe)");
+    ok(s1 === appDomain.slugWithSuffix("wa-starter-app-hosting", "PRV-1"), "suffix deterministic per job (retries keep the same fqdn)");
+    ok(s1.length <= 63, "suffixed slug stays a valid DNS label length");
+
+    if (savedBase !== undefined) process.env.APP_DOMAIN_BASE = savedBase; else delete process.env.APP_DOMAIN_BASE;
+  }
+
   // ---- tally ----
   console.log(`\n${"=".repeat(48)}`);
   console.log(`PROVISIONING TESTS: ${passed} passed, ${failed} failed`);

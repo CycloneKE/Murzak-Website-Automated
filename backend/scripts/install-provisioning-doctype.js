@@ -40,10 +40,35 @@ async function main() {
 
   console.log(`Target Frappe: ${FRAPPE_BASE_URL}`);
 
-  // Already installed?
+  // Already installed? Then MERGE any fields the fixture has gained since the
+  // original install (idempotent — re-running with no new fields is a no-op).
+  // Existing fields are never modified or removed, only missing ones appended,
+  // so live data and any operator customizations are untouched.
   try {
-    await client.get(`/api/resource/DocType/${encodeURIComponent(doctype.name)}`);
-    console.log(`✓ DocType "${doctype.name}" already exists — nothing to do.`);
+    const existingRes = await client.get(`/api/resource/DocType/${encodeURIComponent(doctype.name)}`);
+    const existing = existingRes.data?.data || {};
+    const existingNames = new Set((existing.fields || []).map((f) => f.fieldname));
+    const missing = doctype.fields.filter((f) => f.fieldname && !existingNames.has(f.fieldname));
+    if (!missing.length) {
+      console.log(`✓ DocType "${doctype.name}" already exists and has every fixture field — nothing to do.`);
+      return;
+    }
+    try {
+      await client.put(`/api/resource/DocType/${encodeURIComponent(doctype.name)}`, {
+        fields: [...(existing.fields || []), ...missing],
+      });
+      console.log(
+        `✓ DocType "${doctype.name}" updated — added ${missing.length} missing field(s): ` +
+          missing.map((f) => f.fieldname).join(", ")
+      );
+    } catch (e) {
+      console.error(`✗ Failed to add missing fields to "${doctype.name}":`, e.response?.data || e.message);
+      console.error(
+        "\nFallback: add them manually via Frappe Desk → DocType → " + doctype.name + " → add rows: " +
+          missing.map((f) => `${f.fieldname} (${f.fieldtype})`).join(", ")
+      );
+      process.exit(1);
+    }
     return;
   } catch (e) {
     const status = e.response?.status;

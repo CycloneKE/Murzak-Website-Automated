@@ -48,6 +48,7 @@ export default function CloudLaunchModal({
   const [category, setCategory] = useState<CloudLaunchCategory>("App Hosting");
   const [selectedId, setSelectedId] = useState<string>("");
   const [repoUrl, setRepoUrl] = useState("");
+  const [appPort, setAppPort] = useState("");
   const [domainChoice, setDomainChoice] = useState<DomainChoice>("Use Murzak Subdomain");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
@@ -82,6 +83,7 @@ export default function CloudLaunchModal({
     const first = catalog[cat][0];
     setSelectedId(first?.id || "");
     setRepoUrl("");
+    setAppPort("");
     setDomainChoice("Use Murzak Subdomain");
     setErr("");
   };
@@ -92,7 +94,10 @@ export default function CloudLaunchModal({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ repoUrl }),
+      body: JSON.stringify({
+        repoUrl,
+        ...(appPort.trim() ? { appPort: Number(appPort.trim()) } : {}),
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to save repository URL.");
@@ -206,6 +211,13 @@ export default function CloudLaunchModal({
       setErr("Enter a valid repository URL (e.g. https://github.com/you/app).");
       return;
     }
+    if (selected.requiresRepo && appPort.trim()) {
+      const port = Number(appPort.trim());
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        setErr("App port must be a whole number between 1 and 65535 (leave blank for 3000).");
+        return;
+      }
+    }
 
     if (!isLoggedIn) {
       launchLoggedOut();
@@ -308,6 +320,22 @@ export default function CloudLaunchModal({
                   placeholder="https://github.com/you/app"
                   className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                 />
+                <details className="mt-3">
+                  <summary className="text-[11px] font-black text-slate-500 uppercase tracking-widest cursor-pointer select-none">
+                    Advanced — app port
+                  </summary>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={appPort}
+                    onChange={(e) => setAppPort(e.target.value)}
+                    placeholder="3000"
+                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                  />
+                  <p className="mt-2 text-[11px] text-slate-500 font-medium">
+                    The port your app listens on inside its container. Leave blank if it uses 3000.
+                  </p>
+                </details>
               </div>
             )}
 

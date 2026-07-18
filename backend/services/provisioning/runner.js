@@ -182,7 +182,10 @@ async function fetchClaimable(client, limit) {
         "ram_mb", "disk_gb", "next_run_at", "target",
         // BYOA: the lane dispatches on repo_url — omitting it here silently
         // downgrades an app deploy to a blank service (caught live 2026-07-16).
-        "repo_url",
+        // app_port + deployment_uuid are the same bug class: the lane reads
+        // both (port at create, deployment_uuid to RESUME a timed-out build
+        // instead of re-building), so they must ride along on the claim fetch.
+        "repo_url", "app_port", "deployment_uuid",
       ]),
       order_by: "modified asc",
       limit_page_length: limit,
@@ -265,6 +268,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
       await updateJob(client, job.name, {
         status: "active",
         external_ref: String(out.externalRef || "").slice(0, 140),
+        ...(out.deploymentUuid ? { deployment_uuid: String(out.deploymentUuid).slice(0, 140) } : {}),
         access: JSON.stringify(out.access || {}).slice(0, 1000),
         log: String(out.log || "").slice(-4000),
         backup_status: backup.status,
@@ -276,13 +280,23 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
       return { name: job.name, outcome: "active", externalRef: out.externalRef, target: targetId, backup: backup.status, edge: edgeRes.status };
     } catch (e) {
       const attempts = Number(job.attempts || 0) + 1;
-      if (attempts >= maxAttempts()) {
+      // A permanent failure (e.g. the customer's build FAILED — a retry would
+      // just fail identically) skips the backoff loop entirely: straight to a
+      // human, with the build-log tail preserved on the job for diagnosis.
+      if (e.permanent === true || attempts >= maxAttempts()) {
+        const reason = e.permanent === true
+          ? `Permanent failure: ${e.message}`
+          : `Failed after ${attempts} attempt(s): ${e.message}`;
         await updateJob(client, job.name, {
           status: "needs_human",
           attempts,
-          error: `Failed after ${attempts} attempt(s): ${e.message}`.slice(0, 500),
+          error: reason.slice(0, 500),
+          ...(e.logTail
+            ? { log: `${job.log ? `${job.log}\n` : ""}--- build log tail ---\n${e.logTail}`.slice(-4000) }
+            : {}),
+          ...(e.deploymentUuid ? { deployment_uuid: String(e.deploymentUuid).slice(0, 140) } : {}),
         });
-        await createEscalationTicket(client, job, `Failed after ${attempts} attempt(s): ${e.message}`);
+        await createEscalationTicket(client, job, reason);
         return { name: job.name, outcome: "needs_human", attempts, reason: e.message };
       }
       const wait = backoffSec(attempts);
@@ -291,6 +305,9 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
         attempts,
         next_run_at: sqlTime(wait),
         error: String(e.message).slice(0, 500),
+        // A timed-out build hands back its deployment_uuid so the retry RESUMES
+        // polling that same deployment instead of triggering a duplicate build.
+        ...(e.deploymentUuid ? { deployment_uuid: String(e.deploymentUuid).slice(0, 140) } : {}),
       });
       return { name: job.name, outcome: "retry", attempts, retryInSec: wait };
     }

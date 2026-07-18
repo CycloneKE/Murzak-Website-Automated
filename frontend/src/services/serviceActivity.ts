@@ -2,13 +2,19 @@
 export interface ProvisioningActivityEntry {
   id: string;
   status: string;
+  // Server-derived honest state:
+  //   "waiting_on_repo" — BYOA job parked because no repository URL is on file
+  //   "needs_attention" — build/provisioning failed; staff have been notified
+  //   "url_pending"     — active, but no customer URL assigned yet
+  //   ""                — nothing special
+  statusDetail: "" | "waiting_on_repo" | "needs_attention" | "url_pending";
   log: string;
   backupStatus: string;
   edgeStatus: string;
   error: string;
   attempts: number;
-  // Real URL from the Provisioning Job's `access` field (Coolify manageUrl or
-  // the tenant's own site url) — only populated once status is "active".
+  // The CUSTOMER's live URL from the Provisioning Job's `access` field — only
+  // populated once status is "active", and never an internal/admin URL.
   accessUrl: string;
   createdAt: string;
   updatedAt: string;

@@ -67,16 +67,27 @@ router.put("/api/portal/account/repo", requireAuth, async (req, res) => {
     });
   }
 
+  // Optional: the port the app listens on (BYOA). Absent/empty leaves the
+  // stored value untouched; 0 clears it back to the default.
+  let appPort;
+  if (req.body?.appPort !== undefined && req.body?.appPort !== null && req.body?.appPort !== "") {
+    appPort = Number(req.body.appPort);
+    if (!Number.isInteger(appPort) || appPort < 0 || appPort > 65535) {
+      return res.status(400).json({ error: "App port must be a whole number between 1 and 65535." });
+    }
+  }
+
   try {
     const client = frappeClient();
     await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
       source_code: raw,
+      ...(appPort !== undefined ? { app_port: appPort } : {}),
     });
     if (req.session.user) {
       req.session.user.sourceCode = raw;
       await new Promise((resolve) => req.session.save(resolve));
     }
-    return res.json({ ok: true, sourceCode: raw });
+    return res.json({ ok: true, sourceCode: raw, ...(appPort !== undefined ? { appPort } : {}) });
   } catch (err) {
     console.error("ACCOUNT REPO UPDATE ERROR:", err.response?.data || err.message);
     return res.status(500).json({ error: "Failed to update repository URL." });
@@ -632,22 +643,35 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
     const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
     const jobs = rows.map((j) => {
       // access is a JSON string (see doctype-provisioning-job.json) written by
-      // whichever lane provisioned the service — coolify writes manageUrl+uuid,
-      // bench/mock write url. Normalize to one field so the frontend doesn't
-      // need to know the lane-specific shape. Only meaningful once the job is
-      // actually active — a queued/failed job has nothing real to link to.
+      // whichever lane provisioned the service. Normalize to one field so the
+      // frontend doesn't need to know the lane-specific shape. Only meaningful
+      // once the job is actually active. CUSTOMER URL ONLY: access.manageUrl
+      // is the Coolify ADMIN panel — never surface it to a customer (white-
+      // label leak AND the wrong link). No url yet => empty, and the frontend
+      // shows "URL pending".
       let accessUrl = "";
       if (j.status === "active" && j.access) {
         try {
           const parsed = JSON.parse(j.access);
-          accessUrl = parsed?.url || parsed?.manageUrl || "";
+          accessUrl = parsed?.url || "";
         } catch {
           // malformed/truncated access JSON — degrade to no link, not a crash.
         }
       }
+      // Server-derived detail so the portal can render an HONEST, actionable
+      // state instead of an empty dashboard.
+      let statusDetail = "";
+      if (j.status === "needs_human") {
+        statusDetail = /no repository URL/i.test(j.error || "")
+          ? "waiting_on_repo"
+          : "needs_attention";
+      } else if (j.status === "active" && !accessUrl) {
+        statusDetail = "url_pending";
+      }
       return {
         id: j.name,
         status: j.status || "",
+        statusDetail,
         log: j.log || "",
         backupStatus: j.backup_status || "",
         edgeStatus: j.edge_status || "",
@@ -690,7 +714,7 @@ async function loadOwnedJob(client, webAccountName, serviceId) {
         ["web_account", "=", webAccountName],
         ["service_id", "=", serviceId],
       ]),
-      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log"]),
+      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log", "access"]),
       order_by: "modified desc",
       limit_page_length: 1,
     },
@@ -698,6 +722,17 @@ async function loadOwnedJob(client, webAccountName, serviceId) {
   const job = resp.data?.data?.[0] || null;
   if (job && job.web_account !== webAccountName) return null; // never trust the filter alone
   return job;
+}
+
+// Coolify v4 routes applications and services differently; the lane needs to
+// know which kind this job provisioned. Written by the lane into access.kind.
+function jobResourceKind(job) {
+  try {
+    const parsed = JSON.parse(job?.access || "{}");
+    return parsed?.kind === "application" ? "application" : "service";
+  } catch {
+    return "service";
+  }
 }
 
 async function runServiceAction(req, res, action, laneFn) {
@@ -738,7 +773,7 @@ async function runServiceAction(req, res, action, laneFn) {
   actionInFlight.add(job.name);
 
   try {
-    await laneFn(job.external_ref);
+    await laneFn(job.external_ref, { kind: jobResourceKind(job) });
 
     // Audit trail — required for a customer-initiated action against
     // production infra, not optional. Best-effort: the Coolify call is the
@@ -807,7 +842,7 @@ router.get("/api/portal/services/:serviceId/usage", requireAuth, async (req, res
   }
 
   try {
-    const usage = await coolifyLane.getUsage(job.external_ref);
+    const usage = await coolifyLane.getUsage(job.external_ref, { kind: jobResourceKind(job) });
     const available = Object.values(usage).some((v) => v !== null);
     return res.json({ ok: true, available, ...usage });
   } catch (err) {
@@ -886,7 +921,7 @@ router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachL
   }
 
   try {
-    await coolifyLane.attachDomain(job.external_ref, domain);
+    await coolifyLane.attachDomain(job.external_ref, domain, { kind: jobResourceKind(job) });
     const ts = new Date().toISOString();
     const auditLine = `[${ts}] [DOMAIN] ${domain} attached by ${webAccountName}`;
     client

@@ -1,0 +1,11 @@
+[
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "app_port",
+    "label": "App Port",
+    "fieldtype": "Int",
+    "insert_after": "source_code",
+    "description": "BYOA: port the customer's app listens on inside its container (default 3000). Copied onto the Provisioning Job at enqueue, alongside source_code."
+  }
+]

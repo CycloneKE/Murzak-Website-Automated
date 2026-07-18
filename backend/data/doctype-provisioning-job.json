@@ -28,6 +28,7 @@
     { "fieldname": "disk_gb", "fieldtype": "Int", "label": "Disk (GB)" },
     { "fieldname": "backup_status", "fieldtype": "Select", "label": "Backup", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Off-site backup state set at create-time" },
     { "fieldname": "repo_url", "fieldtype": "Data", "label": "Repo URL", "description": "BYOA: customer Git repository this job deploys (optional #branch suffix)" },
+    { "fieldname": "app_port", "fieldtype": "Int", "label": "App Port", "description": "BYOA: port the customer's app listens on inside the container (default 3000)" },
     { "fieldname": "edge_status", "fieldtype": "Select", "label": "Edge / WAF", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Per-tenant edge/WAF state set at create-time" },
 
     { "fieldname": "section_status", "fieldtype": "Section Break", "label": "Status" },
@@ -35,6 +36,7 @@
     { "fieldname": "attempts", "fieldtype": "Int", "label": "Attempts", "default": "0" },
     { "fieldname": "gated", "fieldtype": "Check", "label": "Capacity Gated", "default": "0", "description": "Set when the RAM gate blocked auto-provisioning (provision KVM #2)" },
     { "fieldname": "external_ref", "fieldtype": "Data", "label": "External Ref", "description": "Coolify app id / bench site name" },
+    { "fieldname": "deployment_uuid", "fieldtype": "Data", "label": "Deployment UUID", "read_only": 1, "description": "Coolify deployment being tracked — lets a timed-out build RESUME on retry instead of re-building" },
     { "fieldname": "column_break_status", "fieldtype": "Column Break" },
     { "fieldname": "runner_id", "fieldtype": "Data", "label": "Runner ID", "read_only": 1 },
     { "fieldname": "started_at", "fieldtype": "Datetime", "label": "Started At", "read_only": 1 },

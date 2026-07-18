@@ -436,6 +436,29 @@ const AdminProvisioning: React.FC = () => {
               {consoleJob.access && (
                 <div>
                   <p className="text-gray-500 uppercase text-[10px] mb-1">Access (shown to customer)</p>
+                  {(() => {
+                    // Quick links: customer URL + Coolify admin panel, parsed
+                    // out of the access JSON so staff don't copy from raw text.
+                    try {
+                      const parsed = JSON.parse(consoleJob.access);
+                      return (
+                        <div className="mb-2 flex flex-wrap gap-3">
+                          {parsed?.url && (
+                            <a href={parsed.url} target="_blank" rel="noopener noreferrer" className="text-emerald-300 underline underline-offset-2">
+                              customer url ↗
+                            </a>
+                          )}
+                          {parsed?.manageUrl && (
+                            <a href={parsed.manageUrl} target="_blank" rel="noopener noreferrer" className="text-sky-300 underline underline-offset-2">
+                              coolify panel ↗ (staff only)
+                            </a>
+                          )}
+                        </div>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
                   <pre className="whitespace-pre-wrap break-words text-emerald-400">{consoleJob.access}</pre>
                 </div>
               )}

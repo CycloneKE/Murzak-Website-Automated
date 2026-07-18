@@ -69,14 +69,20 @@ async function getReservedRamMb(client) {
   }
 }
 
-function buildJobPayload({ webAccount, invoice, serviceId, repoUrl }) {
+function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
   const meta = getServiceMeta(serviceId);
   const lane = laneFor(meta);
+  const port = Number(appPort);
   // BYOA: a service that deploys the customer's own repo carries it on the
   // job; with no repo on file the job is born needs_human (never a fake build).
   const byoa = meta?.requiresRepo
     ? repoUrl
-      ? { repo_url: String(repoUrl).trim() }
+      ? {
+          repo_url: String(repoUrl).trim(),
+          // Port the app listens on — the coolify lane exposes this on the
+          // container (falls back to COOLIFY_DEFAULT_APP_PORT / 3000 when 0).
+          ...(Number.isInteger(port) && port > 0 && port <= 65535 ? { app_port: port } : {}),
+        }
       : {
           status: "needs_human",
           error:
@@ -128,12 +134,14 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   // order deploys the customer's own code. Best-effort — a fetch failure just
   // means the job is born needs_human (same as no repo on file).
   let accountRepoUrl = "";
+  let accountAppPort = 0;
   if (serviceIds.some((id) => getServiceMeta(id)?.requiresRepo)) {
     try {
       const accRes = await client.get(
         `/api/resource/Web Account/${encodeURIComponent(webAccount)}`
       );
       accountRepoUrl = String(accRes.data?.data?.source_code || "").trim();
+      accountAppPort = Number(accRes.data?.data?.app_port) || 0;
     } catch (e) {
       console.warn(`[provisioning] BYOA repo lookup failed for ${webAccount}: ${e.message}`);
     }
@@ -145,6 +153,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       invoice: invoiceDocName,
       serviceId,
       repoUrl: accountRepoUrl,
+      appPort: accountAppPort,
     });
     const meta = getServiceMeta(serviceId);
     if (meta?.capacityClass === "premium") {

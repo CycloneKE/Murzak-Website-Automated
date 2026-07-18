@@ -53,7 +53,7 @@ import AddonsModal from "../components/AddonsModal";
 import { deleteService } from "../services/account";
 import WebsiteHostingDashboard from "../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ChangePasswordCard from "../components/portal/ChangePasswordCard";
-import { fetchServiceActivity } from "../services/serviceActivity";
+import { fetchServiceActivity, ProvisioningActivityEntry } from "../services/serviceActivity";
 import OnboardingWizard from "../components/portal/OnboardingWizard";
 import MetricCard from "../components/portal/MetricCard";
 import ActivityTimeline, { TimelineEvent } from "../components/portal/ActivityTimeline";
@@ -301,13 +301,15 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
     return sp.get("service") || null;
   }, [location.search]);
 
-  // Real Coolify/site URL for the generic (non-website-hosting) service panel —
-  // this is data the provisioning lane already writes but the portal never
-  // rendered anywhere. Only fetched for services with their own management
-  // panel (WebsiteHostingDashboard has its own real domain data already).
+  // Real site URL + honest provisioning state for the generic (non-website-
+  // hosting) service panel. The backend only ever returns the CUSTOMER's URL
+  // (never an internal/admin one) and a server-derived statusDetail so this
+  // panel can say "build failed" / "add your repo" instead of showing nothing.
   const [cloudAccessUrl, setCloudAccessUrl] = useState<string>("");
+  const [cloudJob, setCloudJob] = useState<ProvisioningActivityEntry | null>(null);
   useEffect(() => {
     setCloudAccessUrl("");
+    setCloudJob(null);
     if (!cloudServiceId || cloudServiceId === "biz-web-hosting") return;
     let cancelled = false;
     fetchServiceActivity(cloudServiceId)
@@ -315,9 +317,13 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
         if (cancelled) return;
         const withUrl = jobs.find((j) => j.accessUrl);
         setCloudAccessUrl(withUrl?.accessUrl || "");
+        setCloudJob(jobs[0] || null);
       })
       .catch(() => {
-        if (!cancelled) setCloudAccessUrl("");
+        if (!cancelled) {
+          setCloudAccessUrl("");
+          setCloudJob(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -1980,6 +1986,74 @@ const renderCloudSystemsGrid = () => null;
                 </div>
                 <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0 group-hover:translate-x-1 transition-transform" />
               </a>
+            )}
+
+            {/* Honest provisioning states — a paid service must never look like
+                an empty dashboard. Each card says what's happening and what
+                (if anything) the customer should do. */}
+            {cloudJob?.statusDetail === "waiting_on_repo" && (
+              <div className="mt-4 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">Action needed</p>
+                <p className="text-[13px] font-bold text-murzak-ink">
+                  Add your repository to start deployment.
+                </p>
+                <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">
+                  We can't build your app until we have its Git repository. Add it under{" "}
+                  <button type="button" onClick={() => navigate("/portal/profile")} className="font-black text-murzak-accent underline underline-offset-2">
+                    My Account → Project repository
+                  </button>{" "}
+                  and our system will pick it up automatically.
+                </p>
+              </div>
+            )}
+            {cloudJob?.statusDetail === "needs_attention" && (
+              <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">Deployment issue</p>
+                <p className="text-[13px] font-bold text-murzak-ink">
+                  The last deployment didn't complete — our team has been notified and is on it.
+                </p>
+                {cloudJob?.error && (
+                  <p className="text-[11px] font-mono text-slate-500 mt-2 break-words">{cloudJob.error}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveLogServiceId(cloudServiceId)}
+                  className="mt-3 text-[11px] font-black uppercase tracking-widest text-murzak-accent"
+                >
+                  View build log →
+                </button>
+              </div>
+            )}
+            {(cloudJob?.status === "queued" || cloudJob?.status === "running") && (
+              <div className="mt-4 rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 p-5 flex items-start gap-3">
+                <div className="w-4 h-4 mt-0.5 rounded-full border-2 border-murzak-accent border-t-transparent animate-spin shrink-0" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-murzak-accent mb-1">
+                    {cloudJob.status === "running" ? "Deploying" : "Queued"}
+                  </p>
+                  <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
+                    {cloudJob.status === "running"
+                      ? "Your app is being built and deployed. This usually takes a few minutes."
+                      : "Your deployment is queued and will start shortly."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveLogServiceId(cloudServiceId)}
+                    className="mt-2 text-[11px] font-black uppercase tracking-widest text-murzak-accent"
+                  >
+                    Watch live log →
+                  </button>
+                </div>
+              </div>
+            )}
+            {isActive && !cloudAccessUrl && cloudJob?.statusDetail === "url_pending" && (
+              <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">URL pending</p>
+                <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
+                  Your app is deployed and we're assigning its web address — check back shortly, or
+                  message support if this persists.
+                </p>
+              </div>
             )}
 
             {isActive && (
