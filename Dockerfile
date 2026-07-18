@@ -13,6 +13,13 @@ RUN npm run build
 
 FROM node:22-alpine AS backend-deps
 WORKDIR /app/backend
+# Forces this stage to wait for frontend-build to fully finish (BuildKit must
+# complete an ENTIRE stage before any COPY --from can read it, regardless of
+# which file is picked) before starting its own npm ci. Otherwise BuildKit
+# runs both npm ci's concurrently — two dependency installs at once can OOM
+# a small shared VPS with no clear error (just a bare exit code from the
+# killed process), which is exactly what happened during a real deploy here.
+COPY --from=frontend-build /app/frontend/package.json /tmp/.sync-frontend-build
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 
