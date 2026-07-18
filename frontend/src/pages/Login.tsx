@@ -59,7 +59,14 @@ interface LoginProps {
   });
 
   useEffect(() => {
-    if (defaultMode) setMode(defaultMode);
+    // Never clobber a password-reset link: the /login route always passes
+    // defaultMode="login" unconditionally, so without this guard this effect
+    // fires right after the reset-detection effect above (same mount, same
+    // commit) and silently stomps mode back to "login" — the reset form never
+    // renders even though the URL correctly carried ?reset=<token>.
+    if (defaultMode && !new URLSearchParams(location.search).get("reset")) {
+      setMode(defaultMode);
+    }
   }, [defaultMode]);
 
   useEffect(() => {
