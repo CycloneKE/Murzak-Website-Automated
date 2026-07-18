@@ -239,6 +239,59 @@ async function deployAndWait(
   throw err;
 }
 
+/**
+ * Normalize one Coolify deployment row to the portal's shape. Defensive: field
+ * names differ across Coolify versions (⚠️ verify with scripts/coolify-smoke.js);
+ * anything missing degrades to "" rather than throwing.
+ */
+function normalizeDeployment(d) {
+  const status = String(d?.status || d?.deployment_status || "");
+  return {
+    uuid: String(d?.deployment_uuid || d?.uuid || ""),
+    status,
+    result: classifyDeploymentStatus(status),
+    commit: String(d?.commit || d?.git_commit_sha || "").slice(0, 12),
+    commitMessage: String(d?.commit_message || "").slice(0, 140),
+    createdAt: d?.created_at || d?.createdAt || "",
+    finishedAt: d?.finished_at || d?.updated_at || "",
+  };
+}
+
+/** Deployment history for an application (newest first per Coolify). */
+async function listDeployments(appUuid, opts) {
+  const client = http(opts);
+  const res = await client.get(
+    `/api/v1/applications/${encodeURIComponent(appUuid)}/deployments`
+  );
+  const raw = res.data?.data || res.data || [];
+  const arr = Array.isArray(raw) ? raw : Array.isArray(raw?.deployments) ? raw.deployments : [];
+  return arr.map(normalizeDeployment).filter((d) => d.uuid);
+}
+
+/** One deployment incl. a large log tail (for the portal's log viewer). */
+async function getDeployment(deploymentUuid, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/deployments/${encodeURIComponent(deploymentUuid)}`);
+  const d = res.data?.data || res.data || {};
+  return {
+    ...normalizeDeployment(d),
+    logs: extractLogTail(d, 20000),
+    // Which app this deployment belongs to — used by the portal route's
+    // ownership check. Field name uncertain across versions; empty = unknown
+    // and the caller must fall back to a list-membership check (fail closed).
+    applicationUuid: String(
+      d?.application_uuid || d?.application?.uuid || d?.resource_uuid || ""
+    ),
+  };
+}
+
+/** Customer-initiated redeploy of an already-provisioned application. */
+async function redeploy(externalRef, opts) {
+  const client = http(opts);
+  const deploymentUuid = await triggerDeploy(client, externalRef);
+  return { deploymentUuid };
+}
+
 /** The app's own URL from Coolify (fqdn/domains) — used when APP_DOMAIN_BASE is unset. */
 async function fetchAppUrl(client, appUuid) {
   try {
@@ -550,4 +603,9 @@ module.exports = {
   deployAndWait,
   finalizeApp,
   fetchAppUrl,
+  // Deployment history / redeploy (Milestone 2 dashboard).
+  normalizeDeployment,
+  listDeployments,
+  getDeployment,
+  redeploy,
 };

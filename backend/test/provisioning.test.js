@@ -469,6 +469,23 @@ const okLane = {
     ok(seenPort === 4321 && seenDep === "DEP-R", "runner passes app_port + deployment_uuid through the projected fetch to the lane");
   }
 
+  section("deployment history: normalizeDeployment");
+  {
+    const n = coolify.normalizeDeployment({
+      deployment_uuid: "DEP-1",
+      status: "finished",
+      commit: "abcdef1234567890",
+      commit_message: "fix: thing",
+      created_at: "2026-07-18 10:00:00",
+      finished_at: "2026-07-18 10:03:00",
+    });
+    ok(n.uuid === "DEP-1" && n.result === "success" && n.commit === "abcdef123456", "normalizes uuid/result, truncates commit to 12 chars");
+    const n2 = coolify.normalizeDeployment({ uuid: "DEP-2", deployment_status: "failed" });
+    ok(n2.uuid === "DEP-2" && n2.result === "failure", "alt field names (uuid/deployment_status) handled");
+    const n3 = coolify.normalizeDeployment({});
+    ok(n3.uuid === "" && n3.result === "pending", "empty row degrades, never throws");
+  }
+
   section("appDomain: slug + fqdn helpers");
   {
     const appDomain = require("../services/provisioning/appDomain");

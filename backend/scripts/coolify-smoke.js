@@ -183,6 +183,12 @@ async function main() {
       }
     }
 
+    // ---- Probe 7b: per-app deployment history (Milestone 2 dashboard) ------
+    const hist = await client.get(`/api/v1/applications/${appUuid}/deployments`);
+    const histBody = show("GET /api/v1/applications/{uuid}/deployments (history)", hist);
+    const histArr = Array.isArray(histBody) ? histBody : histBody?.data || histBody?.deployments || [];
+    if (histArr[0]) fullDump("first deployment-history row (field names!)", histArr[0]);
+
     // ---- Probe 8: PATCH domains (only if SMOKE_DOMAIN set) ------------------
     if (process.env.SMOKE_DOMAIN) {
       const patch = await client.patch(`/api/v1/applications/${appUuid}`, {

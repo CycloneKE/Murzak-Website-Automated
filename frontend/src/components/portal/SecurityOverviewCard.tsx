@@ -1,12 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, Server, Lock } from 'lucide-react';
 
-// No per-tenant backup timestamp or firewall-block counter is wired to any
-// real data source yet (the Provisioning Job doctype has a backup_status
-// enum — pending/configured/skipped/failed — but no timestamp, and nothing
-// tracks WAF hits per tenant). Show honest "not tracked yet" states instead
-// of the "Today, 02:00" / random-number placeholders this used to render.
+// Backup/edge rows now read the REAL per-tenant aggregate from
+// /api/portal/security-overview (the Provisioning Job backup_status /
+// edge_status enums the runner records at create-time). There is still no
+// per-tenant backup TIMESTAMP or WAF hit counter — when the aggregate isn't
+// available (no provisioned services, endpoint degraded) the rows keep the
+// honest "Not tracked yet" instead of a fabricated value.
+type Summary = "configured" | "partial" | "failed" | "not_configured" | "none";
+
+interface SecurityOverview {
+  available: boolean;
+  services?: number;
+  backup?: Summary;
+  edge?: Summary;
+  lastUpdated?: string;
+}
+
+const SUMMARY_LABEL: Record<Summary, { text: string; tone: string }> = {
+  configured: { text: "Configured", tone: "text-murzak-success" },
+  partial: { text: "Partially configured", tone: "text-orange-400" },
+  failed: { text: "Attention needed", tone: "text-red-400" },
+  not_configured: { text: "Not configured yet", tone: "text-slate-500" },
+  none: { text: "Not tracked yet", tone: "text-slate-500" },
+};
+
+function summaryChip(summary: Summary | undefined, available: boolean) {
+  const s = available && summary ? SUMMARY_LABEL[summary] : SUMMARY_LABEL.none;
+  return (
+    <span className={`text-[10px] font-black uppercase tracking-widest ${s.tone}`}>{s.text}</span>
+  );
+}
+
 const SecurityOverviewCard: React.FC = () => {
+  const [overview, setOverview] = useState<SecurityOverview | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/portal/security-overview", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d?.ok) setOverview(d);
+      })
+      .catch(() => {
+        /* degrade to the honest fallback rows */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const available = !!overview?.available;
+
   return (
     <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-32 h-32 bg-murzak-accent/5 rounded-bl-full blur-3xl transition-all duration-1000 group-hover:bg-murzak-accent/10"></div>
@@ -39,22 +84,26 @@ const SecurityOverviewCard: React.FC = () => {
           <div className="flex items-center gap-3">
             <ShieldCheck size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Last Backup</p>
-              <p className="text-xs text-slate-500">Verified & encrypted, when run</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Backups</p>
+              <p className="text-xs text-slate-500">
+                {available && overview?.services
+                  ? `Across ${overview.services} provisioned service${overview.services === 1 ? "" : "s"}`
+                  : "Verified & encrypted, when run"}
+              </p>
             </div>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>
+          {summaryChip(overview?.backup, available)}
         </div>
 
         <div className="flex items-center justify-between p-4 bg-black/5 border border-murzak-border/50 rounded-2xl">
           <div className="flex items-center gap-3">
             <Lock size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Firewall Blocks</p>
-              <p className="text-xs text-slate-500">Past 7 days</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Edge / WAF</p>
+              <p className="text-xs text-slate-500">Per-service edge protection</p>
             </div>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Not tracked yet</span>
+          {summaryChip(overview?.edge, available)}
         </div>
       </div>
     </div>

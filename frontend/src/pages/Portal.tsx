@@ -53,7 +53,14 @@ import AddonsModal from "../components/AddonsModal";
 import { deleteService } from "../services/account";
 import WebsiteHostingDashboard from "../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ChangePasswordCard from "../components/portal/ChangePasswordCard";
-import { fetchServiceActivity, ProvisioningActivityEntry } from "../services/serviceActivity";
+import {
+  fetchServiceActivity,
+  fetchServiceDeployments,
+  fetchDeploymentLog,
+  requestRedeploy,
+  ProvisioningActivityEntry,
+  DeploymentEntry,
+} from "../services/serviceActivity";
 import OnboardingWizard from "../components/portal/OnboardingWizard";
 import MetricCard from "../components/portal/MetricCard";
 import ActivityTimeline, { TimelineEvent } from "../components/portal/ActivityTimeline";
@@ -329,6 +336,70 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
       cancelled = true;
     };
   }, [cloudServiceId]);
+
+  // Deployment history (Milestone 2) — only applicable to git-sourced apps;
+  // available:false hides the whole section, so non-app services see nothing.
+  const [deployments, setDeployments] = useState<DeploymentEntry[]>([]);
+  const [deploymentsAvailable, setDeploymentsAvailable] = useState(false);
+  const [redeploying, setRedeploying] = useState(false);
+  const [redeployNote, setRedeployNote] = useState("");
+  const [deployLogView, setDeployLogView] = useState<{ uuid: string; logs: string; loading: boolean } | null>(null);
+  const refreshDeployments = (serviceId: string) =>
+    fetchServiceDeployments(serviceId)
+      .then((d) => {
+        setDeploymentsAvailable(d.available);
+        setDeployments(d.deployments);
+      })
+      .catch(() => {
+        setDeploymentsAvailable(false);
+        setDeployments([]);
+      });
+  useEffect(() => {
+    setDeployments([]);
+    setDeploymentsAvailable(false);
+    setRedeployNote("");
+    setDeployLogView(null);
+    if (!cloudServiceId || cloudServiceId === "biz-web-hosting") return;
+    let cancelled = false;
+    fetchServiceDeployments(cloudServiceId)
+      .then((d) => {
+        if (cancelled) return;
+        setDeploymentsAvailable(d.available);
+        setDeployments(d.deployments);
+      })
+      .catch(() => {
+        if (!cancelled) setDeploymentsAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudServiceId]);
+
+  const handleRedeploy = async () => {
+    if (!cloudServiceId || redeploying) return;
+    setRedeploying(true);
+    setRedeployNote("");
+    try {
+      const r = await requestRedeploy(cloudServiceId);
+      setRedeployNote(r.message || "Redeploy started.");
+      await refreshDeployments(cloudServiceId);
+    } catch (e: any) {
+      setRedeployNote(e?.message || "Failed to start the redeploy.");
+    } finally {
+      setRedeploying(false);
+    }
+  };
+
+  const openDeployLog = async (uuid: string) => {
+    if (!cloudServiceId) return;
+    setDeployLogView({ uuid, logs: "", loading: true });
+    try {
+      const r = await fetchDeploymentLog(cloudServiceId, uuid);
+      setDeployLogView({ uuid, logs: r.logs || "(no log recorded for this deployment)", loading: false });
+    } catch (e: any) {
+      setDeployLogView({ uuid, logs: e?.message || "Couldn't load this log.", loading: false });
+    }
+  };
 
   // Self-service domain attach (Phase 4). Reset whenever the user navigates
   // to a different service so a stale success/error message from a previous
@@ -2053,6 +2124,104 @@ const renderCloudSystemsGrid = () => null;
                   Your app is deployed and we're assigning its web address — check back shortly, or
                   message support if this persists.
                 </p>
+              </div>
+            )}
+
+            {cloudJob?.target && (
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                Hosted on Murzak Cloud · {cloudJob.target} · Managed from Nairobi
+              </p>
+            )}
+
+            {/* Deployment history — git-sourced apps only (hidden otherwise). */}
+            {deploymentsAvailable && (
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Deployments</p>
+                    <p className="text-[11px] font-medium text-slate-500 mt-0.5">
+                      Each deployment rebuilds your app from the latest commit on your branch.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRedeploy}
+                    disabled={redeploying || !isActive}
+                    className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-[11px] font-black uppercase tracking-widest disabled:opacity-50 hover:scale-[1.02] transition-transform"
+                  >
+                    {redeploying ? "Starting…" : "Redeploy"}
+                  </button>
+                </div>
+                {redeployNote && (
+                  <p className="mb-3 text-[11px] font-bold text-murzak-accent">{redeployNote}</p>
+                )}
+                {deployments.length === 0 ? (
+                  <p className="text-[12px] font-medium text-slate-500">No deployments recorded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {deployments.slice(0, 8).map((d) => (
+                      <div
+                        key={d.uuid}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 dark:border-murzak-border bg-white/60 dark:bg-black/5 px-4 py-2.5"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`shrink-0 w-2 h-2 rounded-full ${
+                              d.result === "success"
+                                ? "bg-murzak-success"
+                                : d.result === "failure"
+                                ? "bg-red-500"
+                                : "bg-orange-400 animate-pulse"
+                            }`}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black text-murzak-ink truncate">
+                              {d.commit ? `${d.commit}` : d.uuid.slice(0, 8)}
+                              <span className="ml-2 font-bold text-slate-500 normal-case">
+                                {d.status || "unknown"}
+                              </span>
+                            </p>
+                            {(d.createdAt || d.commitMessage) && (
+                              <p className="text-[10px] font-medium text-slate-500 truncate">
+                                {[d.createdAt, d.commitMessage].filter(Boolean).join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openDeployLog(d.uuid)}
+                          className="text-[10px] font-black uppercase tracking-widest text-murzak-accent shrink-0"
+                        >
+                          Log
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {deployLogView && (
+              <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-sm" onClick={() => setDeployLogView(null)}>
+                <div
+                  className="w-full max-w-2xl max-h-[80vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
+                    <span className="text-gray-300 text-xs truncate">Deployment {deployLogView.uuid.slice(0, 12)} — build log</span>
+                    <button className="text-gray-500 hover:text-white p-1" onClick={() => setDeployLogView(null)} aria-label="Close log">
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-5">
+                    {deployLogView.loading ? (
+                      <p className="text-xs text-gray-500">Loading log…</p>
+                    ) : (
+                      <pre className="whitespace-pre-wrap break-words text-[11px] text-gray-300 leading-relaxed">{deployLogView.logs}</pre>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

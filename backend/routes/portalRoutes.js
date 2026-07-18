@@ -633,7 +633,7 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
         ]),
         fields: JSON.stringify([
           "name", "status", "log", "backup_status", "edge_status", "error",
-          "attempts", "access", "creation", "modified",
+          "attempts", "access", "creation", "modified", "target",
         ]),
         order_by: "modified desc",
         limit_page_length: 20,
@@ -678,6 +678,9 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
         error: j.error || "",
         attempts: Number(j.attempts || 0),
         accessUrl,
+        // Which Murzak box hosts this tenant (box-1, box-2, …) — real
+        // placement data from the runner, safe to show the customer.
+        target: j.target || "",
         createdAt: j.creation || "",
         updatedAt: j.modified || "",
       };
@@ -849,6 +852,181 @@ router.get("/api/portal/services/:serviceId/usage", requireAuth, async (req, res
     // Coolify not exposing this, or a transient error — degrade to
     // "not available," don't surface a scary error for a nice-to-have widget.
     console.warn("SERVICE USAGE FETCH FAILED:", err.response?.data || err.message);
+    return res.json({ ok: true, available: false });
+  }
+});
+
+// --- DEPLOYMENT HISTORY + REDEPLOY (Milestone 2 — app-kind coolify services) ---
+// Read-only history + per-deployment build logs, plus a customer-initiated
+// redeploy. Everything degrades to {available:false} when this service isn't
+// a git-sourced application (or Coolify's history endpoint isn't reachable):
+// the portal hides the section rather than showing errors for a nice-to-have.
+
+// Guard shared by the three routes: the caller's own, active, coolify-lane,
+// APPLICATION-kind job — or null (the route answers "not available"/"404").
+async function loadOwnedAppJob(client, webAccountName, serviceId) {
+  const job = await loadOwnedJob(client, webAccountName, serviceId);
+  if (!job || job.lane !== "coolify" || !job.external_ref) return null;
+  if (jobResourceKind(job) !== "application") return null;
+  return job;
+}
+
+router.get("/api/portal/services/:serviceId/deployments", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  try {
+    const client = frappeClient();
+    const job = await loadOwnedAppJob(client, webAccountName, serviceId);
+    if (!job) return res.json({ ok: true, available: false, deployments: [] });
+
+    const deployments = await coolifyLane.listDeployments(job.external_ref);
+    return res.json({ ok: true, available: true, deployments: deployments.slice(0, 20) });
+  } catch (err) {
+    // Doctype missing, Coolify unreachable, or an unverified route shape —
+    // hide the section, never alarm the customer over history.
+    console.warn("DEPLOYMENTS LIST FAILED:", err.response?.data || err.message);
+    return res.json({ ok: true, available: false, deployments: [] });
+  }
+});
+
+router.get(
+  "/api/portal/services/:serviceId/deployments/:deploymentUuid",
+  requireAuth,
+  async (req, res) => {
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    const { serviceId, deploymentUuid } = req.params;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
+    if (!serviceId || !deploymentUuid) return res.status(400).json({ error: "Missing parameters." });
+
+    try {
+      const client = frappeClient();
+      const job = await loadOwnedAppJob(client, webAccountName, serviceId);
+      if (!job) return res.status(404).json({ error: "Deployment not found." });
+
+      const dep = await coolifyLane.getDeployment(deploymentUuid);
+      // Ownership: the deployment must belong to THIS customer's app. Prefer
+      // the deployment's own application reference; when Coolify doesn't
+      // return one, fall back to list membership. FAIL CLOSED — a deployment
+      // we can't tie to this app is a 404, not a leaked log.
+      let owned = dep.applicationUuid && dep.applicationUuid === String(job.external_ref);
+      if (!owned && !dep.applicationUuid) {
+        const list = await coolifyLane.listDeployments(job.external_ref);
+        owned = list.some((d) => d.uuid === deploymentUuid);
+      }
+      if (!owned) return res.status(404).json({ error: "Deployment not found." });
+
+      const { logs, applicationUuid, ...deployment } = dep;
+      return res.json({ ok: true, deployment, logs });
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        return res.status(404).json({ error: "Deployment not found." });
+      }
+      console.error("DEPLOYMENT LOG FETCH FAILED:", err.response?.data || err.message);
+      return res.status(502).json({ error: "Couldn't load this deployment's log right now." });
+    }
+  }
+);
+
+router.post(
+  "/api/portal/services/:serviceId/redeploy",
+  requireAuth,
+  serviceActionLimiter,
+  async (req, res) => {
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    const { serviceId } = req.params;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
+    if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+    const client = frappeClient();
+    let job;
+    try {
+      job = await loadOwnedAppJob(client, webAccountName, serviceId);
+    } catch (err) {
+      console.error("REDEPLOY LOOKUP ERROR:", err.response?.data || err.message);
+      return res.status(500).json({ error: "Failed to look up this service." });
+    }
+    if (!job) return res.status(404).json({ error: "This service can't be redeployed." });
+    if (job.status !== "active") {
+      return res.status(409).json({
+        error: `Can't redeploy a service that isn't active (current: ${job.status || "unknown"}).`,
+      });
+    }
+    if (actionInFlight.has(job.name)) {
+      return res.status(429).json({ error: "An action is already in progress for this service." });
+    }
+    actionInFlight.add(job.name);
+    try {
+      const { deploymentUuid } = await coolifyLane.redeploy(job.external_ref);
+      const ts = new Date().toISOString();
+      const auditLine = `[${ts}] [ACTION] redeploy requested by ${webAccountName}` +
+        (deploymentUuid ? ` (deployment ${deploymentUuid})` : "");
+      client
+        .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+          log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+        })
+        .catch((e) => console.error("REDEPLOY AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
+      return res.json({
+        ok: true,
+        deploymentUuid: deploymentUuid || "",
+        message: "Redeploy started — your app rebuilds from the latest commit. This takes a few minutes.",
+      });
+    } catch (err) {
+      console.error("REDEPLOY ERROR:", err.response?.data || err.message);
+      return res.status(502).json({ error: "Failed to start the redeploy. Please try again or contact support." });
+    } finally {
+      actionInFlight.delete(job.name);
+    }
+  }
+);
+
+// --- SECURITY OVERVIEW (Milestone 2 — honest aggregate, no fabricated data) ---
+// Aggregates the caller's own Provisioning Jobs' backup/edge enums. There is
+// still no per-tenant backup TIMESTAMP or WAF hit counter — this surfaces the
+// real configured/skipped/failed state instead of "not tracked yet", and the
+// card keeps its honest fallback when the customer has no provisioned jobs.
+router.get("/api/portal/security-overview", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  try {
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([
+          ["web_account", "=", webAccountName],
+          ["status", "=", "active"],
+        ]),
+        fields: JSON.stringify(["backup_status", "edge_status", "modified"]),
+        limit_page_length: 100,
+      },
+    });
+    const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
+    const summarize = (field) => {
+      const vals = rows.map((r) => String(r[field] || ""));
+      const configured = vals.filter((v) => v === "configured").length;
+      if (!vals.length) return "none";
+      if (configured === vals.length) return "configured";
+      if (configured > 0) return "partial";
+      if (vals.some((v) => v === "failed")) return "failed";
+      return "not_configured";
+    };
+    const lastUpdated = rows.reduce((max, r) => (r.modified > max ? r.modified : max), "");
+    return res.json({
+      ok: true,
+      available: rows.length > 0,
+      services: rows.length,
+      backup: summarize("backup_status"),
+      edge: summarize("edge_status"),
+      lastUpdated,
+    });
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, available: false });
+    }
+    console.error("SECURITY OVERVIEW ERROR:", err.response?.data || err.message);
     return res.json({ ok: true, available: false });
   }
 });
