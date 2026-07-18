@@ -422,6 +422,7 @@ const okLane = {
     ok(/Permanent failure/.test(jp.error || ""), "error labels the failure permanent");
     ok(/missing script: build/.test(jp.log || ""), "build log tail preserved on the job");
     ok(jp.deployment_uuid === "DEP-X", "deployment uuid recorded for staff diagnosis");
+    ok(JSON.parse(jp.deployment_history || "[]").some((e) => e.uuid === "DEP-X"), "failed deployment still recorded in self-tracked history (visible in Deployments card)");
 
     // Retryable timeout hands its deployment_uuid to the queued retry.
     const timeoutLane = {
@@ -437,6 +438,19 @@ const okLane = {
     await runner.processQueue(s2, { lanes: { coolify: timeoutLane } });
     const jt = PJ(s2).JT;
     ok(jt.status === "queued" && jt.attempts === 1 && jt.deployment_uuid === "DEP-T", "timed-out build -> queued retry carrying deployment_uuid for resume");
+    ok(JSON.parse(jt.deployment_history || "[]").some((e) => e.uuid === "DEP-T"), "timed-out deployment recorded in history too");
+
+    // Successful active job also records its deployment_uuid in the history array.
+    const successLane = {
+      isConfigured: () => true,
+      configError: () => null,
+      provision: async () => ({ externalRef: "APP-3", deploymentUuid: "DEP-OK", access: {}, log: "ok" }),
+    };
+    let s4 = makeStore([{ name: "JOK", service_id: "starter-app-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 1024, repo_url: "https://github.com/cust/app" }]);
+    await runner.processQueue(s4, { lanes: { coolify: successLane } });
+    const jok = PJ(s4).JOK;
+    ok(jok.status === "active" && jok.deployment_uuid === "DEP-OK", "successful deploy records deployment_uuid");
+    ok(JSON.parse(jok.deployment_history || "[]").length === 1 && JSON.parse(jok.deployment_history)[0].uuid === "DEP-OK", "successful deploy appends to deployment_history");
   }
 
   section("app_port threading (enqueue -> claimable fetch -> lane)");
@@ -484,6 +498,36 @@ const okLane = {
     ok(n2.uuid === "DEP-2" && n2.result === "failure", "alt field names (uuid/deployment_status) handled");
     const n3 = coolify.normalizeDeployment({});
     ok(n3.uuid === "" && n3.result === "pending", "empty row degrades, never throws");
+  }
+
+  section("deploymentHistory: self-recorded (Coolify has no history endpoint)");
+  {
+    const dh = require("../services/provisioning/deploymentHistory");
+
+    ok(dh.parseHistory(undefined).length === 0, "empty/undefined -> []");
+    ok(dh.parseHistory("not json").length === 0, "malformed JSON degrades to []");
+
+    let h = dh.appendDeployment("[]", "DEP-1", "t1");
+    ok(JSON.parse(h).length === 1 && JSON.parse(h)[0].uuid === "DEP-1", "first append records uuid+timestamp");
+
+    h = dh.appendDeployment(h, "DEP-2", "t2");
+    ok(JSON.parse(h).length === 2, "second append grows the list");
+
+    const same = dh.appendDeployment(h, "DEP-2", "t3");
+    ok(JSON.parse(same).length === 2, "re-appending an already-recorded uuid is a no-op (idempotent resume)");
+
+    ok(dh.appendDeployment("[]", "", "t") === "[]", "empty uuid -> no-op");
+
+    // Cap at MAX_ENTRIES — oldest entries fall off, list never grows unbounded.
+    let capped = "[]";
+    for (let i = 0; i < dh.MAX_ENTRIES + 5; i++) capped = dh.appendDeployment(capped, "DEP-" + i, "t");
+    const parsed = JSON.parse(capped);
+    ok(parsed.length === dh.MAX_ENTRIES, "history capped at MAX_ENTRIES");
+    ok(parsed[parsed.length - 1].uuid === `DEP-${dh.MAX_ENTRIES + 4}`, "newest entry survives the cap");
+    ok(parsed[0].uuid === "DEP-5", "oldest entries dropped once capped");
+
+    const uuids = dh.listUuids(capped, 3);
+    ok(uuids.length === 3 && uuids[0] === `DEP-${dh.MAX_ENTRIES + 4}`, "listUuids returns newest-first, respecting limit");
   }
 
   section("appDomain: slug + fqdn helpers");

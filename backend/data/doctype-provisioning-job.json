@@ -37,6 +37,7 @@
     { "fieldname": "gated", "fieldtype": "Check", "label": "Capacity Gated", "default": "0", "description": "Set when the RAM gate blocked auto-provisioning (provision KVM #2)" },
     { "fieldname": "external_ref", "fieldtype": "Data", "label": "External Ref", "description": "Coolify app id / bench site name" },
     { "fieldname": "deployment_uuid", "fieldtype": "Data", "label": "Deployment UUID", "read_only": 1, "description": "Coolify deployment being tracked — lets a timed-out build RESUME on retry instead of re-building" },
+    { "fieldname": "deployment_history", "fieldtype": "Long Text", "label": "Deployment History (JSON)", "read_only": 1, "description": "Self-recorded list of deployment_uuids this job has triggered — Coolify has no per-app history endpoint, so we track it ourselves." },
     { "fieldname": "column_break_status", "fieldtype": "Column Break" },
     { "fieldname": "runner_id", "fieldtype": "Data", "label": "Runner ID", "read_only": 1 },
     { "fieldname": "started_at", "fieldtype": "Datetime", "label": "Started At", "read_only": 1 },

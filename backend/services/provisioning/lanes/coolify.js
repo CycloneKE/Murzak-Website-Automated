@@ -257,16 +257,13 @@ function normalizeDeployment(d) {
   };
 }
 
-/** Deployment history for an application (newest first per Coolify). */
-async function listDeployments(appUuid, opts) {
-  const client = http(opts);
-  const res = await client.get(
-    `/api/v1/applications/${encodeURIComponent(appUuid)}/deployments`
-  );
-  const raw = res.data?.data || res.data || [];
-  const arr = Array.isArray(raw) ? raw : Array.isArray(raw?.deployments) ? raw.deployments : [];
-  return arr.map(normalizeDeployment).filter((d) => d.uuid);
-}
+// NOTE: there is deliberately no listDeployments() here. Confirmed live
+// against Coolify 4.1.2: GET /api/v1/applications/{uuid}/deployments -> 404
+// (route doesn't exist), and GET /api/v1/deployments only lists CURRENTLY
+// RUNNING deployments, not history. Deployment history is instead
+// self-recorded by the runner/redeploy route (see ../deploymentHistory.js)
+// and looked up one uuid at a time via getDeployment() below, which IS a
+// real, confirmed-working endpoint.
 
 /** One deployment incl. a large log tail (for the portal's log viewer). */
 async function getDeployment(deploymentUuid, opts) {
@@ -605,7 +602,6 @@ module.exports = {
   fetchAppUrl,
   // Deployment history / redeploy (Milestone 2 dashboard).
   normalizeDeployment,
-  listDeployments,
   getDeployment,
   redeploy,
 };

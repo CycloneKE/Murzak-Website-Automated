@@ -183,11 +183,13 @@ async function main() {
       }
     }
 
-    // ---- Probe 7b: per-app deployment history (Milestone 2 dashboard) ------
-    const hist = await client.get(`/api/v1/applications/${appUuid}/deployments`);
-    const histBody = show("GET /api/v1/applications/{uuid}/deployments (history)", hist);
-    const histArr = Array.isArray(histBody) ? histBody : histBody?.data || histBody?.deployments || [];
-    if (histArr[0]) fullDump("first deployment-history row (field names!)", histArr[0]);
+    // ---- Probe 7b: per-app deployment history — CONFIRMED NOT TO EXIST -----
+    // Verified live against Coolify 4.1.2 (2026-07-18): this 404s, and the
+    // global GET /api/v1/deployments only lists CURRENTLY RUNNING deployments,
+    // not history. Left here (commented, not called) as a record of what was
+    // checked — deployment history is self-recorded instead, see
+    // services/provisioning/deploymentHistory.js.
+    // const hist = await client.get(`/api/v1/applications/${appUuid}/deployments`);
 
     // ---- Probe 8: PATCH domains (only if SMOKE_DOMAIN set) ------------------
     if (process.env.SMOKE_DOMAIN) {

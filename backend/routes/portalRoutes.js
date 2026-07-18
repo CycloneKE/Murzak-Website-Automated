@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
+const deploymentHistory = require('../services/provisioning/deploymentHistory');
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
 // file through to the ctx destructure, so any such import placed above it
@@ -717,7 +718,7 @@ async function loadOwnedJob(client, webAccountName, serviceId) {
         ["web_account", "=", webAccountName],
         ["service_id", "=", serviceId],
       ]),
-      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log", "access"]),
+      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log", "access", "deployment_uuid", "deployment_history"]),
       order_by: "modified desc",
       limit_page_length: 1,
     },
@@ -871,6 +872,12 @@ async function loadOwnedAppJob(client, webAccountName, serviceId) {
   return job;
 }
 
+// Coolify v4.1.2 has NO per-application deployment-history endpoint (verified
+// live: GET /applications/{uuid}/deployments -> 404; GET /deployments only
+// lists CURRENTLY RUNNING ones). So history is SELF-RECORDED — every
+// deployment_uuid the runner/redeploy triggers gets appended to the job's
+// deployment_history (see deploymentHistory.js) — and this route just fetches
+// live status for each recorded uuid via the endpoint that DOES work.
 router.get("/api/portal/services/:serviceId/deployments", requireAuth, async (req, res) => {
   const webAccountName = req.session?.webAccount || req.session?.user?.id;
   const { serviceId } = req.params;
@@ -882,11 +889,24 @@ router.get("/api/portal/services/:serviceId/deployments", requireAuth, async (re
     const job = await loadOwnedAppJob(client, webAccountName, serviceId);
     if (!job) return res.json({ ok: true, available: false, deployments: [] });
 
-    const deployments = await coolifyLane.listDeployments(job.external_ref);
-    return res.json({ ok: true, available: true, deployments: deployments.slice(0, 20) });
+    const uuids = deploymentHistory.listUuids(job.deployment_history, 20);
+    if (!uuids.length) return res.json({ ok: true, available: true, deployments: [] });
+
+    const results = await Promise.all(
+      uuids.map((uuid) =>
+        coolifyLane.getDeployment(uuid).catch((e) => {
+          console.warn(`DEPLOYMENT FETCH FAILED for ${uuid}:`, e.response?.data || e.message);
+          return null;
+        })
+      )
+    );
+    const deployments = results
+      .filter(Boolean)
+      .map(({ logs, applicationUuid, ...d }) => d);
+    return res.json({ ok: true, available: true, deployments });
   } catch (err) {
-    // Doctype missing, Coolify unreachable, or an unverified route shape —
-    // hide the section, never alarm the customer over history.
+    // Doctype missing or a transient error — hide the section, never alarm
+    // the customer over history.
     console.warn("DEPLOYMENTS LIST FAILED:", err.response?.data || err.message);
     return res.json({ ok: true, available: false, deployments: [] });
   }
@@ -906,18 +926,14 @@ router.get(
       const job = await loadOwnedAppJob(client, webAccountName, serviceId);
       if (!job) return res.status(404).json({ error: "Deployment not found." });
 
-      const dep = await coolifyLane.getDeployment(deploymentUuid);
-      // Ownership: the deployment must belong to THIS customer's app. Prefer
-      // the deployment's own application reference; when Coolify doesn't
-      // return one, fall back to list membership. FAIL CLOSED — a deployment
-      // we can't tie to this app is a 404, not a leaked log.
-      let owned = dep.applicationUuid && dep.applicationUuid === String(job.external_ref);
-      if (!owned && !dep.applicationUuid) {
-        const list = await coolifyLane.listDeployments(job.external_ref);
-        owned = list.some((d) => d.uuid === deploymentUuid);
-      }
+      // Ownership, FAIL CLOSED: this uuid must be one WE recorded for this
+      // job (self-tracked history — see note above the list route) — a
+      // deployment we didn't trigger for this app is a 404, not a leaked log.
+      const owned = deploymentHistory.listUuids(job.deployment_history, deploymentHistory.MAX_ENTRIES)
+        .includes(deploymentUuid);
       if (!owned) return res.status(404).json({ error: "Deployment not found." });
 
+      const dep = await coolifyLane.getDeployment(deploymentUuid);
       const { logs, applicationUuid, ...deployment } = dep;
       return res.json({ ok: true, deployment, logs });
     } catch (err) {
@@ -966,6 +982,15 @@ router.post(
       client
         .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
           log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+          // Record this redeploy in the self-tracked history (see the note
+          // above the /deployments route) so it shows up in the Deployments
+          // card same as a build the runner triggers.
+          ...(deploymentUuid
+            ? {
+                deployment_uuid: deploymentUuid,
+                deployment_history: deploymentHistory.appendDeployment(job.deployment_history, deploymentUuid, ts),
+              }
+            : {}),
         })
         .catch((e) => console.error("REDEPLOY AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
       return res.json({

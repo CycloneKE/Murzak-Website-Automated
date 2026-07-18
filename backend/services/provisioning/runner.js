@@ -23,6 +23,7 @@ const {
   STATUS_SETTING_UP, STATUS_ACTIVE,
 } = require("./constants");
 const { getServiceMeta, laneFor } = require("./catalog");
+const { appendDeployment } = require("./deploymentHistory");
 const scaling = require("./scaling");
 const targets = require("./targets");
 const backups = require("./backups");
@@ -185,7 +186,10 @@ async function fetchClaimable(client, limit) {
         // app_port + deployment_uuid are the same bug class: the lane reads
         // both (port at create, deployment_uuid to RESUME a timed-out build
         // instead of re-building), so they must ride along on the claim fetch.
-        "repo_url", "app_port", "deployment_uuid",
+        // deployment_history must ride along too, or appendDeployment() below
+        // sees an empty job.deployment_history every pass and the array never
+        // actually accumulates past one entry.
+        "repo_url", "app_port", "deployment_uuid", "deployment_history",
       ]),
       order_by: "modified asc",
       limit_page_length: limit,
@@ -268,7 +272,12 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
       await updateJob(client, job.name, {
         status: "active",
         external_ref: String(out.externalRef || "").slice(0, 140),
-        ...(out.deploymentUuid ? { deployment_uuid: String(out.deploymentUuid).slice(0, 140) } : {}),
+        ...(out.deploymentUuid
+          ? {
+              deployment_uuid: String(out.deploymentUuid).slice(0, 140),
+              deployment_history: appendDeployment(job.deployment_history, out.deploymentUuid, sqlTime()),
+            }
+          : {}),
         access: JSON.stringify(out.access || {}).slice(0, 1000),
         log: String(out.log || "").slice(-4000),
         backup_status: backup.status,
@@ -294,7 +303,12 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
           ...(e.logTail
             ? { log: `${job.log ? `${job.log}\n` : ""}--- build log tail ---\n${e.logTail}`.slice(-4000) }
             : {}),
-          ...(e.deploymentUuid ? { deployment_uuid: String(e.deploymentUuid).slice(0, 140) } : {}),
+          ...(e.deploymentUuid
+            ? {
+                deployment_uuid: String(e.deploymentUuid).slice(0, 140),
+                deployment_history: appendDeployment(job.deployment_history, e.deploymentUuid, sqlTime()),
+              }
+            : {}),
         });
         await createEscalationTicket(client, job, reason);
         return { name: job.name, outcome: "needs_human", attempts, reason: e.message };
@@ -307,7 +321,12 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
         error: String(e.message).slice(0, 500),
         // A timed-out build hands back its deployment_uuid so the retry RESUMES
         // polling that same deployment instead of triggering a duplicate build.
-        ...(e.deploymentUuid ? { deployment_uuid: String(e.deploymentUuid).slice(0, 140) } : {}),
+        ...(e.deploymentUuid
+          ? {
+              deployment_uuid: String(e.deploymentUuid).slice(0, 140),
+              deployment_history: appendDeployment(job.deployment_history, e.deploymentUuid, sqlTime()),
+            }
+          : {}),
       });
       return { name: job.name, outcome: "retry", attempts, retryInSec: wait };
     }
