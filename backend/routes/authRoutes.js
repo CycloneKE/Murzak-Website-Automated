@@ -739,23 +739,14 @@ router.get("/api/auth/me", async (req, res) => {
   res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
-  if (process.env.DEV_AUTO_LOGIN === "true") {
-    const devUser = {
-      id: "dev-user@example.com",
-      name: "Dev User",
-      email: "dev-user@example.com",
-      plan: "Business",
-      accountStatus: "Active",
-      hasActiveTrial: false,
-      services: [],
-      invoices: []
-    };
-    req.session.user = devUser;
-    req.session.webAccount = devUser.id;
-    return res.json({
-      ok: true,
-      user: devUser
-    });
+  // DEV_AUTO_LOGIN seeds the SESSION identity only, then falls through to the
+  // same read path as production — same rule as the MOCK_FRAPPE note below.
+  // The old early-return here served a hardcoded user with empty services/
+  // invoices, so a dev-mode portal could never show anything purchased through
+  // the mock store (masked every populated-dashboard state from local E2E).
+  if (process.env.DEV_AUTO_LOGIN === "true" && !req.session?.webAccount) {
+    req.session.webAccount = "dev-user@example.com";
+    req.session.user = { id: "dev-user@example.com", name: "Dev User", email: "dev-user@example.com" };
   }
   // NOTE: no MOCK_FRAPPE short-circuit here. Mock mode must exercise the same
   // read path as production (frappeClient() already returns the mock store) —
@@ -787,6 +778,18 @@ router.get("/api/auth/me", async (req, res) => {
     });
   } catch (err) {
     console.error("AUTH ME ERROR:", err.response?.data || err.message);
+    // Last-resort DEV convenience: with auto-login on but NO data source
+    // behind it (e.g. MOCK_FRAPPE off and no reachable Frappe), keep the dev
+    // session usable with an explicitly-empty user instead of a 401 loop.
+    if (process.env.DEV_AUTO_LOGIN === "true") {
+      const devUser = {
+        id: "dev-user@example.com", name: "Dev User", email: "dev-user@example.com",
+        plan: "Business", accountStatus: "Active", hasActiveTrial: false,
+        services: [], invoices: []
+      };
+      req.session.user = devUser;
+      return res.json({ ok: true, user: devUser });
+    }
     return res.status(401).json({
       ok: false
     });
