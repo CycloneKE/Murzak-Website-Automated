@@ -74,10 +74,10 @@ async function proxySSELogs(req, res, deploymentUuid) {
 
 module.exports = (routeContext) => {
   const router = express.Router();
-  const { authMiddleware } = routeContext;
+  const { requireAuth } = routeContext;
 
   // Middleware to ensure user is logged in
-  router.use(authMiddleware.requireAuth);
+  router.use(requireAuth);
 
   /**
    * Start GitHub OAuth Flow
