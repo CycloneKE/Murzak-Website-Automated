@@ -59,6 +59,9 @@ const Header: React.FC<HeaderProps> = ({
         { group: "Custom Build", items: [
           { label: "Custom Software", page: "custom-software" },
         ]},
+        { group: "Cloud & Deployment", items: [
+          { label: "Deploy App (BYOA)", page: "deploy" },
+        ]},
         { group: "Industries", items: [
           { label: "For Retail", page: "for-retail" },
           { label: "For Clinics", page: "for-clinics" },
