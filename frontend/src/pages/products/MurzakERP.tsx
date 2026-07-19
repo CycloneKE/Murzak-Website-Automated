@@ -88,7 +88,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="flex items-center gap-2.5 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20 px-4 py-3">
                 <Check size={16} className="text-murzak-accent shrink-0" />
-                <span className="text-[13px] font-bold text-slate-200">3 payroll runs processed this quarter</span>
+                <span className="text-body-sm font-bold text-slate-200">3 payroll runs processed this quarter</span>
               </div>
             </div>
           </div>
