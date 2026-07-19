@@ -13,9 +13,9 @@ interface Props {
 const Products: React.FC<Props> = ({ onNavigate }) => {
 
   const businessSystems = [
-    { title: "Murzak POS", desc: "Multi-branch point of sale, inventory tracking, and M-Pesa integration.", path: "pos", priceId: "biz-pos-inventory" },
-    { title: "Murzak ERP", desc: "Accounting, HR, and inventory tailored for Kenyan compliance.", path: "erp", priceId: "biz-erp-light" },
-    { title: "Murzak CRM & Helpdesk", desc: "Track leads, manage support tickets, and integrate WhatsApp.", path: "crm", priceId: "biz-crm-helpdesk" }
+    { title: "Murzak POS", desc: "Multi-branch point of sale, inventory tracking, and M-Pesa integration.", path: "pos", priceId: "biz-pos-inventory", previewLabel: "Today's total", previewValue: "KES 24,180" },
+    { title: "Murzak ERP", desc: "Accounting, HR, and inventory tailored for Kenyan compliance.", path: "erp", priceId: "biz-erp-light", previewLabel: "Net this month", previewValue: "KES 1.4M" },
+    { title: "Murzak CRM & Helpdesk", desc: "Track leads, manage support tickets, and integrate WhatsApp.", path: "crm", priceId: "biz-crm-helpdesk", previewLabel: "Open pipeline", previewValue: "12 deals" }
   ];
 
   const industries = [
@@ -60,7 +60,11 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
              {businessSystems.map((item, idx) => (
                <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
                   <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-grow">{item.desc}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{item.desc}</p>
+                  <div className="rounded-xl bg-slate-900 px-4 py-3 mb-5">
+                    <div className="text-micro font-bold uppercase text-slate-500 mb-1">{item.previewLabel}</div>
+                    <div className="text-sm font-black text-murzak-accent">{item.previewValue}</div>
+                  </div>
                   <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400 text-xs font-mono uppercase">From {formatKes(serviceMonthlyKes(item.priceId))}/mo</span>
                     <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">View <ArrowRight size={14} /></span>
