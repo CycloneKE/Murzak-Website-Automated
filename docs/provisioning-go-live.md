@@ -86,6 +86,23 @@ PROVISIONING_BOX1_MAX_PREMIUM=6                                  # cap ERP tenan
 
 ---
 
+## Developer Access — terminal consent custom fields (one-time)
+
+Separate from the provisioning stages above, but the same mechanism: the
+Developer Access terminal-consent workflow (staff "Approve Developer Access" +
+customer disclosure acceptance, gating `POST /api/portal/terminal/*`) reads and
+writes three `Web Account` fields that only exist in Frappe once imported.
+
+- **Import once:** `backend/data/custom-fields-web-account.json`
+  (Desk → *Import Document*, or `bench --site <site> import-doc <path>`).
+- **If skipped:** Frappe silently drops writes to unknown fields, so
+  approve / accept-disclosure calls appear to succeed but persist nothing, and
+  `fetchTerminalGates` reads the fields as always-unset. Customers get stuck at
+  "awaiting approval" / "disclosure required" permanently, with no error
+  surfaced anywhere — check this first if that happens.
+
+---
+
 ## Kill switches
 
 | Flag | Effect |
@@ -97,7 +114,8 @@ PROVISIONING_BOX1_MAX_PREMIUM=6                                  # cap ERP tenan
 
 ## What still needs hands-on (not just env)
 
-- Importing the Frappe doctype(s).
+- Importing the Frappe doctype(s) and the Developer Access custom fields
+  (`backend/data/custom-fields-web-account.json`).
 - Writing the lane scripts (`BENCH_PROVISION_CMD`) / Coolify project setup, and
   the optional `BACKUP_CONFIG_CMD` / `EDGE_CONFIG_CMD`.
 - Standing up the dedicated Redis for BullMQ.
