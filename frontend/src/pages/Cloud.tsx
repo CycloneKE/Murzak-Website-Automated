@@ -8,6 +8,7 @@ import {
 import { NavProps } from '../types';
 import { Button } from '../components/ui/Button';
 import CloudLaunchModal from '../components/CloudLaunchModal';
+import MetricBar from '../components/mockups/MetricBar';
 
 type CloudProps = NavProps & { isLoggedIn?: boolean };
 
@@ -123,13 +124,35 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* Managed for you */}
       <section className="py-16 lg:py-24 relative overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
-            <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
-              Real engineers watching real infrastructure — not a support queue that routes you overseas.
-            </p>
+          <div className="grid lg:grid-cols-12 gap-10 items-center mb-12">
+            <div className="lg:col-span-7">
+              <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
+              <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
+                Real engineers watching real infrastructure — not a support queue that routes you overseas.
+              </p>
+            </div>
+
+            {/* Resource monitor mockup — hand-coded JSX, not a screenshot */}
+            <div className="lg:col-span-5">
+              <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <span className="text-micro font-black uppercase tracking-widest text-slate-500">Resource Monitor</span>
+                  <span className="rounded-full bg-murzak-success/15 text-murzak-success text-micro font-black uppercase px-2.5 py-1">99.97% uptime</span>
+                </div>
+                <div className="space-y-3.5 mb-5">
+                  <MetricBar label="CPU" percent={34} tone="accent" />
+                  <MetricBar label="RAM" percent={58} tone="accent" />
+                  <MetricBar label="Disk" percent={22} tone="accent" />
+                </div>
+                <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-4 py-3">
+                  <span className="h-2 w-2 rounded-full bg-murzak-success animate-pulse shrink-0" />
+                  <span className="text-body-sm font-bold text-slate-200">Watched 24/7 — last 30 days</span>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {managed.map((c) => (
               <div key={c.t} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
