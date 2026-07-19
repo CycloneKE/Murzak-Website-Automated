@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services';
+export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
 
 export type AccountStatus = 'Pending' | 'Provisioning' | 'Active' | 'Suspended' | 'Evaluating';
 

@@ -30,11 +30,12 @@ const backups = require("./backups");
 const edge = require("./edge");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
+const k8s = require("./lanes/k8s");
 const mock = require("./lanes/mock");
 
 const DEFAULT_LANES = mock.isEnabled()
-  ? { coolify: mock, bench: mock }
-  : { coolify, bench };
+  ? { coolify: mock, bench: mock, k8s: mock }
+  : { coolify, bench, k8s };
 
 const enc = encodeURIComponent;
 const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));

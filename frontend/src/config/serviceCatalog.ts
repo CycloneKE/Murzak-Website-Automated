@@ -28,10 +28,11 @@ export type DomainChoice =
  *  - "volume":   light, shared slices of the KVM 4. High density, high aggregate margin.
  *  - "premium":  managed Frappe-class apps (Murzak ERP/POS/CRM). Low density (~2–4GB RAM each),
  *                so only a handful fit. Priced high.
+ *  - "scalable": high-availability, horizontally scalable workloads via Kubernetes.
  *  - "dedicated":too large for the shared KVM 4 — provisioning a separate/bigger server.
  *                Always quote-based ("custom"), never self-serve.
  */
-export type CapacityClass = "volume" | "premium" | "dedicated";
+export type CapacityClass = "volume" | "premium" | "scalable" | "dedicated";
 
 /**
  * Real budget of the production box: ONE upstream KVM node sourced wholesale
@@ -427,6 +428,21 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Node/PHP/Python", "CI deploy", "Managed runtime"],
       sortOrder: 60,
+    },
+    {
+      id: "biz-scalable-webapp",
+      name: "Scalable Web App (Kubernetes)",
+      description: "High-availability, horizontally scalable app hosting backed by Kubernetes. Auto-scales with traffic.",
+      category: "App Hosting",
+      tier: "Large",
+      capacityClass: "scalable",
+      specs: { ram: "Auto-scaling", storage: "20GB NVMe", cpu: "Auto-scaling", bandwidth: "High", backups: "Daily", sla: "99.99%" },
+      resources: { ramMb: 2048, diskGb: 20 },
+      pricing: { model: "addon", monthlyKes: 8000, setupKes: 2000, domainAddonKes: 1500 },
+      requiresDomainChoice: true,
+      requiresRepo: true,
+      highlights: ["Kubernetes backed", "Auto-scaling", "Self-healing", "Zero-downtime deploys"],
+      sortOrder: 65,
     },
     {
       id: "biz-docs",

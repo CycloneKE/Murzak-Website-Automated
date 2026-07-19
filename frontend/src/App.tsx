@@ -20,6 +20,7 @@ import Portal from "./pages/Portal";
 import Payment from "./pages/Payment";
 import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
+import { DeployWizard } from "./pages/DeployWizard/DeployWizard";
 
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
@@ -59,6 +60,7 @@ const pageToPath: Record<Page, string> = {
   "for-clinics": "/for/clinics",
   "for-logistics": "/for/logistics",
   "for-services": "/for/services",
+  deploy: "/deploy",
 };
 
 // Only exact non-nested pages belong here
@@ -86,6 +88,7 @@ const pathToPage: Record<string, Page> = {
   "/for/clinics": "for-clinics",
   "/for/logistics": "for-logistics",
   "/for/services": "for-services",
+  "/deploy": "deploy",
 };
 
 const pageMetadata: Record<Page, { title: string; description: string }> = {
@@ -112,6 +115,7 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   "for-clinics": { title: "Tech Stack for Clinics | Murzak", description: "Healthcare ERP and booking systems." },
   "for-logistics": { title: "Tech Stack for Logistics | Murzak", description: "Dispatch and fleet management systems." },
   "for-services": { title: "Tech Stack for Professional Services | Murzak", description: "CRM and invoicing for agencies and firms." },
+  deploy: { title: "Deploy Your App | Murzak", description: "Deploy your GitHub repository instantly to our global edge network." },
 };
 
 // Above-the-fold hero background per route — preloaded on navigation so the
@@ -362,6 +366,8 @@ const App: React.FC = () => {
               <Route path="/for/clinics" element={<ForHealthcare onNavigate={onNavigate} />} />
               <Route path="/for/logistics" element={<ForLogistics onNavigate={onNavigate} />} />
               <Route path="/for/services" element={<ForServices onNavigate={onNavigate} />} />
+
+              <Route path="/deploy" element={<DeployWizard />} />
 
               <Route path="/login" element={<Login onLogin={handleLogin} onNavigate={onNavigate} initialPlan={pendingPlan} defaultMode="login" />} />
 

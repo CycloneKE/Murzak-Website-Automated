@@ -1,7 +1,8 @@
-
 const crypto = require('crypto');
 const express = require('express');
-const coolifyLane = require('../services/provisioning/lanes/coolify');
+const coolifyLane = require("../services/provisioning/lanes/coolify");
+const k8sLane = require("../services/provisioning/lanes/k8s");
+const { getServiceMeta } = require("../services/provisioning/catalog");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
@@ -802,7 +803,7 @@ async function runServiceAction(req, res, action, laneFn) {
   if (!job) {
     return res.status(404).json({ error: "Service not found on your account." });
   }
-  if (job.lane !== "coolify") {
+  if (job.lane !== "coolify" && job.lane !== "k8s") {
     return res.status(422).json({ error: "This service isn't managed through an automated lane yet — contact support." });
   }
   if (!job.external_ref) {
@@ -848,15 +849,21 @@ async function runServiceAction(req, res, action, laneFn) {
   }
 }
 
-router.post("/api/portal/services/:serviceId/restart", requireAuth, serviceActionLimiter, (req, res) =>
-  runServiceAction(req, res, "restart", coolifyLane.restart)
-);
+router.post("/api/portal/services/:serviceId/restart", requireAuth, serviceActionLimiter, (req, res) => {
+  const laneFn = req.body.lane === "k8s" ? k8sLane.restart : coolifyLane.restart;
+  return runServiceAction(req, res, "restart", laneFn);
+});
 router.post("/api/portal/services/:serviceId/start", requireAuth, serviceActionLimiter, (req, res) =>
   runServiceAction(req, res, "start", coolifyLane.start)
 );
 router.post("/api/portal/services/:serviceId/stop", requireAuth, serviceStopLimiter, (req, res) =>
   runServiceAction(req, res, "stop", coolifyLane.stop)
 );
+router.post("/api/portal/services/:serviceId/scale", requireAuth, serviceActionLimiter, (req, res) => {
+  // Pass the scaleOut config directly. runServiceAction needs to pass the req.body as config.
+  // Actually, runServiceAction expects laneFn(external_ref, opts) so we can wrap it.
+  runServiceAction(req, res, "scale", (externalRef, opts) => k8sLane.scaleOut(externalRef, req.body));
+});
 
 // --- REAL USAGE METRICS (Phase 3) ---
 // Read-only, so filter-based scoping (web_account+service_id in the Frappe
@@ -883,12 +890,13 @@ router.get("/api/portal/services/:serviceId/usage", requireAuth, async (req, res
   // Not an error state — most services simply don't have real usage data
   // yet (wrong lane, not provisioned, or Coolify doesn't expose it). The
   // frontend's job is to render "not available," not to alarm the customer.
-  if (!job || job.lane !== "coolify" || !job.external_ref || job.status !== "active") {
+  if (!job || (job.lane !== "coolify" && job.lane !== "k8s") || !job.external_ref || job.status !== "active") {
     return res.json({ ok: true, available: false });
   }
 
   try {
-    const usage = await coolifyLane.getUsage(job.external_ref, { kind: jobResourceKind(job) });
+    const lane = job.lane === "k8s" ? k8sLane : coolifyLane;
+    const usage = await lane.getUsage(job.external_ref, { kind: jobResourceKind(job) });
     const available = Object.values(usage).some((v) => v !== null);
     return res.json({ ok: true, available, ...usage });
   } catch (err) {

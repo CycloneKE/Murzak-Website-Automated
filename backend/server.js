@@ -3659,6 +3659,7 @@ const routeContext = {
   CAPACITY_REQUEST_DOCTYPE
 };
 
+app.use('/api/byoa', require('./routes/byoaRoutes')(routeContext));
 app.use(require('./routes/authRoutes')(routeContext));
 app.use(require('./routes/portalRoutes')(routeContext));
 app.use(require('./routes/internalRoutes')(routeContext));
