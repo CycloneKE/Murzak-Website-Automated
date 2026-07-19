@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Layers } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Layers, Check } from 'lucide-react';
+import MetricBar from '../../components/mockups/MetricBar';
 import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
 import Faq, { type FaqItem } from '../../components/Faq';
@@ -34,23 +35,62 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-micro font-black uppercase text-murzak-accent">Murzak ERP</span>
+        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+              <span className="text-micro font-black uppercase text-murzak-accent">Murzak ERP</span>
+            </div>
+            <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
+              One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
+            </h1>
+            <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
+              The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
+            </p>
+            <div className="mt-9 flex flex-col sm:flex-row gap-4">
+              <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
+                Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
+              </Button>
+              <Button variant="outline" onClick={() => setSalesOpen(true)}>
+                Book a Demo
+              </Button>
+            </div>
           </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
-            One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
-            The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
-          </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
-              Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
-            </Button>
-            <Button variant="outline" onClick={() => setSalesOpen(true)}>
-              Book a Demo
-            </Button>
+
+          {/* Business snapshot mockup — hand-coded JSX, not a screenshot */}
+          <div className="lg:col-span-5">
+            <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6 sm:p-7">
+              <div className="flex items-center justify-between mb-5">
+                <span className="text-micro font-black uppercase tracking-widest text-slate-500">Business Snapshot</span>
+                <span className="flex items-center gap-1.5 text-micro font-black uppercase text-murzak-accent">
+                  <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" /> Live
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Revenue</div>
+                  <div className="text-sm font-black text-white">KES 4.2M</div>
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Expenses</div>
+                  <div className="text-sm font-black text-white">KES 2.8M</div>
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Net</div>
+                  <div className="text-sm font-black text-murzak-accent">KES 1.4M</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <MetricBar label="Warehouse — Nairobi" percent={72} tone="accent" />
+                <MetricBar label="Warehouse — Mombasa" percent={38} tone="warning" />
+              </div>
+
+              <div className="flex items-center gap-2.5 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20 px-4 py-3">
+                <Check size={16} className="text-murzak-accent shrink-0" />
+                <span className="text-[13px] font-bold text-slate-200">3 payroll runs processed this quarter</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
