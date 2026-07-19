@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Menu, X, User, LogIn, ChevronDown } from "lucide-react";
+import { Menu, X, User, LogIn, ChevronDown, Sun, Moon } from "lucide-react";
 import { Page, NavItem } from "../types";
 import Logo from "./Logo";
+import { useTheme } from "../context/ThemeContext";
 
 interface HeaderProps {
   activePage: Page;
@@ -20,6 +21,7 @@ const Header: React.FC<HeaderProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [productsOpen, setProductsOpen] = useState(false);
   const location = useLocation();
+  const { effective, toggle } = useTheme();
 
   useEffect(() => {
     if (isMenuOpen) {
@@ -178,6 +180,15 @@ const Header: React.FC<HeaderProps> = ({
               </div>
 
               <button
+                onClick={toggle}
+                className="p-2.5 sm:p-3 rounded-full text-murzak-ink hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                aria-label={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                title={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {effective === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+
+              <button
                 onClick={() => setIsMenuOpen((v) => !v)}
                 className="xl:hidden p-2.5 sm:p-3 text-murzak-ink relative z-[70]"
                 aria-label={isMenuOpen ? "Close menu" : "Open menu"}
@@ -197,7 +208,7 @@ const Header: React.FC<HeaderProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 right-0 bottom-0 z-[60] w-64 max-w-[360px] bg-white/90 backdrop-blur-md sm:backdrop-blur-2xl
+        className={`fixed top-0 right-0 bottom-0 z-[60] w-64 max-w-[360px] bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl
           border-l border-slate-200 dark:border-murzak-border flex flex-col p-6 sm:p-8 transition-transform duration-500 ease-in-out xl:hidden h-dvh overflow-hidden
           ${isMenuOpen ? "translate-x-0" : "translate-x-full"}`}
       >
@@ -235,7 +246,7 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="pl-4 mt-2 space-y-4 border-l-2 border-murzak-accent/30">
                   {item.submenu.map(group => (
                     <div key={group.group}>
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">{group.group}</div>
+                      <div className="text-micro font-black uppercase text-slate-600 mb-2">{group.group}</div>
                       <div className="flex flex-col space-y-2">
                         {group.items.map(sub => (
                           <button key={sub.page} onClick={() => handleMobileNav(sub.page)} className="text-sm font-bold text-left text-slate-600 hover:text-murzak-accent transition-colors py-1">
@@ -259,7 +270,7 @@ const Header: React.FC<HeaderProps> = ({
           {isLoggedIn ? (
             <button
               onClick={() => handleMobileNav("portal")}
-              className="w-full bg-murzak-accent text-murzak-ink px-5 py-3.5 rounded-xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest flex items-center justify-center gap-2"
+              className="w-full bg-murzak-accent text-murzak-ink px-5 py-3.5 rounded-xl font-black text-micro sm:text-micro uppercase flex items-center justify-center gap-2"
             >
               <User className="w-4 h-4 sm:w-[18px] sm:h-[18px]" /> Client Dashboard
             </button>
@@ -267,13 +278,13 @@ const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => handleMobileNav("login")}
-                className="w-full bg-slate-100 dark:bg-black/5 text-murzak-ink px-5 py-3.5 rounded-xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest border border-slate-200 dark:border-murzak-border"
+                className="w-full bg-slate-100 dark:bg-black/5 text-murzak-ink px-5 py-3.5 rounded-xl font-black text-micro sm:text-micro uppercase border border-slate-200 dark:border-murzak-border"
               >
                 Account Login
               </button>
               <button
                 onClick={handleSalesClick}
-                className="w-full bg-murzak-accent text-murzak-ink px-5 py-3.5 rounded-xl font-black text-[9px] sm:text-[10px] uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all"
+                className="w-full bg-murzak-accent text-murzak-ink px-5 py-3.5 rounded-xl font-black text-micro sm:text-micro uppercase shadow-xl hover:scale-[1.02] transition-all"
               >
                 Talk to Sales
               </button>

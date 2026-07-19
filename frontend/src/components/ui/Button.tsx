@@ -20,10 +20,10 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-brand-gradient text-murzak-ink hover:scale-[1.02] shadow-md hover:shadow-murzak-brand2/30",
   // Secondary: White with light border
   secondary:
-    "bg-white border border-murzak-border text-murzak-ink hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
+    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
   // Ghost: No background, subtle hover
   ghost:
-    "bg-transparent text-murzak-ink hover:bg-slate-100/50",
+    "bg-transparent text-murzak-ink dark:text-slate-100 hover:bg-slate-100/50 dark:hover:bg-white/5",
   // For use on dark glass/spatial panels
   onDark: "bg-black/5 border border-white/20 text-murzak-ink hover:bg-white/20",
 };

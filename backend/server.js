@@ -279,6 +279,34 @@ const domainCheckLimiter = rateLimit({
   message: { error: "Too many domain lookups. Please slow down and try again shortly." },
 });
 
+// Front-end error reporting — no auth (must work for logged-out visitors and
+// during the boot sequence itself), tight per-IP cap since it's an unauthenticated
+// write endpoint, and a small manual body cap on top of the global 1mb bodyParser
+// limit since a single client-error report should never need to be large.
+const clientLogLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many reports." },
+});
+app.post("/api/client-log", clientLogLimiter, (req, res) => {
+  const body = req.body || {};
+  const message = String(body.message || "").slice(0, 2000);
+  if (!message) return res.status(204).end();
+  const payload = {
+    message,
+    stack: typeof body.stack === "string" ? body.stack.slice(0, 4000) : undefined,
+    componentStack: typeof body.componentStack === "string" ? body.componentStack.slice(0, 2000) : undefined,
+    source: String(body.source || "unknown").slice(0, 100),
+    url: String(body.url || "").slice(0, 500),
+    ua: String(body.ua || "").slice(0, 300),
+    ts: String(body.ts || new Date().toISOString()).slice(0, 40),
+  };
+  console.error("[client]", JSON.stringify(payload));
+  res.status(204).end();
+});
+
 app.use(
   "/api/paypal",
   createPaypalRouter({

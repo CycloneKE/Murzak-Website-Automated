@@ -95,7 +95,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           <div className="flex items-center gap-2.5">
             <Wand2 className="w-5 h-5 text-murzak-ink" />
             <div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-murzak-ink/80">Plan advisor</div>
+              <div className="text-micro font-black uppercase text-murzak-ink/80">Plan advisor</div>
               <h3 className="text-lg font-black text-murzak-ink tracking-tight">Find your perfect fit</h3>
             </div>
           </div>
@@ -114,7 +114,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {step === 0 && (
             <div className="animate-fade-in">
               <p className="text-base font-black text-murzak-ink mb-1">What do you want to host?</p>
-              <p className="text-[11px] font-bold text-slate-500 mb-5">Pick the closest match.</p>
+              <p className="text-label font-bold text-slate-600 mb-5">Pick the closest match.</p>
               <div className="space-y-2.5">
                 {NEEDS.map((n) => (
                   <button
@@ -126,7 +126,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   >
                     <span>
                       <span className="block text-sm font-black text-murzak-ink">{n.label}</span>
-                      <span className="block text-[11px] font-bold text-slate-500">{n.sub}</span>
+                      <span className="block text-label font-bold text-slate-600">{n.sub}</span>
                     </span>
                     <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0" />
                   </button>
@@ -139,7 +139,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {step === 1 && (
             <div className="animate-fade-in">
               <p className="text-base font-black text-murzak-ink mb-1">How big is your team?</p>
-              <p className="text-[11px] font-bold text-slate-500 mb-5">This helps us size the right capacity.</p>
+              <p className="text-label font-bold text-slate-600 mb-5">This helps us size the right capacity.</p>
               <div className="grid grid-cols-2 gap-2.5">
                 {SIZES.map((s) => (
                   <button
@@ -153,7 +153,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   </button>
                 ))}
               </div>
-              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-accent">
+              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 hover:text-murzak-accent">
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
             </div>
@@ -162,7 +162,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {/* Step 2 — recommendation */}
           {step === 2 && rec && recMeta && (
             <div className="animate-fade-in text-center">
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-[9px] font-black uppercase tracking-widest mb-4">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-micro font-black uppercase mb-4">
                 <CheckCircle2 size={12} /> Our recommendation
               </div>
               <h4 className="text-2xl font-black text-murzak-ink tracking-tight">
@@ -177,19 +177,19 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                 {rec.plan === "Enterprise" ? (
                   <button
                     onClick={() => { onTalkToSales(); close(); }}
-                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                   >
                     Talk to sales <ArrowRight size={16} />
                   </button>
                 ) : (
                   <button
                     onClick={() => { onChoosePlan(rec.plan, rec.serviceIds); close(); }}
-                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                   >
                     Configure this plan <ArrowRight size={16} />
                   </button>
                 )}
-                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-accent">
+                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 hover:text-murzak-accent">
                   <RefreshCw className="w-3.5 h-3.5" /> Start over
                 </button>
               </div>

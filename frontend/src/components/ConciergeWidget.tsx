@@ -94,7 +94,7 @@ const ConciergeWidget: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-murzak-ink font-bold text-sm">Murzaker</h3>
-                <p className="text-murzak-accent text-[10px] uppercase tracking-widest">AI Concierge</p>
+                <p className="text-murzak-accent text-micro uppercase">AI Concierge</p>
               </div>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-murzak-ink transition-colors">
@@ -153,7 +153,7 @@ const ConciergeWidget: React.FC = () => {
               </button>
             </div>
             <div className="mt-2 text-center">
-              <span className="text-[9px] text-slate-500 uppercase tracking-widest">Murzaker AI can make mistakes. Verify important info.</span>
+              <span className="text-micro text-slate-600 uppercase">Murzaker AI can make mistakes. Verify important info.</span>
             </div>
           </div>
         </div>

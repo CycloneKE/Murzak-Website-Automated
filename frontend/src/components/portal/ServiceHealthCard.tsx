@@ -46,8 +46,9 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
     <button
       onClick={() => onAction?.(action, service.id)}
       disabled={busy}
-      className={`p-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className || "bg-black/5 hover:bg-black/5 text-slate-500 hover:text-murzak-ink"}`}
+      className={`min-w-[2.5rem] min-h-[2.5rem] flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent ${className || "bg-black/5 hover:bg-black/5 text-slate-500 hover:text-murzak-ink"}`}
       title={title}
+      aria-label={title}
     >
       {pendingAction === action ? <Loader2 size={14} className="animate-spin" /> : icon}
     </button>
@@ -58,16 +59,16 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div>
           <h4 className="text-[13px] font-black text-murzak-ink">{service.name}</h4>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">{service.type}</p>
+          <p className="text-micro font-black uppercase text-slate-600 mt-1">{service.type}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{STATUS_LABELS[service.status]}</span>
+          <span className="text-micro font-black uppercase text-slate-600">{STATUS_LABELS[service.status]}</span>
           <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[service.status]}`} />
         </div>
       </div>
 
       <div className="mt-1 pt-4 border-t border-murzak-border flex items-center justify-between relative z-10">
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+        <div className="text-micro font-black uppercase text-slate-600">
           Resource monitoring not yet available
         </div>
         <div className="flex gap-2">

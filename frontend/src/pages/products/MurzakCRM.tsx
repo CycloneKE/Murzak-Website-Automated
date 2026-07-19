@@ -33,7 +33,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Murzak CRM & Helpdesk</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">Murzak CRM & Helpdesk</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Every lead tracked. <span className="text-murzak-gradient">Every ticket answered.</span>

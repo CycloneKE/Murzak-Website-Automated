@@ -32,7 +32,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
         <div className="pointer-events-none absolute -top-40 left-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-murzak-accent/20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">All Products</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">All Products</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Software built for <span className="text-murzak-gradient">how Kenya works.</span>
@@ -42,6 +42,21 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
           </p>
         </div>
       </section>
+
+      {/* Hero image */}
+      <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 -mt-4 mb-12">
+        <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border">
+          <img
+            src="/images/virtual-reality.webp"
+            alt="A team reviewing an interactive product build using a VR headset and laptop"
+            className="w-full h-64 sm:h-80 object-cover"
+            loading="lazy"
+            width={1920}
+            height={1080}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-murzak-ink/70 via-murzak-ink/10 to-transparent" />
+        </div>
+      </div>
 
       {/* Ready-Made Business Systems */}
       <Section className="border-t border-murzak-border/50">
@@ -71,7 +86,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                 <Terminal size={120} strokeWidth={1} />
               </div>
               <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 text-murzak-ink text-[10px] font-black uppercase tracking-widest mb-6">Custom Build</div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 text-murzak-ink text-micro font-black uppercase mb-6">Custom Build</div>
                 <h3 className="text-3xl font-black mb-4">Custom Software Development</h3>
                 <p className="text-slate-500 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
                 <Button variant="ghost" onClick={() => onNavigate('custom-software')}>Learn more</Button>
@@ -83,7 +98,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                 <Cloud size={120} strokeWidth={1} />
               </div>
               <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-murzak-accent text-[10px] font-black uppercase tracking-widest mb-6">Infrastructure</div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-murzak-accent text-micro font-black uppercase mb-6">Infrastructure</div>
                 <h3 className="text-3xl font-black mb-4">Murzak Cloud</h3>
                 <p className="text-slate-500 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
                 <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>

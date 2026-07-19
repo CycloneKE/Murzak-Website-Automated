@@ -17,7 +17,7 @@ const SLA: React.FC = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full text-center lg:text-left">
-          <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-[10px] font-black text-murzak-accent mb-8 uppercase tracking-widest border border-murzak-accent/20 backdrop-blur-md">
+          <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
             Performance guarantee
           </div>
           <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
@@ -36,13 +36,13 @@ const SLA: React.FC = () => {
               <div className="bg-murzak-ink p-12 rounded-[3.5rem] text-white shadow-3xl relative overflow-hidden group">
                 <Zap size={40} className="text-murzak-accent mb-8" />
                 <h2 className="text-6xl font-[900] mb-4 tracking-tighter">99.9%</h2>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-10">Uptime guarantee</h3>
+                <h3 className="text-micro font-black uppercase text-slate-600 mb-10">Uptime guarantee</h3>
                 <p className="text-base font-bold text-slate-600 leading-relaxed">We guarantee monthly network availability. If we fall below this threshold, Business clients are eligible for service credits.</p>
               </div>
               <div className="bg-white/20 dark:bg-black/5 p-12 rounded-[3.5rem] border border-slate-200 dark:border-murzak-border shadow-xl backdrop-blur-sm">
                 <Clock size={40} className="text-murzak-accent mb-8" />
                 <h2 className="text-6xl font-[900] mb-4 tracking-tighter text-murzak-ink">2-hour</h2>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-10">Critical response</h3>
+                <h3 className="text-micro font-black uppercase text-slate-600 mb-10">Critical response</h3>
                 <p className="text-base font-bold text-slate-600 dark:text-slate-500 leading-relaxed">Our Nairobi engineering team reacts to P1 critical infrastructure events within 120 minutes during standard operating hours.</p>
               </div>
             </div>
@@ -54,7 +54,7 @@ const SLA: React.FC = () => {
               <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-murzak-border/50 shadow-lg bg-white/40 dark:bg-black/20">
                 <table className="w-full text-left text-sm font-bold">
                   <thead className="border-b border-slate-100 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
-                    <tr className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">
+                    <tr className="text-micro font-black uppercase text-slate-600">
                       <th className="py-6 px-8">Priority level</th>
                       <th className="py-6 px-8">Business plan</th>
                       <th className="py-6 px-8">Enterprise plan</th>

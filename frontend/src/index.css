@@ -5,7 +5,7 @@
 @layer base {
   /* Set base font to Manrope. JetBrains Mono used via explicit class. */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Manrope Variable', 'Manrope', sans-serif;
   }
 }
 
@@ -13,6 +13,16 @@ html { background-color: #F8FAFB; }
 body {
   /* Base background. The gradient effects will be applied in Layout wrappers */
   background-color: #F8FAFB;
+}
+
+html.dark { background-color: #090C10; }
+html.dark body { background-color: #090C10; color: #F1F5F9; }
+
+@layer components {
+  /* Legible micro-label: replaces text-[8-10px] uppercase tracking-widest font-black */
+  .micro-label {
+    @apply text-micro font-bold uppercase text-murzak-muted dark:text-slate-400;
+  }
 }
 
 @layer utilities {
@@ -24,13 +34,19 @@ body {
     color: transparent;
   }
   
-  /* Glassmorphism Utilities - Light Mode */
+  /* Glassmorphism Utilities - Light Mode (dark-mode surfaces flip to a dark
+     translucent panel so cards don't stay light-only inside html.dark) */
   .glass-panel {
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(223, 228, 247, 0.8); /* Border color */
     box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
+  }
+  html.dark .glass-panel {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
   }
 
   .glass-light {
@@ -39,6 +55,10 @@ body {
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(223, 228, 247, 0.5);
     box-shadow: 0 4px 16px -4px rgba(9, 12, 16, 0.03);
+  }
+  html.dark .glass-light {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
   }
   
   /* Interactive Glass Hover */

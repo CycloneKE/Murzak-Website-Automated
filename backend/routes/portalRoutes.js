@@ -384,6 +384,8 @@ router.post("/api/portal/upload", requireAuth, upload.single("file"), async (req
     if (!req.file) return res.status(400).json({
       error: "No file uploaded."
     });
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
     const FormData = require("form-data");
     const client = frappeClient();
     const form = new FormData();
@@ -392,6 +394,12 @@ router.post("/api/portal/upload", requireAuth, upload.single("file"), async (req
       contentType: req.file.mimetype
     });
     form.append("is_private", "1");
+    // Attach to the uploader's Web Account so the file is both listable
+    // (GET /api/portal/uploads) and passes userOwnsPrivateFile on re-download —
+    // an unattached upload fails that ownership check (attached_to_doctype is
+    // required) and 403s the very user who uploaded it.
+    form.append("doctype", "Web Account");
+    form.append("docname", webAccountName);
     const up = await client.post("/api/method/upload_file", form, {
       headers: form.getHeaders(),
       maxBodyLength: Infinity,
@@ -404,13 +412,47 @@ router.post("/api/portal/upload", requireAuth, upload.single("file"), async (req
     });
     return res.json({
       ok: true,
-      file_url: fileUrl
+      file_url: fileUrl,
+      file_name: req.file.originalname,
     });
   } catch (err) {
     console.error("UPLOAD ERROR:", err.response?.data || err.message);
     return res.status(500).json({
       error: "Upload failed."
     });
+  }
+});
+
+// List files the current Web Account has uploaded (attached via POST
+// /api/portal/upload above). Separate path from GET /api/portal/files, which
+// is the single-file download proxy (?url=) below.
+router.get("/api/portal/uploads", requireAuth, async (req, res) => {
+  try {
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
+    const client = frappeClient();
+    const r = await client.get("/api/resource/File", {
+      params: {
+        filters: JSON.stringify([
+          ["attached_to_doctype", "=", "Web Account"],
+          ["attached_to_name", "=", webAccountName],
+        ]),
+        fields: JSON.stringify(["name", "file_name", "file_url", "file_size", "creation"]),
+        order_by: "creation desc",
+        limit_page_length: 100,
+      },
+    });
+    const files = (r.data?.data || []).map((f) => ({
+      id: f.name,
+      name: f.file_name,
+      url: f.file_url,
+      size: f.file_size,
+      uploadedAt: f.creation,
+    }));
+    return res.json({ ok: true, files });
+  } catch (err) {
+    console.error("UPLOADS LIST ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to list uploads." });
   }
 });
 

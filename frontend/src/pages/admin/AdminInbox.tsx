@@ -209,7 +209,7 @@ const AdminInbox: React.FC = () => {
     <div className="w-full">
       <div className="mb-8">
         <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Admin Inbox</h2>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2">
+        <p className="text-micro font-black uppercase text-slate-600 mt-2">
           View portal conversations and reply per user thread.
         </p>
       </div>
@@ -223,7 +223,7 @@ const AdminInbox: React.FC = () => {
                 <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               </div>
               <div className="flex-grow">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">
                   Threads
                 </p>
                 <p className="text-sm font-black text-murzak-ink">
@@ -232,8 +232,9 @@ const AdminInbox: React.FC = () => {
               </div>
               <button
                 onClick={loadThreads}
-                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors"
+                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 title="Refresh"
+                aria-label="Refresh threads"
                 type="button"
               >
                 <RefreshCw className={`w-4 h-4 sm:w-[18px] sm:h-[18px] ${loadingThreads ? "animate-spin" : ""}`} />
@@ -254,7 +255,7 @@ const AdminInbox: React.FC = () => {
           <div className="max-h-[520px] overflow-y-auto">
             {filteredThreads.length === 0 ? (
               <div className="p-10 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <p className="text-micro font-black uppercase text-slate-600">
                   No threads found.
                 </p>
               </div>
@@ -276,15 +277,15 @@ const AdminInbox: React.FC = () => {
                         <p className="text-sm font-black text-murzak-ink truncate">
                           {labelFromThread(t)}
                         </p>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 truncate">
+                        <p className="text-micro font-black uppercase text-slate-600 mt-1 truncate">
                           {(t.company_name || "—")} • {(t.email || "—")}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${statusClasses(t.status)}`}>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full border text-micro font-black uppercase ${statusClasses(t.status)}`}>
                           {t.status || "—"}
                         </span>
-                        <p className="text-[9px] font-bold text-slate-500 mt-1">
+                        <p className="text-micro font-bold text-slate-600 mt-1">
                           {fmtTime(t.last_message_at || t.modified)}
                         </p>
                       </div>
@@ -301,21 +302,22 @@ const AdminInbox: React.FC = () => {
           <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">
                   Active Thread
                 </p>
                 <p className="text-base sm:text-lg font-black text-murzak-ink truncate">
                   {threadTitle}
                 </p>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1 truncate">
+                <p className="text-micro font-black uppercase text-slate-600 mt-1 truncate">
                   {threadMeta}
                 </p>
               </div>
 
               <button
                 onClick={() => selectedId && loadThread(selectedId)}
-                className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors"
+                className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 title="Refresh thread"
+                aria-label="Refresh thread"
                 type="button"
               >
                 <RefreshCw size={18} className={loadingThread ? "animate-spin" : ""} />
@@ -325,7 +327,7 @@ const AdminInbox: React.FC = () => {
 
           <div className="p-6">
             {error && (
-              <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase text-red-500">
+              <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </div>
@@ -334,19 +336,19 @@ const AdminInbox: React.FC = () => {
             <div className="h-[52vh] sm:h-[420px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
               {!selectedId ? (
                 <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <p className="text-micro font-black uppercase text-slate-600">
                     Select a thread on the left to view messages.
                   </p>
                 </div>
               ) : loadingThread ? (
                 <div className="text-center py-16">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <p className="text-micro font-black uppercase text-slate-600">
                     Loading conversation...
                   </p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <p className="text-micro font-black uppercase text-slate-600">
                     No messages yet in this thread.
                   </p>
                 </div>
@@ -370,16 +372,16 @@ const AdminInbox: React.FC = () => {
                           <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`} 
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-3 inline-flex text-[9px] sm:text-[10px] font-black uppercase tracking-widest underline opacity-80">
+                            className="mt-3 inline-flex text-micro sm:text-micro font-black uppercase underline opacity-80">
                               View attachment
                           </a>
                         )}
 
                         <div className="mt-2 flex items-center justify-between gap-3">
-                          <span className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                          <span className="text-micro font-black uppercase opacity-70">
                             {isAdmin ? "Admin" : (m.sender || "User")}
                           </span>
-                          <span className="text-[9px] font-bold opacity-60">
+                          <span className="text-micro font-bold opacity-60">
                             {fmtTime(stamp)}
                           </span>
                         </div>
@@ -394,13 +396,13 @@ const AdminInbox: React.FC = () => {
 
             <form onSubmit={handleSend} className="mt-5 flex flex-col sm:flex-row gap-3 items-stretch">
               <div className="flex-grow">
-                <label className="block text-[9px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                <label className="block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1">
                   Reply
                 </label>
 
                 {(uploading || uploadedUrl) && (
                   <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
-                    <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-200">
+                    <div className="text-micro sm:text-micro font-black uppercase text-slate-600 dark:text-slate-200">
                       {uploading ? "Uploading..." : `Attachment ready: ${uploadedName}`}
                     </div>
 
@@ -411,7 +413,7 @@ const AdminInbox: React.FC = () => {
                         setUploadedUrl("");
                         setUploadedName("");
                       }}
-                      className="text-[10px] font-black uppercase tracking-widest text-murzak-accent hover:opacity-80">
+                      className="text-micro font-black uppercase text-murzak-accent hover:opacity-80">
                         Remove
                     </button>
                   )}
@@ -465,7 +467,7 @@ const AdminInbox: React.FC = () => {
                 <label htmlFor="admin-attach"
                   className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-xl
                     border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5
-                    text-[9px] sm:text-[10px] font-black uppercase tracking-widest cursor-pointer select-none
+                    text-micro sm:text-micro font-black uppercase cursor-pointer select-none
                     hover:border-murzak-accent/40 hover:bg-murzak-accent/10 dark:hover:bg-black/5 transition">
                   {uploading ? "Uploading..." : uploadedUrl ? "Attached" : "Attach"}
                 </label>
@@ -475,11 +477,11 @@ const AdminInbox: React.FC = () => {
                   className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-accent text-murzak-ink font-black px-4 rounded-xl
                     hover:scale-[1.01] transition-all shadow-md sm:shadow-lg inline-flex items-center justify-center gap-2 disabled:opacity-70">
                   {isSubmitting ? <RefreshCw className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  <span className="text-[9px] sm:text-[10px] uppercase tracking-widest">Send</span>
+                  <span className="text-micro sm:text-micro uppercase">Send</span>
                 </button>
               </div>              
             </form>
-            <p className="mt-3 text-[9px] font-black uppercase tracking-widest text-slate-500">
+            <p className="mt-3 text-micro font-black uppercase text-slate-600">
               Tip: statuses update automatically when you reply.
             </p>
           </div>

@@ -35,7 +35,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Custom Software Development</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">Custom Software Development</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
@@ -57,7 +57,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
       {/* The Process */}
       <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">How we work</p>
+          <p className="font-mono text-micro uppercase text-murzak-accent mb-3">How we work</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">One team. No ghosting.</h2>
         </div>
         
@@ -82,6 +82,29 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
               <h3 className="font-bold text-murzak-ink mb-2 text-lg">We Run It</h3>
               <p className="text-sm text-slate-500">We deploy it to Murzak Cloud, handle the backups, and provide ongoing support.</p>
            </div>
+        </div>
+      </Section>
+
+      {/* Quality before it ships */}
+      <Section className="border-t border-murzak-border/50">
+        <div className="grid lg:grid-cols-2 gap-10 items-center">
+          <div className="rounded-[2rem] overflow-hidden shadow-xl border border-murzak-border order-2 lg:order-1">
+            <img
+              src="/images/focused-woman-testing.webp"
+              alt="An engineer reviewing a build closely before it ships to a client"
+              className="w-full h-72 lg:h-full object-cover"
+              loading="lazy"
+              width={1333}
+              height={2000}
+            />
+          </div>
+          <div className="order-1 lg:order-2">
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Before it ships</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-5">We test it like it's our own business on the line.</h2>
+            <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+              Every build goes through a real review pass — payment flows, edge cases, and the things that only break in production — before we hand you the keys. If it's not something we'd trust with our own operations, it doesn't ship.
+            </p>
+          </div>
         </div>
       </Section>
 
@@ -120,7 +143,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
                  ))}
               </div>
            </div>
-           <div className="rounded-[2rem] bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-[11px] sm:text-xs overflow-hidden">
+           <div className="rounded-[2rem] bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-label sm:text-xs overflow-hidden">
               <div className="flex gap-2 mb-4">
                  <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                  <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>

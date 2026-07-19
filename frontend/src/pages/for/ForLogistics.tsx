@@ -22,7 +22,7 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">For Logistics & Distribution</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">For Logistics & Distribution</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Track every delivery. Route every driver. <span className="text-murzak-gradient">Stop running dispatch on WhatsApp.</span>
@@ -47,6 +47,38 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </div>
 
+      {/* Multi-modal freight — sea, road, air, one system */}
+      <section className="border-t border-murzak-border/50 py-20">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="rounded-[2rem] overflow-hidden shadow-xl border border-murzak-border order-2 lg:order-1">
+            <img
+              src="/images/logistics-split.webp"
+              alt="Cargo ship, freight truck, and cargo plane — sea, road, and air freight side by side"
+              className="w-full h-full object-cover"
+              loading="lazy"
+              width={1600}
+              height={1600}
+            />
+          </div>
+          <div className="order-1 lg:order-2">
+            <h2 className="text-3xl font-[900] tracking-tight mb-4">Sea, road, or air — one system tracks it all</h2>
+            <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-6">
+              Whatever moves your freight, your dispatch, drivers, and customers see the same live status. No more chasing updates across three different apps and a WhatsApp group.
+            </p>
+            <div className="rounded-2xl overflow-hidden border border-murzak-border shadow-lg">
+              <img
+                src="/images/ship-map.webp"
+                alt="Cargo ship route visualized on a world map, representing real-time shipment tracking"
+                className="w-full object-cover"
+                loading="lazy"
+                width={900}
+                height={1200}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto text-center mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">The Murzak Logistics Stack</h2>
@@ -54,10 +86,10 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="grid sm:grid-cols-3 gap-6">
            {stack.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 hover:border-murzak-accent/40 transition-all">
+             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all">
                 <div className="text-murzak-accent mb-5 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
                 <h3 className="text-xl font-black mb-3">{item.title}</h3>
-                <p className="text-sm text-slate-500 mb-6">{item.desc}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{item.desc}</p>
                 <div className="text-murzak-accent text-sm font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
                   View {item.title} <ArrowRight size={14} />
                 </div>
@@ -66,10 +98,17 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </Section>
 
-      <section className="relative py-24 overflow-hidden border-t border-murzak-border/50">
-        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
+      <section className="relative py-28 overflow-hidden border-t border-murzak-border/50">
+        <img
+          src="/images/ship-rain.webp"
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          className="absolute inset-0 w-full h-full object-cover -z-20"
+        />
+        <div className="absolute inset-0 -z-10 bg-murzak-ink/75" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-6">Ready to streamline your fleet?</h2>
+          <h2 className="text-3xl font-[900] tracking-tight text-white mb-6">Ready to streamline your fleet?</h2>
           <Button variant="primary" onClick={() => setSalesOpen(true)}>
             Start a custom build <ArrowRight size={17} />
           </Button>

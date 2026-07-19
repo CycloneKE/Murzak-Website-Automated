@@ -28,7 +28,7 @@ const SUMMARY_LABEL: Record<Summary, { text: string; tone: string }> = {
 function summaryChip(summary: Summary | undefined, available: boolean) {
   const s = available && summary ? SUMMARY_LABEL[summary] : SUMMARY_LABEL.none;
   return (
-    <span className={`text-[10px] font-black uppercase tracking-widest ${s.tone}`}>{s.text}</span>
+    <span className={`text-micro font-black uppercase ${s.tone}`}>{s.text}</span>
   );
 }
 
@@ -63,7 +63,7 @@ const SecurityOverviewCard: React.FC = () => {
           </div>
           <div>
             <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Security & Integrity</h3>
-            <p className="text-[10px] font-medium text-slate-500 mt-1">Automated protection active</p>
+            <p className="text-micro font-medium text-slate-600 mt-1">Automated protection active</p>
           </div>
         </div>
       </div>
@@ -73,7 +73,7 @@ const SecurityOverviewCard: React.FC = () => {
           <div className="flex items-center gap-3">
             <Server size={16} className="text-murzak-accent" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Uptime SLA</p>
+              <p className="text-micro font-bold uppercase text-slate-600">Uptime SLA</p>
               <p className="text-xs text-slate-500">Contractual commitment</p>
             </div>
           </div>
@@ -84,7 +84,7 @@ const SecurityOverviewCard: React.FC = () => {
           <div className="flex items-center gap-3">
             <ShieldCheck size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Backups</p>
+              <p className="text-micro font-bold uppercase text-slate-600">Backups</p>
               <p className="text-xs text-slate-500">
                 {available && overview?.services
                   ? `Across ${overview.services} provisioned service${overview.services === 1 ? "" : "s"}`
@@ -99,7 +99,7 @@ const SecurityOverviewCard: React.FC = () => {
           <div className="flex items-center gap-3">
             <Lock size={16} className="text-slate-500" />
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Edge / WAF</p>
+              <p className="text-micro font-bold uppercase text-slate-600">Edge / WAF</p>
               <p className="text-xs text-slate-500">Per-service edge protection</p>
             </div>
           </div>

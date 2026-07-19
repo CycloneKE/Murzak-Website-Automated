@@ -61,10 +61,10 @@ const PayPalWalletSection: React.FC<PayPalWalletSectionProps> = ({
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col items-center justify-center py-10 bg-slate-50 dark:bg-black/5 rounded-[3rem] border border-dashed border-slate-200 dark:border-murzak-border text-center">
         <Wallet size={48} className="text-blue-500 mb-4 opacity-50" />
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
+        <p className="text-micro font-black text-slate-600 uppercase mb-3">
           Complete payment using your PayPal account
         </p>
-        <p className="text-[11px] font-bold text-slate-500 mb-6">
+        <p className="text-label font-bold text-slate-600 mb-6">
           Invoice: KES {Number(amountKes || 0).toLocaleString()} • PayPal charge: USD{" "}
           {Number(amountUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>

@@ -16,7 +16,7 @@ export default function ManagedComparison() {
   return (
     <section className="max-w-5xl mx-auto px-6 sm:px-10">
       <div className="mb-10 text-center">
-        <div className="inline-flex items-center gap-2 text-[10px] font-black tracking-[0.3em] text-murzak-accent uppercase mb-4">
+        <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
           <Sparkles size={14} /> Managed, not DIY
         </div>
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink tracking-tighter">
@@ -32,10 +32,10 @@ export default function ManagedComparison() {
         <div className="grid grid-cols-[1.4fr_1fr_1fr]">
           <div className="p-4 sm:p-5" />
           <div className="p-4 sm:p-5 text-center border-l border-slate-200 dark:border-murzak-border">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-500">Raw VPS / DIY</span>
+            <span className="text-micro sm:text-xs font-black uppercase text-slate-600">Raw VPS / DIY</span>
           </div>
           <div className="p-4 sm:p-5 text-center border-l border-slate-200 dark:border-murzak-border bg-brand-gradient">
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-murzak-ink">Murzak Managed</span>
+            <span className="text-micro sm:text-xs font-black uppercase text-murzak-ink">Murzak Managed</span>
           </div>
         </div>
 
@@ -46,20 +46,20 @@ export default function ManagedComparison() {
               i % 2 ? "bg-slate-50/60 dark:bg-white/[0.02]" : ""
             }`}
           >
-            <div className="p-4 sm:p-5 text-[11px] sm:text-[13px] font-black text-murzak-ink">
+            <div className="p-4 sm:p-5 text-label sm:text-[13px] font-black text-murzak-ink">
               {r.feature}
             </div>
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center text-center">
               {r.diy === false ? (
                 <X className="w-4 h-4 text-slate-600 dark:text-slate-600" />
               ) : (
-                <span className="text-[10px] sm:text-[12px] font-bold text-slate-500 dark:text-slate-500">{r.diy}</span>
+                <span className="text-micro sm:text-[12px] font-bold text-slate-600 dark:text-slate-600">{r.diy}</span>
               )}
             </div>
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center gap-2 text-center">
               <Check className="w-4 h-4 text-murzak-accent shrink-0" />
               {typeof r.murzak === "string" && (
-                <span className="text-[10px] sm:text-[12px] font-black text-murzak-ink">{r.murzak}</span>
+                <span className="text-micro sm:text-[12px] font-black text-murzak-ink">{r.murzak}</span>
               )}
             </div>
           </div>

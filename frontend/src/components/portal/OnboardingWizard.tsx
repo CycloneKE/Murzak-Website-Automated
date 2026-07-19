@@ -90,9 +90,9 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 sm:p-6">
       <div className="absolute inset-0 bg-murzak-ink/70 backdrop-blur-xl" onClick={onClose} />
 
-      <div className="relative w-full max-w-xl bg-white rounded-[2.5rem] border border-slate-100 dark:border-murzak-border shadow-2xl overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-xl bg-white dark:bg-murzak-ink rounded-[2.5rem] border border-slate-100 dark:border-murzak-border shadow-2xl overflow-hidden animate-fade-in">
         {/* Cosy gradient header with floating sparkles */}
-        <div className="relative px-7 sm:px-10 pt-8 pb-7 overflow-hidden bg-murzak-base text-murzak-ink">
+        <div className="relative px-7 sm:px-10 pt-8 pb-7 overflow-hidden bg-murzak-base dark:bg-white/[0.03] text-murzak-ink dark:text-slate-100">
           <div className="absolute inset-0 -z-0 bg-brand-gradient opacity-25" />
           <div className="pointer-events-none absolute inset-0 -z-0 opacity-30">
             {[
@@ -104,7 +104,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
           </div>
 
           <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-murzak-accent">
+            <div className="flex items-center gap-2 text-micro font-black uppercase text-murzak-accent">
               <Rocket size={14} /> Getting started
             </div>
             <button onClick={onClose} className="p-2 rounded-xl text-murzak-ink/70 hover:text-murzak-ink hover:bg-black/5 transition" aria-label="Close">
@@ -136,11 +136,11 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </p>
               <button
                 onClick={next}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
               >
                 Let’s go <ArrowRight size={16} />
               </button>
-              <button onClick={onClose} className="mt-4 block mx-auto text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-murzak-accent transition">
+              <button onClick={onClose} className="mt-4 block mx-auto text-micro font-black uppercase text-slate-600 hover:text-murzak-accent transition">
                 Skip for now
               </button>
             </div>
@@ -168,7 +168,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                   >
                     <span className={`inline-flex p-2.5 rounded-xl mb-3 ${goal === g.id ? "bg-murzak-accent text-murzak-ink" : "bg-murzak-accent/10 text-murzak-accent"}`}>{g.icon}</span>
                     <div className="text-sm font-black text-murzak-ink">{g.label}</div>
-                    <div className="text-[11px] font-bold text-slate-500">{g.sub}</div>
+                    <div className="text-label font-bold text-slate-600">{g.sub}</div>
                   </button>
                 ))}
               </div>
@@ -178,7 +178,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-[11px] uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
                 >
                   Continue <ArrowRight size={16} />
                 </button>
@@ -214,7 +214,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                     {!c.done && c.action && (
                       <button
                         onClick={() => { c.action!(); onClose(); }}
-                        className="shrink-0 px-3.5 py-2 rounded-xl bg-black/5 text-murzak-ink font-black text-[9px] uppercase tracking-widest hover:bg-murzak-accent hover:text-murzak-ink transition-all"
+                        className="shrink-0 px-3.5 py-2 rounded-xl bg-black/5 text-murzak-ink font-black text-micro uppercase hover:bg-murzak-accent hover:text-murzak-ink transition-all"
                       >
                         {c.cta}
                       </button>
@@ -228,7 +228,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-[11px] uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
                 >
                   Looks good <ArrowRight size={16} />
                 </button>
@@ -263,7 +263,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </p>
               <button
                 onClick={onClose}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-[11px] uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
               >
                 Explore my portal <ArrowRight size={16} />
               </button>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CreditCard, Server, Headphones, Activity, Sparkles } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 export interface TimelineEvent {
   id: string;
@@ -41,9 +42,9 @@ export default function ActivityTimeline({ events }: ActivityTimelineProps) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-[12px] font-black text-murzak-ink">{event.title}</h4>
-                <p className="text-[11px] font-medium text-slate-500 mt-1 leading-relaxed">{event.description}</p>
+                <p className="text-label font-medium text-slate-600 mt-1 leading-relaxed">{event.description}</p>
               </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 shrink-0">
+              <span className="text-micro font-black uppercase text-slate-600 shrink-0">
                 {event.timestamp}
               </span>
             </div>
@@ -52,10 +53,11 @@ export default function ActivityTimeline({ events }: ActivityTimelineProps) {
       ))}
       
       {events.length === 0 && (
-        <div className="text-center py-8">
-          <Activity className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-          <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">No recent activity</p>
-        </div>
+        <EmptyState
+          icon={<Activity size={22} />}
+          title="No recent activity"
+          description="Updates from your engineers and account changes will show up here."
+        />
       )}
     </div>
   );

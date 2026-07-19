@@ -35,7 +35,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">Murzak POS & Inventory</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">Murzak POS & Inventory</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Sell fast. Know your stock. <span className="text-murzak-gradient">Every branch, one system.</span>
@@ -57,7 +57,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       {/* Feature Grid */}
       <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">Core Features</p>
+          <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Core Features</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything you need to run your shop.</h2>
         </div>
         <div className="grid sm:grid-cols-2 gap-5">

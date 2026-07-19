@@ -67,7 +67,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
   return (
     <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
       <div className="text-center mb-12 sm:mb-16">
-        <p className="font-mono text-[10px] font-black text-murzak-accent uppercase tracking-[0.3em] mb-4">Get in touch</p>
+        <p className="font-mono text-micro font-black text-murzak-accent uppercase mb-4">Get in touch</p>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
@@ -83,21 +83,21 @@ const ContactPage: React.FC<ContactPageProps> = () => {
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Mail size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Email us</p>
+                <p className="text-micro font-black text-slate-600 uppercase mb-1">Email us</p>
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black hover:text-murzak-accent transition break-all">{SUPPORT_EMAIL}</a>
               </div>
             </div>
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><MapPin size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Location</p>
+                <p className="text-micro font-black text-slate-600 uppercase mb-1">Location</p>
                 <p className="text-sm font-black">Nairobi, Kenya</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Clock size={18} /></div>
               <div>
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hours</p>
+                <p className="text-micro font-black text-slate-600 uppercase mb-1">Hours</p>
                 <p className="text-sm font-black">Mon–Fri · 8:00–18:00 EAT</p>
               </div>
             </div>
@@ -117,7 +117,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                 </p>
                 <button
                   onClick={() => { setSuccess(false); setForm({ name: "", email: "", company: "", message: "" }); }}
-                  className="mt-8 text-[10px] font-black text-murzak-accent uppercase tracking-widest hover:underline"
+                  className="mt-8 text-micro font-black text-murzak-accent uppercase hover:underline"
                 >
                   Send another message
                 </button>
@@ -125,7 +125,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
             ) : (
               <form noValidate onSubmit={handleSubmit} className="space-y-5">
                 {serverError && (
-                  <div className="p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-[11px] font-bold flex items-center gap-2">
+                  <div className="p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-label font-bold flex items-center gap-2">
                     <AlertCircle size={14} /> {serverError}
                   </div>
                 )}
@@ -135,14 +135,14 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                       <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                       <input value={form.name} onChange={(e) => { setForm({ ...form, name: e.target.value }); if (errors.name) setErrors({ ...errors, name: "" }); }} placeholder="Full name" className={inputCls("name")} />
                     </div>
-                    {errors.name && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.name}</p>}
+                    {errors.name && <p className="text-micro text-red-500 font-bold uppercase mt-1.5 ml-1">{errors.name}</p>}
                   </div>
                   <div>
                     <div className="relative">
                       <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                       <input value={form.company} onChange={(e) => { setForm({ ...form, company: e.target.value }); if (errors.company) setErrors({ ...errors, company: "" }); }} placeholder="Company" className={inputCls("company")} />
                     </div>
-                    {errors.company && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.company}</p>}
+                    {errors.company && <p className="text-micro text-red-500 font-bold uppercase mt-1.5 ml-1">{errors.company}</p>}
                   </div>
                 </div>
                 <div>
@@ -150,19 +150,19 @@ const ContactPage: React.FC<ContactPageProps> = () => {
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
                     <input type="email" value={form.email} onChange={(e) => { setForm({ ...form, email: e.target.value }); if (errors.email) setErrors({ ...errors, email: "" }); }} placeholder="Work email" className={inputCls("email")} autoComplete="email" />
                   </div>
-                  {errors.email && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.email}</p>}
+                  {errors.email && <p className="text-micro text-red-500 font-bold uppercase mt-1.5 ml-1">{errors.email}</p>}
                 </div>
                 <div>
                   <div className="relative">
                     <MessageSquare className="absolute left-4 top-4 text-slate-500" size={16} />
                     <textarea value={form.message} onChange={(e) => { setForm({ ...form, message: e.target.value }); if (errors.message) setErrors({ ...errors, message: "" }); }} placeholder="How can we help?" rows={5} className={`${inputCls("message")} resize-none pt-3.5`} />
                   </div>
-                  {errors.message && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-1.5 ml-1">{errors.message}</p>}
+                  {errors.message && <p className="text-micro text-red-500 font-bold uppercase mt-1.5 ml-1">{errors.message}</p>}
                 </div>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-murzak-accent text-murzak-ink py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-[1.01] transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
+                  className="w-full bg-murzak-accent text-murzak-ink py-4 rounded-2xl font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
                   {submitting ? "Sending..." : "Send message"}

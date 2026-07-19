@@ -85,7 +85,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
   };
 
   const inputClasses = (name: string) => `w-full bg-slate-50 border ${errors[name] ? 'border-red-500' : 'border-slate-200 dark:border-murzak-border'} rounded-2xl px-6 py-4 text-base font-bold text-murzak-ink transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent placeholder:text-slate-500`;
-  const labelClasses = "block text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-[0.3em] mb-3 ml-1";
+  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-3 ml-1";
 
   if (submitted) {
     return (
@@ -103,14 +103,14 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
             </p>
 
             {errors.submit && (
-              <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest flex items-center gap-1">
+              <p className="text-micro text-red-500 font-bold uppercase flex items-center gap-1">
                 <AlertCircle size={10} /> {errors.submit}
               </p>
             )}
 
             <button
               onClick={() => onNavigate('login')}
-              className="w-full bg-murzak-accent text-murzak-ink px-12 py-5 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
+              className="w-full bg-murzak-accent text-murzak-ink px-12 py-5 rounded-2xl font-black text-label uppercase tracking-widest hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-3"
             >
               Create account & start trial <ArrowRight size={18} />
             </button>
@@ -131,7 +131,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
         <div className="text-center mb-12 lg:mb-16 pt-12">
           <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-6 backdrop-blur-md">
             <Server size={18} />
-            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em]">Nairobi System Sandbox</span>
+            <span className="text-micro sm:text-micro font-black uppercase">Nairobi System Sandbox</span>
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink tracking-tighter leading-[0.85] mb-6">
             Get your <br /><span className="text-murzak-accent">36h trial.</span>
@@ -145,18 +145,18 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
                 <div>
                   <label className={labelClasses}>Your Name</label>
                   <input type="text" placeholder="Samuel Okoth" className={inputClasses('fullName')} value={formData.fullName} onChange={e => { setFormData({...formData, fullName: e.target.value}); if(errors.fullName) setErrors({...errors, fullName: ''}); }} />
-                  {errors.fullName && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.fullName}</p>}
+                  {errors.fullName && <p className="text-micro text-red-500 font-bold uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.fullName}</p>}
                 </div>
                 <div>
                   <label className={labelClasses}>Business Email</label>
                   <input type="email" placeholder="samuel@company.co.ke" className={inputClasses('workEmail')} value={formData.workEmail} onChange={e => { setFormData({...formData, workEmail: e.target.value}); if(errors.workEmail) setErrors({...errors, workEmail: ''}); }} />
-                  {errors.workEmail && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.workEmail}</p>}
+                  {errors.workEmail && <p className="text-micro text-red-500 font-bold uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.workEmail}</p>}
                 </div>
               </div>
               <div>
                 <label className={labelClasses}>Company Name</label>
                 <input type="text" placeholder="Regional Enterprise Ltd" className={inputClasses('companyName')} value={formData.companyName} onChange={e => { setFormData({...formData, companyName: e.target.value}); if(errors.companyName) setErrors({...errors, companyName: ''}); }} />
-                {errors.companyName && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.companyName}</p>}
+                {errors.companyName && <p className="text-micro text-red-500 font-bold uppercase mt-2 flex items-center gap-1"><AlertCircle size={10}/> {errors.companyName}</p>}
               </div>
               <button type="button" onClick={nextStep} className="w-full bg-murzak-accent text-murzak-ink py-5 sm:py-6 rounded-2xl font-black text-lg flex items-center justify-center group hover:scale-[1.02] transition-all shadow-xl">
                 Next Step <ChevronRight className="ml-3 group-hover:translate-x-2 transition-transform" />
@@ -183,7 +183,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button type="button" onClick={prevStep} className="hidden sm:flex px-8 bg-slate-100 dark:bg-black/5 text-murzak-ink rounded-2xl items-center justify-center font-black uppercase text-[10px] tracking-widest"><ChevronLeft size={20} /></button>
+                <button type="button" onClick={prevStep} className="hidden sm:flex px-8 bg-slate-100 dark:bg-black/5 text-murzak-ink rounded-2xl items-center justify-center font-black uppercase text-micro"><ChevronLeft size={20} /></button>
                 <button type="submit" disabled={isSubmitting} className="flex-grow bg-murzak-accent text-murzak-ink py-5 sm:py-6 rounded-2xl font-black text-lg flex items-center justify-center group hover:scale-[1.02] transition-all disabled:opacity-50 shadow-xl">
                   {isSubmitting ? <RefreshCw className="animate-spin mr-3" /> : <>Save My Plan <ShieldCheck size={20} className="ml-3" /></>}
                 </button>

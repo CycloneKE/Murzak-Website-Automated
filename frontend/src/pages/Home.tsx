@@ -57,8 +57,8 @@ function ConfigPeek() {
   return (
     <div className="relative rounded-3xl glass-dark p-5 sm:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-4">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400">your plan</span>
-        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-murzak-accent">
+        <span className="font-mono text-micro uppercase text-slate-400">your plan</span>
+        <span className="flex items-center gap-1.5 font-mono text-micro uppercase text-murzak-accent">
           <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" /> live
         </span>
       </div>
@@ -81,7 +81,7 @@ function ConfigPeek() {
         })}
       </ul>
       <div className="mt-5 pt-4 border-t border-white/10 flex items-end justify-between">
-        <span className="text-[11px] font-bold text-slate-400">Monthly</span>
+        <span className="text-label font-bold text-slate-400">Monthly</span>
         <span className="text-2xl font-black text-murzak-gradient tabular-nums">KES {total.toLocaleString()}</span>
       </div>
     </div>
@@ -135,7 +135,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     <main className="text-white overflow-x-hidden">
       {/* 01 · HERO */}
       <section className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-man.jpg')" }} />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-man.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
         {/* ambient */}
@@ -148,7 +148,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 mb-7">
               <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-300">Nairobi · systems operational</span>
+              <span className="font-mono text-micro uppercase text-slate-300">Nairobi · systems operational</span>
             </div>
 
             <h1 className="text-[clamp(2.6rem,7vw,5.5rem)] font-[900] tracking-[-0.03em] leading-[0.95]">
@@ -170,7 +170,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </Button>
             </div>
 
-            <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-400">
+            <p className="mt-5 font-mono text-label uppercase tracking-widest text-slate-400">
               No card required to start · Live in a day
             </p>
           </div>
@@ -189,7 +189,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 02 · TRUST STRIP */}
       <section className="glass-dark">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 max-w-xs text-center lg:text-left">
+          <p className="font-mono text-micro uppercase text-slate-400 max-w-xs text-center lg:text-left">
             Trusted by teams who'd rather be doing their actual job
           </p>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
@@ -201,7 +201,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             {[['Same-day', 'setup'], ['Daily', 'backups'], ['KES', 'billing']].map(([a, b]) => (
               <div key={b} className="text-center">
                 <div className="text-lg font-black text-murzak-accent">{a}</div>
-                <div className="font-mono text-[9px] uppercase tracking-widest text-slate-500">{b}</div>
+                <div className="font-mono text-micro uppercase text-slate-600">{b}</div>
               </div>
             ))}
           </div>
@@ -222,7 +222,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <span className="inline-flex p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent w-fit mb-2">{s.icon}</span>
                 <div className="text-3xl lg:text-4xl font-[900] text-murzak-gradient tracking-tight tabular-nums">{s.big}</div>
                 <div className="text-sm font-black text-white">{s.label}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{s.sub}</div>
+                <div className="font-mono text-micro uppercase text-slate-600">{s.sub}</div>
               </div>
             ))}
           </div>
@@ -242,7 +242,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p className="mt-6 text-lg sm:text-xl font-black text-white">
             That's the part we take off your plate — <span className="text-murzak-gradient">and keep off it.</span>
           </p>
-          <p className="mt-6 font-mono text-[11px] uppercase tracking-widest text-slate-500">
+          <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-600">
             A day of downtime during month-end can cost more than a year of hosting.
           </p>
         </div>
@@ -252,7 +252,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section id="what-we-do" className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">What we do</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">What we do</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">
               Three ways we keep your business running.
             </h2>
@@ -266,10 +266,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 className={`group text-left rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] ${p.span}`}
               >
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-2">{p.tag}</p>
+                <p className="font-mono text-micro uppercase text-slate-400 mb-2">{p.tag}</p>
                 <h3 className="text-2xl font-black text-white mb-3">{p.title}</h3>
                 <p className="text-slate-400 font-medium leading-relaxed mb-6 max-w-md">{p.desc}</p>
-                <span className="inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">
+                <span className="inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">
                   {p.cta} <ArrowUpRight size={15} />
                 </span>
               </button>
@@ -282,7 +282,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">No hidden pricing</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No hidden pricing</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight leading-tight">
               See the price before<br /> you talk to anyone.
             </h2>
@@ -304,7 +304,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">How it works</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How it works</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">From "we need this" to live — in four steps.</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -315,7 +315,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support — for as long as you’re with us.' },
             ].map((step) => (
               <div key={step.n} className="relative rounded-3xl glass-dark p-7 lg:p-8">
-                <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-white/15">{step.n}</span>
+                <span className="absolute top-6 right-6 font-mono text-label font-black text-white/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{step.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{step.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{step.s}</p>
@@ -329,14 +329,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Products</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Products</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Buy what's ready. Build what isn't.</h2>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-5">
             {/* ready-made */}
             <div className="rounded-3xl glass-dark p-8 lg:p-10">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-5">Ready in days</p>
+              <p className="font-mono text-micro uppercase text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
                   { icon: <Boxes size={16} />, t: 'Murzak ERP', s: 'Inventory, accounting, HR — configured for KE' },
@@ -353,14 +353,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   </div>
                 ))}
               </div>
-              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
+              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Browse products <ArrowUpRight size={15} />
               </button>
             </div>
 
             {/* bespoke — spec-editor styling */}
             <div className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-5">// bespoke build</p>
+              <p className="text-micro uppercase text-slate-600 mb-5">// bespoke build</p>
               <div className="space-y-2 text-[13px] leading-relaxed">
                 <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-accent">"dispatch is run on WhatsApp"</span></p>
                 <p className="text-slate-500">02 <span className="text-slate-300">we_build</span> <span className="text-white">delivery + tracking system</span></p>
@@ -370,7 +370,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="mt-6 font-sans text-slate-400 text-sm font-medium leading-relaxed">
                 A customer portal, an M-Pesa integration, a system no one else sells — designed and built around your workflow.
               </p>
-              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
+              <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Start a build <ArrowUpRight size={15} />
               </button>
             </div>
@@ -382,7 +382,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Why Murzak</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why Murzak</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Built for how Kenya actually does business.</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
@@ -405,13 +405,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Why businesses switch</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why businesses switch</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">The usual way vs. the Murzak way.</h2>
           </div>
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
             <div className="rounded-3xl glass-dark p-8 lg:p-10">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-6">The usual way</p>
+              <p className="font-mono text-micro uppercase text-slate-600 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
                   'Invoiced in dollars — you do the forex math',
@@ -429,7 +429,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             {/* the murzak way */}
             <div className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
               <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-brand-gradient opacity-20" />
-              <p className="font-mono text-[10px] uppercase tracking-widest text-murzak-accent mb-6 relative">The Murzak way</p>
+              <p className="font-mono text-micro uppercase text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
                 {[
                   'Billed in shillings — pay by M-Pesa or card',
@@ -453,12 +453,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
             <div className="max-w-2xl">
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Plans at a glance</p>
+              <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Plans at a glance</p>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Start free. Scale when you’re ready.</h2>
             </div>
             <button
               onClick={() => onNavigate('pricing')}
-              className="shrink-0 inline-flex items-center gap-2 font-black text-[11px] uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all"
+              className="shrink-0 inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all"
             >
               See full pricing <ArrowUpRight size={15} />
             </button>
@@ -475,23 +475,23 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 }`}
               >
                 {m.featured && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-murzak-accent/15 text-murzak-accent px-2.5 py-1 font-mono text-[9px] uppercase tracking-widest mb-4">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-murzak-accent/15 text-murzak-accent px-2.5 py-1 font-mono text-micro uppercase mb-4">
                     <Star size={10} /> Most popular
                   </span>
                 )}
                 <h3 className="text-lg font-black text-white">{m.label}</h3>
-                <p className="font-mono text-[9px] uppercase tracking-widest text-murzak-accent mb-4">{m.bestFor}</p>
+                <p className="font-mono text-micro uppercase text-murzak-accent mb-4">{m.bestFor}</p>
                 <div className="flex items-baseline gap-1.5 mb-4">
                   {m.startingKes != null && m.startingKes > 0 && (
-                    <span className="font-mono text-[9px] uppercase tracking-widest text-slate-500">from</span>
+                    <span className="font-mono text-micro uppercase text-slate-600">from</span>
                   )}
                   <span className="text-2xl font-[900] text-white tracking-tight">
                     {m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes)}
                   </span>
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-slate-500">{m.period}</span>
+                  <span className="font-mono text-micro uppercase text-slate-600">{m.period}</span>
                 </div>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
-                <span className="mt-5 inline-flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-murzak-accent">
+                <span className="mt-5 inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent">
                   {m.cta} <ArrowRight size={13} />
                 </span>
               </button>
@@ -507,7 +507,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div className="text-5xl text-murzak-gradient font-black mb-6">"</div>
             <blockquote className="text-2xl sm:text-3xl font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
             <p className="mt-6 text-sm font-bold text-slate-300">{TESTIMONIALS[0].name}</p>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">{TESTIMONIALS[0].org}</p>
+            <p className="font-mono text-micro uppercase text-slate-600">{TESTIMONIALS[0].org}</p>
           </div>
         </section>
       )}
@@ -533,7 +533,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               Talk to us
             </Button>
           </div>
-          <p className="mt-6 font-mono text-[11px] uppercase tracking-widest text-white/70">
+          <p className="mt-6 font-mono text-label uppercase tracking-widest text-white/70">
             Start in a day · No card · Pay by M-Pesa
           </p>
         </div>

@@ -51,17 +51,17 @@ const ChangePasswordCard: React.FC = () => {
 
   return (
     <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
-      <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+      <h3 className="text-micro font-black text-slate-600 uppercase mb-8 flex items-center gap-2">
         <Lock size={14} className="text-murzak-accent" /> Security · Change Password
       </h3>
 
       {error && (
-        <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-[11px] font-bold flex items-center gap-2">
+        <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-label font-bold flex items-center gap-2">
           <AlertCircle size={14} /> {error}
         </div>
       )}
       {success && (
-        <div className="mb-5 p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl text-emerald-600 text-[11px] font-bold flex items-center gap-2">
+        <div className="mb-5 p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl text-emerald-600 text-label font-bold flex items-center gap-2">
           <ShieldCheck size={14} /> {success}
         </div>
       )}
@@ -112,7 +112,7 @@ const ChangePasswordCard: React.FC = () => {
         <button
           type="submit"
           disabled={submitting || !currentPassword || !newPassword}
-          className="w-full bg-murzak-accent text-murzak-ink py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full bg-murzak-accent text-murzak-ink py-3.5 rounded-2xl font-black text-micro uppercase hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {submitting ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
           {submitting ? "Updating..." : "Update Password"}

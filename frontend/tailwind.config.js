@@ -23,8 +23,28 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Manrope', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Manrope Variable', 'Manrope', 'sans-serif'],
+        mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'monospace'],
+      },
+      fontSize: {
+        // Rem-based type scale — replaces text-[Npx] arbitrary values.
+        // 'micro' is the legibility floor; nothing in the app should render smaller.
+        'micro':      ['0.6875rem', { lineHeight: '1.35', letterSpacing: '0.08em' }], // 11px
+        'label':      ['0.75rem',   { lineHeight: '1.4' }],                            // 12px
+        'body-sm':    ['0.8125rem', { lineHeight: '1.5' }],                            // 13px
+        'body':       ['0.875rem',  { lineHeight: '1.55' }],                           // 14px
+        'body-lg':    ['1rem',      { lineHeight: '1.6' }],                            // 16px
+        'title-sm':   ['1.125rem',  { lineHeight: '1.4' }],                            // 18px
+        'title':      ['1.25rem',   { lineHeight: '1.35' }],                           // 20px
+        'title-lg':   ['1.5rem',    { lineHeight: '1.3' }],                            // 24px
+        'display-sm': ['1.875rem',  { lineHeight: '1.2',  letterSpacing: '-0.01em' }],  // 30px
+        'display':    ['2.25rem',   { lineHeight: '1.15', letterSpacing: '-0.015em' }], // 36px
+        'display-lg': ['3rem',      { lineHeight: '1.1',  letterSpacing: '-0.02em' }],  // 48px
+      },
+      fontWeight: {
+        // Manrope Variable tops out at 800 — remap 'black' so font-black renders
+        // a real weight instead of a synthetic/faux-bold 900.
+        black: '800',
       },
       backgroundImage: {
         'brand-gradient': 'linear-gradient(to right, #882FFD, #3388F2)',

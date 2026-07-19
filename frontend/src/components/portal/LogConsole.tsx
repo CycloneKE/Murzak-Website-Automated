@@ -100,21 +100,21 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
             <Terminal className="w-4 h-4 mr-2" />
             <span>provisioning activity: {activeService?.name || activeService?.category}</span>
             {isLive ? (
-              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
+              <span className="ml-3 px-2 py-0.5 rounded text-micro uppercase bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
               </span>
             ) : (
-              <span className="ml-3 px-2 py-0.5 rounded text-[10px] uppercase bg-black/5 text-gray-300">Recorded</span>
+              <span className="ml-3 px-2 py-0.5 rounded text-micro uppercase bg-black/5 text-gray-300">Recorded</span>
             )}
           </div>
           <div className="flex items-center space-x-2 text-gray-500">
-            <button className="hover:text-murzak-ink transition-colors p-1" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh">
+            <button className="hover:text-murzak-ink transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh" aria-label="Refresh logs">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button className="hover:text-murzak-ink transition-colors p-1" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+            <button className="hover:text-murzak-ink transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} title={isMinimized ? "Expand" : "Minimize"} aria-label={isMinimized ? "Expand log console" : "Minimize log console"}>
               {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
             </button>
-            <button className="hover:text-red-400 transition-colors p-1" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+            <button className="hover:text-red-400 transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" aria-label="Close log console">
               <X className="w-4 h-4" />
             </button>
           </div>

@@ -17,10 +17,14 @@ function Metric({
   icon,
   label,
   percent,
+  unsupported,
 }: {
   icon: React.ReactNode;
   label: string;
   percent?: number;
+  // True for metrics with no data source yet (e.g. bandwidth) — distinct from
+  // "not populated yet" so the empty state doesn't imply it'll fix itself.
+  unsupported?: boolean;
 }) {
   const hasData = typeof percent === 'number';
   const color = !hasData
@@ -43,10 +47,10 @@ function Metric({
       <div className="flex justify-between items-end mb-2">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-600">{label}</span>
+          <span className="text-label font-bold uppercase tracking-widest text-slate-600">{label}</span>
         </div>
-        <span className={`text-[10px] font-black tracking-widest ${textColor}`}>
-          {hasData ? `${percent}%` : 'Not available yet'}
+        <span className={`text-micro font-black ${textColor}`}>
+          {hasData ? `${percent}%` : unsupported ? 'Coming soon' : 'No data yet'}
         </span>
       </div>
       <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-murzak-border/50">
@@ -56,8 +60,15 @@ function Metric({
         />
       </div>
       {hasData && percent > 80 && (
-        <p className="text-[9px] text-orange-400 mt-2 uppercase tracking-widest">
+        <p className="text-micro text-orange-400 mt-2 uppercase">
           Approaching capacity. Consider upgrading soon.
+        </p>
+      )}
+      {!hasData && (
+        <p className="text-micro text-slate-500 mt-2">
+          {unsupported
+            ? "We're wiring this up to our hosting layer — no action needed."
+            : "Metrics appear automatically once your service reports usage."}
         </p>
       )}
     </div>
@@ -77,14 +88,14 @@ const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
         </div>
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Resource Utilization</h3>
-          <p className="text-[10px] font-medium text-slate-500 mt-1">Limits for your infrastructure</p>
+          <p className="text-micro font-medium text-slate-600 mt-1">Limits for your infrastructure</p>
         </div>
       </div>
 
       <div className="space-y-8">
         <Metric icon={<HardDrive size={14} className="text-slate-500" />} label="Storage Limit" percent={diskUsagePercent} />
         <Metric icon={<Cpu size={14} className="text-slate-500" />} label="Memory (RAM)" percent={ramUsagePercent} />
-        <Metric icon={<Activity size={14} className="text-slate-500" />} label="Monthly Traffic" percent={bandwidthUsagePercent} />
+        <Metric icon={<Activity size={14} className="text-slate-500" />} label="Monthly Traffic" percent={bandwidthUsagePercent} unsupported />
       </div>
     </div>
   );

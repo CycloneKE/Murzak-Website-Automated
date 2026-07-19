@@ -27,7 +27,7 @@ const InfraAccessBar: React.FC = () => {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40 transition"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-micro font-black uppercase border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-slate-600 hover:text-murzak-accent hover:border-murzak-accent/40 transition"
       >
         {icon} {label} <ExternalLink className="w-3 h-3 opacity-60" />
       </a>
@@ -53,7 +53,7 @@ const AdminTabs: React.FC = () => {
     <button
       type="button"
       onClick={() => setView(id)}
-      className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition ${
+      className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl text-micro font-black uppercase border transition ${
         view === id
           ? "bg-murzak-accent text-murzak-ink border-transparent shadow-md"
           : "bg-white/60 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40"

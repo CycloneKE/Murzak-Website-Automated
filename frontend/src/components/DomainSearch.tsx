@@ -30,7 +30,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
 
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/20 p-4">
-      <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2.5">
+      <div className="text-micro font-black uppercase text-slate-600 mb-2.5">
         Find your domain
       </div>
 
@@ -47,7 +47,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
         <button
           type="submit"
           disabled={loading || !normalizeLabel(query)}
-          className={`shrink-0 rounded-xl px-4 py-2.5 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+          className={`shrink-0 rounded-xl px-4 py-2.5 font-black text-micro uppercase transition-all flex items-center gap-2 ${
             loading || !normalizeLabel(query)
               ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
               : "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
@@ -84,13 +84,13 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                 <div className="shrink-0 flex items-center gap-3">
                   {r.available ? (
                     <>
-                      <span className="text-[11px] font-black text-slate-500 dark:text-slate-600">
+                      <span className="text-label font-black text-slate-600 dark:text-slate-600">
                         {formatKes(r.priceKes)}/yr
                       </span>
                       <button
                         type="button"
                         onClick={() => onSelect(r.domain, r.priceKes)}
-                        className={`rounded-lg px-3 py-1.5 font-black text-[9px] uppercase tracking-widest transition-all ${
+                        className={`rounded-lg px-3 py-1.5 font-black text-micro uppercase transition-all ${
                           isChosen
                             ? "bg-murzak-accent text-murzak-ink"
                             : "border border-murzak-accent text-murzak-accent hover:bg-murzak-accent hover:text-murzak-ink"
@@ -100,7 +100,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                       </button>
                     </>
                   ) : (
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Taken</span>
+                    <span className="text-micro font-black uppercase text-slate-600">Taken</span>
                   )}
                 </div>
               </li>
@@ -110,7 +110,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
       )}
 
       {selectedDomain && (
-        <p className="mt-3 text-[10px] font-bold text-murzak-accent">
+        <p className="mt-3 text-micro font-bold text-murzak-accent">
           Registering <span className="font-black">{selectedDomain}</span> — billed yearly, added to your first invoice.
         </p>
       )}

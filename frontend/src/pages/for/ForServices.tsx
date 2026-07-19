@@ -20,7 +20,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-[10px] font-black uppercase tracking-widest text-murzak-accent">For Professional Services</span>
+            <span className="text-micro font-black uppercase text-murzak-accent">For Professional Services</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Win more clients. Deliver on time. <span className="text-murzak-gradient">Get paid faster.</span>

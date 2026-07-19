@@ -19,7 +19,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
       <section className="relative pt-20 lg:pt-32 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 left-[-10%] w-[620px] h-[620px] rounded-full blur-[150px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-5">About Murzak</p>
+          <p className="font-mono text-micro uppercase text-murzak-accent mb-5">About Murzak</p>
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
           </h1>
@@ -43,7 +43,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
             ].map((s) => (
               <div key={s.label} className="bg-black/5 p-6 lg:p-8">
                 <div className="text-2xl lg:text-3xl font-[900] text-murzak-gradient tracking-tight">{s.big}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mt-1">{s.label}</div>
+                <div className="font-mono text-micro uppercase text-slate-600 mt-1">{s.label}</div>
               </div>
             ))}
           </div>
@@ -53,10 +53,22 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
       {/* Story */}
       <section className="py-16 lg:py-24 border-t border-murzak-border/50">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-[1fr_1.2fr] gap-12 items-start">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
-            Built for the business owner, not the IT department.
-          </h2>
-          <div className="space-y-5 text-slate-600 font-medium leading-relaxed text-[15px]">
+          <div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-8">
+              Built for the business owner, not the IT department.
+            </h2>
+            <div className="rounded-[2rem] overflow-hidden shadow-lg border border-murzak-border">
+              <img
+                src="/images/technology.webp"
+                alt="Abstract visualization representing automation and AI-driven systems"
+                className="w-full h-48 object-cover"
+                loading="lazy"
+                width={1920}
+                height={1080}
+              />
+            </div>
+          </div>
+          <div className="space-y-5 text-slate-600 dark:text-slate-300 font-medium leading-relaxed text-[15px]">
             <p>
               Most technology companies talk to engineers. We talk to the person who actually carries the
               risk — the owner whose shop can't take payments when the system is down, the manager drowning
@@ -67,7 +79,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               for you, and one team that stays accountable for keeping it all running. When you grow, we
               grow the infrastructure with you.
             </p>
-            <p className="text-murzak-ink font-bold">
+            <p className="text-murzak-ink dark:text-white font-bold">
               That's the whole idea — competent, local, and genuinely on your side.
             </p>
           </div>
@@ -78,7 +90,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
       <section className="py-16 lg:py-24 border-t border-murzak-border/50">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">What we do</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">What we do</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Three things, done properly.</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
@@ -87,11 +99,11 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               { icon: <Boxes size={20} />, t: 'Business systems', s: 'Murzak ERP, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
               { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
             ].map((c) => (
-              <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7 transition-all hover:border-white/60 hover:bg-white/40">
+              <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08]">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
-                <h3 className="text-lg font-black text-murzak-ink mb-2">{c.t}</h3>
-                <p className="text-[13px] text-slate-500 font-medium leading-relaxed mb-5">{c.s}</p>
-                <span className="inline-flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">{c.cta} <ArrowUpRight size={14} /></span>
+                <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{c.t}</h3>
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-5">{c.s}</p>
+                <span className="inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent group-hover:gap-3 transition-all">{c.cta} <ArrowUpRight size={14} /></span>
               </button>
             ))}
           </div>
@@ -102,15 +114,15 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
       <section className="py-16 lg:py-24 border-t border-murzak-border/50">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">How we work</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How we work</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">What you can expect from us.</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
             {values.map((v) => (
-              <div key={v.t} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7">
+              <div key={v.t} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{v.icon}</div>
-                <h3 className="text-lg font-black text-murzak-ink mb-2">{v.t}</h3>
-                <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{v.s}</p>
+                <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{v.t}</h3>
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{v.s}</p>
               </div>
             ))}
           </div>
@@ -122,7 +134,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Contact us</p>
+              <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Contact us</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
                 Talk to a real person — <span className="text-murzak-gradient">no call centre.</span>
               </h2>
@@ -140,26 +152,26 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div className="rounded-[2.5rem] border border-transparent bg-white/60 backdrop-blur-md p-8 sm:p-10 space-y-7">
+            <div className="rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 space-y-7">
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Mail size={18} /></div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Email</p>
-                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black text-murzak-ink hover:text-murzak-accent transition break-all">{SUPPORT_EMAIL}</a>
+                  <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Email</p>
+                  <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black text-murzak-ink dark:text-slate-100 hover:text-murzak-accent transition break-all">{SUPPORT_EMAIL}</a>
                 </div>
               </div>
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><MapPin size={18} /></div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Location</p>
-                  <p className="text-sm font-black text-murzak-ink">Nairobi, Kenya</p>
+                  <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Location</p>
+                  <p className="text-sm font-black text-murzak-ink dark:text-slate-100">Nairobi, Kenya</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
                 <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Clock size={18} /></div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Hours</p>
-                  <p className="text-sm font-black text-murzak-ink">Mon–Fri · 8:00–18:00 EAT</p>
+                  <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Hours</p>
+                  <p className="text-sm font-black text-murzak-ink dark:text-slate-100">Mon–Fri · 8:00–18:00 EAT</p>
                 </div>
               </div>
             </div>

@@ -16,7 +16,7 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
   return (
     <section className="max-w-4xl mx-auto px-6 sm:px-10">
       <div className="mb-10 text-center">
-        <div className="inline-flex items-center gap-2 text-[10px] font-black tracking-[0.3em] text-murzak-accent uppercase mb-4">
+        <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
           <HelpCircle size={14} /> {eyebrow}
         </div>
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink tracking-tighter">

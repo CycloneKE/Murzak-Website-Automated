@@ -45,7 +45,7 @@ const Logo: React.FC<LogoProps> = ({ className = "", variant = 'full', theme, ma
             Murzak
           </span>
           <span
-            className="font-[800] text-[clamp(0.4rem,1.4vw,0.6rem)] tracking-[0.2em] lg:tracking-[0.3em] uppercase mt-1 text-murzak-gradient"
+            className="font-[800] text-[clamp(0.6875rem,1.4vw,0.8125rem)] tracking-[0.15em] lg:tracking-[0.2em] uppercase mt-1 text-murzak-gradient"
           >
             {secondary}
           </span>

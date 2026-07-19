@@ -96,7 +96,7 @@ const domainChoices: DomainChoice[] = [
 function SpecChip({ label, value }: { label: string; value?: string }) {
   if (!value || value === "N/A") return null;
   return (
-    <div className="rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">
+    <div className="rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border px-3 py-2 text-micro font-black uppercase text-slate-600 dark:text-slate-600">
       {label}: <span className="text-murzak-ink">{value}</span>
     </div>
   );
@@ -373,18 +373,18 @@ export default function PlanServicesModal({
     <div className="fixed inset-0 z-[120]">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
 
-      <div className="relative w-full h-full bg-white/90 backdrop-blur-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full h-full bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-murzak-ink text-white border-b border-murzak-border">
           <div className="px-5 sm:px-10 py-4 sm:py-5 flex items-start sm:items-center justify-between gap-4 max-w-[1400px] mx-auto w-full">
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-widest text-murzak-accent flex items-center gap-2">
+              <div className="text-micro font-black uppercase text-murzak-accent flex items-center gap-2">
                 <Sparkles className="w-4 h-4" /> Configure your plan
               </div>
               <h3 className="text-2xl sm:text-3xl font-black tracking-tighter text-white mt-1 truncate">
                 {planLabel || planCode}
               </h3>
-              <p className="text-[11px] font-bold text-slate-600 mt-1.5 max-w-2xl">
+              <p className="text-label font-bold text-slate-600 mt-1.5 max-w-2xl">
                 {headerSubtitle}
               </p>
             </div>
@@ -407,7 +407,7 @@ export default function PlanServicesModal({
             {/* Services list */}
             <div className="lg:col-span-8 lg:min-h-0 lg:overflow-y-auto lg:pr-2 overscroll-contain">
               {/* Search + category filter */}
-              <div className="sticky top-0 z-10 -mx-1 px-1 pb-3 pt-1 bg-white/90 backdrop-blur-xl">
+              <div className="sticky top-0 z-10 -mx-1 px-1 pb-3 pt-1 bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-xl">
                 <div className="relative mb-3">
                   <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
@@ -425,7 +425,7 @@ export default function PlanServicesModal({
                   >
                     <button
                       onClick={() => setActiveCat("All")}
-                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                      className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-micro font-black uppercase transition-all ${
                         activeCat === "All"
                           ? "bg-murzak-accent text-murzak-ink"
                           : "border border-slate-200 dark:border-murzak-border text-slate-500 dark:text-slate-500 hover:border-murzak-accent"
@@ -437,7 +437,7 @@ export default function PlanServicesModal({
                       <button
                         key={cat}
                         onClick={() => setActiveCat(cat)}
-                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                        className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-micro font-black uppercase transition-all ${
                           activeCat === cat
                             ? "bg-murzak-accent text-murzak-ink"
                             : "border border-slate-200 dark:border-murzak-border text-slate-500 dark:text-slate-500 hover:border-murzak-accent"
@@ -453,12 +453,12 @@ export default function PlanServicesModal({
                       the list rather than a swipeable/scrollable row. */}
                   {catCanScrollLeft && (
                     <>
-                      <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-8 bg-gradient-to-r from-white to-transparent" />
+                      <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-8 bg-gradient-to-r from-white dark:from-murzak-ink to-transparent" />
                       <button
                         type="button"
                         aria-label="Scroll categories left"
                         onClick={() => scrollCatRow(-1)}
-                        className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-600 shadow-sm"
+                        className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
                       >
                         <ChevronDown size={12} className="rotate-90" />
                       </button>
@@ -466,12 +466,12 @@ export default function PlanServicesModal({
                   )}
                   {catCanScrollRight && (
                     <>
-                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-white to-transparent" />
+                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-white dark:from-murzak-ink to-transparent" />
                       <button
                         type="button"
                         aria-label="Scroll categories right"
                         onClick={() => scrollCatRow(1)}
-                        className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-600 shadow-sm"
+                        className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
                       >
                         <ChevronDown size={12} className="-rotate-90" />
                       </button>
@@ -484,8 +484,8 @@ export default function PlanServicesModal({
                 <div key={group.category} className="mb-6">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <span className="text-murzak-accent">{CATEGORY_ICON[group.category]}</span>
-                    <h4 className="text-[11px] font-black uppercase tracking-widest text-murzak-ink">{group.category}</h4>
-                    <span className="text-[10px] font-bold text-slate-500">({group.items.length})</span>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink">{group.category}</h4>
+                    <span className="text-micro font-bold text-slate-600">({group.items.length})</span>
                     <div className="flex-1 h-px bg-slate-100 dark:bg-black/5 ml-2" />
                   </div>
                   <div className="space-y-3">
@@ -512,14 +512,14 @@ export default function PlanServicesModal({
                           onClick={() => setExpandedId((p) => (p === svc.id ? null : svc.id))}
                           className="flex-1 text-left min-w-0"
                         >
-                          <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                          <div className="text-micro font-black uppercase text-slate-600">
                             {svc.category} • {svc.tier}
                           </div>
                           <div className="text-base sm:text-lg font-black text-murzak-ink mt-1 leading-tight">
                             {svc.name}
                           </div>
                           {isManagedSetup(svc) && (
-                            <span className="inline-flex items-center gap-1 mt-2 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest">
+                            <span className="inline-flex items-center gap-1 mt-2 rounded-full bg-amber-400/10 text-amber-500 border border-amber-400/20 px-2.5 py-1 text-micro font-black uppercase">
                               <Server size={11} /> Managed setup
                             </span>
                           )}
@@ -531,16 +531,16 @@ export default function PlanServicesModal({
                                 <span className="text-lg sm:text-xl font-black text-murzak-ink">
                                   {(svc.pricing.monthlyKes ?? 0) === 0 ? "Free" : formatKes(svc.pricing.monthlyKes)}
                                 </span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">/mo</span>
+                                <span className="text-micro font-black uppercase text-slate-600">/mo</span>
                                 {!!svc.pricing.setupKes && (
-                                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                                  <span className="text-micro font-bold uppercase text-slate-600">
                                     + {formatKes(svc.pricing.setupKes)} setup
                                   </span>
                                 )}
                               </>
                             )}
                           </div>
-                          <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-murzak-accent transition-colors">
+                          <div className="mt-2 inline-flex items-center gap-1 text-micro font-black uppercase text-slate-600 group-hover:text-murzak-accent transition-colors">
                             Details <ChevronDown size={13} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                           </div>
                         </button>
@@ -549,7 +549,7 @@ export default function PlanServicesModal({
                         <button
                           type="button"
                           onClick={() => toggleService(svc)}
-                          className={`shrink-0 rounded-2xl px-4 py-3 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 ${
+                          className={`shrink-0 rounded-2xl px-4 py-3 font-black text-micro uppercase transition-all flex items-center gap-2 ${
                             isSelected
                               ? "bg-murzak-accent text-murzak-ink shadow-lg shadow-murzak-accent/20"
                               : "border-2 border-murzak-accent text-murzak-accent hover:bg-murzak-accent hover:text-murzak-ink"
@@ -571,7 +571,7 @@ export default function PlanServicesModal({
                           {!!svc.highlights?.length && (
                             <div className="flex flex-wrap gap-2 mb-4">
                               {svc.highlights.map((h) => (
-                                <span key={h} className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+                                <span key={h} className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-micro font-black uppercase">
                                   <CheckCircle2 size={12} /> {h}
                                 </span>
                               ))}
@@ -589,7 +589,7 @@ export default function PlanServicesModal({
 
                           {domainRequired && isSelected && (
                             <div className="mt-5">
-                              <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2.5">
+                              <div className="text-micro font-black uppercase text-slate-600 mb-2.5">
                                 Domain option
                               </div>
                               <div className="flex flex-wrap gap-2.5">
@@ -601,7 +601,7 @@ export default function PlanServicesModal({
                                       key={c}
                                       type="button"
                                       onClick={() => setDomainChoice(svc, c)}
-                                      className={`px-3.5 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                      className={`px-3.5 py-2 rounded-xl border text-micro font-black uppercase transition-all ${
                                         active
                                           ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
                                           : "border-slate-200 dark:border-murzak-border text-slate-500 dark:text-slate-500 hover:border-murzak-accent"
@@ -636,10 +636,10 @@ export default function PlanServicesModal({
 
               {services.length > 0 && visibleCount === 0 && (
                 <div className="rounded-3xl border border-dashed border-slate-300 dark:border-murzak-border p-10 text-center">
-                  <p className="text-[11px] font-bold text-slate-500">No services match “{query}”.</p>
+                  <p className="text-label font-bold text-slate-600">No services match “{query}”.</p>
                   <button
                     onClick={() => { setQuery(""); setActiveCat("All"); }}
-                    className="mt-3 text-[10px] font-black uppercase tracking-widest text-murzak-accent hover:underline"
+                    className="mt-3 text-micro font-black uppercase text-murzak-accent hover:underline"
                   >
                     Clear filters
                   </button>
@@ -647,7 +647,7 @@ export default function PlanServicesModal({
               )}
 
               {services.length === 0 && (
-                <div className="rounded-3xl border border-dashed border-slate-300 dark:border-murzak-border p-10 text-center text-[11px] font-bold text-slate-500">
+                <div className="rounded-3xl border border-dashed border-slate-300 dark:border-murzak-border p-10 text-center text-label font-bold text-slate-600">
                   No services available for this plan yet.
                 </div>
               )}
@@ -659,7 +659,7 @@ export default function PlanServicesModal({
               <button
                 type="button"
                 onClick={() => setSummaryOpen((v) => !v)}
-                className="lg:hidden w-full mb-3 rounded-2xl px-5 py-4 bg-murzak-ink text-white border border-murzak-accent/40 flex items-center justify-between font-black text-[11px] uppercase tracking-widest"
+                className="lg:hidden w-full mb-3 rounded-2xl px-5 py-4 bg-murzak-ink text-white border border-murzak-accent/40 flex items-center justify-between font-black text-label uppercase tracking-widest"
               >
                 <span>Your plan ({selectedList.length})</span>
                 <span className="flex items-center gap-3">
@@ -671,7 +671,7 @@ export default function PlanServicesModal({
               <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-6`}>
                 <div className="glass-card shadow-2xl overflow-hidden border border-murzak-border">
                   <div className="bg-gradient-to-r from-murzak-brand1/20 to-murzak-accent/20 px-5 py-4 border-b border-murzak-border backdrop-blur-sm">
-                    <div className="text-[10px] font-black uppercase tracking-widest text-murzak-ink/80">Your plan</div>
+                    <div className="text-micro font-black uppercase text-murzak-ink/80">Your plan</div>
                     <div className="text-sm font-black text-murzak-ink mt-0.5">{planLabel || planCode}</div>
                   </div>
 
@@ -679,8 +679,8 @@ export default function PlanServicesModal({
                     {/* selected list */}
                     {selectedList.length === 0 ? (
                       <div className="rounded-2xl border border-dashed border-slate-300 dark:border-murzak-border p-6 text-center">
-                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-500">No services added yet.</p>
-                        <p className="text-[10px] text-slate-500 mt-2">Tap <span className="font-black text-murzak-accent">Add</span> on a service to build your plan.</p>
+                        <p className="text-label font-bold text-slate-600 dark:text-slate-600">No services added yet.</p>
+                        <p className="text-micro text-slate-600 mt-2">Tap <span className="font-black text-murzak-accent">Add</span> on a service to build your plan.</p>
                       </div>
                     ) : (
                       <ul className="space-y-2.5 max-h-[34vh] lg:max-h-[30vh] overflow-y-auto pr-1 overscroll-contain">
@@ -692,7 +692,7 @@ export default function PlanServicesModal({
                                 <div className="min-w-0">
                                   <div className="text-[12px] font-black text-murzak-ink leading-tight">{s.serviceName}</div>
                                   {s.domainChoice && (
-                                    <div className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-1">
+                                    <div className="text-micro font-bold uppercase text-slate-600 mt-1">
                                       {s.registeredDomain || s.domainChoice}
                                     </div>
                                   )}
@@ -703,7 +703,7 @@ export default function PlanServicesModal({
                                   </div>
                                   <button
                                     onClick={() => removeService(s.serviceId)}
-                                    className="text-[9px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 mt-1"
+                                    className="text-micro font-black uppercase text-red-400 hover:text-red-600 mt-1"
                                   >
                                     Remove
                                   </button>
@@ -719,18 +719,18 @@ export default function PlanServicesModal({
                     {!quoteMode && selectedList.length > 0 && (
                       <div className="mt-5 pt-5 border-t border-slate-200 dark:border-murzak-border space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-500">Monthly</span>
+                          <span className="text-label font-bold text-slate-600 dark:text-slate-600">Monthly</span>
                           <span className="text-2xl font-black text-murzak-gradient">{formatKes(totals.monthly)}</span>
                         </div>
                         {totals.setup > 0 && (
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-500">One-time setup</span>
+                            <span className="text-label font-bold text-slate-600 dark:text-slate-600">One-time setup</span>
                             <span className="text-sm font-black text-murzak-ink">{formatKes(totals.setup)}</span>
                           </div>
                         )}
                         {totals.domainYearly > 0 && (
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-500">Domain (yearly)</span>
+                            <span className="text-label font-bold text-slate-600 dark:text-slate-600">Domain (yearly)</span>
                             <span className="text-sm font-black text-murzak-ink">{formatKes(totals.domainYearly)}</span>
                           </div>
                         )}
@@ -741,7 +741,7 @@ export default function PlanServicesModal({
                         Shows BOTH RAM and disk; either dimension can trip overCap. */}
                     {!quoteMode && selectedList.length > 0 && (
                       <div className="mt-5 pt-5 border-t border-slate-200 dark:border-murzak-border">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                        <div className="text-micro font-black uppercase text-slate-600 mb-2">
                           Capacity
                         </div>
                         {[
@@ -750,8 +750,8 @@ export default function PlanServicesModal({
                         ].map((row) => (
                           <div key={row.label} className="mb-2.5 last:mb-0">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{row.label}</span>
-                              <span className={`text-[10px] font-black uppercase tracking-widest ${row.over ? "text-red-500" : "text-slate-500 dark:text-slate-500"}`}>
+                              <span className="text-micro font-bold uppercase text-slate-600">{row.label}</span>
+                              <span className={`text-micro font-black uppercase ${row.over ? "text-red-500" : "text-slate-600 dark:text-slate-600"}`}>
                                 {row.used} / {row.cap} {row.unit}
                               </span>
                             </div>
@@ -770,7 +770,7 @@ export default function PlanServicesModal({
                           </div>
                         ))}
                         {overCap && (
-                          <div className="mt-3 text-[10px] font-bold text-red-500 flex items-start gap-2 leading-relaxed">
+                          <div className="mt-3 text-micro font-bold text-red-500 flex items-start gap-2 leading-relaxed">
                             <AlertCircle size={14} className="shrink-0 mt-0.5" />
                             This build needs dedicated capacity. Remove a service, or continue to a dedicated quote.
                           </div>
@@ -779,13 +779,13 @@ export default function PlanServicesModal({
                     )}
 
                     {quoteMode && selectedList.length > 0 && (
-                      <div className="mt-5 pt-5 border-t border-slate-200 dark:border-murzak-border text-[11px] font-bold text-slate-500 dark:text-slate-500">
+                      <div className="mt-5 pt-5 border-t border-slate-200 dark:border-murzak-border text-label font-bold text-slate-600 dark:text-slate-600">
                         We’ll size dedicated capacity and send you a tailored quote.
                       </div>
                     )}
 
                     {error && (
-                      <div className="mt-4 text-[10px] font-black uppercase text-red-500 flex items-center gap-2">
+                      <div className="mt-4 text-micro font-black uppercase text-red-500 flex items-center gap-2">
                         <AlertCircle size={14} /> {error}
                       </div>
                     )}
@@ -796,7 +796,7 @@ export default function PlanServicesModal({
                       type="button"
                       onClick={handleContinue}
                       disabled={selectedList.length === 0}
-                      className={`mt-5 w-full py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                      className={`mt-5 w-full py-4 rounded-2xl font-black text-label uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
                         selectedList.length === 0
                           ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
                           : "bg-murzak-accent text-murzak-ink hover:scale-[1.02] shadow-lg shadow-murzak-accent/20"
@@ -805,26 +805,26 @@ export default function PlanServicesModal({
                       {overCap ? "Get a dedicated quote" : quoteMode ? "Proceed to quote" : "Continue to checkout"} <ArrowRight size={16} />
                     </button>
 
-                    <p className="text-[10px] font-bold text-slate-500 leading-relaxed mt-3 text-center">
+                    <p className="text-micro font-bold text-slate-600 leading-relaxed mt-3 text-center">
                       You’ll log in next so we can attach this to your account. No charge yet.
                     </p>
 
                     {selectedSvcItems.some(isManagedSetup) && (
-                      <p className="text-[10px] font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
+                      <p className="text-micro font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
                         <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team — live within a short setup window, not instantly.
                       </p>
                     )}
 
                     {/* managed vs DIY reassurance */}
                     <div className="mt-5 pt-5 border-t border-slate-200 dark:border-murzak-border space-y-2.5">
-                      <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Every plan includes</div>
+                      <div className="text-micro font-black uppercase text-slate-600">Every plan includes</div>
                       {[
                         { icon: <Server size={13} />, t: "Fully managed setup & hosting" },
                         { icon: <CreditCard size={13} />, t: "M-Pesa & card billing in KES" },
                         { icon: <ShieldCheck size={13} />, t: "Daily backups, SSL & hardening" },
                         { icon: <Headphones size={13} />, t: "Nairobi-based support" },
                       ].map((b) => (
-                        <div key={b.t} className="flex items-center gap-2.5 text-[11px] font-bold text-slate-600 dark:text-slate-600">
+                        <div key={b.t} className="flex items-center gap-2.5 text-label font-bold text-slate-600 dark:text-slate-600">
                           <span className="text-murzak-accent">{b.icon}</span> {b.t}
                         </div>
                       ))}

@@ -174,7 +174,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-murzak-accent/10 rounded-full border border-murzak-accent/20 mb-6 sm:mb-8 backdrop-blur-md">
             <ShieldCheck size={16} className="text-murzak-accent w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="font-mono text-[8px] sm:text-[10px] font-black text-murzak-accent uppercase tracking-widest">Priced in shillings · no hidden fees</span>
+            <span className="font-mono text-micro sm:text-micro font-black text-murzak-accent uppercase">Priced in shillings · no hidden fees</span>
           </div>
           <h1 className="text-[clamp(2.2rem,10vw,7.5rem)] font-bold text-murzak-ink mb-6 tracking-tight leading-[0.9] sm:leading-[0.85] text-balance">
             Pay for what you use. <br /><span className="text-transparent bg-clip-text bg-brand-gradient">See it first.</span>
@@ -196,7 +196,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       {/* Main Pricing Grid — now BELOW the CTA landing */}
       <section id="pricing-plans" ref={gridRef} className="relative scroll-mt-24 py-12 sm:py-20 lg:py-24 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 xl:px-24">
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
-          <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Choose your solution</p>
+          <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Choose your solution</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
             Infrastructure & SaaS
           </h2>
@@ -220,7 +220,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                 {/* Image section removed as the Glass UI design is minimal, text-focused, and cleaner without heavy images in the cards. */}
 
                 <div className="p-6 sm:p-8 flex-grow flex flex-col">
-                  <h3 className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-murzak-accent mb-2">
+                  <h3 className="text-micro sm:text-xs font-semibold uppercase text-murzak-accent mb-2">
                     {plan.name} {plan.isFeatured ? ' — POPULAR' : ''}
                   </h3>
                   <div className="flex items-baseline gap-1.5 mb-2">
@@ -246,7 +246,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                       e.stopPropagation();
                       handleCtaClick(plan);
                     }}
-                    className={`w-full py-4 sm:py-5 lg:py-6 rounded-xl font-black text-[9px] sm:text-[10px] lg:text-[11px] uppercase tracking-[0.15em] sm:tracking-[0.2em] transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 ${
+                    className={`w-full py-4 sm:py-5 lg:py-6 rounded-xl font-black text-micro sm:text-micro lg:text-label uppercase sm:transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2 ${
                       isSelected 
                         ? 'bg-murzak-accent text-murzak-ink shadow-[0_0_20px_rgba(0,189,252,0.3)]' 
                         : 'bg-black/5 text-murzak-ink hover:bg-white/20'
@@ -265,7 +265,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       <section className="py-16 sm:py-24 relative z-20">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">Included, not extra</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Included, not extra</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
               “Managed” means we actually do the work.
             </h2>
@@ -301,7 +301,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       <section className="py-16 sm:py-24 relative z-20">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-4">No surprises</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No surprises</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
               How billing actually works.
             </h2>
@@ -313,7 +313,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               { n: '03', icon: <ArrowRight size={20} />, t: 'Add or upgrade anytime', s: 'Need more later? Add services from your portal as a clearly-priced add-on. Outgrow the plan and we migrate you with no downtime.' },
             ].map((step) => (
               <div key={step.n} className="glass-panel relative rounded-3xl p-7 lg:p-8 hover:-translate-y-1 transition-transform">
-                <span className="absolute top-6 right-6 font-mono text-[11px] font-black text-slate-600 dark:text-murzak-ink/15">{step.n}</span>
+                <span className="absolute top-6 right-6 font-mono text-label font-black text-slate-600 dark:text-murzak-ink/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5 shadow-[0_0_15px_rgba(0,189,252,0.15)]">{step.icon}</div>
                 <h3 className="text-lg font-black text-murzak-ink mb-2">{step.t}</h3>
                 <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{step.s}</p>

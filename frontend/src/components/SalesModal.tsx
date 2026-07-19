@@ -117,7 +117,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
     focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all
   `;
 
-  const labelClasses = "block text-[9px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1";
+  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-3 sm:p-6 lg:p-8">
@@ -159,7 +159,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <p className="text-sm font-bold text-slate-500 dark:text-slate-500 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
                 Your reference is <span className="text-murzak-accent font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
               </p>
-              <button onClick={onClose} className="bg-murzak-accent text-murzak-ink px-10 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">Done</button>
+              <button onClick={onClose} className="bg-murzak-accent text-murzak-ink px-10 py-4 rounded-xl font-black text-micro uppercase">Done</button>
             </div>
           ) : mode === 'select' ? (
             <div className="space-y-8 animate-fade-in">
@@ -183,7 +183,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Package size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">See a Demo</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
+                  <p className="text-micro font-bold text-slate-600 uppercase leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
                 <button 
@@ -194,16 +194,16 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Briefcase size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">Get a Quote</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
+                  <p className="text-micro font-bold text-slate-600 uppercase leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
                 </button>
                 
               </div>
-              <p className="text-center text-[9px] font-black uppercase tracking-widest text-slate-500 mt-8">Nairobi-based · we usually reply the same business day</p>
+              <p className="text-center text-micro font-black uppercase text-slate-600 mt-8">Nairobi-based · we usually reply the same business day</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between mb-8">
-                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 hover:text-murzak-accent transition-colors">
+                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-micro font-black uppercase text-slate-600 hover:text-murzak-accent transition-colors">
                   <ChevronLeft size={16} /> Back to Selection
                 </button>
                 <h3 className="text-xs font-black text-murzak-accent uppercase tracking-widest">
@@ -218,7 +218,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="text" placeholder="e.g. Samuel Okoth" className={inputClasses('name')} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                     </div>
-                    {errors.name && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.name}</p>}
+                    {errors.name && <p className="text-micro font-bold text-red-500 uppercase mt-1 ml-1">{errors.name}</p>}
                  </div>
                  <div className="space-y-1">
                     <label className={labelClasses}>Work Email</label>
@@ -226,7 +226,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                       <input type="email" placeholder="sam@company.co.ke" className={inputClasses('email')} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                     </div>
-                    {errors.email && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.email}</p>}
+                    {errors.email && <p className="text-micro font-bold text-red-500 uppercase mt-1 ml-1">{errors.email}</p>}
                  </div>
               </div>
 
@@ -244,7 +244,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                    <div className="grid grid-cols-2 gap-4">
                       {['Business systems (ERP)', 'POS & Inventory', 'Cloud Hosting', 'Custom software'].map(item => (
                         <button key={item} type="button" onClick={() => setFormData({...formData, interest: item})} 
-                        className={`p-3 sm:p-4 rounded-xl border text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center transition-all ${
+                        className={`p-3 sm:p-4 rounded-xl border text-micro sm:text-micro font-black uppercase text-center transition-all ${
                           formData.interest === item
                           ? 'bg-murzak-accent text-murzak-ink border-murzak-accent shadow-lg'
                           : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:border-murzak-accent'
@@ -259,14 +259,14 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                   <div className="space-y-1">
                     <label className={labelClasses}>Project Requirements</label>
                     <textarea rows={3} placeholder="Tell us about the software or system you need built..." className={`${inputClasses('scope')} resize-none`} value={formData.scope} onChange={e => setFormData({...formData, scope: e.target.value})} />
-                    {errors.scope && <p className="text-[8px] font-bold text-red-500 uppercase mt-1 ml-1">{errors.scope}</p>}
+                    {errors.scope && <p className="text-micro font-bold text-red-500 uppercase mt-1 ml-1">{errors.scope}</p>}
                   </div>
                   <div className="space-y-1">
                     <label className={labelClasses}>Company size</label>
                     <div className="flex gap-4">
                        {['Startup', 'SME', 'Enterprise'].map(b => (
                          <button key={b} type="button" onClick={() => setFormData({...formData, budget: b})} 
-                         className={`p-3 sm:p-4 rounded-xl border text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-center transition-all
+                         className={`p-3 sm:p-4 rounded-xl border text-micro sm:text-micro font-black uppercase text-center transition-all
                           ${formData.budget === b
                            ? 'bg-murzak-accent text-murzak-ink border-murzak-accent shadow-lg'
                            : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:border-murzak-accent'
@@ -280,7 +280,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               )}
 
               {errors.submit && (
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-red-500">
+                <div className="flex items-center gap-2 text-micro font-black uppercase text-red-500">
                   <AlertCircle size={16} />
                   {errors.submit}
                 </div>

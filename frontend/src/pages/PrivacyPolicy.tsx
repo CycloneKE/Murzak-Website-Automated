@@ -18,7 +18,7 @@ const PrivacyPolicy: React.FC = () => {
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-[10px] font-black text-murzak-accent mb-8 uppercase tracking-widest border border-murzak-accent/20 backdrop-blur-md">
+            <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
               Compliance & data safety
             </div>
             <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">

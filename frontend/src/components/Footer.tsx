@@ -41,13 +41,13 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="flex flex-col sm:flex-row gap-3 shrink-0">
             <button
               onClick={() => onNavigate('pricing')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-7 py-3.5 font-black text-[10px] uppercase tracking-widest hover:scale-[1.03] transition-all shadow-lg shadow-murzak-accent/20"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-7 py-3.5 font-black text-micro uppercase hover:scale-[1.03] transition-all shadow-lg shadow-murzak-accent/20"
             >
               Build my plan <ArrowUpRight size={15} />
             </button>
             <button
               onClick={() => onNavigate('contact')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-7 py-3.5 font-black text-[10px] uppercase tracking-widest text-murzak-ink hover:bg-black/5 transition-all"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-7 py-3.5 font-black text-micro uppercase text-murzak-ink hover:bg-black/5 transition-all"
             >
               Talk to us
             </button>
@@ -110,7 +110,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           {/* Explore */}
           <div className="md:col-span-2">
-            <h4 className="font-black text-[10px] uppercase tracking-[0.3em] mb-7 text-murzak-accent">Explore</h4>
+            <h4 className="font-black text-micro uppercase mb-7 text-murzak-accent">Explore</h4>
             <ul className="space-y-4 text-slate-500 text-sm font-bold">
               {exploreLinks.map((l) => (
                 <li key={l.label}><button onClick={() => onNavigate(l.page)} className={linkCls}>{l.label}</button></li>
@@ -120,7 +120,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           {/* Company */}
           <div className="md:col-span-2">
-            <h4 className="font-black text-[10px] uppercase tracking-[0.3em] mb-7 text-murzak-accent">Company</h4>
+            <h4 className="font-black text-micro uppercase mb-7 text-murzak-accent">Company</h4>
             <ul className="space-y-4 text-slate-500 text-sm font-bold">
               {companyLinks.map((l) => (
                 <li key={l.label}><button onClick={() => onNavigate(l.page)} className={linkCls}>{l.label}</button></li>
@@ -130,20 +130,20 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           {/* Infrastructure */}
           <div className="col-span-2 md:col-span-4">
-            <h4 className="font-black text-[10px] uppercase tracking-[0.3em] mb-7 text-murzak-accent">Infrastructure</h4>
+            <h4 className="font-black text-micro uppercase mb-7 text-murzak-accent">Infrastructure</h4>
             <div className="bg-black/5 rounded-3xl p-7 border border-murzak-border">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-2.5 h-2.5 bg-murzak-accent rounded-full" />
-                <span className="text-[11px] font-black uppercase tracking-widest text-murzak-ink">Nairobi-managed cloud</span>
+                <span className="text-label font-black uppercase tracking-widest text-murzak-ink">Nairobi-managed cloud</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+              <p className="text-micro text-slate-600 font-bold uppercase leading-relaxed">
                 Daily backups · Enabled<br />
                 SSL &amp; security · Enforced<br />
                 M-Pesa &amp; KES billing
               </p>
               <button
                 onClick={() => onNavigate('sla')}
-                className="mt-5 pt-5 border-t border-murzak-border w-full flex items-center gap-2 text-murzak-accent text-[10px] font-black uppercase tracking-widest hover:text-murzak-ink transition-colors"
+                className="mt-5 pt-5 border-t border-murzak-border w-full flex items-center gap-2 text-murzak-accent text-micro font-black uppercase hover:text-murzak-ink transition-colors"
               >
                 <Activity size={14} /> 99.9% uptime SLA →
               </button>
@@ -151,7 +151,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-500 text-[9px] font-black uppercase tracking-[0.2em] text-center md:text-left gap-6">
+        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-600 text-micro font-black uppercase text-center md:text-left gap-6">
           <p>© {new Date().getFullYear()} Murzak Technologies Limited · Registered in Kenya</p>
           <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
             <button onClick={() => onNavigate('about')} className="hover:text-murzak-ink transition-colors">About</button>

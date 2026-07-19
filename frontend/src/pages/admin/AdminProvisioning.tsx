@@ -34,7 +34,7 @@ const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ chi
 );
 
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-500">{children}</p>
+  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">{children}</p>
 );
 
 const AdminProvisioning: React.FC = () => {
@@ -127,29 +127,29 @@ const AdminProvisioning: React.FC = () => {
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Provisioning</h2>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-2">
+          <p className="text-micro font-black uppercase text-slate-600 mt-2">
             Go-live readiness, capacity, and the job queue.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refresh()} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-[10px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           <button onClick={onRun} disabled={running} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition disabled:opacity-60">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60">
             {running ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Run queue now
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-red-500">
+        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
           <AlertCircle className="w-4 h-4" /> {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-emerald-500">
           <CheckCircle2 className="w-4 h-4" /> {notice}
         </div>
       )}
@@ -166,7 +166,7 @@ const AdminProvisioning: React.FC = () => {
               </p>
             </div>
           </div>
-          <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${
+          <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-micro font-black uppercase ${
             readiness?.ready ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-orange-500/15 text-orange-300 border-orange-500/20"
           }`}>
             {readiness ? (readiness.ready ? "Ready" : "Action needed") : "…"}
@@ -181,13 +181,13 @@ const AdminProvisioning: React.FC = () => {
             <div key={grp.title}>
               <Label>{grp.title}</Label>
               <ul className="mt-3 space-y-2.5">
-                {grp.items.length === 0 && <li className="text-[11px] font-bold text-slate-500">—</li>}
+                {grp.items.length === 0 && <li className="text-label font-bold text-slate-600">—</li>}
                 {grp.items.map((c) => (
                   <li key={c.key} className="flex items-start gap-2.5">
                     <Dot ok={c.ok} />
                     <div className="min-w-0">
                       <p className="text-[12px] font-bold text-murzak-ink leading-tight">{c.label}</p>
-                      {c.detail && <p className="text-[10px] font-semibold text-slate-500 leading-tight mt-0.5">{c.detail}</p>}
+                      {c.detail && <p className="text-micro font-semibold text-slate-600 leading-tight mt-0.5">{c.detail}</p>}
                     </div>
                   </li>
                 ))}
@@ -213,12 +213,12 @@ const AdminProvisioning: React.FC = () => {
                 {Object.entries(queue.counts).map(([k, v]) => (
                   <div key={k} className="rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border p-3 text-center">
                     <p className="text-lg font-black text-murzak-ink">{v}</p>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 mt-0.5">{k}</p>
+                    <p className="text-micro font-black uppercase text-slate-600 mt-0.5">{k}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-[11px] font-bold text-slate-500">
+              <p className="text-label font-bold text-slate-600">
                 {queue?.mode === "poll" ? "Poll mode — no queue counters (jobs are read from the doctype each pass)." : "No queue metrics."}
               </p>
             )}
@@ -239,7 +239,7 @@ const AdminProvisioning: React.FC = () => {
               const hot = pct >= 85;
               return (
                 <div key={t.id}>
-                  <div className="flex items-center justify-between text-[11px] font-black mb-1.5">
+                  <div className="flex items-center justify-between text-label font-black mb-1.5">
                     <span className="text-murzak-ink uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
                     <span className="text-slate-500">{t.reservedRamMb} / {t.limitRamMb} MB</span>
                   </div>
@@ -254,7 +254,7 @@ const AdminProvisioning: React.FC = () => {
                 <Label>Open scale-out requests</Label>
                 <ul className="mt-2 space-y-1.5">
                   {capacity.requests.filter((r) => r.status === "pending" || r.status === "provisioning").map((r) => (
-                    <li key={r.name} className="flex items-center gap-2 text-[11px] font-bold text-orange-400">
+                    <li key={r.name} className="flex items-center gap-2 text-label font-bold text-orange-400">
                       <Database className="w-3.5 h-3.5" /> {r.name} · {r.status} · ~{r.requested_ram_mb}MB
                     </li>
                   ))}
@@ -273,7 +273,7 @@ const AdminProvisioning: React.FC = () => {
             <div className="flex items-center gap-1.5 flex-wrap">
               {JOB_STATUSES.map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} type="button"
-                  className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition ${
+                  className={`px-3 py-1.5 rounded-full text-micro font-black uppercase border transition ${
                     statusFilter === s ? "bg-murzak-accent text-murzak-ink border-murzak-accent" : "bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent"
                   }`}>
                   {s}
@@ -285,12 +285,12 @@ const AdminProvisioning: React.FC = () => {
         <div className="overflow-x-auto">
           {jobs.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No jobs for this filter.</p>
+              <p className="text-micro font-black uppercase text-slate-600">No jobs for this filter.</p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-100 dark:border-murzak-border">
+                <tr className="text-micro font-black uppercase text-slate-600 border-b border-slate-100 dark:border-murzak-border">
                   <th className="p-4">Service</th>
                   <th className="p-4">Lane / Box</th>
                   <th className="p-4">Status</th>
@@ -306,32 +306,32 @@ const AdminProvisioning: React.FC = () => {
                     <tr key={j.name} className="border-b border-slate-50 dark:border-murzak-border/50 align-top">
                       <td className="p-4">
                         <p className="text-[13px] font-black text-murzak-ink">{j.service_name || j.service_id}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
+                        <p className="text-micro font-bold uppercase text-slate-600 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-[11px] font-black text-murzak-ink">{j.lane || "—"}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{j.target || "box-1"}</p>
+                        <p className="text-label font-black text-murzak-ink">{j.lane || "—"}</p>
+                        <p className="text-micro font-bold uppercase text-slate-600 mt-0.5">{j.target || "box-1"}</p>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest ${jobStatusClasses(j.status)}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-micro font-black uppercase ${jobStatusClasses(j.status)}`}>
                           {j.status || "—"}{j.attempts ? ` · ${j.attempts}x` : ""}{j.gated ? " · gated" : ""}
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="text-[10px] font-bold text-slate-500">bk: {j.backup_status || "—"}</p>
-                        <p className="text-[10px] font-bold text-slate-500">edge: {j.edge_status || "—"}</p>
+                        <p className="text-micro font-bold text-slate-600">bk: {j.backup_status || "—"}</p>
+                        <p className="text-micro font-bold text-slate-600">edge: {j.edge_status || "—"}</p>
                       </td>
                       <td className="p-4 max-w-[260px]">
                         {j.error
-                          ? <p className="text-[10px] font-semibold text-red-400 break-words">{j.error}</p>
+                          ? <p className="text-micro font-semibold text-red-400 break-words">{j.error}</p>
                           : j.external_ref
-                          ? <p className="text-[10px] font-semibold text-emerald-400 break-words">{j.external_ref}</p>
-                          : <span className="text-[10px] text-slate-500">—</span>}
+                          ? <p className="text-micro font-semibold text-emerald-400 break-words">{j.external_ref}</p>
+                          : <span className="text-micro text-slate-600">—</span>}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setConsoleJob(j)} type="button"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
                             <Terminal className="w-3.5 h-3.5" /> Console
                           </button>
                           {canRetry && (
@@ -341,11 +341,11 @@ const AdminProvisioning: React.FC = () => {
                                 setResolveRef("");
                                 setResolveAccess("");
                               }} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
                                 Resolve Manually
                               </button>
                               <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-[9px] font-black uppercase tracking-widest hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition disabled:opacity-60">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition disabled:opacity-60">
                                 {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
                               </button>
                             </>
@@ -363,25 +363,25 @@ const AdminProvisioning: React.FC = () => {
 
       {resolveModalJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
+          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
             <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-6">Job: {resolveModalJob}</p>
+            <p className="text-micro font-bold text-slate-600 uppercase mb-6">Job: {resolveModalJob}</p>
             
             <form onSubmit={onResolveSubmit} className="space-y-4">
               <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">External Ref (e.g. UUID, IP)</label>
+                <label className="block text-micro font-black uppercase text-slate-600 mb-1">External Ref (e.g. UUID, IP)</label>
                 <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
                   className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent" />
               </div>
               <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1">Access Credentials (JSON)</label>
+                <label className="block text-micro font-black uppercase text-slate-600 mb-1">Access Credentials (JSON)</label>
                 <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-[11px]" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
               </div>
               
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-black/5 transition">Cancel</button>
-                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-accent text-murzak-ink text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition disabled:opacity-50">
+                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:bg-slate-50 dark:hover:bg-black/5 transition">Cancel</button>
+                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:opacity-90 transition disabled:opacity-50">
                   {resolving ? "Resolving..." : "Mark Active"}
                 </button>
               </div>
@@ -399,7 +399,7 @@ const AdminProvisioning: React.FC = () => {
                 <span className="truncate">
                   {consoleJob.service_name || consoleJob.service_id} — {consoleJob.name}
                 </span>
-                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded text-[10px] uppercase ${jobStatusClasses(consoleJob.status)}`}>
+                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded text-micro uppercase ${jobStatusClasses(consoleJob.status)}`}>
                   {consoleJob.status || "unknown"}
                 </span>
               </div>
@@ -418,7 +418,7 @@ const AdminProvisioning: React.FC = () => {
               </div>
 
               <div>
-                <p className="text-gray-500 uppercase text-[10px] mb-1">Runner log</p>
+                <p className="text-gray-500 uppercase text-micro mb-1">Runner log</p>
                 {consoleJob.log ? (
                   <pre className="whitespace-pre-wrap break-words text-gray-300">{consoleJob.log}</pre>
                 ) : (
@@ -428,14 +428,14 @@ const AdminProvisioning: React.FC = () => {
 
               {consoleJob.error && (
                 <div>
-                  <p className="text-gray-500 uppercase text-[10px] mb-1">Error</p>
+                  <p className="text-gray-500 uppercase text-micro mb-1">Error</p>
                   <pre className="whitespace-pre-wrap break-words text-orange-400">{consoleJob.error}</pre>
                 </div>
               )}
 
               {consoleJob.access && (
                 <div>
-                  <p className="text-gray-500 uppercase text-[10px] mb-1">Access (shown to customer)</p>
+                  <p className="text-gray-500 uppercase text-micro mb-1">Access (shown to customer)</p>
                   {(() => {
                     // Quick links: customer URL + Coolify admin panel, parsed
                     // out of the access JSON so staff don't copy from raw text.

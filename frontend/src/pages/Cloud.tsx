@@ -41,12 +41,12 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
     <main className="text-murzak-ink overflow-x-hidden">
       {/* Hero */}
       <section className="relative min-h-[90vh] lg:min-h-screen flex items-center pt-32 lg:pt-48 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-glow.jpg')" }} />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-glow.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-slate-300/70 via-slate-300/55 to-transparent" />
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow z-0" />
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
-          <div className="lg:col-span-7 rounded-[2.5rem] border border-transparent bg-white/60 backdrop-blur-md p-8 sm:p-10 lg:p-14 shadow-2xl">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-5">Murzak Cloud</p>
+          <div className="lg:col-span-7 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 lg:p-14 shadow-2xl">
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-5">Murzak Cloud</p>
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
@@ -62,30 +62,30 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                 Try it free for 36h
               </Button>
             </div>
-            <p className="mt-5 font-mono text-[11px] uppercase tracking-widest text-slate-500">No card required · Live in a day</p>
+            <p className="mt-5 font-mono text-label uppercase tracking-widest text-slate-600">No card required · Live in a day</p>
           </div>
 
-          <div className="lg:col-span-5 rounded-[2.5rem] border border-transparent bg-white/60 backdrop-blur-md p-8 sm:p-10 shadow-2xl flex flex-col gap-8">
+          <div className="lg:col-span-5 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 shadow-2xl flex flex-col gap-8">
             <div>
               <div className="inline-flex p-2.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-3">
                 <Database size={20} />
               </div>
-              <h3 className="text-lg font-black text-murzak-ink mb-1.5">Enterprise Infrastructure</h3>
-              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Built on blazing-fast NVMe SSDs and robust processors. Your applications run with zero bottlenecks.</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Enterprise Infrastructure</h3>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Built on blazing-fast NVMe SSDs and robust processors. Your applications run with zero bottlenecks.</p>
             </div>
             <div>
               <div className="inline-flex p-2.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-3">
                 <Globe size={20} />
               </div>
-              <h3 className="text-lg font-black text-murzak-ink mb-1.5">Local Datacenter</h3>
-              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Low latency access across East Africa. Keep your data local, fast, and compliant.</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Local Datacenter</h3>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Low latency access across East Africa. Keep your data local, fast, and compliant.</p>
             </div>
             <div>
               <div className="inline-flex p-2.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-3">
                 <ShieldCheck size={20} />
               </div>
-              <h3 className="text-lg font-black text-murzak-ink mb-1.5">Fully Managed Security</h3>
-              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">Active DDoS protection, daily backups, and regular patching handled automatically by our team.</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Fully Managed Security</h3>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Active DDoS protection, daily backups, and regular patching handled automatically by our team.</p>
             </div>
           </div>
         </div>
@@ -93,7 +93,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
 
       {/* GLOBAL BACKGROUND WRAPPER */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/Data center.jpg')" }} />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/data-center.webp')" }} />
         <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
         
 
@@ -101,16 +101,16 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       <section className="py-16 lg:py-24 border-t border-murzak-border/50 relative overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">What you can host</p>
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">What you can host</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything your business runs online.</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             {whatYouCanHost.map((c) => (
-              <div key={c.t} className="flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7 transition-all hover:border-white/60 hover:bg-white/40">
+              <div key={c.t} className="flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08]">
                 <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{c.icon}</span>
                 <div>
-                  <h3 className="text-lg font-black text-murzak-ink mb-1.5">{c.t}</h3>
-                  <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{c.s}</p>
+                  <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">{c.t}</h3>
+                  <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
                 </div>
               </div>
             ))}
@@ -121,16 +121,31 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* Managed for you */}
       <section className="py-16 lg:py-24 relative overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <div className="max-w-2xl mb-12">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-murzak-accent mb-3">Fully managed</p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
+          <div className="grid lg:grid-cols-12 gap-10 items-end mb-12">
+            <div className="lg:col-span-6">
+              <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
+              <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
+                Real engineers watching real infrastructure — not a support queue that routes you overseas.
+              </p>
+            </div>
+            <div className="lg:col-span-6 rounded-[2rem] overflow-hidden shadow-xl border border-murzak-border">
+              <img
+                src="/images/server-room-troubleshoot.webp"
+                alt="Murzak engineers reviewing infrastructure dashboards together in a server room"
+                className="w-full h-56 sm:h-64 object-cover"
+                loading="lazy"
+                width={1920}
+                height={1280}
+              />
+            </div>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {managed.map((c) => (
-              <div key={c.t} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7">
+              <div key={c.t} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
                 <h3 className="text-base font-black text-murzak-ink mb-2">{c.t}</h3>
-                <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{c.s}</p>
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
               </div>
             ))}
           </div>
@@ -156,9 +171,9 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* CTA */}
       <section className="relative py-24 lg:py-32 overflow-hidden">
         <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center relative z-10">
-          <div className="rounded-[2.5rem] border border-transparent bg-white/60 backdrop-blur-md p-10 sm:p-14 shadow-2xl">
-            <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink">Move your hosting somewhere it's handled.</h2>
-            <p className="mt-4 text-lg text-slate-600 font-medium">Build a plan in two minutes, or try it free for 36 hours first.</p>
+          <div className="rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-10 sm:p-14 shadow-2xl">
+            <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">Move your hosting somewhere it's handled.</h2>
+            <p className="mt-4 text-lg text-slate-600 dark:text-slate-300 font-medium">Build a plan in two minutes, or try it free for 36 hours first.</p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="primary" onClick={() => onNavigate('pricing')}>
                 Build my plan <ArrowRight size={18} />

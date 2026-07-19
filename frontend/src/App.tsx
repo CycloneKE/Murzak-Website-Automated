@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import Header from "./components/Header";
@@ -176,6 +176,24 @@ const App: React.FC = () => {
     return () => window.removeEventListener('api-gateway-error', handleApiError);
   }, []);
 
+  // Mid-session 401 (cookie expired, session store restarted, etc.) — clear
+  // client state and bounce to login with a "session expired" reason so the
+  // banner only shows for a genuine expiry, never a cold logged-out visit
+  // (the boot-time /api/auth/me call is exempt in the interceptor above).
+  const sessionExpiredHandled = useRef(false);
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      if (sessionExpiredHandled.current || booting) return;
+      sessionExpiredHandled.current = true;
+      setUser(null);
+      setIsLoggedIn(false);
+      const returnTo = encodeURIComponent(location.pathname + location.search);
+      navigate(`/login?returnTo=${returnTo}&reason=session-expired`);
+    };
+    window.addEventListener('session-expired', handleSessionExpired);
+    return () => window.removeEventListener('session-expired', handleSessionExpired);
+  }, [booting, location.pathname, location.search, navigate]);
+
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
   useEffect(() => {
     const meta = pageMetadata[activePage] || pageMetadata.home;
@@ -208,6 +226,7 @@ const App: React.FC = () => {
   const handleLogin = (u: User, returnTo?: string) => {
     setUser(u);
     setIsLoggedIn(true);
+    sessionExpiredHandled.current = false;
     navigate(returnTo || "/portal/overview");
   };
 
@@ -267,7 +286,7 @@ const App: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-black/5 backdrop-blur-xl border border-murzak-border flex items-center justify-center shadow-[0_0_30px_rgba(0,189,252,0.2)] animate-glow-pulse mb-6">
             <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-accent animate-spin"></div>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">
+          <p className="text-micro font-black uppercase text-slate-600 animate-pulse">
             Authenticating...
           </p>
         </div>
@@ -279,7 +298,7 @@ const App: React.FC = () => {
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
       <InteractiveBackground isDarkMode={false} />
 
-      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
+      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {!hideChrome && (
           <Header
             activePage={activePage}

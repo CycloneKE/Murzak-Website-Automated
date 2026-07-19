@@ -245,7 +245,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
     `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
 
   const labelClasses =
-    "block text-[9px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-2 ml-1";
+    "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
@@ -266,7 +266,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <h3 className="text-base sm:text-lg font-black tracking-tight text-murzak-ink dark:text-murzak-ink">
                 Chat with support
               </h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mt-1">
+              <p className="text-micro font-black uppercase text-slate-600 mt-1">
                 Signed in as {email}
               </p>
             </div>
@@ -286,7 +286,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
           <div className="h-[52vh] sm:h-[380px] md:h-[460px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
             {messages.length === 0 ? (
               <div className="text-center py-12 sm:py-16 bg-slate-50 dark:bg-black/5 rounded-[1.75rem] sm:rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                <p className="text-micro font-black uppercase text-slate-600">
                   No messages yet. Start the conversation below.
                 </p>
               </div>
@@ -308,15 +308,15 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                         <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-3 inline-flex text-[9px] sm:text-[10px] font-black uppercase tracking-widest underline opacity-80"> 
+                          className="mt-3 inline-flex text-micro sm:text-micro font-black uppercase underline opacity-80"> 
                             View attachment
                         </a>
                       )}
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-[9px] font-black uppercase tracking-widest opacity-70">
+                        <span className="text-micro font-black uppercase opacity-70">
                           {isUser ? "You" : "Admin"}
                         </span>
-                        <span className="text-[9px] font-bold opacity-60">
+                        <span className="text-micro font-bold opacity-60">
                           {fmtTime(stamp)}
                         </span>
                       </div>
@@ -329,7 +329,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
           </div>
 
           {errors.submit && (
-            <div className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase text-red-500">
+            <div className="mt-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
               <AlertCircle className="w-4 h-4" />
               {errors.submit}
             </div>
@@ -340,7 +340,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <label className={labelClasses}>Message</label>
               {(uploading || uploadedUrl) && (
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-200">
+                  <div className="text-micro font-black uppercase text-slate-200">
                     {uploading ? "Uploading..." : "Attachment ready"}
                     {!uploading && uploadedName ? `: ${uploadedName}` : ""}
                   </div>
@@ -353,7 +353,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                         setUploadedUrl("");
                         setUploadedName("");
                       }}
-                      className="text-[10px] font-black uppercase tracking-widest text-murzak-accent hover:opacity-80">
+                      className="text-micro font-black uppercase text-murzak-accent hover:opacity-80">
                         Remove
                     </button>
                   )}
@@ -368,7 +368,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                 placeholder="Describe your issue, what you tried, and what you need help with..."
               />
               {errors.draft && (
-                <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest mt-2 flex items-center gap-1">
+                <p className="text-micro text-red-500 font-bold uppercase mt-2 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> {errors.draft}
                 </p>
               )}
@@ -416,7 +416,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <label htmlFor="attach"
                 className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-xl
                   border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5
-                  text-[9px] sm:text-[10px] font-black uppercase tracking-widest cursor-pointer select-none
+                  text-micro sm:text-micro font-black uppercase cursor-pointer select-none
                   hover:border-murzak-accent/40 hover:bg-murzak-accent/10 dark:hover:bg-black/5 transition">
                 {uploading ? "Uploading..." : uploadedUrl ? "Attached" : "Attach"}
               </label>
@@ -426,7 +426,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                 className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-accent text-murzak-ink font-black px-4 rounded-xl
                   hover:scale-[1.01] transition-all shadow-md sm:shadow-lg inline-flex items-center justify-center gap-2 disabled:opacity-70">
                 {isSubmitting ? <RefreshCw className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest">Send</span>
+                <span className="text-micro sm:text-micro uppercase">Send</span>
               </button>
             </div>
           </form>

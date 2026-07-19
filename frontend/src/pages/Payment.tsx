@@ -237,7 +237,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
     <div className="mb-8 rounded-3xl border border-murzak-border bg-black/10 p-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Order summary</p>
+          <p className="text-label font-black text-slate-600 uppercase tracking-widest">Order summary</p>
           <p className="text-sm font-bold text-slate-500 mt-1">
             Invoice {invoice?.invoiceNo || "…"}{invoice?.plan ? ` · ${invoice.plan} plan` : ""}
           </p>
@@ -275,7 +275,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
       </div>
       <div className="max-w-4xl w-full relative z-10">
         <div className="text-center mb-12">
-          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-500 font-black text-[11px] uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
+          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-600 font-black text-label uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
             <ChevronLeft size={16} /> Back to your portal
           </button>
           <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink mb-4 tracking-tighter leading-none">
@@ -290,13 +290,13 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
           {step === 'form' ? (
             <div className="flex flex-col lg:flex-row h-full">
               <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-murzak-border p-8 lg:p-12 space-y-4 bg-black/10">
-                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-6">Payment method</h3>
+                <h3 className="text-label font-black text-slate-600 uppercase tracking-widest mb-6">Payment method</h3>
                 {methods.map((m) => (
                   <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-accent shadow-[0_0_15px_rgba(0,189,252,0.2)]' : 'bg-transparent border-transparent hover:bg-black/5'}`}>
                     <div className={`${method === m.id ? 'text-murzak-accent' : 'text-slate-500'}`}>{m.icon}</div>
                     <div>
                       <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-ink' : 'text-slate-500'}`}>{m.label}</span>
-                      <span className="text-[11px] font-bold text-slate-500">{m.sub}</span>
+                      <span className="text-label font-bold text-slate-600">{m.sub}</span>
                     </div>
                   </button>
                 ))}
@@ -327,7 +327,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                         </p>
                       </div>
                       <div className="space-y-3">
-                        <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-1">M-Pesa phone number</label>
+                        <label className="text-label font-black text-slate-600 uppercase tracking-widest ml-1">M-Pesa phone number</label>
                         <input
                           type="tel"
                           placeholder="e.g. 0712 345 678"
@@ -374,7 +374,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                     type="button"
                     onClick={handleMockPay}
                     disabled={isProcessing || loadingInvoice}
-                    className="w-full mt-6 border-2 border-dashed border-orange-400/60 text-orange-500 px-6 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-400/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full mt-6 border-2 border-dashed border-orange-400/60 text-orange-500 px-6 py-4 rounded-2xl font-black text-label uppercase tracking-widest hover:bg-orange-400/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Dev only: skips PayPal/M-Pesa and runs the real activation pipeline via the backend's MOCK_PAYPAL_SUCCESS rail (requires MOCK_FRAPPE=true)"
                   >
                     Dev: skip to mock payment success
