@@ -47,12 +47,19 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
   }, [serviceId]);
 
   const handleAccept = async () => {
-    const initiatedServiceId = serviceId; // Capture to detect serviceId change during async operations
+    // Note: initiatedServiceId and serviceId both close over this render's
+    // serviceId value, so the `initiatedServiceId === serviceId` checks below
+    // are always true within a single invocation — they do NOT detect a
+    // mid-flight prop change. That's fine in practice: if serviceId actually
+    // changes while this request is in flight, the useEffect above re-fetches
+    // eligibility for the new serviceId and overwrites whatever this call
+    // sets. These checks are left in as harmless, self-documenting intent
+    // rather than a real staleness guard.
+    const initiatedServiceId = serviceId;
     setAccepting(true);
     setAcceptError("");
     try {
       await acceptTerminalDisclosure();
-      // Refresh eligibility if serviceId hasn't changed
       if (initiatedServiceId === serviceId) {
         setLoading(true);
         fetchTerminalEligibility()

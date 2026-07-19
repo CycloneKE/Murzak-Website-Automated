@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const express = require('express');
 const coolifyLane = require("../services/provisioning/lanes/coolify");
 const k8sLane = require("../services/provisioning/lanes/k8s");
-const provisioning = require("../services/provisioning/catalog");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
 const terminalEligibilityLib = require('../services/terminalEligibility');
@@ -1213,6 +1212,12 @@ router.get("/api/portal/terminal/eligibility", requireAuth, async (req, res) => 
   }
 });
 
+// Intentionally NO enterprise/approval gate here — any authenticated user can
+// stamp terminal_disclosure_accepted_at early (or while non-enterprise). This
+// is safe only because the mint route below independently re-checks all
+// three conditions (enterprise plan, approval, disclosure) before ever
+// minting a session. If that re-check is ever weakened or removed, this
+// route becomes a real gap — don't let that happen silently.
 router.post("/api/portal/terminal/accept-disclosure", requireAuth, async (req, res) => {
   const webAccountName = req.session?.webAccount || req.session?.user?.id;
   if (!webAccountName) return res.status(401).json({ error: "No session account." });
