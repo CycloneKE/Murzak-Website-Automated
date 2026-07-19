@@ -234,6 +234,19 @@
       "setupKes": 2000,
       "requiresRepo": false
     },
+    "biz-scalable-webapp": {
+      "id": "biz-scalable-webapp",
+      "name": "Scalable Web App (Kubernetes)",
+      "category": "App Hosting",
+      "tier": "Large",
+      "capacityClass": "scalable",
+      "ramMb": 2048,
+      "diskGb": 20,
+      "pricingModel": "addon",
+      "monthlyKes": 8000,
+      "setupKes": 2000,
+      "requiresRepo": true
+    },
     "biz-docs": {
       "id": "biz-docs",
       "name": "Document Management",

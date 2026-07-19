@@ -1,11 +1,12 @@
 import React from "react";
-import { MoreHorizontal, Play, Square, RotateCw, Loader2 } from "lucide-react";
+import { MoreHorizontal, Play, Square, RotateCw, Loader2, Maximize2 } from "lucide-react";
 
 export interface ServiceHealth {
   id: string;
   name: string;
   type: string;
   status: "online" | "warning" | "offline" | "provisioning";
+  capacityClass?: string;
 }
 
 interface ServiceHealthCardProps {
@@ -72,6 +73,9 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
           Resource monitoring not yet available
         </div>
         <div className="flex gap-2">
+          {service.capacityClass === "scalable" && (
+            <ActionButton action="scale" title="Scale Settings" icon={<Maximize2 size={14} />} />
+          )}
           <ActionButton action="start" title="Start" icon={<Play size={14} />} />
           <ActionButton action="restart" title="Restart" icon={<RotateCw size={14} />} />
           <ActionButton action="stop" title="Stop" icon={<Square size={14} />} />

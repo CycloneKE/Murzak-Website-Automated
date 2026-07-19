@@ -34,6 +34,10 @@ function adminRecipients() {
  *   ok:false -> no headroom anywhere; caller should requestScaleOut + escalate
  */
 async function ensureCapacityFor(client, { ramMb, capacityClass }) {
+  if (capacityClass === "scalable") {
+    // K8s cluster manages its own distributed resources and HPA
+    return { ok: true, target: "k8s-cluster" };
+  }
   if (capacityClass !== "premium") {
     return { ok: true, target: targets.PRIMARY_ID };
   }

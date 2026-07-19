@@ -11,6 +11,7 @@
     "gen:catalog": "node scripts/generate-catalog-snapshot.js"
   },
   "dependencies": {
+    "@kubernetes/client-node": "^1.4.0",
     "@paypal/paypal-server-sdk": "^2.2.0",
     "archiver": "^7.0.1",
     "axios": "^1.13.4",

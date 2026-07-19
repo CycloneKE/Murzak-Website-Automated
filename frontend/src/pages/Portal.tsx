@@ -73,6 +73,7 @@ import CommandPalette, { CommandAction } from "../components/portal/CommandPalet
 import LogConsole from "../components/portal/LogConsole";
 import ConciergeWidget from "../components/ConciergeWidget";
 import ResourceUtilizationCard from "../components/portal/ResourceUtilizationCard";
+import { ScalingSettings } from "../components/portal/ScalingSettings";
 import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import EmptyState from "../components/portal/EmptyState";
 import { useTheme } from "../context/ThemeContext";
@@ -228,7 +229,12 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
     if (action === "restart" || action === "start") {
       performServiceAction(action, id);
     }
+    if (action === "scale") {
+      setScalingServiceId(id);
+    }
   };
+
+  const [scalingServiceId, setScalingServiceId] = useState<string | null>(null);
 
   const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
   const [requestingDeveloper, setRequestingDeveloper] = useState(false);
@@ -646,6 +652,7 @@ const renderCloudSystemsGrid = () => null;
       const name = s.name || s.serviceName || s.service_name || svc?.name || serviceId;
       const tier = s.tier || svc?.tier;
       const category = svc?.category;
+      const capacityClass = svc?.capacityClass;
       const statusRaw = String(s.status || "").toLowerCase();
 
       const status: ServiceStatus =
@@ -668,6 +675,7 @@ const renderCloudSystemsGrid = () => null;
         domainChoice: s.domainChoice || s.domain_choice || null,
         status,
         isAddon,
+        capacityClass,
       };
     });
   }, [user, catalogLookup, addonServiceIds]);
@@ -1310,6 +1318,7 @@ const renderCloudSystemsGrid = () => null;
       name: s.name,
       type: s.category || "Service",
       status: s.status === "Active" ? "online" : s.status === "Setting up" ? "provisioning" : "warning",
+      capacityClass: s.capacityClass,
     }));
 
     return (
@@ -3034,6 +3043,13 @@ const renderCloudSystemsGrid = () => null;
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Scaling Settings Modal */}
+      {scalingServiceId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <ScalingSettings serviceId={scalingServiceId} onClose={() => setScalingServiceId(null)} />
         </div>
       )}
 

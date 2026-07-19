@@ -59,6 +59,7 @@ function laneFor(meta) {
   if (!meta) return "manual";
   if (meta.capacityClass === "dedicated") return "manual";
   if (meta.capacityClass === "premium") return "bench";
+  if (meta.capacityClass === "scalable") return "k8s";
   return "coolify";
 }
 
