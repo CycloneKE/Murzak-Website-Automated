@@ -136,7 +136,7 @@ const Header: React.FC<HeaderProps> = ({
                               <ul className="space-y-3">
                                 {group.items.map(sub => (
                                   <li key={sub.page}>
-                                    <button onClick={() => onNavigate(sub.page as Page)} className="text-sm font-medium text-murzak-ink hover:text-murzak-accent transition-colors block text-left">
+                                    <button onClick={() => onNavigate(sub.page as Page)} className="text-sm font-medium text-murzak-ink dark:text-slate-100 hover:text-murzak-accent transition-colors block text-left">
                                       {sub.label}
                                     </button>
                                   </li>
@@ -231,7 +231,7 @@ const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => item.submenu ? setProductsOpen(!productsOpen) : handleMobileNav(item.page)}
                   className={`text-lg sm:text-xl font-[900] uppercase text-left tracking-tight py-2 transition-colors ${
-                    activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "text-murzak-accent" : "text-murzak-ink hover:text-murzak-accent"
+                    activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "text-murzak-accent" : "text-murzak-ink dark:text-slate-100 hover:text-murzak-accent"
                   }`}
                 >
                   {item.label}
@@ -246,10 +246,10 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="pl-4 mt-2 space-y-4 border-l-2 border-murzak-accent/30">
                   {item.submenu.map(group => (
                     <div key={group.group}>
-                      <div className="text-micro font-black uppercase text-slate-600 mb-2">{group.group}</div>
+                      <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">{group.group}</div>
                       <div className="flex flex-col space-y-2">
                         {group.items.map(sub => (
-                          <button key={sub.page} onClick={() => handleMobileNav(sub.page)} className="text-sm font-bold text-left text-slate-600 hover:text-murzak-accent transition-colors py-1">
+                          <button key={sub.page} onClick={() => handleMobileNav(sub.page)} className="text-sm font-bold text-left text-slate-600 dark:text-slate-400 hover:text-murzak-accent transition-colors py-1">
                             {sub.label}
                           </button>
                         ))}
@@ -278,7 +278,7 @@ const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col gap-4">
               <button
                 onClick={() => handleMobileNav("login")}
-                className="w-full bg-slate-100 dark:bg-black/5 text-murzak-ink px-5 py-3.5 rounded-xl font-black text-micro sm:text-micro uppercase border border-slate-200 dark:border-murzak-border"
+                className="w-full bg-slate-100 dark:bg-black/5 text-murzak-ink dark:text-slate-100 px-5 py-3.5 rounded-xl font-black text-micro sm:text-micro uppercase border border-slate-200 dark:border-murzak-border"
               >
                 Account Login
               </button>

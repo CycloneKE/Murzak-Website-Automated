@@ -47,13 +47,13 @@ function Metric({
       <div className="flex justify-between items-end mb-2">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="text-label font-bold uppercase tracking-widest text-slate-600">{label}</span>
+          <span className="text-label font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</span>
         </div>
         <span className={`text-micro font-black ${textColor}`}>
           {hasData ? `${percent}%` : unsupported ? 'Coming soon' : 'No data yet'}
         </span>
       </div>
-      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-murzak-border/50">
+      <div className="h-2 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden border border-murzak-border/50">
         <div
           className={`h-full ${color} transition-all duration-1000`}
           style={{ width: hasData ? `${percent}%` : '100%', opacity: hasData ? 1 : 0.15 }}

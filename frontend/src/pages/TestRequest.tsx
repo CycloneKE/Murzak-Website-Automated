@@ -85,20 +85,20 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
   };
 
   const inputClasses = (name: string) => `w-full bg-slate-50 border ${errors[name] ? 'border-red-500' : 'border-slate-200 dark:border-murzak-border'} rounded-2xl px-6 py-4 text-base font-bold text-murzak-ink transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent placeholder:text-slate-500`;
-  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-3 ml-1";
+  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-3 ml-1";
 
   if (submitted) {
     return (
       <div className="min-h-[90vh] flex items-center justify-center p-6 animate-fade-in">
-        <div className="max-w-2xl w-full bg-white p-10 sm:p-12 lg:p-20 rounded-[3rem] sm:rounded-[4rem] shadow-3xl border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
+        <div className="max-w-2xl w-full bg-white dark:bg-white/5 p-10 sm:p-12 lg:p-20 rounded-[3rem] sm:rounded-[4rem] shadow-3xl border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
           <div className="relative z-10 text-center">
             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-murzak-accent/10 text-murzak-accent rounded-full flex items-center justify-center mx-auto mb-8 sm:mb-10">
               <Rocket size={40} className="animate-bounce" />
             </div>
 
-            <h2 className="text-3xl lg:text-4xl font-[900] text-murzak-ink mb-6 tracking-tighter leading-none">Trial Ready.</h2>
+            <h2 className="text-3xl lg:text-4xl font-[900] text-murzak-ink dark:text-slate-100 mb-6 tracking-tighter leading-none">Trial Ready.</h2>
 
-            <p className="text-sm font-bold text-slate-500 dark:text-slate-500 mb-10 max-w-sm mx-auto leading-relaxed">
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-10 max-w-sm mx-auto leading-relaxed">
               We've saved your goals for <span className="text-murzak-accent font-black">{formData.testingGoal}</span>. Create your account, then a quick <span className="text-murzak-accent font-black">KES 1</span> verification (card or M-Pesa) starts your 36-hour trial.
             </p>
 
@@ -133,12 +133,12 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
             <Server size={18} />
             <span className="text-micro sm:text-micro font-black uppercase">Nairobi System Sandbox</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink tracking-tighter leading-[0.85] mb-6">
+          <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter leading-[0.85] mb-6">
             Get your <br /><span className="text-murzak-accent">36h trial.</span>
           </h1>
         </div>
 
-        <div className="bg-white/80 dark:bg-white/60 backdrop-blur-2xl rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-10 lg:p-16 shadow-3xl border border-slate-100 dark:border-murzak-border/50">
+        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-2xl rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-10 lg:p-16 shadow-3xl border border-slate-100 dark:border-murzak-border/50">
           {step === 1 ? (
             <div className="space-y-6 sm:space-y-8 animate-fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
@@ -167,15 +167,15 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
               <div>
                 <label className={labelClasses}>What are you testing?</label>
                 <div className="relative">
-                  <select 
-                    className={`${inputClasses('testingGoal')} appearance-none pr-12 cursor-pointer bg-white`}
+                  <select
+                    className={`${inputClasses('testingGoal')} appearance-none pr-12 cursor-pointer bg-white dark:bg-murzak-ink dark:text-slate-100`}
                     value={formData.testingGoal}
                     onChange={e => setFormData({...formData, testingGoal: e.target.value})}
                   >
-                    <option className="bg-white text-murzak-ink" value="Website Performance">Website Performance</option>
-                    <option className="bg-white text-murzak-ink" value="Payment System Link">Payment System Link</option>
-                    <option className="bg-white text-murzak-ink" value="Mobile App Speed">Mobile App Speed</option>
-                    <option className="bg-white text-murzak-ink" value="General Business Tool">General Business Tool</option>
+                    <option className="bg-white dark:bg-murzak-ink text-murzak-ink dark:text-slate-100" value="Website Performance">Website Performance</option>
+                    <option className="bg-white dark:bg-murzak-ink text-murzak-ink dark:text-slate-100" value="Payment System Link">Payment System Link</option>
+                    <option className="bg-white dark:bg-murzak-ink text-murzak-ink dark:text-slate-100" value="Mobile App Speed">Mobile App Speed</option>
+                    <option className="bg-white dark:bg-murzak-ink text-murzak-ink dark:text-slate-100" value="General Business Tool">General Business Tool</option>
                   </select>
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-murzak-accent">
                     <ChevronDown size={20} />

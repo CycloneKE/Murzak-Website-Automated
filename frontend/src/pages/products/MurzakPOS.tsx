@@ -29,7 +29,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-murzak-ink overflow-x-hidden">
+    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
@@ -62,12 +62,12 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="grid sm:grid-cols-2 gap-5">
           {features.map((f, i) => (
-            <div key={i} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
               <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
                 {f.icon}
               </div>
-              <h3 className="text-lg font-black text-murzak-ink mb-2">{f.title}</h3>
-              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{f.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{f.title}</h3>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -84,7 +84,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
             </p>
             <ul className="space-y-3">
               {['Barcode scanning support', 'Quick-add categories', 'Instant M-Pesa STK push', 'Custom receipt printing'].map(item => (
-                <li key={item} className="flex items-center gap-3 text-sm font-bold text-murzak-ink">
+                <li key={item} className="flex items-center gap-3 text-sm font-bold text-murzak-ink dark:text-slate-100">
                   <Check size={16} className="text-murzak-accent" /> {item}
                 </li>
               ))}
@@ -106,12 +106,12 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       {/* Who it's for */}
       <Section className="border-t border-murzak-border/50">
          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-4">Built for Kenyan Retail</h2>
+            <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-4">Built for Kenyan Retail</h2>
             <p className="text-slate-500 font-medium">Whether you have one shop or fifty branches, Murzak POS scales with you.</p>
          </div>
          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {['Supermarkets', 'Pharmacies', 'Hardware Stores', 'Boutiques & Apparel'].map(item => (
-              <div key={item} className="p-6 rounded-2xl bg-black/5 border border-murzak-border text-center font-bold text-sm text-murzak-ink">
+              <div key={item} className="p-6 rounded-2xl bg-black/5 border border-murzak-border text-center font-bold text-sm text-murzak-ink dark:text-slate-100">
                 {item}
               </div>
             ))}
@@ -127,7 +127,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink mb-6">Stop guessing your stock.</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Stop guessing your stock.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
               Configure POS <ArrowRight size={17} />

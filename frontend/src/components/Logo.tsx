@@ -14,7 +14,7 @@ const Logo: React.FC<LogoProps> = ({ className = "", variant = 'full', theme, ma
   const wordmarkColor =
     theme === 'dark' ? 'text-white'
     : theme === 'light' ? 'text-murzak-ink'
-    : 'text-murzak-ink';
+    : 'text-murzak-ink dark:text-slate-100';
 
   const secondary = variant === 'cloud-only' ? 'Cloud' : 'Technologies';
 

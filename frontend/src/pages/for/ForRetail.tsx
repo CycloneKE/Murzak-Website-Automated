@@ -16,7 +16,7 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-murzak-ink overflow-x-hidden">
+    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
@@ -39,10 +39,10 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="grid sm:grid-cols-3 gap-6">
            {stack.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 hover:border-murzak-accent/40 transition-all">
+             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all">
                 <div className="text-murzak-accent mb-5 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
-                <h3 className="text-xl font-black mb-3">{item.title}</h3>
-                <p className="text-sm text-slate-500 mb-6">{item.desc}</p>
+                <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{item.desc}</p>
                 <div className="text-murzak-accent text-sm font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
                   View {item.title} <ArrowRight size={14} />
                 </div>
@@ -54,7 +54,7 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative py-24 overflow-hidden border-t border-murzak-border/50">
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink mb-6">Ready to upgrade your counters?</h2>
+          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to upgrade your counters?</h2>
           <p className="text-slate-600 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo with full inventory features.</p>
           <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
             Configure your retail stack <ArrowRight size={17} />

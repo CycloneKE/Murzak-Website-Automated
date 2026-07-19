@@ -160,7 +160,14 @@ app.use(
     // Origin against this request's own scheme+host (trust proxy is set, so
     // req.protocol honors X-Forwarded-Proto).
     const sameOrigin = origin === `${req.protocol}://${req.headers.host}`;
-    if (sameOrigin || allowedOrigins.includes(origin)) {
+    // Dev convenience: Vite auto-increments its port (5173, 5174, ...) when one
+    // is already taken by another running instance, so a hardcoded allow-list
+    // entry goes stale the moment two dev servers are up. Accept any localhost
+    // port outside production instead of chasing the port number.
+    const isDevLocalhost =
+      process.env.NODE_ENV !== "production" &&
+      /^https?:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
+    if (sameOrigin || isDevLocalhost || allowedOrigins.includes(origin)) {
       return cb(null, { origin: true, credentials: true });
     }
 

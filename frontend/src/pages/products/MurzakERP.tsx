@@ -30,7 +30,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-murzak-ink overflow-x-hidden">
+    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
@@ -63,12 +63,12 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {modules.map((m, i) => (
-            <div key={i} className="rounded-3xl border border-transparent bg-white/60 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
               <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
                 {m.icon}
               </div>
-              <h3 className="text-lg font-black text-murzak-ink mb-2">{m.title}</h3>
-              <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{m.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{m.title}</h3>
+              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{m.desc}</p>
             </div>
           ))}
         </div>
@@ -113,16 +113,16 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
            <p className="text-slate-500 font-medium">Choose the tier that fits your team size. We handle the hosting, backups, and security.</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-           <div className="p-8 rounded-3xl border border-murzak-border bg-white/60">
-              <h3 className="text-xl font-black mb-2">Light (1-3 Users)</h3>
-              <div className="text-3xl font-black text-murzak-gradient mb-6">{formatKes(serviceMonthlyKes('biz-erp-light'))}<span className="text-sm text-slate-500">/mo</span></div>
-              <p className="text-sm text-slate-500 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
+           <div className="p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5">
+              <h3 className="text-xl font-black mb-2 text-murzak-ink dark:text-slate-100">Light (1-3 Users)</h3>
+              <div className="text-3xl font-black text-murzak-gradient mb-6">{formatKes(serviceMonthlyKes('biz-erp-light'))}<span className="text-sm text-slate-500 dark:text-slate-400">/mo</span></div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
               <Button className="w-full" variant="ghost" onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>Select Light</Button>
            </div>
            <div className="p-8 rounded-3xl border border-murzak-accent/40 bg-murzak-accent/[0.05]">
               <h3 className="text-xl font-black mb-2">Configured (5-20 Users)</h3>
-              <div className="text-3xl font-black text-murzak-ink mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500">/mo</span></div>
-              <p className="text-sm text-slate-500 mb-6">Data migration, training, and tailored workflows included.</p>
+              <div className="text-3xl font-black text-murzak-ink dark:text-slate-100 mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500 dark:text-slate-400">/mo</span></div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Data migration, training, and tailored workflows included.</p>
               <Button className="w-full" onClick={() => onNavigate('/pricing?configure=biz-erp-configured')}>Select Configured</Button>
            </div>
         </div>
@@ -137,7 +137,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink mb-6">Upgrade your operations today.</h2>
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Upgrade your operations today.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="primary" onClick={() => setSalesOpen(true)}>
               Get a Quote <ArrowRight size={17} />

@@ -181,10 +181,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* GLOBAL BACKGROUND WRAPPER */}
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
       <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/images/home-section-bg.webp')" }} />
+        <div className="absolute inset-0 z-0 bg-murzak-ink/80" />
         <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
-        
+
 
       {/* 02 · TRUST STRIP */}
       <section className="glass-dark">

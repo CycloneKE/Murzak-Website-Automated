@@ -38,7 +38,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <main className="text-murzak-ink overflow-x-hidden">
+    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       {/* Hero */}
       <section className="relative min-h-[90vh] lg:min-h-screen flex items-center pt-32 lg:pt-48 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-glow.webp')" }} />
@@ -47,10 +47,10 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-7 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 lg:p-14 shadow-2xl">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-5">Murzak Cloud</p>
-            <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
+            <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-murzak-ink dark:text-slate-100">
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
-            <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
               Your site, email and apps — set up, secured and backed up by us, on fast infrastructure,
               billed in shillings. You get the result; we handle the servers.
             </p>
@@ -91,11 +91,13 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         </div>
       </section>
 
-      {/* GLOBAL BACKGROUND WRAPPER */}
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/data-center.webp')" }} />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/cloud-section-bg.webp')" }} />
+        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
         <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
-        
+
 
       {/* What you can host */}
       <section className="py-16 lg:py-24 border-t border-murzak-border/50 relative overflow-hidden">
@@ -121,30 +123,18 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* Managed for you */}
       <section className="py-16 lg:py-24 relative overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <div className="grid lg:grid-cols-12 gap-10 items-end mb-12">
-            <div className="lg:col-span-6">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
-              <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
-                Real engineers watching real infrastructure — not a support queue that routes you overseas.
-              </p>
-            </div>
-            <div className="lg:col-span-6 rounded-[2rem] overflow-hidden shadow-xl border border-murzak-border">
-              <img
-                src="/images/server-room-troubleshoot.webp"
-                alt="Murzak engineers reviewing infrastructure dashboards together in a server room"
-                className="w-full h-56 sm:h-64 object-cover"
-                loading="lazy"
-                width={1920}
-                height={1280}
-              />
-            </div>
+          <div className="max-w-2xl mb-12">
+            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
+            <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
+              Real engineers watching real infrastructure — not a support queue that routes you overseas.
+            </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {managed.map((c) => (
               <div key={c.t} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
-                <h3 className="text-base font-black text-murzak-ink mb-2">{c.t}</h3>
+                <h3 className="text-base font-black text-murzak-ink dark:text-slate-100 mb-2">{c.t}</h3>
                 <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
               </div>
             ))}
@@ -160,7 +150,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             { icon: <ShieldCheck size={18} />, t: 'Billed in shillings' },
             { icon: <Headphones size={18} />, t: 'Nairobi support' },
           ].map((c) => (
-            <div key={c.t} className="flex items-center gap-3 text-murzak-ink">
+            <div key={c.t} className="flex items-center gap-3 text-murzak-ink dark:text-slate-100">
               <span className="text-murzak-accent">{c.icon}</span>
               <span className="font-black text-sm">{c.t}</span>
             </div>

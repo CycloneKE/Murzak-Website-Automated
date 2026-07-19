@@ -32,32 +32,32 @@ const TermsOfService: React.FC = () => {
         </div>
       </section>
 
-      <section className="relative py-20 lg:py-32 bg-white/80 backdrop-blur-xl">
+      <section className="relative py-20 lg:py-32 bg-white/80 dark:bg-white/5 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-6 lg:px-12">
           <div className="prose dark:prose-invert prose-slate max-w-none space-y-20">
             <div className="bg-slate-50 dark:bg-black/5 p-10 lg:p-14 rounded-[3rem] border border-slate-100 dark:border-murzak-border/50 flex flex-col md:flex-row gap-10 shadow-xl">
               <Scale size={48} className="text-murzak-accent flex-shrink-0" />
               <div>
-                <h3 className="text-2xl font-black mb-4 tracking-tight text-murzak-ink">Operating principles</h3>
-                <p className="text-base text-slate-600 dark:text-slate-500 font-medium leading-relaxed">By engaging with Murzak Technologies Limited, you agree to the following terms governing custom software engineering and managed cloud infrastructure services.</p>
+                <h3 className="text-2xl font-black mb-4 tracking-tight text-murzak-ink dark:text-slate-100">Operating principles</h3>
+                <p className="text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed">By engaging with Murzak Technologies Limited, you agree to the following terms governing custom software engineering and managed cloud infrastructure services.</p>
               </div>
             </div>
 
             <div className="space-y-8">
-              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink tracking-tighter">
+              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink dark:text-slate-100 tracking-tighter">
                 <Briefcase size={28} className="text-murzak-accent" /> 1. Custom software ownership
               </h2>
-              <p className="text-slate-600 dark:text-slate-500 font-bold leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
                 Upon final payment for a custom software project, full intellectual property (IP) rights for the application code are transferred to the client. Murzak Technologies retains ownership of any pre-existing proprietary libraries or modules used to facilitate development.
               </p>
             </div>
 
             <div className="space-y-8">
-              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink tracking-tighter">
+              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink dark:text-slate-100 tracking-tighter">
                 <CreditCard size={28} className="text-murzak-accent" /> 2. Payment & currency
               </h2>
-              <p className="text-slate-600 dark:text-slate-500 font-bold leading-relaxed">
-                All services are invoiced in <strong className="text-murzak-ink">Kenya Shillings (KES)</strong> unless otherwise agreed. Monthly subscriptions for Murzak Cloud are billed in advance. Late payments exceeding 15 days may result in temporary service suspension.
+              <p className="text-slate-600 dark:text-slate-400 font-bold leading-relaxed">
+                All services are invoiced in <strong className="text-murzak-ink dark:text-slate-100">Kenya Shillings (KES)</strong> unless otherwise agreed. Monthly subscriptions for Murzak Cloud are billed in advance. Late payments exceeding 15 days may result in temporary service suspension.
               </p>
             </div>
           </div>

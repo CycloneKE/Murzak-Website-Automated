@@ -31,26 +31,26 @@ const PrivacyPolicy: React.FC = () => {
         </div>
       </section>
 
-      <section className="relative py-20 lg:py-32 bg-white/80 backdrop-blur-xl">
+      <section className="relative py-20 lg:py-32 bg-white/80 dark:bg-white/5 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto px-6 lg:px-12">
           <div className="prose dark:prose-invert prose-slate max-w-none space-y-20">
             <div className="bg-slate-50 dark:bg-black/5 p-10 lg:p-14 rounded-[3rem] border border-slate-100 dark:border-murzak-border/50 flex flex-col md:flex-row gap-10 shadow-xl">
               <ShieldCheck size={48} className="text-murzak-accent flex-shrink-0" />
               <div>
-                <h3 className="text-2xl font-black mb-4 tracking-tight text-murzak-ink">Data sovereignty commitment</h3>
-                <p className="text-base text-slate-600 dark:text-slate-500 font-medium leading-relaxed">Murzak Technologies Limited is committed to the protection of business and personal data as per the <span className="text-murzak-ink font-bold">Kenya Data Protection Act 2019</span>. We ensure all regional client data hosted on Murzak Cloud remains within secure architectural bounds.</p>
+                <h3 className="text-2xl font-black mb-4 tracking-tight text-murzak-ink dark:text-slate-100">Data sovereignty commitment</h3>
+                <p className="text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed">Murzak Technologies Limited is committed to the protection of business and personal data as per the <span className="text-murzak-ink dark:text-slate-100 font-bold">Kenya Data Protection Act 2019</span>. We ensure all regional client data hosted on Murzak Cloud remains within secure architectural bounds.</p>
               </div>
             </div>
 
             <div className="space-y-8">
-              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink tracking-tighter">
+              <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink dark:text-slate-100 tracking-tighter">
                 <Database size={28} className="text-murzak-accent" /> 1. Information we collect
               </h2>
-              <p className="text-slate-600 dark:text-slate-500 font-medium leading-relaxed">To provide enterprise-grade services, we collect:</p>
-              <ul className="list-disc pl-8 space-y-4 text-slate-500 dark:text-slate-500 font-bold">
-                <li><strong className="text-murzak-ink">Contact information:</strong> Name, work email, phone number, and company details via our contact and CRM sync forms.</li>
-                <li><strong className="text-murzak-ink">Project data:</strong> Technical requirements, business workflows, and infrastructure preferences shared during consultations.</li>
-                <li><strong className="text-murzak-ink">Usage metrics:</strong> Anonymous data on how you interact with our website to improve user experience.</li>
+              <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed">To provide enterprise-grade services, we collect:</p>
+              <ul className="list-disc pl-8 space-y-4 text-slate-500 dark:text-slate-400 font-bold">
+                <li><strong className="text-murzak-ink dark:text-slate-100">Contact information:</strong> Name, work email, phone number, and company details via our contact and CRM sync forms.</li>
+                <li><strong className="text-murzak-ink dark:text-slate-100">Project data:</strong> Technical requirements, business workflows, and infrastructure preferences shared during consultations.</li>
+                <li><strong className="text-murzak-ink dark:text-slate-100">Usage metrics:</strong> Anonymous data on how you interact with our website to improve user experience.</li>
               </ul>
             </div>
 

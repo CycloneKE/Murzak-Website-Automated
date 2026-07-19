@@ -1205,7 +1205,7 @@ const renderCloudSystemsGrid = () => null;
     if (user.accountStatus === "Provisioning" && provisionProgress < 100) {
       return (
         <div className="space-y-12 animate-fade-in">
-          <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
+          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
             <div className="max-w-4xl relative z-10">
               <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-8">
                 <Activity className="w-4 h-4 animate-pulse" />
@@ -1563,11 +1563,13 @@ const renderCloudSystemsGrid = () => null;
 
             <div className="space-y-4">
               {selectedServices.length === 0 ? (
-                <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
-                  <p className="text-micro font-black text-slate-600 uppercase">
-                    No services attached to this plan yet.
-                  </p>
-                </div>
+                <EmptyState
+                  icon={<Server size={22} />}
+                  title="No services attached yet"
+                  description="Add a service to this plan and it'll show up here with live status and billing."
+                  actionLabel="Add Services"
+                  onAction={goToAddServices}
+                />
               ) : (
                 selectedServices.map((s) => (
                   <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[2rem] bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border hover:border-murzak-accent/30 transition-colors group">
@@ -1661,12 +1663,11 @@ const renderCloudSystemsGrid = () => null;
 
             <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar max-h-[600px]">
               {localInvoices.length === 0 ? (
-                <div className="text-center py-16">
-                  <Receipt className="w-10 h-10 mx-auto text-slate-600 dark:text-slate-600 mb-4 opacity-50" />
-                  <p className="text-micro font-black text-slate-600 uppercase">
-                    No transactions yet.
-                  </p>
-                </div>
+                <EmptyState
+                  icon={<Receipt size={22} />}
+                  title="No transactions yet"
+                  description="Invoices and payment history will show up here once your first bill is issued."
+                />
               ) : (
                 localInvoices.map((inv) => (
                   <div
@@ -2072,7 +2073,7 @@ const renderCloudSystemsGrid = () => null;
         const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);
         const isActive = svc?.status === "Active";
         return (
-          <div className="rounded-[2.25rem] border border-slate-200 dark:border-murzak-border bg-white/80 dark:bg-white/60 backdrop-blur-xl p-7 sm:p-10">
+          <div className="rounded-[2.25rem] border border-slate-200 dark:border-murzak-border bg-white/80 dark:bg-white/5 backdrop-blur-xl p-7 sm:p-10">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="p-3.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-6 h-6" /></div>
@@ -2373,7 +2374,7 @@ const renderCloudSystemsGrid = () => null;
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
         {/* Personal Information */}
-        <div className="glass-card bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
+        <div className="glass-card bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700 pointer-events-none">
             <UserIcon className="w-24 h-24 text-murzak-accent" />
           </div>

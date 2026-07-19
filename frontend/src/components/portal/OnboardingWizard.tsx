@@ -91,9 +91,21 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
       <div className="absolute inset-0 bg-murzak-ink/70 backdrop-blur-xl" onClick={onClose} />
 
       <div className="relative w-full max-w-xl bg-white dark:bg-murzak-ink rounded-[2.5rem] border border-slate-100 dark:border-murzak-border shadow-2xl overflow-hidden animate-fade-in">
-        {/* Cosy gradient header with floating sparkles */}
+        {/* Cosy header: a real, human workspace photo on the welcome step —
+            the sparkle-only gradient felt sterile for a first impression —
+            plain gradient again on the functional steps that follow. */}
         <div className="relative px-7 sm:px-10 pt-8 pb-7 overflow-hidden bg-murzak-base dark:bg-white/[0.03] text-murzak-ink dark:text-slate-100">
-          <div className="absolute inset-0 -z-0 bg-brand-gradient opacity-25" />
+          {step === 0 ? (
+            <>
+              <div
+                className="absolute inset-0 -z-10 bg-cover bg-center opacity-25 dark:opacity-20"
+                style={{ backgroundImage: "url('/images/about-hero.webp')" }}
+              />
+              <div className="absolute inset-0 -z-10 bg-gradient-to-t from-white dark:from-murzak-ink via-white/70 dark:via-murzak-ink/70 to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-25" />
+          )}
           <div className="pointer-events-none absolute inset-0 -z-0 opacity-30">
             {[
               "top-4 left-8", "top-10 right-12", "top-16 left-1/3",

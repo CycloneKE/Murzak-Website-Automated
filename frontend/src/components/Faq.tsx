@@ -19,7 +19,7 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
         <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
           <HelpCircle size={14} /> {eyebrow}
         </div>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink tracking-tighter">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           {title}
         </h2>
       </div>
@@ -41,14 +41,14 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
                 className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left"
                 aria-expanded={isOpen}
               >
-                <span className="text-sm sm:text-base font-black text-murzak-ink">{item.q}</span>
+                <span className="text-sm sm:text-base font-black text-murzak-ink dark:text-slate-100">{item.q}</span>
                 <Plus
                   size={18}
                   className={`shrink-0 text-murzak-accent transition-transform duration-300 ${isOpen ? "rotate-45" : ""}`}
                 />
               </button>
               {isOpen && (
-                <p className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-1 text-[13px] font-bold leading-relaxed text-slate-600 dark:text-slate-600 animate-fade-in">
+                <p className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-1 text-[13px] font-bold leading-relaxed text-slate-600 dark:text-slate-400 animate-fade-in">
                   {item.a}
                 </p>
               )}

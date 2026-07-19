@@ -114,6 +114,18 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   "for-services": { title: "Tech Stack for Professional Services | Murzak", description: "CRM and invoicing for agencies and firms." },
 };
 
+// Above-the-fold hero background per route — preloaded on navigation so the
+// browser fetches it immediately instead of discovering it only once CSS
+// parses the bg-fixed rule (which otherwise costs a visible fade-in).
+const heroImages: Partial<Record<Page, string>> = {
+  home: "/images/server-man.webp",
+  cloud: "/images/server-glow.webp",
+  products: "/images/products-hero.webp",
+  about: "/images/about-hero.webp",
+  "custom-software": "/images/custom-software-hero.webp",
+  login: "/images/data-center.webp",
+};
+
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -208,6 +220,22 @@ const App: React.FC = () => {
     setIsPageLoading(true);
     const timer = setTimeout(() => setIsPageLoading(false), 700);
     return () => clearTimeout(timer);
+  }, [activePage]);
+
+  // Preload the current route's hero background so the browser starts
+  // fetching it immediately on navigation rather than waiting to parse the
+  // bg-fixed CSS rule that references it.
+  useEffect(() => {
+    const href = heroImages[activePage];
+    if (!href) return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = href;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
   }, [activePage]);
 
 
