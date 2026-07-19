@@ -1250,10 +1250,6 @@ const terminalMintLimiter = rateLimit({
   message: { error: "Too many requests. Please wait a moment and try again." },
 });
 
-function isEnterprisePlan(plan) {
-  return String(plan || "None").toLowerCase().includes("enterprise");
-}
-
 router.post("/api/portal/services/:serviceId/terminal/session", requireAuth, terminalMintLimiter, async (req, res) => {
   if (String(process.env.TERMINAL_ENABLED || "false").toLowerCase() !== "true") {
     return res.status(503).json({ error: "Developer access terminal isn't available yet." });
@@ -1266,8 +1262,22 @@ router.post("/api/portal/services/:serviceId/terminal/session", requireAuth, ter
 
   // Server-side plan gate — the frontend may hide/show the button by plan,
   // but that's cosmetic; this is the actual authorization boundary.
-  if (!isEnterprisePlan(req.session?.user?.plan)) {
+  if (!terminalEligibilityLib.isEnterprisePlan(req.session?.user?.plan)) {
     return res.status(403).json({ error: "Developer access is an Enterprise-plan feature — contact sales to upgrade." });
+  }
+
+  // Approval + disclosure gates (see docs/superpowers/specs/2026-07-19-
+  // developer-terminal-access-design.md) — Enterprise plan alone is not
+  // sufficient. Re-checked from the live Frappe record every mint attempt.
+  {
+    const client = frappeClient();
+    const gates = await terminalEligibilityLib.fetchTerminalGates(client, webAccountName);
+    if (!gates.approved) {
+      return res.status(403).json({ code: "not_approved", error: "Developer access hasn't been approved for this account yet — our team will follow up on your request." });
+    }
+    if (!gates.disclosureAccepted) {
+      return res.status(403).json({ code: "disclosure_required", error: "Please review and accept the developer access disclosure before starting a session." });
+    }
   }
 
   const brokerSigningKey = process.env.BROKER_SIGNING_KEY;
