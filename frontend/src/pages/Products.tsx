@@ -62,7 +62,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                   <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{item.desc}</p>
                   <div className="rounded-xl bg-slate-900 px-4 py-3 mb-5">
-                    <div className="text-micro font-bold uppercase text-slate-500 mb-1">{item.previewLabel}</div>
+                    <div className="text-micro font-bold uppercase text-slate-400 mb-1">{item.previewLabel}</div>
                     <div className="text-sm font-black text-murzak-accent">{item.previewValue}</div>
                   </div>
                   <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">

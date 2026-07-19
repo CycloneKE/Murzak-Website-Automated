@@ -9,7 +9,7 @@ interface MetricBarProps {
 
 const TONE_CLASSES: Record<NonNullable<MetricBarProps["tone"]>, string> = {
   accent: "bg-murzak-accent",
-  warning: "bg-orange-500",
+  warning: "bg-murzak-warning",
   success: "bg-murzak-success",
 };
 

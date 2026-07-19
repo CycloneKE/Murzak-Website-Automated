@@ -137,7 +137,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             <div className="lg:col-span-5">
               <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6">
                 <div className="flex items-center justify-between mb-5">
-                  <span className="text-micro font-black uppercase tracking-widest text-slate-500">Resource Monitor</span>
+                  <span className="text-micro font-black uppercase tracking-widest text-slate-400">Resource Monitor</span>
                   <span className="rounded-full bg-murzak-success/15 text-murzak-success text-micro font-black uppercase px-2.5 py-1">99.97% uptime</span>
                 </div>
                 <div className="space-y-3.5 mb-5">

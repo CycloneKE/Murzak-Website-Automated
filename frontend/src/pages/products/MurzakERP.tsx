@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Layers, Check } from 'lucide-react';
+import { ArrowRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Check } from 'lucide-react';
 import MetricBar from '../../components/mockups/MetricBar';
 import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
@@ -113,7 +113,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
           <div className="lg:col-span-5">
             <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6 sm:p-7">
               <div className="flex items-center justify-between mb-5">
-                <span className="text-micro font-black uppercase tracking-widest text-slate-500">Business Snapshot</span>
+                <span className="text-micro font-black uppercase tracking-widest text-slate-400">Business Snapshot</span>
                 <span className="flex items-center gap-1.5 text-micro font-black uppercase text-murzak-accent">
                   <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" /> Live
                 </span>
@@ -121,15 +121,15 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
 
               <div className="grid grid-cols-3 gap-3 mb-6">
                 <div className="rounded-xl bg-black/20 p-3">
-                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Revenue</div>
+                  <div className="text-micro font-bold uppercase text-slate-400 mb-1">Revenue</div>
                   <div className="text-sm font-black text-white">KES 4.2M</div>
                 </div>
                 <div className="rounded-xl bg-black/20 p-3">
-                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Expenses</div>
+                  <div className="text-micro font-bold uppercase text-slate-400 mb-1">Expenses</div>
                   <div className="text-sm font-black text-white">KES 2.8M</div>
                 </div>
                 <div className="rounded-xl bg-black/20 p-3">
-                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Net</div>
+                  <div className="text-micro font-bold uppercase text-slate-400 mb-1">Net</div>
                   <div className="text-sm font-black text-murzak-accent">KES 1.4M</div>
                 </div>
               </div>
