@@ -193,7 +193,7 @@ Replace it with:
 
               <div className="flex items-center gap-2.5 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20 px-4 py-3">
                 <Check size={16} className="text-murzak-accent shrink-0" />
-                <span className="text-[13px] font-bold text-slate-200">3 payroll runs processed this quarter</span>
+                <span className="text-body-sm font-bold text-slate-200">3 payroll runs processed this quarter</span>
               </div>
             </div>
           </div>
@@ -343,7 +343,7 @@ Replace with:
               <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-3">{m.title}</h3>
               <ul className="space-y-2">
                 {m.bullets.map((b, bi) => (
-                  <li key={bi} className="flex items-start gap-2 text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  <li key={bi} className="flex items-start gap-2 text-body-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                     <span className="text-murzak-accent mt-1.5 shrink-0">•</span>
                     <span>{b}</span>
                   </li>
@@ -463,7 +463,7 @@ Replace with:
                 </div>
                 <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-4 py-3">
                   <span className="h-2 w-2 rounded-full bg-murzak-success animate-pulse shrink-0" />
-                  <span className="text-[13px] font-bold text-slate-200">Watched 24/7 — last 30 days</span>
+                  <span className="text-body-sm font-bold text-slate-200">Watched 24/7 — last 30 days</span>
                 </div>
               </div>
             </div>
