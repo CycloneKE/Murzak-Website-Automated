@@ -2,8 +2,9 @@ const crypto = require('crypto');
 const express = require('express');
 const coolifyLane = require("../services/provisioning/lanes/coolify");
 const k8sLane = require("../services/provisioning/lanes/k8s");
-const { getServiceMeta } = require("../services/provisioning/catalog");
+const provisioning = require("../services/provisioning/catalog");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
+const portalRequestPayloadLib = require('../services/portalRequestPayload');
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
 // file through to the ctx destructure, so any such import placed above it
@@ -28,6 +29,7 @@ module.exports = function(ctx) {
   } = ctx;
 
   const router = express.Router();
+  const { buildPortalRequestPayload } = portalRequestPayloadLib;
 
   // Tighter than the global apiLimiter (120/min/IP) — these actions hit real
   // customer infrastructure, not just Frappe reads. stop gets a stricter cap
@@ -102,7 +104,8 @@ router.post("/api/portal/requests", requireAuth, async (req, res) => {
     const {
       message,
       pageUrl,
-      attachments
+      attachments,
+      subject
     } = req.body;
 
     // Identity comes from the session, never the request body.
@@ -115,23 +118,16 @@ router.post("/api/portal/requests", requireAuth, async (req, res) => {
     const client = frappeClient();
     const webAcc = await getWebAccountByEmail(client, email);
     const portalUserId = webAcc?.name || null;
-    const payload = {
-      portal_user: portalUserId,
-      email: email,
-      full_name: webAcc?.account_holder_name || email,
-      company_name: webAcc?.entity_name || "",
-      subject: "Technical Sync Request",
-      status: "New",
-      source: "Portal",
-      last_message_at: mysqlDatetimeUTC(),
-      page_url: pageUrl || "",
-      messages: [{
-        sender_type: "User",
-        sender: email,
-        message: message,
-        attachments: attachments || ""
-      }]
-    };
+    const payload = buildPortalRequestPayload({
+      portalUserId,
+      email,
+      webAcc,
+      subject,
+      message,
+      pageUrl,
+      attachments,
+      nowUTC: mysqlDatetimeUTC(),
+    });
     const createResp = await client.post("/api/resource/Portal Users Requests", payload);
     return res.json({
       ok: true,
