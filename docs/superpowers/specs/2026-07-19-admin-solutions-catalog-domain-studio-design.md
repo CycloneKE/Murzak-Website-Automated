@@ -27,6 +27,14 @@ See [[murzaktech-business-model]], [[murzaktech-monetization-provisioning]] for 
 capacity/provisioning model, and [[murzaktech-cloud-instant-checkout]] for the existing
 single-resource checkout (`CloudLaunchModal`) this design hands off to.
 
+**Coordination note (2026-07-19):** a parallel branch (`feature/k8s-integration`) is
+independently modifying `Portal.tsx`, `serviceCatalog.ts`, and the provisioning `catalog.js`/
+`runner.js` at the same time as this design. Checked for overlap: its `Portal.tsx` changes are
+confined to service-card rendering and a new scaling-settings modal (different line regions from
+this design's `Tab` type / sidebar / admin-redirect changes), and its `serviceCatalog.ts`/backend
+changes are small, additive fields (`capacityClass`). Low conflict risk either merge order, but
+worth a rebase check when both land.
+
 ## Scope
 
 **In scope:**
@@ -34,7 +42,9 @@ single-resource checkout (`CloudLaunchModal`) this design hands off to.
 - Extend the admin area with **Logs** (provisioning/deployment history, admin-wide) and
   **Orders** (domain fulfilment queue) views.
 - A new engine-level **solutions catalog** (Databases + Apps only, curated list) with
-  browse → detail → deploy pages, deploying via the existing `CloudLaunchModal`.
+  browse → detail → deploy pages, deploying via the existing `CloudLaunchModal`, **with the chosen
+  database engine actually threaded through to provisioning** (see Section 2 — this was missing
+  from the first draft of this spec).
 - A public, no-login **Domain Studio** on `Cloud.tsx` (Register / Transfer / Connect tabs) with
   real Hostinger-sourced pricing + markup, handing off to the existing pending-selection →
   signup → invoice flow.
@@ -101,6 +111,7 @@ type Solution = {
   description: string;           // longer "what is this / when to use it"
   useCases: string[];
   versions?: string[];           // e.g. ["16", "15", "14"] for Postgres
+  engine: string;                // Coolify's internal database-type key for this engine
   tierServiceIds: string[];      // serviceCatalog IDs this deploys onto
 };
 ```
@@ -119,8 +130,30 @@ type Solution = {
    button.
 
 **Deploy handoff:** clicking Deploy opens the existing `CloudLaunchModal` pre-configured with the
-chosen `serviceId` — reusing its already-built login-vs-signup branching, capacity/eligibility
-checks (`addonEligibility.js`, `orderCapacity.js`), and invoicing. No new checkout logic.
+chosen `serviceId` **and the chosen `engine`** — reusing the modal's already-built login-vs-signup
+branching, capacity/eligibility checks (`addonEligibility.js`, `orderCapacity.js`), and invoicing.
+
+**Provisioning gap found in review — now in scope for Section 2:**
+`backend/services/provisioning/lanes/coolify.js` has **no engine-differentiation logic today**.
+The existing `starter-db-light` catalog tier is literally named "Database Hosting (Shared)" and
+described as "MySQL or Postgres" — there is currently no way for a customer's engine choice to
+reach provisioning at all. Coolify's own API *does* support deploying specific one-click database
+types, so this is a closeable integration gap, not a platform limitation — but shipping Section 2
+without closing it would make the new detail pages cosmetic: picking "PostgreSQL" vs "MySQL"
+would create the same underlying order, and which engine actually gets deployed would depend on
+whatever staff configure manually during setup. Required backend work:
+- Thread an `engine` field through the order/provisioning-job payload: `CloudLaunchModal` → order
+  record → provisioning job.
+- Extend `coolify.js` to map `engine` → the corresponding Coolify one-click database resource type
+  and deploy that specifically.
+- Decide (in the implementation plan) whether `serviceCatalog.ts`'s tier entries should be split
+  per engine or stay generic tiers with `engine` passed as a separate field — splitting avoids
+  ambiguity but multiplies catalog entries across 5 engines × N size tiers; a separate `engine`
+  field is leaner but means the tier's own `name`/`description` text (e.g. "MySQL or Postgres")
+  needs updating so it isn't misleading once engine choice is real.
+- Apps (WordPress, n8n, etc.) don't have this problem the same way — each app template already
+  maps to one specific Coolify one-click app, so `tierServiceIds` + a service-level "deploy this
+  app" call is sufficient without a parallel `engine` concept.
 
 **Entry point:** `Cloud.tsx`'s existing "What you can host" grid already has a Databases card;
 wire its click to `/solutions/databases`. Add an Apps card to the same grid, linking to
@@ -134,8 +167,9 @@ wire its click to `/solutions/databases`. Add an Apps card to the same grid, lin
   modal into this public section. Same search-by-label, same `checkDomain()` service call.
 - **Transfer** — domain name + EPP/authorization-code fields, transfer fee shown inline
   (registration-equivalent price, "includes 1 year"). The EPP code is write-only from the UI's
-  perspective: submitted, stored for staff to use during manual fulfilment, never echoed back or
-  logged.
+  perspective: submitted over TLS, **encrypted at rest** (never stored as plaintext in the order
+  record), never echoed back to the client or written to application logs, and readable only by
+  staff fulfilling the order.
 - **Connect** — domain name field + DNS/nameserver guidance for pointing an existing registrar's
   domain at Murzak hosting. Free, no order created — informational only, reusing whatever DNS
   guidance content the portal already shows logged-in customers connecting a domain
@@ -167,9 +201,9 @@ creation/login prompt → the selection becomes an invoice → existing M-Pesa/P
 **Fulfilment (backend):** extend the domain-purchase-request pattern already in `hostingRoutes.js`
 (currently only fires attached to a hosting service purchase) to also support a **standalone**
 order not attached to any hosting service. New/extended record: `type` (register|transfer),
-`domain`, `tld`, `priceKes`, `customer`, `eppCode` (transfer only, write-only field), `status`
-(`pending` → `in_progress` → `fulfilled` | `failed`), `createdAt`, `fulfilledAt`, `staffNote`.
-Surfaced in the admin **Orders** view from Section 1.
+`domain`, `tld`, `priceKes`, `customer`, `eppCode` (transfer only, encrypted at rest, write-only
+field), `status` (`pending` → `in_progress` → `fulfilled` | `failed`), `createdAt`, `fulfilledAt`,
+`staffNote`. Surfaced in the admin **Orders** view from Section 1.
 
 ## Known limitations / risks
 
@@ -188,13 +222,18 @@ Surfaced in the admin **Orders** view from Section 1.
 - **Manual fulfilment is a real operational load.** Every paid domain order needs a human to log
   into a registrar and act on it — this doesn't scale past a modest order volume. Acceptable for
   v1 per explicit decision; flagged here so it isn't forgotten as a fast-follow.
+- **Engine-specific database provisioning is new backend work, not just UI.** See Section 2 — this
+  was the most significant gap found in review. Without it, the solutions catalog's core promise
+  (pick a specific database, get that database) doesn't actually hold end-to-end.
 
 ## Testing
 
 - Admin tab switching: an admin can navigate Overview → Billing → Admin → Logs → Orders → Overview
   without losing the Admin tab or falling back to the customer-only view.
 - Solutions deploy: selecting a database/app + tier and clicking Deploy opens `CloudLaunchModal`
-  with the correct `serviceId` pre-selected, for both logged-in and logged-out entry.
+  with the correct `serviceId` (and, for databases, `engine`) pre-selected, for both logged-in and
+  logged-out entry. A provisioning-job-level test should confirm the `coolify.js` lane receives
+  and acts on the chosen `engine`, not just that the order was created.
 - Domain studio: Register/Transfer selection persists across a logged-out → signup → invoice
   round-trip (same pattern as existing `CloudLaunchModal` e2e coverage); Connect tab creates no
   order/invoice.
