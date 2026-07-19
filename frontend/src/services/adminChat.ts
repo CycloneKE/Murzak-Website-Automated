@@ -18,6 +18,11 @@ export type ThreadSummary = {
   status?: string;
   last_message_at?: string;
   modified?: string;
+  // Present on the single-thread GET (unprojected Frappe doc); absent from
+  // the list endpoint's projected fields. Optional here so both call sites
+  // type-check.
+  subject?: string;
+  portal_user?: string;
 };
 
 export type ThreadDoc = ThreadSummary & {
@@ -59,5 +64,15 @@ export async function adminReply(threadId: string, message: string, attachments?
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Failed to reply");
+  return data;
+}
+
+export async function adminApproveTerminalAccess(webAccount: string): Promise<{ approvedAt: string; approvedBy: string }> {
+  const res = await fetch(`/api/admin/web-accounts/${encodeURIComponent(webAccount)}/terminal-access/approve`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Failed to approve developer access.");
   return data;
 }
