@@ -22,29 +22,58 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState("");
 
-  const load = () => {
-    setLoading(true);
-    fetchTerminalEligibility()
-      .then(setEligibility)
-      .catch(() => setEligibility({ enterprisePlan: false, approved: false, disclosureAccepted: false }))
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
+    let cancelled = false;
+
+    const load = () => {
+      setLoading(true);
+      fetchTerminalEligibility()
+        .then((result) => {
+          if (!cancelled) setEligibility(result);
+        })
+        .catch(() => {
+          if (!cancelled) setEligibility({ enterprisePlan: false, approved: false, disclosureAccepted: false });
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    };
+
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      cancelled = true;
+    };
   }, [serviceId]);
 
   const handleAccept = async () => {
+    const initiatedServiceId = serviceId; // Capture to detect serviceId change during async operations
     setAccepting(true);
     setAcceptError("");
     try {
       await acceptTerminalDisclosure();
-      load();
+      // Refresh eligibility if serviceId hasn't changed
+      if (initiatedServiceId === serviceId) {
+        setLoading(true);
+        fetchTerminalEligibility()
+          .then((result) => {
+            if (initiatedServiceId === serviceId) setEligibility(result);
+          })
+          .catch(() => {
+            if (initiatedServiceId === serviceId) setEligibility({ enterprisePlan: false, approved: false, disclosureAccepted: false });
+          })
+          .finally(() => {
+            if (initiatedServiceId === serviceId) setLoading(false);
+          });
+      }
     } catch (e: any) {
-      setAcceptError(e?.message || "Failed to record acceptance.");
+      if (initiatedServiceId === serviceId) {
+        setAcceptError(e?.message || "Failed to record acceptance.");
+      }
     } finally {
-      setAccepting(false);
+      if (initiatedServiceId === serviceId) {
+        setAccepting(false);
+      }
     }
   };
 
