@@ -112,6 +112,7 @@ const AdminInbox: React.FC = () => {
     if (!id) return;
     setLoadingThread(true);
     setError("");
+    setTerminalApproveNote("");
     try {
       const doc = await adminGetThread(id);
       setThreadDoc(doc);
