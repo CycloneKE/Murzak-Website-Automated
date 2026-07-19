@@ -117,6 +117,29 @@ router.post("/api/admin/threads/:id/reply", requireAuth, requireAdmin, async (re
   }
 });
 
+// --- DEVELOPER TERMINAL ACCESS: staff approval ---
+// Stamps the Web Account fields the mint endpoint's gate checks
+// (routes/portalRoutes.js) require. Frappe's own document version history
+// on Web Account is the audit trail for who/when — no separate log field.
+router.post("/api/admin/web-accounts/:webAccount/terminal-access/approve", requireAuth, requireAdmin, async (req, res) => {
+  const { webAccount } = req.params;
+  if (!webAccount) return res.status(400).json({ error: "Missing webAccount." });
+  const approvedBy = String(req.session?.user?.email || "").trim();
+  if (!approvedBy) return res.status(401).json({ error: "No session account." });
+  try {
+    const client = frappeClient();
+    const approvedAt = mysqlDatetimeUTC();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`, {
+      terminal_access_approved_at: approvedAt,
+      terminal_access_approved_by: approvedBy,
+    });
+    return res.json({ ok: true, approvedAt, approvedBy });
+  } catch (err) {
+    console.error("TERMINAL ACCESS APPROVE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to approve developer access." });
+  }
+});
+
 // ---- Infrastructure quick-links (admin) ----
 // Redirects for staff troubleshooting: Hostinger's own hPanel (which has a
 // built-in browser SSH terminal — we don't run our own shell broker onto the
