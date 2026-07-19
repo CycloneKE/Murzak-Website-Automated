@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Layers } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Boxes, Users, Briefcase, Calculator, ShieldCheck, Factory, BookOpen, Layers, Check } from 'lucide-react';
+import MetricBar from '../../components/mockups/MetricBar';
 import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
 import Faq, { type FaqItem } from '../../components/Faq';
@@ -14,12 +15,65 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
   const [salesOpen, setSalesOpen] = useState(false);
 
   const modules = [
-    { icon: <Calculator size={20} />, title: "Accounting", desc: "General ledger, accounts payable/receivable, invoicing, and tax." },
-    { icon: <Boxes size={20} />, title: "Inventory", desc: "Multi-warehouse stock tracking, stock valuation, and serial numbers." },
-    { icon: <Users size={20} />, title: "HR & Payroll", desc: "Employee records, attendance, leaves, and KRA-compliant payroll runs." },
-    { icon: <Factory size={20} />, title: "Manufacturing", desc: "Bill of materials, production planning, and shop floor control." },
-    { icon: <Briefcase size={20} />, title: "CRM", desc: "Lead tracking, sales pipelines, and customer communications." },
-    { icon: <BookOpen size={20} />, title: "Projects", desc: "Task management, time tracking, and project profitability analysis." },
+    {
+      icon: <Calculator size={20} />,
+      title: "Accounting",
+      bullets: [
+        "Auto-generated general ledger from every sale, purchase, and journal entry — drill down to trace any transaction",
+        "Multi-currency, multi-branch chart of accounts with consolidated reporting",
+        "VAT/PAYE-ready tax ledgers, plus KRA eTIMS integration",
+        "Real-time Balance Sheet, P&L, Trial Balance, and Cash Flow reports",
+      ],
+    },
+    {
+      icon: <Boxes size={20} />,
+      title: "Inventory",
+      bullets: [
+        "Live stock levels across every warehouse, updated the moment a sale or delivery happens",
+        "Item variants, batch/serial tracking, and automatic valuation",
+        "Scheduled stock audits that flag discrepancies before they become losses",
+        "Reports on stock value, movement trends, and slow-moving inventory",
+      ],
+    },
+    {
+      icon: <Users size={20} />,
+      title: "HR & Payroll",
+      bullets: [
+        "Full employee lifecycle — onboarding, transfers, promotions, exit interviews",
+        "Geolocation-enabled attendance, configurable leave policies and KE public holidays",
+        "Custom salary structures with PAYE/NHIF/NSSF-ready payroll runs and payslips",
+        "Expense claims and advances with multi-level approval, synced straight to accounting",
+      ],
+    },
+    {
+      icon: <Factory size={20} />,
+      title: "Manufacturing",
+      bullets: [
+        "Bills of materials define exactly what a finished product needs",
+        "Work orders and job cards track every production step in real time",
+        "Production planning that schedules runs against real demand and resource availability",
+        "Quality checks built into the process, not bolted on after",
+      ],
+    },
+    {
+      icon: <Briefcase size={20} />,
+      title: "CRM",
+      bullets: [
+        "Capture and nurture leads through a visible pipeline, stage by stage",
+        "Opportunity tracking with revenue forecasting",
+        "Full customer history — every call, meeting, and quote in one record",
+        "Sales performance reports your team can actually act on",
+      ],
+    },
+    {
+      icon: <BookOpen size={20} />,
+      title: "Projects",
+      bullets: [
+        "Task boards, milestones, and deadlines your team can see at a glance",
+        "Time tracking that rolls straight into project cost and profitability",
+        "Client-ready progress reporting without a separate spreadsheet",
+      ],
+    },
   ];
 
   const faqs: FaqItem[] = [
@@ -34,23 +88,62 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       {/* Hero Section */}
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-micro font-black uppercase text-murzak-accent">Murzak ERP</span>
+        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-12 gap-12 items-center">
+          <div className="lg:col-span-7">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
+              <span className="text-micro font-black uppercase text-murzak-accent">Murzak ERP</span>
+            </div>
+            <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
+              One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
+            </h1>
+            <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
+              The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
+            </p>
+            <div className="mt-9 flex flex-col sm:flex-row gap-4">
+              <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
+                Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
+              </Button>
+              <Button variant="outline" onClick={() => setSalesOpen(true)}>
+                Book a Demo
+              </Button>
+            </div>
           </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
-            One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
-            The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
-          </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
-              Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
-            </Button>
-            <Button variant="outline" onClick={() => setSalesOpen(true)}>
-              Book a Demo
-            </Button>
+
+          {/* Business snapshot mockup — hand-coded JSX, not a screenshot */}
+          <div className="lg:col-span-5">
+            <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6 sm:p-7">
+              <div className="flex items-center justify-between mb-5">
+                <span className="text-micro font-black uppercase tracking-widest text-slate-500">Business Snapshot</span>
+                <span className="flex items-center gap-1.5 text-micro font-black uppercase text-murzak-accent">
+                  <span className="h-1.5 w-1.5 rounded-full bg-murzak-accent animate-pulse" /> Live
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Revenue</div>
+                  <div className="text-sm font-black text-white">KES 4.2M</div>
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Expenses</div>
+                  <div className="text-sm font-black text-white">KES 2.8M</div>
+                </div>
+                <div className="rounded-xl bg-black/20 p-3">
+                  <div className="text-micro font-bold uppercase text-slate-500 mb-1">Net</div>
+                  <div className="text-sm font-black text-murzak-accent">KES 1.4M</div>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6">
+                <MetricBar label="Warehouse — Nairobi" percent={72} tone="accent" />
+                <MetricBar label="Warehouse — Mombasa" percent={38} tone="warning" />
+              </div>
+
+              <div className="flex items-center gap-2.5 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20 px-4 py-3">
+                <Check size={16} className="text-murzak-accent shrink-0" />
+                <span className="text-body-sm font-bold text-slate-200">3 payroll runs processed this quarter</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -63,12 +156,19 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {modules.map((m, i) => (
-            <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
-              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
+            <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors h-full flex flex-col">
+              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5 w-fit">
                 {m.icon}
               </div>
-              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{m.title}</h3>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{m.desc}</p>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-3">{m.title}</h3>
+              <ul className="space-y-2">
+                {m.bullets.map((b, bi) => (
+                  <li key={bi} className="flex items-start gap-2 text-body-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                    <span className="text-murzak-accent mt-1.5 shrink-0">•</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
