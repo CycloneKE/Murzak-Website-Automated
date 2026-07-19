@@ -145,7 +145,13 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const [downloadingAll, setDownloadingAll] = useState(false);
 
   const [localInvoices, setLocalInvoices] = useState<any[]>(user.invoices || []);
+  // NOTE: this state was set from 3 call sites but never rendered anywhere —
+  // a failed plan/service attach after signup/login, or a submitted developer-
+  // access request, gave the customer zero feedback. Wired into the existing
+  // priority banner slot below. Tone tracked alongside since the same state
+  // carries both a success message (line ~252) and error messages.
   const [planAttachBanner, setPlanAttachBanner] = useState<string>("");
+  const [planAttachBannerTone, setPlanAttachBannerTone] = useState<"error" | "success">("error");
 
   // Upload UI
   const [uploading, setUploading] = useState(false);
@@ -249,6 +255,7 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
       const data = await res.json().catch(()=>({}));
       if (!res.ok) throw new Error(data.error || "Failed to submit request.");
       setDeveloperUpsellSvc(null);
+      setPlanAttachBannerTone("success");
       setPlanAttachBanner("Developer access request submitted! Our team will follow up via the Support tab shortly.");
     } catch (e: any) {
       setDeveloperUpsellError(e.message || "Something went wrong.");
@@ -489,6 +496,7 @@ const renderCloudSystemsGrid = () => null;
     const msg = fromState || fromStorage;
     if (!msg) return;
 
+    setPlanAttachBannerTone("error");
     setPlanAttachBanner(msg);
     if (fromState) {
       // Clear it from history so a refresh doesn't show it again.
@@ -2785,6 +2793,18 @@ const renderCloudSystemsGrid = () => null;
             );
           };
 
+          // Highest priority: direct feedback on an action the customer just
+          // took (a signup/login-time plan attach, or a developer-access
+          // request) — more urgent than passive account-status banners below.
+          if (planAttachBanner) {
+            return banner(
+              planAttachBannerTone === "success" ? "cyan" : "red",
+              planAttachBannerTone === "success"
+                ? <CheckCircle2 size={22} className="text-murzak-accent" />
+                : <AlertCircle size={22} className="text-red-500" />,
+              <>{planAttachBanner}</>
+            );
+          }
           if (accountSuspended && dueSubscriptionInvoice) {
             return banner(
               "red",
