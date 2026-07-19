@@ -7,5 +7,35 @@
     "fieldtype": "Int",
     "insert_after": "source_code",
     "description": "BYOA: port the customer's app listens on inside its container (default 3000). Copied onto the Provisioning Job at enqueue, alongside source_code."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "terminal_access_approved_at",
+    "label": "Terminal Access Approved At",
+    "fieldtype": "Datetime",
+    "read_only": 1,
+    "insert_after": "app_port",
+    "description": "Stamped by staff via the AdminInbox \"Approve Developer Access\" action. Required (alongside terminal_disclosure_accepted_at) before a terminal session can be minted — being on an Enterprise plan alone is not sufficient."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "terminal_access_approved_by",
+    "label": "Terminal Access Approved By",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "insert_after": "terminal_access_approved_at",
+    "description": "Staff email that approved developer terminal access, for audit."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "terminal_disclosure_accepted_at",
+    "label": "Terminal Disclosure Accepted At",
+    "fieldtype": "Datetime",
+    "read_only": 1,
+    "insert_after": "terminal_access_approved_by",
+    "description": "Customer's one-time acceptance of the developer-terminal disclosure (network/session-recording notice). Never client-settable except via POST /api/portal/terminal/accept-disclosure, which stamps this from the server clock."
   }
 ]
