@@ -4,6 +4,7 @@ import {
   adminGetThread,
   adminListThreads,
   adminReply,
+  adminApproveTerminalAccess,
   ChatMessage,
   ThreadDoc,
   ThreadSummary,
@@ -61,6 +62,8 @@ const AdminInbox: React.FC = () => {
 
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string>("");
+  const [approvingTerminal, setApprovingTerminal] = useState(false);
+  const [terminalApproveNote, setTerminalApproveNote] = useState("");
 
   const pollRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -199,6 +202,23 @@ const AdminInbox: React.FC = () => {
     }
   };
 
+  const isDeveloperAccessThread = (t: ThreadDoc | null) =>
+    !!t?.subject && t.subject.startsWith("Developer Access Request:");
+
+  const handleApproveTerminalAccess = async () => {
+    if (!threadDoc?.portal_user) return;
+    setApprovingTerminal(true);
+    setTerminalApproveNote("");
+    try {
+      await adminApproveTerminalAccess(threadDoc.portal_user);
+      setTerminalApproveNote("Developer access approved — the customer can now accept the disclosure and open a session.");
+    } catch (e: any) {
+      setTerminalApproveNote(e?.message || "Failed to approve developer access.");
+    } finally {
+      setApprovingTerminal(false);
+    }
+  };
+
   const messages: ChatMessage[] = threadDoc?.messages || [];
   const threadTitle = threadDoc ? labelFromThread(threadDoc) : "Select a thread";
   const threadMeta = threadDoc
@@ -324,6 +344,27 @@ const AdminInbox: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {isDeveloperAccessThread(threadDoc) && (
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-murzak-border bg-murzak-accent/5 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-micro font-black uppercase text-slate-600">
+                Developer access request
+              </p>
+              <button
+                type="button"
+                onClick={handleApproveTerminalAccess}
+                disabled={approvingTerminal || !threadDoc?.portal_user}
+                className="h-9 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              >
+                {approvingTerminal ? "Approving..." : "Approve Developer Access"}
+              </button>
+            </div>
+          )}
+          {terminalApproveNote && (
+            <div className="px-6 pt-4 text-micro font-black uppercase text-murzak-accent">
+              {terminalApproveNote}
+            </div>
+          )}
 
           <div className="p-6">
             {error && (
