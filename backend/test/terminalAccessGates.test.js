@@ -89,6 +89,14 @@ console.log("# fetchTerminalGates");
   const g4 = await fetchTerminalGates(fakeClient(null), "WA-4");
   ok(g4.approved === false && g4.disclosureAccepted === false, "null record (deleted/missing account) -> both false, never throws");
 
+  const rejectingClient = {
+    get: async (url) => {
+      throw new Error("ECONNREFUSED");
+    },
+  };
+  const g5 = await fetchTerminalGates(rejectingClient, "WA-5");
+  ok(g5.approved === false && g5.disclosureAccepted === false, "client.get() throws -> caught & recovers to both false");
+
   console.log(`\n${"=".repeat(48)}`);
   console.log(`TERMINAL ACCESS GATES TESTS: ${passed} passed, ${failed} failed`);
   if (failed) { console.error("Failed."); process.exit(1); }
