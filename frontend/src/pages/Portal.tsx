@@ -76,6 +76,7 @@ import ResourceUtilizationCard from "../components/portal/ResourceUtilizationCar
 import { ScalingSettings } from "../components/portal/ScalingSettings";
 import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import EmptyState from "../components/portal/EmptyState";
+import DeveloperTerminalPanel from "../components/portal/DeveloperTerminalPanel";
 import { useTheme } from "../context/ThemeContext";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../config/serviceCatalog";
 import { type SelectedServiceView, type ServiceStatus } from "../types";
@@ -2296,6 +2297,12 @@ const renderCloudSystemsGrid = () => null;
                 </div>
               </div>
             )}
+
+            <DeveloperTerminalPanel
+              serviceId={cloudServiceId}
+              isActive={isActive}
+              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+            />
 
             {isActive && (
               <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
