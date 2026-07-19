@@ -5,6 +5,7 @@ const k8sLane = require("../services/provisioning/lanes/k8s");
 const provisioning = require("../services/provisioning/catalog");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
+const terminalEligibilityLib = require('../services/terminalEligibility');
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
 // file through to the ctx destructure, so any such import placed above it
@@ -1186,6 +1187,45 @@ router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachL
     }
     console.error("DOMAIN ATTACH ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Failed to connect this domain. Please try again or contact support." });
+  }
+});
+
+// --- DEVELOPER TERMINAL ACCESS: eligibility + one-time disclosure ---
+// Neither of these ever mints a session or touches Coolify/the broker — they
+// only read/write the two Web Account gate fields the mint endpoint (below)
+// checks. The frontend panel uses eligibility to decide which of its four
+// states to render (see docs/superpowers/specs/2026-07-19-developer-terminal-access-design.md).
+router.get("/api/portal/terminal/eligibility", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const enterprisePlan = terminalEligibilityLib.isEnterprisePlan(req.session?.user?.plan);
+  if (!webAccountName) {
+    return res.json({ ok: true, enterprisePlan, approved: false, disclosureAccepted: false });
+  }
+  try {
+    const client = frappeClient();
+    const gates = await terminalEligibilityLib.fetchTerminalGates(client, webAccountName);
+    return res.json({ ok: true, enterprisePlan, ...gates });
+  } catch (err) {
+    // fetchTerminalGates itself never throws, but stay defensive — this is a
+    // nice-to-have read, never worth a 500 that blanks the service page.
+    console.error("TERMINAL ELIGIBILITY ERROR:", err.response?.data || err.message);
+    return res.json({ ok: true, enterprisePlan, approved: false, disclosureAccepted: false });
+  }
+});
+
+router.post("/api/portal/terminal/accept-disclosure", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  try {
+    const client = frappeClient();
+    const stampedAt = mysqlDatetimeUTC();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+      terminal_disclosure_accepted_at: stampedAt,
+    });
+    return res.json({ ok: true, disclosureAcceptedAt: stampedAt });
+  } catch (err) {
+    console.error("TERMINAL DISCLOSURE ACCEPT ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to record disclosure acceptance." });
   }
 });
 
