@@ -60,16 +60,16 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div>
           <h4 className="text-[13px] font-black text-murzak-ink">{service.name}</h4>
-          <p className="text-micro font-black uppercase text-slate-600 mt-1">{service.type}</p>
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1">{service.type}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-micro font-black uppercase text-slate-600">{STATUS_LABELS[service.status]}</span>
+          <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">{STATUS_LABELS[service.status]}</span>
           <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[service.status]}`} />
         </div>
       </div>
 
       <div className="mt-1 pt-4 border-t border-murzak-border flex items-center justify-between relative z-10">
-        <div className="text-micro font-black uppercase text-slate-600">
+        <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           Resource monitoring not yet available
         </div>
         <div className="flex gap-2">

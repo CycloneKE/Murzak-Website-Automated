@@ -1,83 +1,39 @@
 const express = require('express');
-const fetch = require('node-fetch');
 const byoaService = require('../services/byoaService');
 
-// SSE Proxy Helper for Coolify Logs
-async function proxySSELogs(req, res, deploymentUuid) {
-  const COOLIFY_API_URL = process.env.COOLIFY_API_URL || 'http://mock-coolify-api:3000';
-  const COOLIFY_API_TOKEN = process.env.COOLIFY_API_TOKEN || 'mock_coolify_token';
+// SKU this wizard deploys against — same catalog entry the repo-URL/checkout
+// pipeline uses (see provisioning/provisioningService.js's requiresRepo gate).
+// Keeps this a PAID feature instead of a free, unmetered Coolify-calling path.
+const BYOA_APP_HOSTING_SERVICE_ID = 'starter-app-hosting';
+const ACTIVE_STATUSES = new Set(['Active', 'Setting up']);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  if (COOLIFY_API_TOKEN === 'mock_coolify_token') {
-    // Mock SSE Stream
-    const mockSteps = [
-      'Provisioning infrastructure...',
-      'Cloning repository...',
-      'Building Nixpacks image...',
-      'Deploying container...',
-      'Deployment successful!'
-    ];
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < mockSteps.length) {
-        res.write(`data: ${JSON.stringify({ log: mockSteps[i] })}\n\n`);
-        i++;
-      } else {
-        res.write(`data: ${JSON.stringify({ status: 'finished' })}\n\n`);
-        clearInterval(interval);
-        res.end();
-      }
-    }, 1500);
-    
-    req.on('close', () => clearInterval(interval));
-    return;
-  }
-
-  try {
-    const coolifyStream = await fetch(`${COOLIFY_API_URL}/api/v1/deployments/${deploymentUuid}/logs`, {
-      headers: {
-        'Authorization': `Bearer ${COOLIFY_API_TOKEN}`,
-        'Accept': 'text/event-stream'
-      }
-    });
-
-    if (!coolifyStream.ok) {
-      res.write(`data: ${JSON.stringify({ error: 'Failed to connect to Coolify log stream' })}\n\n`);
-      return res.end();
-    }
-
-    coolifyStream.body.on('data', chunk => {
-      // Forward the exact SSE chunk from Coolify to the client
-      res.write(chunk);
-    });
-
-    coolifyStream.body.on('end', () => {
-      res.write(`data: ${JSON.stringify({ status: 'finished' })}\n\n`);
-      res.end();
-    });
-
-    req.on('close', () => {
-      // Clean up connection if client disconnects
-      try { coolifyStream.body.destroy(); } catch (e) {}
-    });
-
-  } catch (err) {
-    console.error('[ByoaRoutes] SSE Proxy Error:', err);
-    res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
-    res.end();
-  }
+// Same https/git@ + optional #branch validation as PUT /api/portal/account/repo
+// (portalRoutes.js) — kept in sync deliberately, this is the SAME field.
+function isValidRepoUrl(raw) {
+  return /^(https?:\/\/|git@)\S+$/i.test(raw);
 }
 
 module.exports = (routeContext) => {
   const router = express.Router();
-  const { authMiddleware } = routeContext;
+  // NOTE: routeContext exposes requireAuth directly (see every other route
+  // file) — there is no routeContext.authMiddleware wrapper. The previous
+  // `const { authMiddleware } = routeContext; router.use(authMiddleware.requireAuth)`
+  // dereferenced undefined and threw synchronously at server startup,
+  // crashing the ENTIRE backend the moment this router was mounted
+  // (`app.use('/api/byoa', require('./routes/byoaRoutes')(routeContext))`
+  // in server.js runs before app.listen()). Reproduced: calling this factory
+  // with a realistic routeContext threw
+  // "Cannot read properties of undefined (reading 'requireAuth')".
+  const {
+    requireAuth,
+    frappeClient,
+    fetchSelectedServicesForUser,
+    provisioningRunner,
+    PROVISIONING_JOB_DOCTYPE,
+  } = routeContext;
 
   // Middleware to ensure user is logged in
-  router.use(authMiddleware.requireAuth);
+  router.use(requireAuth);
 
   /**
    * Start GitHub OAuth Flow
@@ -140,27 +96,110 @@ module.exports = (routeContext) => {
   });
 
   /**
-   * Trigger Deployment
+   * Trigger Deployment.
+   *
+   * UNIFIED (2026-07-20): this used to call Coolify directly from the request
+   * handler (byoaService.startCoolifyDeployment), completely bypassing the
+   * tested Provisioning Job queue/runner/retry/appDomain machinery that the
+   * repo-URL-on-signup pipeline already uses (see provisioning/lanes/coolify.js,
+   * provisioningService.js). That meant two independent, drifting
+   * Coolify-calling code paths. Now this wizard just feeds the SAME pipeline:
+   * write the selected repo onto the account, (re)queue the existing
+   * Provisioning Job for this service, and kick the runner. Build status is
+   * then read from the SAME endpoint the portal dashboard already uses
+   * (GET /api/portal/services/:serviceId/activity) — no separate log/SSE
+   * plumbing needed.
    */
   router.post('/deploy', async (req, res) => {
     try {
-      const { config } = req.body;
-      // Triggers Coolify deployment and returns tracking UUIDs
-      const deploymentMeta = await byoaService.startCoolifyDeployment(config);
-      
-      res.json({ ok: true, payload: deploymentMeta });
+      // Gate on a PAID App Hosting service — without this, any logged-in
+      // account could deploy unlimited apps through this wizard for free,
+      // bypassing the KES/catalog billing model entirely. Re-fetches fresh
+      // from Frappe rather than trusting req.session.user (which can be
+      // stale relative to a purchase made moments ago in another tab).
+      const webAccountName = req.session?.webAccount || req.session?.user?.id;
+      if (!webAccountName) return res.status(401).json({ ok: false, error: 'No session account.' });
+
+      const client = frappeClient();
+      const selectedServices = await fetchSelectedServicesForUser(client, webAccountName);
+      const hasAppHosting = (selectedServices || []).some(
+        (s) => s.serviceId === BYOA_APP_HOSTING_SERVICE_ID && ACTIVE_STATUSES.has(s.status)
+      );
+      if (!hasAppHosting) {
+        return res.status(402).json({
+          ok: false,
+          error: 'App Hosting is a paid service. Add it to your plan before deploying.',
+          requiresPurchase: true,
+          serviceId: BYOA_APP_HOSTING_SERVICE_ID,
+        });
+      }
+
+      const { config } = req.body || {};
+      const repoUrl = String(config?.repository?.url || '').trim();
+      if (!repoUrl || !isValidRepoUrl(repoUrl)) {
+        return res.status(400).json({ ok: false, error: 'No valid repository selected.' });
+      }
+      const branch = String(config?.branch || '').trim();
+      const sourceCode = branch && branch !== 'main' ? `${repoUrl}#${branch}` : repoUrl;
+
+      // Same field the portal's "My Account -> Project repository" writes —
+      // the runner reads this at enqueue time (and we're re-triggering below).
+      // app_port isn't set here: the wizard doesn't currently detect it, and
+      // the customer can already set it via that same account field if their
+      // app doesn't listen on the lane's default port.
+      await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+        source_code: sourceCode,
+      });
+
+      // Find the Provisioning Job created when this service was purchased.
+      // (enqueueProvisioningForInvoice runs at invoice-paid time — the gate
+      // above already confirmed the service is Active/Setting-up, so a job
+      // should exist. If the account had no repo on file at purchase time it
+      // was born `needs_human`; requeue it now that the repo is set.)
+      const jobRes = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+        params: {
+          filters: JSON.stringify([
+            ['web_account', '=', webAccountName],
+            ['service_id', '=', BYOA_APP_HOSTING_SERVICE_ID],
+          ]),
+          fields: JSON.stringify(['name', 'status']),
+          order_by: 'modified desc',
+          limit_page_length: 1,
+        },
+      });
+      const job = jobRes.data?.data?.[0];
+      if (!job?.name) {
+        // Honest degrade — don't fabricate a job here and risk skipping the
+        // capacity gate / invoice linkage enqueueProvisioningForInvoice
+        // normally applies. This should be rare (billing gate above already
+        // requires the service to be Active/Setting-up).
+        return res.status(409).json({
+          ok: false,
+          error: 'Your App Hosting service is not queued for provisioning yet. Contact support.',
+        });
+      }
+
+      await client.put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+        status: 'queued',
+        attempts: 0,
+        next_run_at: null,
+        error: '',
+        repo_url: sourceCode,
+      });
+
+      // Kick the runner immediately instead of waiting for the poll/cron
+      // cycle — fire-and-forget, a real build can take minutes (build-wait
+      // has its own multi-minute timeout) so this must never block the
+      // response. The frontend polls job status separately.
+      provisioningRunner.processQueue(client).catch((e) => {
+        console.error('[ByoaRoutes] processQueue after deploy failed:', e.message);
+      });
+
+      res.json({ ok: true, payload: { jobId: job.name } });
     } catch (error) {
       console.error('[ByoaRoutes] Deployment Error:', error);
       res.status(500).json({ ok: false, error: error.message });
     }
-  });
-
-  /**
-   * Real-time Deployment Logs (SSE)
-   */
-  router.get('/deploy/:deploymentUuid/logs', (req, res) => {
-    const { deploymentUuid } = req.params;
-    proxySSELogs(req, res, deploymentUuid);
   });
 
   return router;

@@ -38,7 +38,7 @@ function statusClasses(status?: string) {
   if (s.includes("waiting on user")) return "bg-amber-500/15 text-amber-300 border-amber-500/20";
   if (s.includes("new")) return "bg-cyan-500/15 text-cyan-300 border-cyan-500/20";
   if (s.includes("resolved")) return "bg-emerald-500/15 text-emerald-300 border-emerald-500/20";
-  return "bg-slate-500/10 text-slate-600 border-murzak-border";
+  return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-murzak-border";
 }
 
 
@@ -230,7 +230,7 @@ const AdminInbox: React.FC = () => {
     <div className="w-full">
       <div className="mb-8">
         <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Admin Inbox</h2>
-        <p className="text-micro font-black uppercase text-slate-600 mt-2">
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
           View portal conversations and reply per user thread.
         </p>
       </div>
@@ -244,7 +244,7 @@ const AdminInbox: React.FC = () => {
                 <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               </div>
               <div className="flex-grow">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Threads
                 </p>
                 <p className="text-sm font-black text-murzak-ink">
@@ -276,7 +276,7 @@ const AdminInbox: React.FC = () => {
           <div className="max-h-[520px] overflow-y-auto">
             {filteredThreads.length === 0 ? (
               <div className="p-10 text-center">
-                <p className="text-micro font-black uppercase text-slate-600">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   No threads found.
                 </p>
               </div>
@@ -298,7 +298,7 @@ const AdminInbox: React.FC = () => {
                         <p className="text-sm font-black text-murzak-ink truncate">
                           {labelFromThread(t)}
                         </p>
-                        <p className="text-micro font-black uppercase text-slate-600 mt-1 truncate">
+                        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
                           {(t.company_name || "—")} • {(t.email || "—")}
                         </p>
                       </div>
@@ -306,7 +306,7 @@ const AdminInbox: React.FC = () => {
                         <span className={`inline-flex items-center px-3 py-1 rounded-full border text-micro font-black uppercase ${statusClasses(t.status)}`}>
                           {t.status || "—"}
                         </span>
-                        <p className="text-micro font-bold text-slate-600 mt-1">
+                        <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-1">
                           {fmtTime(t.last_message_at || t.modified)}
                         </p>
                       </div>
@@ -323,13 +323,13 @@ const AdminInbox: React.FC = () => {
           <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Active Thread
                 </p>
                 <p className="text-base sm:text-lg font-black text-murzak-ink truncate">
                   {threadTitle}
                 </p>
-                <p className="text-micro font-black uppercase text-slate-600 mt-1 truncate">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
                   {threadMeta}
                 </p>
               </div>
@@ -348,7 +348,7 @@ const AdminInbox: React.FC = () => {
 
           {isDeveloperAccessThread(threadDoc) && (
             <div className="px-6 py-4 border-b border-slate-100 dark:border-murzak-border bg-murzak-accent/5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-micro font-black uppercase text-slate-600">
+              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                 Developer access request
               </p>
               <button
@@ -378,19 +378,19 @@ const AdminInbox: React.FC = () => {
             <div className="h-[52vh] sm:h-[420px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
               {!selectedId ? (
                 <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     Select a thread on the left to view messages.
                   </p>
                 </div>
               ) : loadingThread ? (
                 <div className="text-center py-16">
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     Loading conversation...
                   </p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     No messages yet in this thread.
                   </p>
                 </div>
@@ -438,7 +438,7 @@ const AdminInbox: React.FC = () => {
 
             <form onSubmit={handleSend} className="mt-5 flex flex-col sm:flex-row gap-3 items-stretch">
               <div className="flex-grow">
-                <label className="block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1">
+                <label className="block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1">
                   Reply
                 </label>
 
@@ -523,7 +523,7 @@ const AdminInbox: React.FC = () => {
                 </button>
               </div>              
             </form>
-            <p className="mt-3 text-micro font-black uppercase text-slate-600">
+            <p className="mt-3 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Tip: statuses update automatically when you reply.
             </p>
           </div>

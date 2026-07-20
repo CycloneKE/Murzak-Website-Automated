@@ -12,7 +12,17 @@ async function handleJson<T>(res: Response): Promise<T> {
   }
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Request failed.");
+  if (!res.ok) {
+    const err = new Error(data?.error || "Request failed.") as Error & {
+      requiresPurchase?: boolean;
+      serviceId?: string;
+      status?: number;
+    };
+    err.requiresPurchase = !!data?.requiresPurchase;
+    err.serviceId = data?.serviceId;
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -36,8 +46,10 @@ export async function analyzeRepository(repoUrl: string): Promise<StackDetails> 
 }
 
 export interface DeploymentResult {
-  deploymentUuid: string;
-  applicationUuid: string;
+  // Provisioning Job name — the SAME job the portal dashboard tracks for this
+  // service (see fetchServiceActivity below). This wizard no longer talks to
+  // Coolify directly; it feeds the existing repo-URL provisioning pipeline.
+  jobId: string;
 }
 
 export async function startDeployment(config: DeploymentConfig): Promise<DeploymentResult> {
@@ -49,4 +61,27 @@ export async function startDeployment(config: DeploymentConfig): Promise<Deploym
   });
   const data = await handleJson<{ ok: true; payload: DeploymentResult }>(res);
   return data.payload;
+}
+
+export interface ServiceActivityJob {
+  id: string;
+  status: string;
+  statusDetail: string;
+  log: string;
+  error: string;
+  attempts: number;
+  accessUrl: string;
+  target: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Same endpoint the portal dashboard polls for deployment status/history —
+// reused here instead of a byoa-specific status route.
+export async function fetchServiceActivity(serviceId: string): Promise<ServiceActivityJob[]> {
+  const res = await fetch(`/api/portal/services/${encodeURIComponent(serviceId)}/activity`, {
+    credentials: 'include'
+  });
+  const data = await handleJson<{ ok: true; jobs: ServiceActivityJob[] }>(res);
+  return data.jobs;
 }

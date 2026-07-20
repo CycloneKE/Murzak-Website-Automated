@@ -1,15 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, CheckCircle2, Box, Cpu, Cloud, Shield } from 'lucide-react';
+import { fetchServiceActivity } from '../../../services/byoa';
+
+const APP_HOSTING_SERVICE_ID = 'starter-app-hosting';
+const POLL_MS = 4000;
 
 interface Props {
-  deploymentUuid?: string;
-  onNext: () => void;
+  jobId: string;
+  onNext: (accessUrl: string) => void;
 }
 
-export const BuildProgressStep: React.FC<Props> = ({ deploymentUuid, onNext }) => {
+// Maps the Provisioning Job's real status onto the wizard's 4 display steps.
+// The job is the SAME one the portal dashboard reads — see
+// GET /api/portal/services/:serviceId/activity in portalRoutes.js.
+function stepForStatus(status: string, statusDetail: string, hasUrl: boolean) {
+  if (status === 'active' && hasUrl) return 4; // done
+  if (status === 'active') return 3; // built, domain/SSL still finishing
+  if (status === 'queued' || status === 'running') return statusDetail ? 1 : 0;
+  return 0;
+}
+
+export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [logs, setLogs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const stopped = useRef(false);
 
   const steps = [
     { id: 0, title: 'Provisioning Infrastructure', icon: Box },
@@ -19,59 +33,47 @@ export const BuildProgressStep: React.FC<Props> = ({ deploymentUuid, onNext }) =
   ];
 
   useEffect(() => {
-    if (!deploymentUuid) {
-      // Fallback/testing if no deploymentUuid
-      const interval = setInterval(() => {
-        setCurrentStep((prev) => {
-          if (prev >= steps.length) {
-            clearInterval(interval);
-            setTimeout(onNext, 1000);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1500);
-      return () => clearInterval(interval);
-    }
+    stopped.current = false;
 
-    // Connect to SSE
-    const sse = new EventSource(`/api/byoa/deploy/${deploymentUuid}/logs`);
-    
-    sse.onmessage = (event) => {
+    const poll = async () => {
+      if (stopped.current) return;
       try {
-        const data = JSON.parse(event.data);
-        if (data.status === 'finished') {
-          setCurrentStep(steps.length);
-          sse.close();
-          setTimeout(onNext, 1000);
-        } else if (data.error) {
-          setError(data.error);
-          sse.close();
-        } else if (data.log) {
-          setLogs(prev => [...prev, data.log]);
-          // Heuristic progression based on logs
-          if (data.log.toLowerCase().includes('clone')) setCurrentStep(1);
-          if (data.log.toLowerCase().includes('build')) setCurrentStep(2);
-          if (data.log.toLowerCase().includes('success')) setCurrentStep(3);
+        const jobs = await fetchServiceActivity(APP_HOSTING_SERVICE_ID);
+        const job = jobs.find((j) => j.id === jobId) || jobs[0];
+        if (!job) {
+          setTimeout(poll, POLL_MS);
+          return;
         }
+
+        if (job.status === 'needs_human' || job.status === 'failed') {
+          setError(job.error || 'The build needs attention — check your dashboard for details.');
+          return;
+        }
+
+        const hasUrl = !!job.accessUrl;
+        setCurrentStep(stepForStatus(job.status, job.statusDetail, hasUrl));
+
+        if (job.status === 'active') {
+          setCurrentStep(steps.length);
+          setTimeout(() => onNext(job.accessUrl), 800);
+          return;
+        }
+
+        setTimeout(poll, POLL_MS);
       } catch (err) {
-        console.error('SSE parse error', err);
+        setError((err as Error).message || 'Lost connection while checking build status.');
       }
     };
 
-    sse.onerror = (err) => {
-      console.error('SSE connection error', err);
-      setError('Lost connection to deployment logs.');
-      sse.close();
-    };
-
-    return () => sse.close();
-  }, [deploymentUuid, onNext]);
+    poll();
+    return () => { stopped.current = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId]);
 
   return (
     <div className="w-full max-w-2xl mx-auto animate-in slide-in-from-bottom-8 fade-in duration-500">
       <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-        
+
         {/* Animated background glow */}
         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 animate-pulse" />
 
@@ -89,7 +91,6 @@ export const BuildProgressStep: React.FC<Props> = ({ deploymentUuid, onNext }) =
               const Icon = step.icon;
               const isCompleted = currentStep > index;
               const isActive = currentStep === index && !error;
-              const isPending = currentStep < index;
 
               return (
                 <div key={step.id} className="flex items-center space-x-4">
@@ -106,7 +107,7 @@ export const BuildProgressStep: React.FC<Props> = ({ deploymentUuid, onNext }) =
                       <Icon className="w-5 h-5 text-gray-600" />
                     )}
                   </div>
-                  
+
                   <div className="flex-1">
                     <h3 className={`text-lg font-medium transition-colors duration-500 ${
                       isCompleted ? 'text-gray-300' :
@@ -121,22 +122,16 @@ export const BuildProgressStep: React.FC<Props> = ({ deploymentUuid, onNext }) =
             })}
           </div>
 
-          {/* Fake Progress Bar */}
           <div className="mt-10 h-2 bg-gray-900 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full transition-all duration-500 ease-out ${error ? 'bg-red-500' : 'bg-gradient-to-r from-purple-500 to-blue-500'}`}
               style={{ width: `${Math.min((currentStep / steps.length) * 100, 100)}%` }}
             />
           </div>
 
-          {/* Optional raw logs viewer */}
-          {logs.length > 0 && (
-             <div className="mt-6 bg-black border border-white/5 rounded-xl p-4 font-mono text-xs h-32 overflow-y-auto custom-scrollbar">
-               {logs.map((log, i) => (
-                 <div key={i} className="text-gray-400 mb-1">{log}</div>
-               ))}
-             </div>
-          )}
+          <p className="mt-6 text-center text-xs text-gray-600">
+            Real builds can take a few minutes — this checks in every {Math.round(POLL_MS / 1000)}s.
+          </p>
         </div>
       </div>
     </div>

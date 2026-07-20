@@ -502,7 +502,7 @@ const handleReset = async (e: React.FormEvent) => {
 
           {mode === 'forgot' && (
             <div className="space-y-4">
-              <p className="text-label font-bold text-slate-600 dark:text-slate-600 text-center leading-relaxed">
+              <p className="text-label font-bold text-slate-600 dark:text-slate-400 text-center leading-relaxed">
                 Enter the email tied to your account and we'll send you a secure reset link.
               </p>
               <div className="space-y-1">
@@ -520,7 +520,7 @@ const handleReset = async (e: React.FormEvent) => {
 
           {mode === 'reset' && (
             <div className="space-y-4">
-              <p className="text-label font-bold text-slate-600 dark:text-slate-600 text-center leading-relaxed">
+              <p className="text-label font-bold text-slate-600 dark:text-slate-400 text-center leading-relaxed">
                 Choose a new password (minimum 8 characters).
               </p>
               <div className="space-y-1">
@@ -645,13 +645,13 @@ const handleReset = async (e: React.FormEvent) => {
                     </div>
                     <span className="text-micro font-black uppercase text-left leading-tight">I authorize Murzak to help set up and host my system securely.</span>
                   </button>
-                  {mode === 'signup' && !formData.authorized && <p className="text-micro font-black uppercase text-slate-600 mt-2 text-center">Authorization required to proceed</p>}
+                  {mode === 'signup' && !formData.authorized && <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2 text-center">Authorization required to proceed</p>}
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-6 sm:p-10 text-center space-y-6 bg-slate-50 dark:bg-black/5 rounded-[2.25rem] sm:rounded-[3rem] border border-dashed border-slate-200 dark:border-murzak-border">
                 <ShieldCheck className="w-10 h-10 sm:w-16 sm:h-16 text-murzak-accent opacity-40 animate-pulse" />
-                <p className="text-micro font-black uppercase text-slate-600 leading-relaxed">Secure Login <br /> Encrypted connection active.</p>
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 leading-relaxed">Secure Login <br /> Encrypted connection active.</p>
               </div>
             )}
           </div>
@@ -661,7 +661,7 @@ const handleReset = async (e: React.FormEvent) => {
             <div className="text-right -mt-2">
               <button type="button"
                 onClick={() => { setMode('forgot'); setError(''); setInfo(''); setFieldErrors({}); }}
-                className="text-micro font-black text-slate-600 dark:text-slate-600 uppercase hover:text-murzak-accent transition-colors">
+                className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors">
                 Forgot password?
               </button>
             </div>
@@ -689,7 +689,7 @@ const handleReset = async (e: React.FormEvent) => {
             <div className="space-y-5">
               <div className="flex items-center gap-4">
                 <div className="h-px flex-1 bg-slate-200 dark:bg-black/5" />
-                <span className="text-micro font-black uppercase text-slate-600">Or</span>
+                <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Or</span>
                 <div className="h-px flex-1 bg-slate-200 dark:bg-black/5" />
               </div>
               <button
@@ -721,14 +721,14 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'forgot' || mode === 'reset') ? (
             <button
               onClick={() => { setMode('login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-micro font-black text-slate-600 uppercase hover:text-murzak-accent transition-colors drop-shadow"
+              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow"
             >
               ← Back to Log In
             </button>
           ) : (
             <button
               onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-micro font-black text-slate-600 uppercase hover:text-murzak-accent transition-colors drop-shadow"
+              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow"
             >
               {mode === 'login' ? "Need a New Account? Get Started" : "Already Have an Account? Log In"}
             </button>

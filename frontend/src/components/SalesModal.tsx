@@ -117,7 +117,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
     focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all
   `;
 
-  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1";
+  const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-3 sm:p-6 lg:p-8">
@@ -183,7 +183,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Package size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">See a Demo</h4>
-                  <p className="text-micro font-bold text-slate-600 uppercase leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
+                  <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
                 <button 
@@ -194,16 +194,16 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                     <Briefcase size={28} />
                   </div>
                   <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">Get a Quote</h4>
-                  <p className="text-micro font-bold text-slate-600 uppercase leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
+                  <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
                 </button>
                 
               </div>
-              <p className="text-center text-micro font-black uppercase text-slate-600 mt-8">Nairobi-based · we usually reply the same business day</p>
+              <p className="text-center text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-8">Nairobi-based · we usually reply the same business day</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
               <div className="flex items-center justify-between mb-8">
-                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-micro font-black uppercase text-slate-600 hover:text-murzak-accent transition-colors">
+                <button type="button" onClick={() => setMode('select')} className="flex items-center gap-2 text-micro font-black uppercase text-slate-600 dark:text-slate-400 hover:text-murzak-accent transition-colors">
                   <ChevronLeft size={16} /> Back to Selection
                 </button>
                 <h3 className="text-xs font-black text-murzak-accent uppercase tracking-widest">

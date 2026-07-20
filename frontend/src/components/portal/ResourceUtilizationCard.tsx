@@ -88,7 +88,7 @@ const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
         </div>
         <div>
           <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Resource Utilization</h3>
-          <p className="text-micro font-medium text-slate-600 mt-1">Limits for your infrastructure</p>
+          <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Limits for your infrastructure</p>
         </div>
       </div>
 

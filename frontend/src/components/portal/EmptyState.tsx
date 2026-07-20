@@ -33,7 +33,7 @@ export default function EmptyState({
       </div>
       <p className="text-label font-black uppercase tracking-widest text-murzak-ink mb-1.5">{title}</p>
       {description && (
-        <p className="text-micro text-slate-600 max-w-xs mx-auto leading-relaxed">{description}</p>
+        <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">{description}</p>
       )}
       {actionLabel && onAction && (
         <button

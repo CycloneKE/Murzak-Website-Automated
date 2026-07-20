@@ -27,7 +27,7 @@ const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Focus on patients, not paperwork. <span className="text-murzak-gradient">Records, billing and scheduling — sorted.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's healthcare providers have been waiting for. Ditch the paper records and disjointed billing systems.
           </p>
         </div>

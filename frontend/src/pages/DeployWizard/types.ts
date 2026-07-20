@@ -21,7 +21,6 @@ export interface DeploymentConfig {
   repository: Repository | null;
   branch: string;
   stackDetails: StackDetails | null;
-  subdomain: string;
   environmentVariables: { key: string; value: string }[];
   isDedicatedInstance: boolean;
 }

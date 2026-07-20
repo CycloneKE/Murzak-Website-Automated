@@ -40,7 +40,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Sell fast. Know your stock. <span className="text-murzak-gradient">Every branch, one system.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
             Built from scratch for Kenyan retail — not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">

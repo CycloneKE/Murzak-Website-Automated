@@ -25,7 +25,7 @@ const TermsOfService: React.FC = () => {
             <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
               Service <br /><span className="text-murzak-accent">terms.</span>
             </h1>
-            <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-600 font-bold max-w-2xl opacity-90">
+            <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">
               The foundational logic governing our custom engineering and cloud partnerships.
             </p>
           </div>

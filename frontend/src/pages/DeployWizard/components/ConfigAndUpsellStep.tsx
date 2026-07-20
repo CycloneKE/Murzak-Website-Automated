@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Server, Globe, Zap, Check, Database } from 'lucide-react';
+import { Settings, Server, Globe, Zap, Check, Database, Plus, X as XIcon, Info } from 'lucide-react';
 import { DeploymentConfig } from '../types';
 
 interface Props {
@@ -8,23 +8,29 @@ interface Props {
 }
 
 export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
-  const [subdomain, setSubdomain] = useState(config.subdomain);
   const [buildCommand, setBuildCommand] = useState(config.stackDetails?.buildCommand || '');
   const [installCommand, setInstallCommand] = useState(config.stackDetails?.installCommand || '');
-  
+  const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>(config.environmentVariables || []);
+
   // Track selected upsells
   const [selectedUpsells, setSelectedUpsells] = useState<string[]>([]);
 
   const toggleUpsell = (id: string) => {
-    setSelectedUpsells(prev => 
+    setSelectedUpsells(prev =>
       prev.includes(id) ? prev.filter(u => u !== id) : [...prev, id]
     );
+  };
+
+  const addEnvVar = () => setEnvVars(prev => [...prev, { key: '', value: '' }]);
+  const removeEnvVar = (index: number) => setEnvVars(prev => prev.filter((_, i) => i !== index));
+  const updateEnvVar = (index: number, field: 'key' | 'value', value: string) => {
+    setEnvVars(prev => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onNext({
-      subdomain,
+      environmentVariables: envVars.filter((row) => row.key.trim()),
       isDedicatedInstance: selectedUpsells.includes('dedicated-instance') || selectedUpsells.includes('ssr-instance'),
       // Here we could store other selected upsells if we expanded DeploymentConfig
     });
@@ -103,19 +109,9 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Project Subdomain</label>
-              <div className="flex bg-black border border-white/10 rounded-xl overflow-hidden focus-within:border-purple-500/50 transition-colors">
-                <input 
-                  type="text" 
-                  value={subdomain}
-                  onChange={(e) => setSubdomain(e.target.value)}
-                  className="bg-transparent text-white px-4 py-3 outline-none w-full font-mono text-sm"
-                />
-                <div className="px-4 py-3 bg-white/5 text-gray-500 font-mono text-sm border-l border-white/10">
-                  .murzak.app
-                </div>
-              </div>
+            <div className="flex items-start gap-2.5 text-xs text-gray-500 bg-white/[0.03] border border-white/10 rounded-xl p-3">
+              <Info className="w-4 h-4 shrink-0 mt-0.5 text-gray-500" />
+              <span>Your live URL is assigned automatically once the build finishes — you'll see it on the next screen.</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -141,12 +137,54 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Environment Variables</label>
-              <div className="bg-black border border-white/10 border-dashed rounded-xl p-4 text-center">
-                <p className="text-sm text-gray-500 mb-2">No environment variables added</p>
-                <button type="button" className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors">
-                  + Add Variable
-                </button>
-              </div>
+              {envVars.length === 0 ? (
+                <div className="bg-black border border-white/10 border-dashed rounded-xl p-4 text-center">
+                  <p className="text-sm text-gray-500 mb-2">No environment variables added</p>
+                  <button
+                    type="button"
+                    onClick={addEnvVar}
+                    className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                  >
+                    + Add Variable
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-black border border-white/10 rounded-xl p-3 space-y-2">
+                  {envVars.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="KEY"
+                        value={row.key}
+                        onChange={(e) => updateEnvVar(i, 'key', e.target.value.toUpperCase())}
+                        className="w-2/5 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none font-mono text-xs focus:border-purple-500/50 transition-colors"
+                      />
+                      <input
+                        type="text"
+                        placeholder="value"
+                        value={row.value}
+                        onChange={(e) => updateEnvVar(i, 'value', e.target.value)}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none font-mono text-xs focus:border-purple-500/50 transition-colors"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeEnvVar(i)}
+                        className="p-2 text-gray-500 hover:text-red-400 transition-colors shrink-0"
+                        aria-label="Remove variable"
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={addEnvVar}
+                    className="flex items-center gap-1.5 text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors pt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Variable
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-white/10 mt-8">

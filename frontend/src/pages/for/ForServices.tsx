@@ -25,7 +25,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Win more clients. Deliver on time. <span className="text-murzak-gradient">Get paid faster.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's service businesses have been waiting for. Stop chasing invoices and sending proposals in Word docs.
           </p>
         </div>

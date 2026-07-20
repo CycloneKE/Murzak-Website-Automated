@@ -23,7 +23,7 @@ const SLA: React.FC = () => {
           <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
             Reliability <br /><span className="text-murzak-accent">assurance.</span>
           </h1>
-          <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-600 font-bold max-w-2xl opacity-90 mx-auto lg:mx-0">
+          <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90 mx-auto lg:mx-0">
             Our unyielding commitment to system uptime and technical integrity.
           </p>
         </div>
@@ -36,8 +36,8 @@ const SLA: React.FC = () => {
               <div className="bg-murzak-ink p-12 rounded-[3.5rem] text-white shadow-3xl relative overflow-hidden group">
                 <Zap size={40} className="text-murzak-accent mb-8" />
                 <h2 className="text-6xl font-[900] mb-4 tracking-tighter">99.9%</h2>
-                <h3 className="text-micro font-black uppercase text-slate-600 mb-10">Uptime guarantee</h3>
-                <p className="text-base font-bold text-slate-600 leading-relaxed">We guarantee monthly network availability. If we fall below this threshold, Business clients are eligible for service credits.</p>
+                <h3 className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-10">Uptime guarantee</h3>
+                <p className="text-base font-bold text-slate-600 dark:text-slate-400 leading-relaxed">We guarantee monthly network availability. If we fall below this threshold, Business clients are eligible for service credits.</p>
               </div>
               <div className="bg-white/20 dark:bg-black/5 p-12 rounded-[3.5rem] border border-slate-200 dark:border-murzak-border shadow-xl backdrop-blur-sm">
                 <Clock size={40} className="text-murzak-accent mb-8" />

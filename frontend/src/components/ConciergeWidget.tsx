@@ -153,7 +153,7 @@ const ConciergeWidget: React.FC = () => {
               </button>
             </div>
             <div className="mt-2 text-center">
-              <span className="text-micro text-slate-600 uppercase">Murzaker AI can make mistakes. Verify important info.</span>
+              <span className="text-micro text-slate-600 dark:text-slate-400 uppercase">Murzaker AI can make mistakes. Verify important info.</span>
             </div>
           </div>
         </div>

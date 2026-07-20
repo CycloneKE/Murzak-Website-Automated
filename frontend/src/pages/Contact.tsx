@@ -245,7 +245,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
     `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
 
   const labelClasses =
-    "block text-micro font-black text-slate-600 dark:text-slate-600 uppercase mb-2 ml-1";
+    "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
@@ -266,7 +266,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <h3 className="text-base sm:text-lg font-black tracking-tight text-murzak-ink dark:text-murzak-ink">
                 Chat with support
               </h3>
-              <p className="text-micro font-black uppercase text-slate-600 mt-1">
+              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1">
                 Signed in as {email}
               </p>
             </div>
@@ -286,7 +286,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
           <div className="h-[52vh] sm:h-[380px] md:h-[460px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
             {messages.length === 0 ? (
               <div className="text-center py-12 sm:py-16 bg-slate-50 dark:bg-black/5 rounded-[1.75rem] sm:rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                <p className="text-micro font-black uppercase text-slate-600">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   No messages yet. Start the conversation below.
                 </p>
               </div>

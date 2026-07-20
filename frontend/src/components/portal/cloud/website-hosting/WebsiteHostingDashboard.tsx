@@ -58,7 +58,7 @@ const tabClass = (active: boolean) =>
   `px-4 py-2.5 rounded-2xl text-micro font-black uppercase border transition-all ${
     active
       ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-sm"
-      : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-600 hover:border-murzak-accent/50"
+      : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-400 hover:border-murzak-accent/50"
   }`;
 
 const formatDateTime = (value?: string) => {
@@ -203,7 +203,7 @@ function FileList({
                 <p className="mt-2 text-xs text-slate-500 break-all">{file.filePath}</p>
               ) : null}
               {file.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">{file.notes}</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{file.notes}</p>
               ) : null}
             </div>
           </div>
@@ -243,7 +243,7 @@ function DeploymentList({
                 <p className="mt-2 text-xs text-slate-500 break-all">Target: {dep.targetPath}</p>
               ) : null}
               {dep.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">{dep.notes}</p>
+                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{dep.notes}</p>
               ) : null}
               <p className="mt-2 text-xs text-slate-500">{formatDateTime(dep.createdAt)}</p>
             </div>
@@ -597,7 +597,7 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Setup Type
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink">
@@ -606,7 +606,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Tier
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink">
@@ -615,7 +615,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Open Requests
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink">
@@ -624,7 +624,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Setup Progress
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink">
@@ -654,7 +654,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               Finish setup to activate your hosting
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-600">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-400">
               {choiceDetails.description}
             </p>
 
@@ -777,7 +777,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Domain Name
             </label>
             <input
@@ -794,7 +794,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Domain Extension
             </label>
             <select
@@ -812,7 +812,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Full Domain Preview
             </p>
             <p className="mt-2 text-lg font-black text-murzak-ink break-all">
@@ -823,7 +823,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -868,7 +868,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                         Provider: {r.provider || "Murzak Cloud"}
                       </p>
                       {r.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
                           {r.notes}
                         </p>
                       ) : null}
@@ -912,7 +912,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Subdomain Name
             </label>
             <input
@@ -929,7 +929,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Subdomain Preview
             </p>
             <p className="mt-2 text-lg font-black text-murzak-ink break-all">
@@ -938,7 +938,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Target Type
             </label>
             <select
@@ -953,7 +953,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Target Value
             </label>
             <input
@@ -965,7 +965,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -1010,7 +1010,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                         {s.targetType || "folder"} {s.targetValue ? `• ${s.targetValue}` : ""}
                       </p>
                       {s.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
                           {s.notes}
                         </p>
                       ) : null}
@@ -1052,7 +1052,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Domain Name
             </label>
             <input
@@ -1069,7 +1069,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Registrar
             </label>
             <input
@@ -1081,7 +1081,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -1126,7 +1126,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                         {d.registrar || "Registrar not provided"}
                       </p>
                       {d.verificationNotes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
                           {d.verificationNotes}
                         </p>
                       ) : null}
@@ -1197,7 +1197,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Category
             </label>
             <select
@@ -1215,7 +1215,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Title
             </label>
             <input
@@ -1227,7 +1227,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Description
             </label>
             <textarea
@@ -1270,7 +1270,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                       {r.category}
                     </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-600 mt-2">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
                       {r.description}
                     </p>
                     <p className="text-xs text-slate-500 mt-2">{formatDateTime(r.createdAt)}</p>
@@ -1289,7 +1289,7 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Active Host
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink break-all">
@@ -1298,7 +1298,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Hosting Status
           </p>
           <div className="mt-3">
@@ -1307,7 +1307,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             SSL Status
           </p>
           <div className="mt-3">
@@ -1318,7 +1318,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Storage Used
           </p>
           <h3 className="mt-3 text-lg font-black text-murzak-ink">
@@ -1346,7 +1346,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               {activeSite?.primaryHost}
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-600">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-400">
               Your hosting setup is active. You can now manage storage, files, deployments,
               subdomains, support requests and activity from this dashboard.
             </p>
@@ -1505,7 +1505,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             </div>
           </div>
           {activeSite?.notes ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border p-4 text-sm text-slate-600 dark:text-slate-600">
+            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border p-4 text-sm text-slate-600 dark:text-slate-400">
               {activeSite.notes}
             </div>
           ) : null}
@@ -1555,7 +1555,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Upload Category
             </label>
             <select
@@ -1571,7 +1571,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               File
             </label>
             <input
@@ -1592,7 +1592,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -1638,7 +1638,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Source File
             </label>
             <input
@@ -1655,7 +1655,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Deployment Type
             </label>
             <select
@@ -1674,7 +1674,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -1725,7 +1725,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Subdomain Label
             </label>
             <input
@@ -1742,7 +1742,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Subdomain Preview
             </p>
             <p className="mt-2 text-lg font-black text-murzak-ink break-all">
@@ -1751,7 +1751,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Target Type
             </label>
             <select
@@ -1766,7 +1766,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Target Value
             </label>
             <input
@@ -1778,7 +1778,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 mb-2">
+            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
               Notes
             </label>
             <textarea
@@ -1819,7 +1819,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                       {item.targetType || "folder"} {item.targetValue ? `• ${item.targetValue}` : ""}
                     </p>
                     {item.notes ? (
-                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">
+                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                         {item.notes}
                       </p>
                     ) : null}
@@ -1851,7 +1851,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 <div>
                   <p className="font-black text-murzak-ink">{item.title}</p>
                   {item.description ? (
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-600">
+                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                       {item.description}
                     </p>
                   ) : null}
@@ -1881,7 +1881,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Website Hosting • {payload.service.tier || "Standard"}
             </p>
 
@@ -1889,7 +1889,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               {isLiveMode ? "Hosting Control Panel" : "Website Hosting Setup"}
             </h2>
 
-            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-600">
+            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
               {isLiveMode
                 ? "Your hosting is active. Manage domain access, storage, uploads, deployments, subdomains and support from one place."
                 : "Complete your domain or subdomain setup. Once Murzak Tech finishes provisioning, this dashboard will automatically switch into live hosting mode."}
@@ -2006,7 +2006,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className="rounded-[1.75rem] border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Need help next?
             </p>
             <h3 className="mt-2 text-lg font-black text-murzak-ink">

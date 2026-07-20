@@ -114,7 +114,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {step === 0 && (
             <div className="animate-fade-in">
               <p className="text-base font-black text-murzak-ink mb-1">What do you want to host?</p>
-              <p className="text-label font-bold text-slate-600 mb-5">Pick the closest match.</p>
+              <p className="text-label font-bold text-slate-600 dark:text-slate-400 mb-5">Pick the closest match.</p>
               <div className="space-y-2.5">
                 {NEEDS.map((n) => (
                   <button
@@ -126,7 +126,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   >
                     <span>
                       <span className="block text-sm font-black text-murzak-ink">{n.label}</span>
-                      <span className="block text-label font-bold text-slate-600">{n.sub}</span>
+                      <span className="block text-label font-bold text-slate-600 dark:text-slate-400">{n.sub}</span>
                     </span>
                     <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0" />
                   </button>
@@ -139,7 +139,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {step === 1 && (
             <div className="animate-fade-in">
               <p className="text-base font-black text-murzak-ink mb-1">How big is your team?</p>
-              <p className="text-label font-bold text-slate-600 mb-5">This helps us size the right capacity.</p>
+              <p className="text-label font-bold text-slate-600 dark:text-slate-400 mb-5">This helps us size the right capacity.</p>
               <div className="grid grid-cols-2 gap-2.5">
                 {SIZES.map((s) => (
                   <button
@@ -153,7 +153,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   </button>
                 ))}
               </div>
-              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 hover:text-murzak-accent">
+              <button onClick={() => setStep(0)} className="mt-5 inline-flex items-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-murzak-accent">
                 <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
             </div>
@@ -171,7 +171,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   <span className="text-murzak-gradient"> · from {formatKes(recMeta.startingKes)}/mo</span>
                 )}
               </h4>
-              <p className="mt-3 text-[13px] font-bold text-slate-500 dark:text-slate-600 leading-relaxed">{rec.reason}</p>
+              <p className="mt-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed">{rec.reason}</p>
 
               <div className="mt-6 space-y-3">
                 {rec.plan === "Enterprise" ? (
@@ -189,7 +189,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                     Configure this plan <ArrowRight size={16} />
                   </button>
                 )}
-                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 hover:text-murzak-accent">
+                <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-murzak-accent">
                   <RefreshCw className="w-3.5 h-3.5" /> Start over
                 </button>
               </div>

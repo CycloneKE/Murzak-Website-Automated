@@ -142,7 +142,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight text-murzak-ink">
                 Welcome to Murzak, {first} 👋
               </h2>
-              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-600 leading-relaxed max-w-md mx-auto">
+              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
                 This is your home base. From here you’ll set up your services, pay in shillings, and reach
                 a real person in Nairobi whenever you need one. Let’s get you sorted — it takes about two minutes.
               </p>
@@ -152,7 +152,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               >
                 Let’s go <ArrowRight size={16} />
               </button>
-              <button onClick={onClose} className="mt-4 block mx-auto text-micro font-black uppercase text-slate-600 hover:text-murzak-accent transition">
+              <button onClick={onClose} className="mt-4 block mx-auto text-micro font-black uppercase text-slate-600 dark:text-slate-400 hover:text-murzak-accent transition">
                 Skip for now
               </button>
             </div>
@@ -180,7 +180,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                   >
                     <span className={`inline-flex p-2.5 rounded-xl mb-3 ${goal === g.id ? "bg-murzak-accent text-murzak-ink" : "bg-murzak-accent/10 text-murzak-accent"}`}>{g.icon}</span>
                     <div className="text-sm font-black text-murzak-ink">{g.label}</div>
-                    <div className="text-label font-bold text-slate-600">{g.sub}</div>
+                    <div className="text-label font-bold text-slate-600 dark:text-slate-400">{g.sub}</div>
                   </button>
                 ))}
               </div>
@@ -269,7 +269,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 <PartyPopper size={30} />
               </div>
               <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight text-murzak-ink">You’re all set! 🎉</h2>
-              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-600 leading-relaxed max-w-md mx-auto">
+              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
                 That’s the tour. Everything you need is in the menu on the left — and our Nairobi team is one
                 message away. Welcome aboard, {first}.
               </p>

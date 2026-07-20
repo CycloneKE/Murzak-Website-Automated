@@ -237,7 +237,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
     <div className="mb-8 rounded-3xl border border-murzak-border bg-black/10 p-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <p className="text-label font-black text-slate-600 uppercase tracking-widest">Order summary</p>
+          <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">Order summary</p>
           <p className="text-sm font-bold text-slate-500 mt-1">
             Invoice {invoice?.invoiceNo || "…"}{invoice?.plan ? ` · ${invoice.plan} plan` : ""}
           </p>
@@ -249,7 +249,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
       {services.length > 0 && (
         <ul className="space-y-2 border-t border-murzak-border pt-4">
           {services.map((s) => (
-            <li key={s.serviceId || s.serviceName} className="flex items-center gap-2 text-sm font-bold text-slate-600">
+            <li key={s.serviceId || s.serviceName} className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400">
               <CheckCircle2 size={14} className="text-murzak-accent shrink-0" />
               {s.serviceName || s.serviceId}
               {s.tier ? <span className="text-slate-500 font-semibold">· {s.tier}</span> : null}
@@ -275,7 +275,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
       </div>
       <div className="max-w-4xl w-full relative z-10">
         <div className="text-center mb-12">
-          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-600 font-black text-label uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
+          <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 font-black text-label uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
             <ChevronLeft size={16} /> Back to your portal
           </button>
           <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink mb-4 tracking-tighter leading-none">
@@ -290,13 +290,13 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
           {step === 'form' ? (
             <div className="flex flex-col lg:flex-row h-full">
               <div className="lg:w-1/3 border-b lg:border-b-0 lg:border-r border-murzak-border p-8 lg:p-12 space-y-4 bg-black/10">
-                <h3 className="text-label font-black text-slate-600 uppercase tracking-widest mb-6">Payment method</h3>
+                <h3 className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-6">Payment method</h3>
                 {methods.map((m) => (
                   <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-accent shadow-[0_0_15px_rgba(0,189,252,0.2)]' : 'bg-transparent border-transparent hover:bg-black/5'}`}>
                     <div className={`${method === m.id ? 'text-murzak-accent' : 'text-slate-500'}`}>{m.icon}</div>
                     <div>
                       <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-ink' : 'text-slate-500'}`}>{m.label}</span>
-                      <span className="text-label font-bold text-slate-600">{m.sub}</span>
+                      <span className="text-label font-bold text-slate-600 dark:text-slate-400">{m.sub}</span>
                     </div>
                   </button>
                 ))}
@@ -327,7 +327,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                         </p>
                       </div>
                       <div className="space-y-3">
-                        <label className="text-label font-black text-slate-600 uppercase tracking-widest ml-1">M-Pesa phone number</label>
+                        <label className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest ml-1">M-Pesa phone number</label>
                         <input
                           type="tel"
                           placeholder="e.g. 0712 345 678"
@@ -404,7 +404,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
                     type="button"
                     onClick={handleCancelProcessing}
                     disabled={checkingStatus}
-                    className="bg-slate-100 dark:bg-black/5 text-slate-600 dark:text-slate-600 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50">
+                    className="bg-slate-100 dark:bg-black/5 text-slate-600 dark:text-slate-400 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-transform disabled:opacity-50">
                     Start over
                   </button>
                 </div>
@@ -426,7 +426,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
               <CheckCircle2 size={56} className="text-green-500 mb-8" />
               <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4">Payment received</h3>
               {mpesaReceipt && (
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 bg-black/5 border border-murzak-border rounded-2xl px-5 py-3 mb-6">
+                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 bg-black/5 border border-murzak-border rounded-2xl px-5 py-3 mb-6">
                   <Receipt size={16} className="text-murzak-accent" /> M-Pesa confirmation: <span className="font-black text-murzak-ink">{mpesaReceipt}</span>
                 </p>
               )}

@@ -65,16 +65,16 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
             <ul className="space-y-3 mb-7">
               <li>
-                <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-3 text-slate-600 hover:text-murzak-accent transition-colors text-sm font-bold">
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-3 text-slate-600 dark:text-slate-400 hover:text-murzak-accent transition-colors text-sm font-bold">
                   <span className="p-2 rounded-xl bg-black/5 text-murzak-accent"><Mail size={15} /></span>
                   {SUPPORT_EMAIL}
                 </a>
               </li>
-              <li className="flex items-center gap-3 text-slate-600 text-sm font-bold">
+              <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400 text-sm font-bold">
                 <span className="p-2 rounded-xl bg-black/5 text-murzak-accent"><MapPin size={15} /></span>
                 Nairobi, Kenya
               </li>
-              <li className="flex items-center gap-3 text-slate-600 text-sm font-bold">
+              <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400 text-sm font-bold">
                 <span className="p-2 rounded-xl bg-black/5 text-murzak-accent"><Clock size={15} /></span>
                 Mon–Fri · 8:00–18:00 EAT
               </li>
@@ -136,7 +136,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <div className="w-2.5 h-2.5 bg-murzak-accent rounded-full" />
                 <span className="text-label font-black uppercase tracking-widest text-murzak-ink">Nairobi-managed cloud</span>
               </div>
-              <p className="text-micro text-slate-600 font-bold uppercase leading-relaxed">
+              <p className="text-micro text-slate-600 dark:text-slate-400 font-bold uppercase leading-relaxed">
                 Daily backups · Enabled<br />
                 SSL &amp; security · Enforced<br />
                 M-Pesa &amp; KES billing
@@ -151,7 +151,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-600 text-micro font-black uppercase text-center md:text-left gap-6">
+        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-600 dark:text-slate-400 text-micro font-black uppercase text-center md:text-left gap-6">
           <p>© {new Date().getFullYear()} Murzak Technologies Limited · Registered in Kenya</p>
           <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
             <button onClick={() => onNavigate('about')} className="hover:text-murzak-ink transition-colors">About</button>

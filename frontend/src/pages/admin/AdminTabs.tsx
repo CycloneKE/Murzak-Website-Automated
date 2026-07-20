@@ -27,7 +27,7 @@ const InfraAccessBar: React.FC = () => {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-micro font-black uppercase border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-slate-600 hover:text-murzak-accent hover:border-murzak-accent/40 transition"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-micro font-black uppercase border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-slate-600 dark:text-slate-400 hover:text-murzak-accent hover:border-murzak-accent/40 transition"
       >
         {icon} {label} <ExternalLink className="w-3 h-3 opacity-60" />
       </a>

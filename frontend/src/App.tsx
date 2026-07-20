@@ -318,7 +318,7 @@ const App: React.FC = () => {
           <div className="w-16 h-16 rounded-2xl bg-black/5 backdrop-blur-xl border border-murzak-border flex items-center justify-center shadow-[0_0_30px_rgba(0,189,252,0.2)] animate-glow-pulse mb-6">
             <div className="w-8 h-8 rounded-full border-t-2 border-b-2 border-murzak-accent animate-spin"></div>
           </div>
-          <p className="text-micro font-black uppercase text-slate-600 animate-pulse">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 animate-pulse">
             Authenticating...
           </p>
         </div>
@@ -367,7 +367,14 @@ const App: React.FC = () => {
               <Route path="/for/logistics" element={<ForLogistics onNavigate={onNavigate} />} />
               <Route path="/for/services" element={<ForServices onNavigate={onNavigate} />} />
 
-              <Route path="/deploy" element={<DeployWizard />} />
+              <Route
+                path="/deploy"
+                element={
+                  <RequireAuth user={user}>
+                    <DeployWizard />
+                  </RequireAuth>
+                }
+              />
 
               <Route path="/login" element={<Login onLogin={handleLogin} onNavigate={onNavigate} initialPlan={pendingPlan} defaultMode="login" />} />
 

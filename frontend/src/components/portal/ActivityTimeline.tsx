@@ -42,9 +42,9 @@ export default function ActivityTimeline({ events }: ActivityTimelineProps) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h4 className="text-[12px] font-black text-murzak-ink">{event.title}</h4>
-                <p className="text-label font-medium text-slate-600 mt-1 leading-relaxed">{event.description}</p>
+                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{event.description}</p>
               </div>
-              <span className="text-micro font-black uppercase text-slate-600 shrink-0">
+              <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 shrink-0">
                 {event.timestamp}
               </span>
             </div>

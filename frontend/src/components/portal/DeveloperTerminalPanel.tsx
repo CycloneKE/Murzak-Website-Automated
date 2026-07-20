@@ -90,14 +90,14 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
     <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
       <div className="flex items-center gap-3 mb-3">
         <Terminal className="w-5 h-5 text-murzak-accent" />
-        <p className="text-micro font-black uppercase text-slate-600">Developer Access</p>
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Developer Access</p>
       </div>
 
       {loading ? (
         <p className="text-label font-medium text-slate-500">Checking access…</p>
       ) : !eligibility?.enterprisePlan ? (
         <div>
-          <p className="text-label font-medium text-slate-600 dark:text-slate-600 mb-3">
+          <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-3">
             A jailed shell into this service is available on the Enterprise plan.
           </p>
           <button
@@ -111,7 +111,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
       ) : !eligibility.approved ? (
         <div className="flex items-start gap-3">
           <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-label font-medium text-slate-600 dark:text-slate-600">
+          <p className="text-label font-medium text-slate-600 dark:text-slate-400">
             Your developer access request is awaiting approval from our team — you'll be able to
             connect as soon as it's confirmed.
           </p>
@@ -120,7 +120,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
         <div>
           <div className="flex items-start gap-3 mb-4">
             <ShieldCheck className="w-4 h-4 text-murzak-accent shrink-0 mt-0.5" />
-            <div className="text-label font-medium text-slate-600 dark:text-slate-600 space-y-2">
+            <div className="text-label font-medium text-slate-600 dark:text-slate-400 space-y-2">
               <p>
                 Before your first session, please review: this shell runs inside your own service's
                 container — you'll be able to see its internal network address, hostname, and

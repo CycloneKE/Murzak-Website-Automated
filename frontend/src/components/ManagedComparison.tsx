@@ -32,7 +32,7 @@ export default function ManagedComparison() {
         <div className="grid grid-cols-[1.4fr_1fr_1fr]">
           <div className="p-4 sm:p-5" />
           <div className="p-4 sm:p-5 text-center border-l border-slate-200 dark:border-murzak-border">
-            <span className="text-micro sm:text-xs font-black uppercase text-slate-600">Raw VPS / DIY</span>
+            <span className="text-micro sm:text-xs font-black uppercase text-slate-600 dark:text-slate-400">Raw VPS / DIY</span>
           </div>
           <div className="p-4 sm:p-5 text-center border-l border-slate-200 dark:border-murzak-border bg-brand-gradient">
             <span className="text-micro sm:text-xs font-black uppercase text-murzak-ink">Murzak Managed</span>
@@ -51,9 +51,9 @@ export default function ManagedComparison() {
             </div>
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center text-center">
               {r.diy === false ? (
-                <X className="w-4 h-4 text-slate-600 dark:text-slate-600" />
+                <X className="w-4 h-4 text-slate-600 dark:text-slate-400" />
               ) : (
-                <span className="text-micro sm:text-[12px] font-bold text-slate-600 dark:text-slate-600">{r.diy}</span>
+                <span className="text-micro sm:text-[12px] font-bold text-slate-600 dark:text-slate-400">{r.diy}</span>
               )}
             </div>
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center gap-2 text-center">

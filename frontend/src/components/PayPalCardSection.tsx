@@ -163,26 +163,26 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
         <div className="space-y-8 animate-fade-in">
           <div className="flex items-center gap-4 p-6 bg-murzak-accent/5 border border-murzak-accent/20 rounded-3xl">
             <ShieldCheck size={20} className="text-murzak-accent" />
-            <p className="text-micro font-bold text-slate-600 dark:text-slate-600 uppercase leading-relaxed">
+            <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase leading-relaxed">
               Secure card payment processed by PayPal
             </p>
           </div>
 
           <div className="glass-panel p-5 rounded-2xl">
-            <div className="text-micro font-black uppercase text-slate-600">
+            <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Invoice amount
             </div>
             <div className="mt-2 text-xl font-black text-murzak-ink">
               KES {Number(amountKes || 0).toLocaleString()}
             </div>
-            <div className="mt-1 text-label font-bold text-slate-600">
+            <div className="mt-1 text-label font-bold text-slate-600 dark:text-slate-400">
               Card charge: USD {Number(amountUsd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6">
             <div className="space-y-3">
-              <label className="text-micro font-black text-slate-600 uppercase ml-1">
+              <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase ml-1">
                 Name on Card
               </label>
               <div className="w-full glass-input rounded-2xl px-6 py-5">
@@ -191,7 +191,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
             </div>
 
             <div className="space-y-3">
-              <label className="text-micro font-black text-slate-600 uppercase ml-1">
+              <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase ml-1">
                 Card Number
               </label>
               <div className="relative w-full glass-input rounded-2xl px-16 py-5">
@@ -202,7 +202,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
-                <label className="text-micro font-black text-slate-600 uppercase ml-1">
+                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase ml-1">
                   Expiry
                 </label>
                 <div className="w-full glass-input rounded-2xl px-8 py-5">
@@ -211,7 +211,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
               </div>
 
               <div className="space-y-3">
-                <label className="text-micro font-black text-slate-600 uppercase ml-1">
+                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase ml-1">
                   CVC
                 </label>
                 <div className="w-full glass-input rounded-2xl px-8 py-5">

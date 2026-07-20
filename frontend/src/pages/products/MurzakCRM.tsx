@@ -38,7 +38,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Every lead tracked. <span className="text-murzak-gradient">Every ticket answered.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
             Stop losing leads in personal WhatsApp threads. Centralize your sales and customer support in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">

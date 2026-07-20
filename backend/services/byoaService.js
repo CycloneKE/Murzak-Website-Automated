@@ -2,8 +2,6 @@ const fetch = require('node-fetch');
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'mock_github_client_id';
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'mock_github_client_secret';
-const COOLIFY_API_URL = process.env.COOLIFY_API_URL || 'http://mock-coolify-api:3000';
-const COOLIFY_API_TOKEN = process.env.COOLIFY_API_TOKEN || 'mock_coolify_token';
 
 class ByoaService {
   /**
@@ -107,68 +105,15 @@ class ByoaService {
     };
   }
 
-  /**
-   * Start Coolify Deployment
-   * Creates an application in Coolify and triggers a deployment.
-   */
-  async startCoolifyDeployment(config) {
-    console.log('[ByoaService] Starting Coolify Deployment with config:', config);
-    
-    if (COOLIFY_API_TOKEN === 'mock_coolify_token') {
-      console.warn('[ByoaService] Using MOCK Coolify API. Returning mock deployment UUID.');
-      // Simulate fake Coolify deployment UUID
-      return { deploymentUuid: 'mock-deploy-uuid-999', applicationUuid: 'mock-app-uuid-888' };
-    }
-
-    try {
-      // 1. Create Application in Coolify (simplified payload)
-      const createAppRes = await fetch(`${COOLIFY_API_URL}/api/v1/applications/public-repository`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${COOLIFY_API_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          repository: config.repository.url,
-          branch: config.branch || config.repository.defaultBranch || 'main',
-          build_command: config.stackDetails.buildCommand,
-          install_command: config.stackDetails.installCommand,
-          publish_directory: config.stackDetails.outputDirectory,
-          fqdn: `https://${config.subdomain}.murzak.app`
-        })
-      });
-
-      if (!createAppRes.ok) {
-        const err = await createAppRes.text();
-        throw new Error(`Coolify Application Creation Failed: ${err}`);
-      }
-      const appData = await createAppRes.json();
-      const applicationUuid = appData.uuid;
-
-      // 2. Trigger Deployment
-      const deployRes = await fetch(`${COOLIFY_API_URL}/api/v1/applications/${applicationUuid}/start`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${COOLIFY_API_TOKEN}`,
-        }
-      });
-
-      if (!deployRes.ok) {
-        const err = await deployRes.text();
-        throw new Error(`Coolify Deployment Trigger Failed: ${err}`);
-      }
-      
-      const deployData = await deployRes.json();
-      return {
-        deploymentUuid: deployData.deployment_uuid,
-        applicationUuid
-      };
-      
-    } catch (error) {
-      console.error('[ByoaService] Coolify Deployment Error:', error);
-      throw error;
-    }
-  }
+  // NOTE: this class used to also own startCoolifyDeployment() — a second,
+  // independent Coolify-calling path (create app + set envs + trigger
+  // deploy) that duplicated and drifted from the tested lane in
+  // provisioning/lanes/coolify.js (wrong env var names, wrong endpoint
+  // paths, a hardcoded unregistered domain — see murzaktech-byoa-app-hosting
+  // memory). Removed 2026-07-20: byoaRoutes.js's /deploy now writes the
+  // selected repo onto the account and (re)queues the SAME Provisioning Job
+  // the repo-URL/checkout pipeline uses, so there is exactly one
+  // Coolify-calling code path for BYOA deploys, not two.
 }
 
 module.exports = new ByoaService();

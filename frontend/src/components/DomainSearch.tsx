@@ -30,7 +30,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
 
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/20 p-4">
-      <div className="text-micro font-black uppercase text-slate-600 mb-2.5">
+      <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2.5">
         Find your domain
       </div>
 
@@ -74,7 +74,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                   {r.available ? (
                     <Check className="w-4 h-4 text-green-500 shrink-0" />
                   ) : (
-                    <CircleSlash className="w-4 h-4 text-slate-600 dark:text-slate-600 shrink-0" />
+                    <CircleSlash className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
                   )}
                   <span className={`text-sm font-black truncate ${r.available ? "text-murzak-ink" : "text-slate-500 line-through"}`}>
                     {r.domain}
@@ -84,7 +84,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                 <div className="shrink-0 flex items-center gap-3">
                   {r.available ? (
                     <>
-                      <span className="text-label font-black text-slate-600 dark:text-slate-600">
+                      <span className="text-label font-black text-slate-600 dark:text-slate-400">
                         {formatKes(r.priceKes)}/yr
                       </span>
                       <button
@@ -100,7 +100,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                       </button>
                     </>
                   ) : (
-                    <span className="text-micro font-black uppercase text-slate-600">Taken</span>
+                    <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Taken</span>
                   )}
                 </div>
               </li>

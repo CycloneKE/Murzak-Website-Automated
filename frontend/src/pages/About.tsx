@@ -101,7 +101,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               ].map((s) => (
                 <div key={s.label} className="bg-black/5 p-6 lg:p-8">
                   <div className="text-2xl lg:text-3xl font-[900] text-murzak-gradient tracking-tight">{s.big}</div>
-                  <div className="font-mono text-micro uppercase text-slate-600 mt-1">{s.label}</div>
+                  <div className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400 mt-1">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -247,7 +247,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
                   Talk to a real person — <span className="text-murzak-gradient">no call centre.</span>
                 </h2>
-                <p className="mt-5 text-slate-600 font-medium leading-relaxed max-w-md">
+                <p className="mt-5 text-slate-600 dark:text-slate-400 font-medium leading-relaxed max-w-md">
                   Tell us what you’re trying to do in plain words. Our Nairobi team usually replies within one
                   business day — and you’ll be talking to the people who actually run your systems.
                 </p>

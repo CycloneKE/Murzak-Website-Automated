@@ -24,7 +24,7 @@ const PrivacyPolicy: React.FC = () => {
             <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
               Privacy <br /><span className="text-murzak-accent">protocol.</span>
             </h1>
-            <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-600 font-bold max-w-2xl opacity-90">
+            <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">
               Regional data integrity aligned with the Kenya Data Protection Act 2019.
             </p>
           </div>

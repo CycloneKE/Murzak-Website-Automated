@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowRight, Globe, Mail, Database, HardDrive, ShieldCheck, RefreshCw,
-  Activity, Headphones, Smartphone,
+  ArrowRight, ArrowUpRight, Globe, Mail, Database, HardDrive, ShieldCheck, RefreshCw,
+  Activity, Headphones, Smartphone, Github,
 } from 'lucide-react';
-import { NavProps } from '../types';
+import { NavProps, Page } from '../types';
 import { Button } from '../components/ui/Button';
 import CloudLaunchModal from '../components/CloudLaunchModal';
 import MetricBar from '../components/mockups/MetricBar';
@@ -24,11 +24,12 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       setLaunchOpen(true);
     }
   }, [searchParams]);
-  const whatYouCanHost = [
+  const whatYouCanHost: { icon: React.ReactNode; t: string; s: string; page?: Page }[] = [
     { icon: <Globe size={20} />, t: 'Websites & online stores', s: 'WordPress, custom sites, light e-commerce — fast and SSL-secured.' },
     { icon: <Mail size={20} />, t: 'Business email', s: 'Professional mail on your domain, with spam filtering and admin controls.' },
     { icon: <Database size={20} />, t: 'Databases', s: 'Managed MySQL/Postgres for your apps, tuned and backed up.' },
     { icon: <HardDrive size={20} />, t: 'File storage', s: 'A private cloud drive for your team — share without the chaos.' },
+    { icon: <Github size={20} />, t: 'Your own app', s: 'Connect a GitHub repo and we build, deploy and keep it running.', page: 'deploy' },
   ];
 
   const managed = [
@@ -63,7 +64,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                 Try it free for 36h
               </Button>
             </div>
-            <p className="mt-5 font-mono text-label uppercase tracking-widest text-slate-600">No card required · Live in a day</p>
+            <p className="mt-5 font-mono text-label uppercase tracking-widest text-slate-600 dark:text-slate-400">No card required · Live in a day</p>
           </div>
 
           <div className="lg:col-span-5 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 shadow-2xl flex flex-col gap-8">
@@ -108,15 +109,25 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything your business runs online.</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
-            {whatYouCanHost.map((c) => (
-              <div key={c.t} className="flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08]">
-                <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{c.icon}</span>
-                <div>
-                  <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">{c.t}</h3>
-                  <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
-                </div>
-              </div>
-            ))}
+            {whatYouCanHost.map((c) => {
+              const Tag = c.page ? 'button' : 'div';
+              return (
+                <Tag
+                  key={c.t}
+                  onClick={c.page ? () => onNavigate(c.page as Page) : undefined}
+                  className={`flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08] ${c.page ? 'text-left w-full group hover:border-murzak-accent/40 dark:hover:border-murzak-accent/40' : ''}`}
+                >
+                  <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{c.icon}</span>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5 flex items-center gap-2">
+                      {c.t}
+                      {c.page && <ArrowUpRight size={15} className="text-murzak-accent opacity-0 group-hover:opacity-100 transition-opacity" />}
+                    </h3>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
+                  </div>
+                </Tag>
+              );
+            })}
           </div>
         </div>
       </section>

@@ -14,7 +14,7 @@
       "name": "murzak-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
-      "port": 5173
+      "port": 5175
     }
   ]
 }

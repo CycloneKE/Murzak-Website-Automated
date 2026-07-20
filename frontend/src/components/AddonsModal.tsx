@@ -203,7 +203,7 @@ return createPortal(
   >
     {addons.length === 0 ? (
       <div className="text-center py-16 rounded-[2rem] border border-dashed border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
-        <p className="text-micro font-black uppercase text-slate-600">
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           No add-ons available for this plan tier yet.
         </p>
       </div>
@@ -224,19 +224,19 @@ return createPortal(
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     {a.category} • {a.tier}
                   </p>
                   <p className="text-sm sm:text-base font-black text-murzak-ink mt-2">
                     {a.name}
                   </p>
-                  <p className="text-micro font-bold text-slate-600 dark:text-slate-600 mt-2 line-clamp-2">
+                  <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
                     {a.description}
                   </p>
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     Monthly
                   </p>
                   <p className="text-lg font-black text-murzak-ink">
@@ -265,12 +265,12 @@ return createPortal(
     <div className="sticky top-4 space-y-4">
       {/* Selected list */}
       <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-600">
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           Selected
         </p>
 
         {selectedDisplay.length === 0 ? (
-          <p className="mt-4 text-micro font-bold text-slate-600 dark:text-slate-600">
+          <p className="mt-4 text-micro font-bold text-slate-600 dark:text-slate-400">
             Pick add-ons to continue.
           </p>
         ) : (
@@ -282,7 +282,7 @@ return createPortal(
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-micro font-black uppercase text-slate-600">
+                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                       #{idx + 1} • {row.tier}
                     </p>
                     <p className="text-sm font-black text-murzak-ink mt-1 truncate">
@@ -313,13 +313,13 @@ return createPortal(
 
       {/* Total + CTA */}
       <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
-        <p className="text-micro font-black uppercase text-slate-600">
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           Total monthly
         </p>
         <p className="text-2xl font-black text-murzak-accent mt-2">
           KES {total.toLocaleString()}
         </p>
-        <p className="text-micro font-black uppercase text-slate-600 mt-2">
+        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
           Selected: {selectedList.length}
         </p>
 
@@ -359,13 +359,13 @@ return createPortal(
 <div className="sm:hidden p-4 border-t border-slate-200 dark:border-murzak-border bg-white/95 dark:bg-murzak-ink/95">
   <div className="flex items-center justify-between gap-3">
     <div>
-      <p className="text-micro font-black uppercase text-slate-600">
+      <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
         Total monthly
       </p>
       <p className="text-lg font-black text-murzak-accent">
         KES {total.toLocaleString()}
       </p>
-      <p className="text-micro font-black uppercase text-slate-600">
+      <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
         Selected: {selectedList.length}
       </p>
     </div>
@@ -404,7 +404,7 @@ return createPortal(
             <p className="text-micro font-black truncate text-murzak-ink">
               {row.name}
             </p>
-            <p className="text-micro font-black uppercase text-slate-600">
+            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               KES {Number(row.price || 0).toLocaleString()}
             </p>
           </div>

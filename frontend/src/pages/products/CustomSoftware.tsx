@@ -70,12 +70,12 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
 
           <div className="grid md:grid-cols-4 gap-6">
              <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
-                <div className="absolute top-4 right-4 text-slate-600 font-black text-4xl opacity-30">1</div>
+                <div className="absolute top-4 right-4 text-slate-600 dark:text-slate-400 font-black text-4xl opacity-30">1</div>
                 <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">We Listen</h3>
                 <p className="text-sm text-slate-500">We map out your current bottlenecks, spreadsheets, and manual processes.</p>
              </div>
              <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
-                <div className="absolute top-4 right-4 text-slate-600 font-black text-4xl opacity-30">2</div>
+                <div className="absolute top-4 right-4 text-slate-600 dark:text-slate-400 font-black text-4xl opacity-30">2</div>
                 <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">Design & Quote</h3>
                 <p className="text-sm text-slate-500">You get a clickable wireframe and a fixed-price quote before writing any code.</p>
              </div>
@@ -132,7 +132,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
                 </p>
                 <div className="flex flex-wrap gap-2">
                    {['React', 'Node.js', 'Python', 'PostgreSQL', 'Flutter', 'Tailwind'].map(tech => (
-                     <span key={tech} className="px-3 py-1 rounded-full bg-black/5 text-xs font-mono text-slate-600">
+                     <span key={tech} className="px-3 py-1 rounded-full bg-black/5 text-xs font-mono text-slate-600 dark:text-slate-400">
                        {tech}
                      </span>
                    ))}

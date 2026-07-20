@@ -1393,7 +1393,7 @@ const renderCloudSystemsGrid = () => null;
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">System Health</h3>
-                  <p className="text-micro font-medium text-slate-600 mt-1">Live status of your active infrastructure</p>
+                  <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Live status of your active infrastructure</p>
                 </div>
                 <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink transition-colors p-2">
                   <ArrowRight size={20} />
@@ -1414,8 +1414,8 @@ const renderCloudSystemsGrid = () => null;
               ) : (
                 <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
                   <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
-                  <p className="text-label font-black uppercase tracking-widest text-slate-600 mb-2">No Active Services</p>
-                  <p className="text-micro text-slate-600 max-w-xs mx-auto mb-6">You don't have any infrastructure running yet.</p>
+                  <p className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-2">No Active Services</p>
+                  <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-6">You don't have any infrastructure running yet.</p>
                   <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-105 transition-all inline-flex items-center gap-2">
                     <Plus className="w-4 h-4" /> Deploy Services
                   </button>
@@ -1437,7 +1437,7 @@ const renderCloudSystemsGrid = () => null;
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Project Files</h3>
-                  <p className="text-micro font-medium text-slate-600 mt-1">Upload assets for engineers</p>
+                  <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Upload assets for engineers</p>
                 </div>
                 <label className="cursor-pointer px-4 py-2 rounded-xl bg-black/5 hover:bg-white/20 text-murzak-ink font-black text-micro uppercase transition-all inline-flex items-center gap-2">
                   <UploadCloud className="w-4 h-4" />
@@ -1475,7 +1475,7 @@ const renderCloudSystemsGrid = () => null;
                       <div className="p-2 bg-black/5 rounded-lg group-hover:bg-murzak-accent/10 group-hover:text-murzak-accent transition-colors">
                         <Download size={14} />
                       </div>
-                      <span className="text-micro font-bold text-slate-600 truncate">{f.name}</span>
+                      <span className="text-micro font-bold text-slate-600 dark:text-slate-400 truncate">{f.name}</span>
                     </a>
                   ))}
                 </div>
@@ -1509,7 +1509,7 @@ const renderCloudSystemsGrid = () => null;
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">
             Billing & Plans
           </h2>
-          <p className="text-micro font-black text-slate-600 uppercase mt-4">
+          <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
             Manage your subscription, services and invoices
           </p>
         </div>
@@ -1540,7 +1540,7 @@ const renderCloudSystemsGrid = () => null;
                 <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-murzak-ink">
                   {user.plan}
                 </h3>
-                <p className="text-micro font-bold text-slate-600 uppercase mb-8">
+                <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mb-8">
                   Monthly Billing • Next cycle in 14 days
                 </p>
 
@@ -1555,10 +1555,10 @@ const renderCloudSystemsGrid = () => null;
               </div>
 
               <div className="bg-black/5 border border-murzak-border rounded-3xl p-6 backdrop-blur-md self-start min-w-[200px]">
-                <p className="text-micro font-black uppercase text-slate-600 mb-2">Monthly Burn</p>
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">Monthly Burn</p>
                 <p className="text-3xl font-black text-murzak-accent tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
                 <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
-                  <span className="text-micro font-black uppercase text-slate-600">Slots used</span>
+                  <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Slots used</span>
                   <span className="text-micro font-black text-murzak-ink">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
                 </div>
               </div>
@@ -1602,7 +1602,7 @@ const renderCloudSystemsGrid = () => null;
                         >
                           {s.name}
                         </button>
-                        <p className="text-micro font-bold uppercase text-slate-600 mt-1">
+                        <p className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-1">
                           {s.category || "Service"} {s.tier ? `• ${s.tier}` : ""} {s.domainChoice ? `• Domain: ${s.domainChoice}` : ""}
                         </p>
                       </div>
@@ -1689,7 +1689,7 @@ const renderCloudSystemsGrid = () => null;
                     
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <p className="text-micro font-black text-slate-600 uppercase mb-1">
+                        <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">
                           {inv.date}
                         </p>
                         <p className="text-xs font-black text-murzak-ink">
@@ -1746,7 +1746,7 @@ const renderCloudSystemsGrid = () => null;
                         ) : (
                           <>
                             <Download className="w-4 h-4 text-slate-500" />
-                            {inv.status === 'Paid' && <span className="text-micro font-black uppercase text-slate-600">Download</span>}
+                            {inv.status === 'Paid' && <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Download</span>}
                           </>
                         )}
                       </button>
@@ -1795,7 +1795,7 @@ const renderCloudSystemsGrid = () => null;
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
         <div>
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Updates &amp; support</h2>
-          <p className="text-micro font-black text-slate-600 uppercase mt-4">
+          <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
             Messages from our Nairobi team — and your support thread
           </p>
         </div>
@@ -1850,7 +1850,7 @@ const renderCloudSystemsGrid = () => null;
             <h4 className="text-xl sm:text-2xl font-black tracking-tight text-murzak-ink group-hover:text-murzak-accent transition-colors">
               Need a hand with something?
             </h4>
-            <p className="text-micro sm:text-xs font-bold text-slate-600 uppercase mt-1">
+            <p className="text-micro sm:text-xs font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">
               Open your support thread with our engineering team
             </p>
           </div>
@@ -1875,7 +1875,7 @@ const renderCloudSystemsGrid = () => null;
               <select
                 value={updatesSort}
                 onChange={(e) => setUpdatesSort(e.target.value as any)}
-                className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-micro font-black uppercase text-slate-600 dark:text-slate-600 focus:outline-none focus:border-murzak-accent/50 focus:ring-1 focus:ring-murzak-accent/50"
+                className="w-full appearance-none px-4 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-micro font-black uppercase text-slate-600 dark:text-slate-400 focus:outline-none focus:border-murzak-accent/50 focus:ring-1 focus:ring-murzak-accent/50"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -1942,11 +1942,11 @@ const renderCloudSystemsGrid = () => null;
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                       <div className="flex items-center gap-3">
                         {isUnread && <div className="w-2 h-2 rounded-full bg-murzak-accent shadow-[0_0_8px_#00bdfc] animate-pulse"></div>}
-                        <span className={`text-label font-black uppercase tracking-widest ${isUnread ? 'text-murzak-accent' : 'text-slate-600 dark:text-slate-600'} group-hover:text-murzak-accent transition-colors`}>
+                        <span className={`text-label font-black uppercase tracking-widest ${isUnread ? 'text-murzak-accent' : 'text-slate-600 dark:text-slate-400'} group-hover:text-murzak-accent transition-colors`}>
                           {title}
                         </span>
                       </div>
-                      <span className="text-micro font-bold text-slate-600 uppercase flex items-center gap-1.5 ml-5 sm:ml-0">
+                      <span className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase flex items-center gap-1.5 ml-5 sm:ml-0">
                         <Calendar className="w-3 h-3" />
                         {new Date(update.timestamp).toLocaleDateString()} •{" "}
                         {new Date(update.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1975,7 +1975,7 @@ const renderCloudSystemsGrid = () => null;
                 {/* expanded details */}
                 <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-6' : 'grid-rows-[0fr] opacity-0'}`}>
                   <div className="overflow-hidden pl-9 pr-14">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-600 leading-relaxed bg-white/20 dark:bg-black/5 p-5 rounded-2xl border border-slate-100 dark:border-murzak-border/50">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-400 leading-relaxed bg-white/20 dark:bg-black/5 p-5 rounded-2xl border border-slate-100 dark:border-murzak-border/50">
                       {update.content}
                     </p>
 
@@ -1997,7 +1997,7 @@ const renderCloudSystemsGrid = () => null;
                           Mark as read <CheckCircle2 className="w-4 h-4" />
                         </button>
                       ) : (
-                        <span className="text-micro font-black uppercase text-slate-600 flex items-center gap-2">
+                        <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4" /> Read
                         </span>
                       )}
@@ -2016,7 +2016,7 @@ const renderCloudSystemsGrid = () => null;
               <p className="text-[12px] font-black text-slate-500 uppercase tracking-widest">
                 No updates yet
               </p>
-              <p className="text-micro font-bold text-slate-600 mt-2">
+              <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-2">
                 We'll notify you here when there's news about your systems.
               </p>
             </div>
@@ -2033,7 +2033,7 @@ const renderCloudSystemsGrid = () => null;
           <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">
             {cloudServiceId === "biz-web-hosting" ? "Website Hosting" : "My Systems"}
           </h2>
-          <p className="text-micro font-black uppercase text-slate-600 mt-3">
+          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-3">
             {cloudServiceId === "biz-web-hosting"
               ? "Manage your hosting service, domains, subdomains, files and requests"
               : "Systems become active after payment is settled"}
@@ -2088,7 +2088,7 @@ const renderCloudSystemsGrid = () => null;
               <div className="flex items-start gap-4">
                 <div className="p-3.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-6 h-6" /></div>
                 <div>
-                  <p className="text-micro font-black uppercase text-slate-600">
+                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     {svc?.category || "Service"}{svc?.tier ? ` • ${svc.tier}` : ""}
                   </p>
                   <h3 className="text-xl sm:text-2xl font-black text-murzak-ink mt-1">
@@ -2107,7 +2107,7 @@ const renderCloudSystemsGrid = () => null;
 
             <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
               <Shield className="w-5 h-5 text-murzak-accent shrink-0 mt-0.5" />
-              <p className="text-[13px] font-medium text-slate-600 dark:text-slate-600 leading-relaxed">
+              <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
                 This is a fully <span className="font-black text-murzak-ink">managed</span> service — our Nairobi team
                 runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
                 Message support and we’ll take care of it.
@@ -2124,7 +2124,7 @@ const renderCloudSystemsGrid = () => null;
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent shrink-0"><ExternalLink className="w-4 h-4" /></div>
                   <div className="min-w-0">
-                    <p className="text-micro font-black uppercase text-slate-600">Live</p>
+                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Live</p>
                     <p className="text-[13px] font-black text-murzak-ink truncate">{cloudAccessUrl}</p>
                   </div>
                 </div>
@@ -2157,7 +2157,7 @@ const renderCloudSystemsGrid = () => null;
                   The last deployment didn't complete — our team has been notified and is on it.
                 </p>
                 {cloudJob?.error && (
-                  <p className="text-label font-mono text-slate-600 mt-2 break-words">{cloudJob.error}</p>
+                  <p className="text-label font-mono text-slate-600 dark:text-slate-400 mt-2 break-words">{cloudJob.error}</p>
                 )}
                 <button
                   type="button"
@@ -2192,7 +2192,7 @@ const renderCloudSystemsGrid = () => null;
             )}
             {isActive && !cloudAccessUrl && cloudJob?.statusDetail === "url_pending" && (
               <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
-                <p className="text-micro font-black uppercase text-slate-600 mb-1">URL pending</p>
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">URL pending</p>
                 <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
                   Your app is deployed and we're assigning its web address — check back shortly, or
                   message support if this persists.
@@ -2201,7 +2201,7 @@ const renderCloudSystemsGrid = () => null;
             )}
 
             {cloudJob?.target && (
-              <p className="mt-4 text-micro font-bold uppercase text-slate-600">
+              <p className="mt-4 text-micro font-bold uppercase text-slate-600 dark:text-slate-400">
                 Hosted on Murzak Cloud · {cloudJob.target} · Managed from Nairobi
               </p>
             )}
@@ -2211,8 +2211,8 @@ const renderCloudSystemsGrid = () => null;
               <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div>
-                    <p className="text-micro font-black uppercase text-slate-600">Deployments</p>
-                    <p className="text-label font-medium text-slate-600 mt-0.5">
+                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Deployments</p>
+                    <p className="text-label font-medium text-slate-600 dark:text-slate-400 mt-0.5">
                       Each deployment rebuilds your app from the latest commit on your branch.
                     </p>
                   </div>
@@ -2255,7 +2255,7 @@ const renderCloudSystemsGrid = () => null;
                               </span>
                             </p>
                             {(d.createdAt || d.commitMessage) && (
-                              <p className="text-micro font-medium text-slate-600 truncate">
+                              <p className="text-micro font-medium text-slate-600 dark:text-slate-400 truncate">
                                 {[d.createdAt, d.commitMessage].filter(Boolean).join(" · ")}
                               </p>
                             )}
@@ -2306,8 +2306,8 @@ const renderCloudSystemsGrid = () => null;
 
             {isActive && (
               <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
-                <p className="text-micro font-black uppercase text-slate-600 mb-1">Connect your domain</p>
-                <p className="text-label font-medium text-slate-600 dark:text-slate-600 mb-4">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
+                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
                   Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -2382,7 +2382,7 @@ const renderCloudSystemsGrid = () => null;
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
         <div>
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Account Profile</h2>
-          <p className="text-micro font-black text-slate-600 uppercase mt-4">
+          <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
             Manage your personal information, security and active plans
           </p>
         </div>
@@ -2401,7 +2401,7 @@ const renderCloudSystemsGrid = () => null;
           
           <div className="space-y-8 relative z-10">
             <div className="group/item">
-              <p className="text-micro font-black text-slate-600 uppercase mb-2 flex items-center gap-2">
+              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Full Name
               </p>
               <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
@@ -2410,7 +2410,7 @@ const renderCloudSystemsGrid = () => null;
             </div>
             
             <div className="group/item">
-              <p className="text-micro font-black text-slate-600 uppercase mb-2 flex items-center gap-2">
+              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
               </p>
               <p className="text-lg sm:text-xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
@@ -2419,7 +2419,7 @@ const renderCloudSystemsGrid = () => null;
             </div>
             
             <div className="group/item">
-              <p className="text-micro font-black text-slate-600 uppercase mb-2 flex items-center gap-2">
+              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
               </p>
               <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
@@ -2428,10 +2428,10 @@ const renderCloudSystemsGrid = () => null;
             </div>
 
             <div className="group/item">
-              <p className="text-micro font-black text-slate-600 uppercase mb-2 flex items-center gap-2">
+              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Project Repository
               </p>
-              <p className="text-micro text-slate-600 mb-3 pl-3">
+              <p className="text-micro text-slate-600 dark:text-slate-400 mb-3 pl-3">
                 The Git repo we deploy your App Hosting services from. Add <span className="font-mono">#branch</span> to pin a branch.
               </p>
               <div className="flex gap-2 pl-3">
@@ -2476,7 +2476,7 @@ const renderCloudSystemsGrid = () => null;
               </p>
               <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
                 <div className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                <span className="text-micro font-black uppercase text-slate-600">
+                <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Status: {user.accountStatus}
                 </span>
               </div>
@@ -2494,13 +2494,13 @@ const renderCloudSystemsGrid = () => null;
               
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-black">{selectedServices.length}</span>
-                <span className="text-micro font-bold text-slate-600 uppercase pb-1">
+                <span className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase pb-1">
                   Active
                 </span>
               </div>
               
               <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
-                <span className="text-micro font-black uppercase text-slate-600">Available Slots</span>
+                <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Available Slots</span>
                 <span className="text-micro font-black text-murzak-ink">{remainingSlots}</span>
               </div>
             </div>
@@ -2538,7 +2538,7 @@ const renderCloudSystemsGrid = () => null;
           <div className="pt-8 mt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
             <div>
               <h4 className="text-sm font-black text-murzak-ink">Welcome Tour</h4>
-              <p className="text-micro font-bold text-slate-600 uppercase mt-1">Re-run the onboarding experience</p>
+              <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">Re-run the onboarding experience</p>
             </div>
             <button
               onClick={() => setShowOnboarding(true)}
@@ -2557,7 +2557,7 @@ const renderCloudSystemsGrid = () => null;
       <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
         <div>
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Product Roadmap</h2>
-          <p className="text-micro font-black text-slate-600 uppercase mt-4">
+          <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
             See what we're building and what's coming next
           </p>
         </div>
@@ -2584,7 +2584,7 @@ const renderCloudSystemsGrid = () => null;
 
           <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-black/5 border border-murzak-border backdrop-blur-md">
             <div className="w-2 h-2 rounded-full bg-murzak-accent shadow-[0_0_8px_#00bdfc] animate-pulse"></div>
-            <span className="text-micro font-black uppercase text-slate-600">
+            <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Module currently in development
             </span>
           </div>
@@ -2647,7 +2647,7 @@ const renderCloudSystemsGrid = () => null;
                 {user.plan || "No plan"}
               </span>
               <span className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === "Active" ? "bg-green-500" : "bg-orange-400"}`} />
-              <span className="text-micro font-black uppercase text-slate-600 truncate">{user.accountStatus}</span>
+              <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 truncate">{user.accountStatus}</span>
             </div>
           </div>
         </button>
@@ -2767,7 +2767,7 @@ const renderCloudSystemsGrid = () => null;
             <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink tracking-tighter uppercase leading-none">
               Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
-            <p className="text-micro sm:text-micro font-black text-slate-600 uppercase sm:mt-3 sm:mt-4">
+            <p className="text-micro sm:text-micro font-black text-slate-600 dark:text-slate-400 uppercase sm:mt-3 sm:mt-4">
               {user.company} • {isTestUser ? "Free trial" : `${user.plan} plan`} • Nairobi
             </p>
           </div>
@@ -2961,7 +2961,7 @@ const renderCloudSystemsGrid = () => null;
                 You are about to delete a paid service: {deleteTarget.name}
               </p>
 
-              <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-600">
+              <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-400">
                 Type <span className="font-black text-red-500">DELETE</span> to confirm removal.
               </p>
 
@@ -2983,7 +2983,7 @@ const renderCloudSystemsGrid = () => null;
                   type="button"
                   disabled={deleteLoading}
                   onClick={() => setDeleteTarget(null)}
-                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-600 font-black text-micro uppercase"
+                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-400 font-black text-micro uppercase"
                 >
                   Cancel
                 </button>
@@ -3020,7 +3020,7 @@ const renderCloudSystemsGrid = () => null;
               Your current plan is already paid.
             </p>
 
-            <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-600">
+            <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-400">
               Do you want to retain your current services as you switch plans?
             </p>
 
@@ -3117,7 +3117,7 @@ const renderCloudSystemsGrid = () => null;
               >
                 {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
               </button>
-              <p className="text-micro font-bold text-slate-600 text-center uppercase mt-4">
+              <p className="text-micro font-bold text-slate-600 dark:text-slate-400 text-center uppercase mt-4">
                 Submitting creates a high-priority ticket with our engineering team.
               </p>
             </div>

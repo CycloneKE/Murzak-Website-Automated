@@ -96,7 +96,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
               One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
             </h1>
-            <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
               The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-4">

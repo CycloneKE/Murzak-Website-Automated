@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ArrowRight, ArrowUpRight, Server, Boxes, Code2, Check, ShieldCheck,
   Smartphone, Headphones, Clock, Database, Mail, ShoppingCart, Wand2,
-  Gauge, Rocket, Activity, Banknote, MessageSquare, Settings, LifeBuoy, X, Star,
+  Rocket, MessageSquare, Settings, LifeBuoy, X, Star,
 } from 'lucide-react';
 import { Page } from '../types';
 import Faq, { type FaqItem } from '../components/Faq';
@@ -189,7 +189,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
 
 
-      {/* 02 · TRUST STRIP */}
+      {/* 02 · TRUST STRIP + STATS (merged — one compact band instead of two) */}
       <section className="glass-dark">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
           <p className="font-mono text-micro uppercase text-slate-400 max-w-xs text-center lg:text-left">
@@ -200,32 +200,16 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <span key={t} className="font-black uppercase tracking-tight text-white/50 text-sm">{t}</span>
             ))}
           </div>
-          <div className="flex gap-6 sm:gap-10">
-            {[['Same-day', 'setup'], ['Daily', 'backups'], ['KES', 'billing']].map(([a, b]) => (
-              <div key={b} className="text-center">
-                <div className="text-lg font-black text-murzak-accent">{a}</div>
-                <div className="font-mono text-micro uppercase text-slate-600">{b}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 02b · BY THE NUMBERS */}
-      <section className="py-16 lg:py-24 border-b border-white/5">
-        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-3xl overflow-hidden border border-white/10 bg-white/5">
+          <div className="flex gap-5 sm:gap-8">
             {[
-              { icon: <Gauge size={20} />, big: '99.9%', label: 'Uptime target', sub: 'Backed by our SLA' },
-              { icon: <Rocket size={20} />, big: '< 1 day', label: 'Typical go-live', sub: 'Most sites & apps' },
-              { icon: <Activity size={20} />, big: '24/7', label: 'Monitoring', sub: 'We watch it for you' },
-              { icon: <Banknote size={20} />, big: '100%', label: 'Billed in KES', sub: 'Pay by M-Pesa' },
+              { big: '99.9%', label: 'Uptime' },
+              { big: '< 1 day', label: 'Go-live' },
+              { big: '24/7', label: 'Monitoring' },
+              { big: 'KES', label: 'Billing' },
             ].map((s) => (
-              <div key={s.label} className="bg-murzak-ink/40 p-7 lg:p-9 flex flex-col gap-2">
-                <span className="inline-flex p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent w-fit mb-2">{s.icon}</span>
-                <div className="text-3xl lg:text-4xl font-[900] text-murzak-gradient tracking-tight tabular-nums">{s.big}</div>
-                <div className="text-sm font-black text-white">{s.label}</div>
-                <div className="font-mono text-micro uppercase text-slate-600">{s.sub}</div>
+              <div key={s.label} className="text-center">
+                <div className="text-lg font-black text-murzak-accent">{s.big}</div>
+                <div className="font-mono text-micro uppercase text-slate-400">{s.label}</div>
               </div>
             ))}
           </div>
@@ -245,7 +229,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p className="mt-6 text-lg sm:text-xl font-black text-white">
             That's the part we take off your plate — <span className="text-murzak-gradient">and keep off it.</span>
           </p>
-          <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-600">
+          <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-600 dark:text-slate-400">
             A day of downtime during month-end can cost more than a year of hosting.
           </p>
         </div>
@@ -363,7 +347,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
             {/* bespoke — spec-editor styling */}
             <div className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
-              <p className="text-micro uppercase text-slate-600 mb-5">// bespoke build</p>
+              <p className="text-micro uppercase text-slate-600 dark:text-slate-400 mb-5">// bespoke build</p>
               <div className="space-y-2 text-[13px] leading-relaxed">
                 <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-accent">"dispatch is run on WhatsApp"</span></p>
                 <p className="text-slate-500">02 <span className="text-slate-300">we_build</span> <span className="text-white">delivery + tracking system</span></p>
@@ -414,7 +398,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
             <div className="rounded-3xl glass-dark p-8 lg:p-10">
-              <p className="font-mono text-micro uppercase text-slate-600 mb-6">The usual way</p>
+              <p className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
                   'Invoiced in dollars — you do the forex math',
@@ -424,7 +408,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   'A vendor sets it up, then disappears',
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-3 text-slate-400 font-medium text-[15px] leading-snug">
-                    <span className="mt-0.5 text-slate-600"><X size={17} /></span> {t}
+                    <span className="mt-0.5 text-slate-600 dark:text-slate-400"><X size={17} /></span> {t}
                   </li>
                 ))}
               </ul>
@@ -486,12 +470,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <p className="font-mono text-micro uppercase text-murzak-accent mb-4">{m.bestFor}</p>
                 <div className="flex items-baseline gap-1.5 mb-4">
                   {m.startingKes != null && m.startingKes > 0 && (
-                    <span className="font-mono text-micro uppercase text-slate-600">from</span>
+                    <span className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">from</span>
                   )}
                   <span className="text-2xl font-[900] text-white tracking-tight">
                     {m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes)}
                   </span>
-                  <span className="font-mono text-micro uppercase text-slate-600">{m.period}</span>
+                  <span className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">{m.period}</span>
                 </div>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
                 <span className="mt-5 inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent">
@@ -510,7 +494,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <div className="text-5xl text-murzak-gradient font-black mb-6">"</div>
             <blockquote className="text-2xl sm:text-3xl font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
             <p className="mt-6 text-sm font-bold text-slate-300">{TESTIMONIALS[0].name}</p>
-            <p className="font-mono text-micro uppercase text-slate-600">{TESTIMONIALS[0].org}</p>
+            <p className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">{TESTIMONIALS[0].org}</p>
           </div>
         </section>
       )}

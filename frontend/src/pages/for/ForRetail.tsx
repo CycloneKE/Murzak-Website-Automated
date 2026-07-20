@@ -25,7 +25,7 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Run your shop, not your systems. <span className="text-murzak-gradient">POS, stock and accounting — handled.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's retail sector has been waiting for. Stop doing manual stock counts and reconciling M-Pesa at midnight.
           </p>
         </div>
@@ -55,7 +55,7 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to upgrade your counters?</h2>
-          <p className="text-slate-600 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo with full inventory features.</p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo with full inventory features.</p>
           <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
             Configure your retail stack <ArrowRight size={17} />
           </Button>

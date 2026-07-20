@@ -267,7 +267,7 @@ export default function CloudLaunchModal({
                   className={`px-4 py-2 rounded-full text-label font-black uppercase tracking-widest border transition-all ${
                     category === cat
                       ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                      : "border-white/15 text-slate-600 hover:border-murzak-accent/50"
+                      : "border-white/15 text-slate-600 dark:text-slate-400 hover:border-murzak-accent/50"
                   }`}
                 >
                   {cat}
@@ -288,10 +288,10 @@ export default function CloudLaunchModal({
                   }`}
                 >
                   <p className="text-sm font-black text-murzak-ink">{svc.name}</p>
-                  <p className="text-label text-slate-600 font-medium mt-1 leading-relaxed">
+                  <p className="text-label text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
                     {svc.description}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-micro font-bold text-slate-600">
+                  <div className="mt-3 flex flex-wrap gap-2 text-micro font-bold text-slate-600 dark:text-slate-400">
                     <span>{svc.specs.ram} RAM</span>
                     <span>·</span>
                     <span>{svc.specs.storage}</span>
@@ -310,7 +310,7 @@ export default function CloudLaunchModal({
 
             {selected?.requiresRepo && (
               <div>
-                <label className="text-label font-black text-slate-600 uppercase tracking-widest">
+                <label className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
                   Repository URL
                 </label>
                 <input
@@ -321,7 +321,7 @@ export default function CloudLaunchModal({
                   className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                 />
                 <details className="mt-3">
-                  <summary className="text-label font-black text-slate-600 uppercase tracking-widest cursor-pointer select-none">
+                  <summary className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none">
                     Advanced — app port
                   </summary>
                   <input
@@ -332,7 +332,7 @@ export default function CloudLaunchModal({
                     placeholder="3000"
                     className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
-                  <p className="mt-2 text-label text-slate-600 font-medium">
+                  <p className="mt-2 text-label text-slate-600 dark:text-slate-400 font-medium">
                     The port your app listens on inside its container. Leave blank if it uses 3000.
                   </p>
                 </details>
@@ -341,7 +341,7 @@ export default function CloudLaunchModal({
 
             {selected?.requiresDomainChoice && (
               <div>
-                <label className="text-label font-black text-slate-600 uppercase tracking-widest">
+                <label className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
                   Domain
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -353,7 +353,7 @@ export default function CloudLaunchModal({
                       className={`px-4 py-2 rounded-full text-label font-black border ${
                         domainChoice === choice
                           ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                          : "border-white/15 text-slate-600"
+                          : "border-white/15 text-slate-600 dark:text-slate-400"
                       }`}
                     >
                       {choice}
@@ -372,7 +372,7 @@ export default function CloudLaunchModal({
 
           <div className="p-5 sm:p-6 border-t border-murzak-border flex items-center justify-between gap-4">
             <div>
-              <p className="text-micro font-black uppercase text-slate-600">Total</p>
+              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Total</p>
               <p className="text-xl font-black text-murzak-ink">
                 {selected ? formatKes(selected.pricing.monthlyKes) : "—"}/mo
               </p>
