@@ -62,7 +62,7 @@ const SecurityOverviewCard: React.FC = () => {
             <ShieldCheck size={20} />
           </div>
           <div>
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Security & Integrity</h3>
+            <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-white">Security & Integrity</h3>
             <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Automated protection active</p>
           </div>
         </div>
@@ -77,7 +77,7 @@ const SecurityOverviewCard: React.FC = () => {
               <p className="text-xs text-slate-500">Contractual commitment</p>
             </div>
           </div>
-          <span className="text-lg font-black text-murzak-ink">99.9%</span>
+          <span className="text-lg font-black text-murzak-ink dark:text-white">99.9%</span>
         </div>
 
         <div className="flex items-center justify-between p-4 bg-black/5 border border-murzak-border/50 rounded-2xl">

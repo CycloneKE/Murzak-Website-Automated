@@ -108,10 +108,10 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
             )}
           </div>
           <div className="flex items-center space-x-2 text-gray-500">
-            <button className="hover:text-murzak-ink transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh" aria-label="Refresh logs">
+            <button className="hover:text-murzak-ink dark:text-white transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh" aria-label="Refresh logs">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button className="hover:text-murzak-ink transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} title={isMinimized ? "Expand" : "Minimize"} aria-label={isMinimized ? "Expand log console" : "Minimize log console"}>
+            <button className="hover:text-murzak-ink dark:text-white transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} title={isMinimized ? "Expand" : "Minimize"} aria-label={isMinimized ? "Expand log console" : "Minimize log console"}>
               {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
             </button>
             <button className="hover:text-red-400 transition-colors p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" aria-label="Close log console">

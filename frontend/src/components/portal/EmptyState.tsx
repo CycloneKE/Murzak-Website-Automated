@@ -31,14 +31,14 @@ export default function EmptyState({
       <div className={`w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center ${toneClasses}`}>
         {icon}
       </div>
-      <p className="text-label font-black uppercase tracking-widest text-murzak-ink mb-1.5">{title}</p>
+      <p className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-white mb-1.5">{title}</p>
       {description && (
         <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">{description}</p>
       )}
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-5 px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-105 transition-all inline-flex items-center gap-2"
+          className="mt-5 px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white font-black text-micro uppercase hover:scale-105 transition-all inline-flex items-center gap-2"
         >
           {actionLabel}
         </button>

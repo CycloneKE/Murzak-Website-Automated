@@ -56,7 +56,8 @@ const Header: React.FC<HeaderProps> = ({
           { label: "Murzak ERP", page: "erp" },
           { label: "CRM & Helpdesk", page: "crm" },
         ]},
-        { group: "Custom Build", items: [
+        { group: "Custom Build & Hosting", items: [
+          { label: "App Hosting (BYOA)", page: "deploy" },
           { label: "Custom Software", page: "custom-software" },
         ]},
         { group: "Industries", items: [

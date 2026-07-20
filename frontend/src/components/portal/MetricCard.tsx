@@ -65,7 +65,7 @@ export default function MetricCard({ title, value, icon, trend, trendUp, actionL
       </div>
       <div className="relative z-10 flex flex-col">
         <h3 className="text-body-sm font-semibold text-murzak-muted mb-1">{title}</h3>
-        <div className="text-display-sm font-mono font-bold text-murzak-ink">
+        <div className="text-display-sm font-mono font-bold text-murzak-ink dark:text-white">
           {typeof value === 'number' ? displayValue : value}
         </div>
         {actionLabel && onAction && (

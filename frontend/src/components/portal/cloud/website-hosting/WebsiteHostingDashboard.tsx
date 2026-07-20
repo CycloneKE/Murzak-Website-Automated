@@ -49,7 +49,7 @@ const textareaClass =
   "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const primaryBtnClass =
-  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
+  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
 
 const secondaryBtnClass =
   "px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-700 dark:text-slate-100 font-black uppercase text-micro transition-all hover:border-murzak-accent/50 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -57,7 +57,7 @@ const secondaryBtnClass =
 const tabClass = (active: boolean) =>
   `px-4 py-2.5 rounded-2xl text-micro font-black uppercase border transition-all ${
     active
-      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-sm"
+      ? "bg-murzak-accent text-murzak-ink dark:text-white border-murzak-accent shadow-sm"
       : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-400 hover:border-murzak-accent/50"
   }`;
 
@@ -188,7 +188,7 @@ function FileList({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-black text-murzak-ink break-all">
+              <p className="font-black text-murzak-ink dark:text-white break-all">
                 {file.fileName}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -233,7 +233,7 @@ function DeploymentList({
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-black text-murzak-ink">
+              <p className="font-black text-murzak-ink dark:text-white">
                 {dep.sourceFile || "Deployment Request"}
               </p>
               <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -600,7 +600,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Setup Type
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
             {choiceDetails.title}
           </h3>
         </div>
@@ -609,7 +609,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Tier
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
             {payload.service.tier || "Standard"}
           </h3>
         </div>
@@ -618,7 +618,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Open Requests
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
             {openRequestsCount}
           </h3>
         </div>
@@ -627,7 +627,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Setup Progress
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
             {setupProgress}%
           </h3>
         </div>
@@ -650,7 +650,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               </span>
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white">
               Finish setup to activate your hosting
             </h3>
 
@@ -670,7 +670,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">Quick Status</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
@@ -717,7 +717,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink">Setup Checklist</h3>
+        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Setup Checklist</h3>
 
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
@@ -765,7 +765,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Globe className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Request a Domain Purchase
           </h3>
         </div>
@@ -815,7 +815,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Full Domain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
               {domainForm.requestedName
                 ? `${domainForm.requestedName}${domainForm.requestedTld}`
                 : `yourdomain${domainForm.requestedTld}`}
@@ -846,7 +846,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Your Domain Requests
           </h3>
 
@@ -861,7 +861,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink break-all">
+                      <p className="font-black text-murzak-ink dark:text-white break-all">
                         {r.fullDomain}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -882,7 +882,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             What Happens Next
           </h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
@@ -900,7 +900,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Wand2 className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Choose Your Murzak Subdomain
           </h3>
         </div>
@@ -932,7 +932,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
               {murzakPreview}
             </p>
           </div>
@@ -988,7 +988,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Your Murzak Subdomains
           </h3>
 
@@ -1003,7 +1003,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink break-all">
+                      <p className="font-black text-murzak-ink dark:text-white break-all">
                         {s.fullSubdomain}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -1024,7 +1024,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">Best Practice</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Best Practice</h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
             <p>Choose a short, memorable label.</p>
             <p>Avoid spaces and special characters.</p>
@@ -1040,7 +1040,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <LinkIcon className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Connect Your Existing Domain
           </h3>
         </div>
@@ -1104,7 +1104,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Connected / Pending Domains
           </h3>
 
@@ -1119,7 +1119,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink break-all">
+                      <p className="font-black text-murzak-ink dark:text-white break-all">
                         {d.domainName}
                       </p>
                       <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -1148,7 +1148,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             DNS Connection Notes
           </h3>
           <div className="mt-4 space-y-2 text-sm text-slate-500">
@@ -1190,7 +1190,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <LifeBuoy className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Submit Hosting Request
           </h3>
         </div>
@@ -1253,7 +1253,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink">Request History</h3>
+        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Request History</h3>
 
         <div className="mt-4 space-y-3">
           {payload.requests.length === 0 ? (
@@ -1266,7 +1266,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-ink">{r.title}</p>
+                    <p className="font-black text-murzak-ink dark:text-white">{r.title}</p>
                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
                       {r.category}
                     </p>
@@ -1292,7 +1292,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Active Host
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink break-all">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white break-all">
             {activeSite?.primaryHost || "—"}
           </h3>
         </div>
@@ -1321,7 +1321,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
             Storage Used
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink">
+          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
             {formatMb(storageUsed)} / {isUnlimitedStorage ? "Unlimited" : formatMb(storageLimit)}
           </h3>
         </div>
@@ -1342,7 +1342,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               {latestActiveBuild ? <span className={badgeClass("green")}>Build Active</span> : null}
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink break-all">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white break-all">
               {activeSite?.primaryHost}
             </h3>
 
@@ -1363,7 +1363,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">Quick Status</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
@@ -1401,10 +1401,20 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+        <ResourceUtilizationCard
+          diskUsagePercent={storagePercent ?? 0}
+        />
+        <ServiceHealthCard
+          service={{ id: activeSite?.id || '', name: activeSite?.primaryHost || 'Website', status: activeSite?.status === 'active' ? 'running' : 'stopped' }}
+          onAction={() => {}}
+        />
+      </div>
+
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-black text-murzak-ink">Storage Usage</h3>
+            <h3 className="text-lg font-black text-murzak-ink dark:text-white">Storage Usage</h3>
             <p className="mt-2 text-sm text-slate-500">
               Monitor how much hosting storage is being used by your uploaded site files.
             </p>
@@ -1477,7 +1487,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">Site Details</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Site Details</h3>
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">Plan</span>
@@ -1512,7 +1522,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink">Recent Activity</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Recent Activity</h3>
           <div className="mt-4 space-y-3">
             {payload.activity.length === 0 ? (
               <p className="text-sm text-slate-500">No recent activity yet.</p>
@@ -1546,7 +1556,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Upload className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">Upload Files</h3>
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Upload Files</h3>
         </div>
 
         <p className="mt-3 text-sm text-slate-500">
@@ -1614,7 +1624,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink">Uploaded Files</h3>
+        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Uploaded Files</h3>
         <div className="mt-4">
           <FileList files={payload.files} emptyText="No files uploaded yet." />
         </div>
@@ -1627,7 +1637,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Rocket className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Request Deployment
           </h3>
         </div>
@@ -1696,7 +1706,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink">
+        <h3 className="text-lg font-black text-murzak-ink dark:text-white">
           Deployment History
         </h3>
         <div className="mt-4">
@@ -1714,7 +1724,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center gap-3">
           <Network className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink">
+          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
             Request a Subdomain
           </h3>
         </div>
@@ -1745,7 +1755,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink break-all">
+            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
               {liveSubdomainPreview}
             </p>
           </div>
@@ -1800,7 +1810,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink">Subdomains</h3>
+        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Subdomains</h3>
         <div className="mt-4 space-y-3">
           {payload.murzakSubdomains.length === 0 ? (
             <p className="text-sm text-slate-500">No subdomains created for this site yet.</p>
@@ -1812,7 +1822,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-ink break-all">
+                    <p className="font-black text-murzak-ink dark:text-white break-all">
                       {item.fullSubdomain}
                     </p>
                     <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
@@ -1837,7 +1847,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
   const renderLiveActivity = () => (
     <div className={cardClass}>
-      <h3 className="text-lg font-black text-murzak-ink">Hosting Activity</h3>
+      <h3 className="text-lg font-black text-murzak-ink dark:text-white">Hosting Activity</h3>
       <div className="mt-4 space-y-3">
         {payload.activity.length === 0 ? (
           <p className="text-sm text-slate-500">No hosting activity yet.</p>
@@ -1849,7 +1859,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-murzak-ink">{item.title}</p>
+                  <p className="font-black text-murzak-ink dark:text-white">{item.title}</p>
                   {item.description ? (
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                       {item.description}
@@ -1885,7 +1895,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               Website Hosting • {payload.service.tier || "Standard"}
             </p>
 
-            <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink">
+            <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white">
               {isLiveMode ? "Hosting Control Panel" : "Website Hosting Setup"}
             </h2>
 
@@ -2009,7 +2019,7 @@ const WebsiteHostingDashboard: React.FC = () => {
             <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Need help next?
             </p>
-            <h3 className="mt-2 text-lg font-black text-murzak-ink">
+            <h3 className="mt-2 text-lg font-black text-murzak-ink dark:text-white">
               {isLiveMode
                 ? "Use requests for DNS, SSL, deployments and support"
                 : "Murzak Tech will complete provisioning after setup"}

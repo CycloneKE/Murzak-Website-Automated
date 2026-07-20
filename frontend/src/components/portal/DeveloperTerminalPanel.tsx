@@ -103,7 +103,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
           <button
             type="button"
             onClick={onRequestUpgrade}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition"
+            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition"
           >
             Request Upgrade
           </button>
@@ -135,7 +135,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
             type="button"
             onClick={handleAccept}
             disabled={accepting}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
           >
             {accepting ? "Saving…" : "I understand and agree"}
           </button>

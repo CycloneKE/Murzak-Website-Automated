@@ -41,7 +41,7 @@ export default function ActivityTimeline({ events }: ActivityTimelineProps) {
           <div className="glass-panel p-4 rounded-2xl hover:border-white/20 transition-all cursor-default">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h4 className="text-[12px] font-black text-murzak-ink">{event.title}</h4>
+                <h4 className="text-[12px] font-black text-murzak-ink dark:text-white">{event.title}</h4>
                 <p className="text-label font-medium text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{event.description}</p>
               </div>
               <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 shrink-0">
