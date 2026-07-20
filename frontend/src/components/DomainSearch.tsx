@@ -41,7 +41,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="yourbusiness"
-            className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+            className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
           />
         </div>
         <button
@@ -76,7 +76,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                   ) : (
                     <CircleSlash className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
                   )}
-                  <span className={`text-sm font-black truncate ${r.available ? "text-murzak-ink" : "text-slate-500 line-through"}`}>
+                  <span className={`text-sm font-black truncate ${r.available ? "text-murzak-ink dark:text-slate-100" : "text-slate-500 line-through"}`}>
                     {r.domain}
                   </span>
                 </div>

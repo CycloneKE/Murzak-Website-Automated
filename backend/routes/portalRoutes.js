@@ -751,18 +751,22 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
 // ownership explicitly (defense in depth beyond the query filter — a write
 // action gets a real check, not just a hope the filter returns zero rows).
 async function loadOwnedJob(client, webAccountName, serviceId) {
-  const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+  const listResp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
     params: {
       filters: JSON.stringify([
         ["web_account", "=", webAccountName],
         ["service_id", "=", serviceId],
       ]),
-      fields: JSON.stringify(["name", "web_account", "service_id", "lane", "status", "external_ref", "log", "access", "deployment_uuid", "deployment_history"]),
+      fields: JSON.stringify(["name"]),
       order_by: "modified desc",
       limit_page_length: 1,
     },
   });
-  const job = resp.data?.data?.[0] || null;
+  const docName = listResp.data?.data?.[0]?.name;
+  if (!docName) return null;
+
+  const docResp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(docName)}`);
+  const job = docResp.data?.data;
   if (job && job.web_account !== webAccountName) return null; // never trust the filter alone
   return job;
 }

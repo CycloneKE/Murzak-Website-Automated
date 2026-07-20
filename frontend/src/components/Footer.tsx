@@ -47,7 +47,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </button>
             <button
               onClick={() => onNavigate('contact')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-7 py-3.5 font-black text-micro uppercase text-murzak-ink hover:bg-black/5 transition-all"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 px-7 py-3.5 font-black text-micro uppercase text-murzak-base hover:bg-black/5 transition-all"
             >
               Talk to us
             </button>
@@ -134,7 +134,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="bg-black/5 rounded-3xl p-7 border border-murzak-border">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-2.5 h-2.5 bg-murzak-accent rounded-full" />
-                <span className="text-label font-black uppercase tracking-widest text-murzak-ink">Nairobi-managed cloud</span>
+                <span className="text-label font-black uppercase tracking-widest text-murzak-base">Nairobi-managed cloud</span>
               </div>
               <p className="text-micro text-slate-600 dark:text-slate-400 font-bold uppercase leading-relaxed">
                 Daily backups · Enabled<br />

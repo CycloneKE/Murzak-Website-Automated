@@ -25,7 +25,7 @@ const VARIANTS: Record<Variant, string> = {
   ghost:
     "bg-transparent text-murzak-ink dark:text-slate-100 hover:bg-slate-100/50 dark:hover:bg-white/5",
   // For use on dark glass/spatial panels
-  onDark: "bg-black/5 border border-white/20 text-murzak-ink hover:bg-white/20",
+  onDark: "bg-black/5 border border-white/20 text-murzak-ink dark:text-slate-100 hover:bg-white/20",
 };
 
 type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {

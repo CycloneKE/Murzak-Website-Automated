@@ -97,7 +97,7 @@ function SpecChip({ label, value }: { label: string; value?: string }) {
   if (!value || value === "N/A") return null;
   return (
     <div className="rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border px-3 py-2 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
-      {label}: <span className="text-murzak-ink">{value}</span>
+      {label}: <span className="text-murzak-ink dark:text-slate-100">{value}</span>
     </div>
   );
 }
@@ -414,7 +414,7 @@ export default function PlanServicesModal({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search services — email, backups, CDN…"
-                    className="w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
                 </div>
                 <div className="relative">
@@ -484,7 +484,7 @@ export default function PlanServicesModal({
                 <div key={group.category} className="mb-6">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <span className="text-murzak-accent">{CATEGORY_ICON[group.category]}</span>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink">{group.category}</h4>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">{group.category}</h4>
                     <span className="text-micro font-bold text-slate-600 dark:text-slate-400">({group.items.length})</span>
                     <div className="flex-1 h-px bg-slate-100 dark:bg-black/5 ml-2" />
                   </div>
@@ -501,7 +501,7 @@ export default function PlanServicesModal({
                     className={`group relative rounded-3xl border transition-all duration-300 overflow-hidden ${
                       isSelected
                         ? "border-murzak-accent bg-murzak-accent/5 dark:bg-murzak-accent/10 shadow-lg shadow-murzak-accent/10"
-                        : "border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-surface/60 hover:border-murzak-accent/50"
+                        : "border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-ink hover:border-murzak-accent/50"
                     }`}
                   >
                     <div className="p-5 sm:p-6">
@@ -515,7 +515,7 @@ export default function PlanServicesModal({
                           <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                             {svc.category} • {svc.tier}
                           </div>
-                          <div className="text-base sm:text-lg font-black text-murzak-ink mt-1 leading-tight">
+                          <div className="text-base sm:text-lg font-black text-murzak-ink dark:text-slate-100 mt-1 leading-tight">
                             {svc.name}
                           </div>
                           {isManagedSetup(svc) && (
@@ -528,7 +528,7 @@ export default function PlanServicesModal({
                               <span className="text-lg font-black text-murzak-accent">Custom quote</span>
                             ) : (
                               <>
-                                <span className="text-lg sm:text-xl font-black text-murzak-ink">
+                                <span className="text-lg sm:text-xl font-black text-murzak-ink dark:text-slate-100">
                                   {(svc.pricing.monthlyKes ?? 0) === 0 ? "Free" : formatKes(svc.pricing.monthlyKes)}
                                 </span>
                                 <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">/mo</span>
@@ -671,8 +671,8 @@ export default function PlanServicesModal({
               <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-6`}>
                 <div className="glass-card shadow-2xl overflow-hidden border border-murzak-border">
                   <div className="bg-gradient-to-r from-murzak-brand1/20 to-murzak-accent/20 px-5 py-4 border-b border-murzak-border backdrop-blur-sm">
-                    <div className="text-micro font-black uppercase text-murzak-ink/80">Your plan</div>
-                    <div className="text-sm font-black text-murzak-ink mt-0.5">{planLabel || planCode}</div>
+                    <div className="text-micro font-black uppercase text-murzak-ink/80 dark:text-slate-300">Your plan</div>
+                    <div className="text-sm font-black text-murzak-ink dark:text-slate-100 mt-0.5">{planLabel || planCode}</div>
                   </div>
 
                   <div className="p-5">
@@ -690,7 +690,7 @@ export default function PlanServicesModal({
                             <li key={s.serviceId} className="glass-panel p-3.5 mb-2 rounded-2xl">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                  <div className="text-[12px] font-black text-murzak-ink leading-tight">{s.serviceName}</div>
+                                  <div className="text-[12px] font-black text-murzak-ink dark:text-slate-100 leading-tight">{s.serviceName}</div>
                                   {s.domainChoice && (
                                     <div className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-1">
                                       {s.registeredDomain || s.domainChoice}
@@ -698,7 +698,7 @@ export default function PlanServicesModal({
                                   )}
                                 </div>
                                 <div className="shrink-0 text-right">
-                                  <div className="text-[12px] font-black text-murzak-ink">
+                                  <div className="text-[12px] font-black text-murzak-ink dark:text-slate-100">
                                     {svc && isQuoteOnly(svc) ? "Quote" : (s.monthlyKes ?? 0) === 0 ? "Free" : formatKes(s.monthlyKes)}
                                   </div>
                                   <button
@@ -725,13 +725,13 @@ export default function PlanServicesModal({
                         {totals.setup > 0 && (
                           <div className="flex items-center justify-between">
                             <span className="text-label font-bold text-slate-600 dark:text-slate-400">One-time setup</span>
-                            <span className="text-sm font-black text-murzak-ink">{formatKes(totals.setup)}</span>
+                            <span className="text-sm font-black text-murzak-ink dark:text-slate-100">{formatKes(totals.setup)}</span>
                           </div>
                         )}
                         {totals.domainYearly > 0 && (
                           <div className="flex items-center justify-between">
                             <span className="text-label font-bold text-slate-600 dark:text-slate-400">Domain (yearly)</span>
-                            <span className="text-sm font-black text-murzak-ink">{formatKes(totals.domainYearly)}</span>
+                            <span className="text-sm font-black text-murzak-ink dark:text-slate-100">{formatKes(totals.domainYearly)}</span>
                           </div>
                         )}
                       </div>

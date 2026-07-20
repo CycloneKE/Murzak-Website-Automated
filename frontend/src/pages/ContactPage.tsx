@@ -68,7 +68,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
     <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
       <div className="text-center mb-12 sm:mb-16">
         <p className="font-mono text-micro font-black text-murzak-accent uppercase mb-4">Get in touch</p>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink tracking-tighter">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
         <p className="mt-5 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto leading-relaxed">
@@ -110,7 +110,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
             {success ? (
               <div className="text-center py-10 animate-fade-in">
                 <CheckCircle2 size={56} className="text-emerald-500 mx-auto mb-6" />
-                <h3 className="text-2xl font-black text-murzak-ink tracking-tight mb-3">Message received</h3>
+                <h3 className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tight mb-3">Message received</h3>
                 <p className="text-sm font-bold text-slate-500 dark:text-slate-500 leading-relaxed max-w-md mx-auto">
                   Thanks{form.name ? `, ${form.name.split(" ")[0]}` : ""}! We've logged your enquiry{refId ? ` (ref ${refId})` : ""} and a
                   member of our team will reach out by email shortly.

@@ -12,6 +12,7 @@ export const RepoSelectionStep: React.FC<Props> = ({ onNext }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [repos, setRepos] = useState<Repository[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customRepo, setCustomRepo] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -131,6 +132,38 @@ export const RepoSelectionStep: React.FC<Props> = ({ onNext }) => {
               No repositories found matching "{searchQuery}"
             </div>
           )}
+        </div>
+
+        {/* Custom Repo Input */}
+        <div className="p-4 border-t border-white/10 bg-white/[0.02]">
+          <h3 className="text-sm font-medium text-gray-400 mb-2">Or deploy from a public URL</h3>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="https://github.com/username/repo"
+              className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500/50 transition-colors"
+              value={customRepo}
+              onChange={(e) => setCustomRepo(e.target.value)}
+            />
+            <button
+              onClick={() => {
+                if (customRepo.trim()) {
+                  onNext({
+                    id: `custom-${Date.now()}`,
+                    name: customRepo.trim().split('/').pop() || 'custom-repo',
+                    fullName: customRepo.trim(),
+                    private: false,
+                    url: customRepo.trim(),
+                    updatedAt: new Date().toISOString()
+                  });
+                }
+              }}
+              disabled={!customRepo.trim()}
+              className="px-6 py-3 bg-white text-black font-semibold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Deploy
+            </button>
+          </div>
         </div>
       </div>
     </div>

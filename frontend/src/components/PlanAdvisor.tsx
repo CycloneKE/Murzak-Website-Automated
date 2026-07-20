@@ -89,14 +89,14 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
     <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={close} />
 
-      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-murzak-surface/90 backdrop-blur-xl overflow-hidden shadow-2xl border border-murzak-border">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-murzak-ink backdrop-blur-xl overflow-hidden shadow-2xl border border-murzak-border">
         {/* header */}
         <div className="bg-brand-gradient px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Wand2 className="w-5 h-5 text-murzak-ink" />
+            <Wand2 className="w-5 h-5 text-murzak-ink dark:text-slate-100" />
             <div>
               <div className="text-micro font-black uppercase text-murzak-ink/80">Plan advisor</div>
-              <h3 className="text-lg font-black text-murzak-ink tracking-tight">Find your perfect fit</h3>
+              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 tracking-tight">Find your perfect fit</h3>
             </div>
           </div>
           <button onClick={close} aria-label="Close" className="rounded-xl p-2 text-murzak-ink/80 hover:text-murzak-ink hover:bg-black/5 transition">
@@ -113,7 +113,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {/* Step 0 — need */}
           {step === 0 && (
             <div className="animate-fade-in">
-              <p className="text-base font-black text-murzak-ink mb-1">What do you want to host?</p>
+              <p className="text-base font-black text-murzak-ink dark:text-slate-100 mb-1">What do you want to host?</p>
               <p className="text-label font-bold text-slate-600 dark:text-slate-400 mb-5">Pick the closest match.</p>
               <div className="space-y-2.5">
                 {NEEDS.map((n) => (
@@ -125,7 +125,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                     }`}
                   >
                     <span>
-                      <span className="block text-sm font-black text-murzak-ink">{n.label}</span>
+                      <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">{n.label}</span>
                       <span className="block text-label font-bold text-slate-600 dark:text-slate-400">{n.sub}</span>
                     </span>
                     <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0" />
@@ -138,7 +138,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
           {/* Step 1 — size */}
           {step === 1 && (
             <div className="animate-fade-in">
-              <p className="text-base font-black text-murzak-ink mb-1">How big is your team?</p>
+              <p className="text-base font-black text-murzak-ink dark:text-slate-100 mb-1">How big is your team?</p>
               <p className="text-label font-bold text-slate-600 dark:text-slate-400 mb-5">This helps us size the right capacity.</p>
               <div className="grid grid-cols-2 gap-2.5">
                 {SIZES.map((s) => (
@@ -146,7 +146,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                     key={s.key}
                     onClick={() => { setSize(s.key); setStep(2); }}
                     className={`rounded-2xl border p-4 text-sm font-black transition-all ${
-                      size === s.key ? "border-murzak-accent bg-murzak-accent/10 text-murzak-ink" : "border-slate-200 dark:border-murzak-border text-murzak-ink hover:border-murzak-accent/50"
+                      size === s.key ? "border-murzak-accent bg-murzak-accent/10 text-murzak-ink" : "border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent/50"
                     }`}
                   >
                     {s.label}
@@ -165,7 +165,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
               <div className="inline-flex items-center gap-1.5 rounded-full bg-murzak-accent/10 text-murzak-accent px-3 py-1 text-micro font-black uppercase mb-4">
                 <CheckCircle2 size={12} /> Our recommendation
               </div>
-              <h4 className="text-2xl font-black text-murzak-ink tracking-tight">
+              <h4 className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tight">
                 {recMeta.label}
                 {recMeta.startingKes != null && recMeta.startingKes > 0 && (
                   <span className="text-murzak-gradient"> · from {formatKes(recMeta.startingKes)}/mo</span>

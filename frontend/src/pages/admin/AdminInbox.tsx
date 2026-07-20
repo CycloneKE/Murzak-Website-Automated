@@ -247,7 +247,7 @@ const AdminInbox: React.FC = () => {
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Threads
                 </p>
-                <p className="text-sm font-black text-murzak-ink">
+                <p className="text-sm font-black text-murzak-ink dark:text-slate-100">
                   {loadingThreads ? "Loading..." : `${threads.length} total`}
                 </p>
               </div>
@@ -295,7 +295,7 @@ const AdminInbox: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-murzak-ink truncate">
+                        <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
                           {labelFromThread(t)}
                         </p>
                         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
@@ -326,7 +326,7 @@ const AdminInbox: React.FC = () => {
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Active Thread
                 </p>
-                <p className="text-base sm:text-lg font-black text-murzak-ink truncate">
+                <p className="text-base sm:text-lg font-black text-murzak-ink dark:text-slate-100 truncate">
                   {threadTitle}
                 </p>
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
@@ -404,7 +404,7 @@ const AdminInbox: React.FC = () => {
                         className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
                           isAdmin
                             ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                            : "bg-slate-50 dark:bg-black/5 text-murzak-ink border-slate-200 dark:border-murzak-border"
+                            : "bg-slate-50 dark:bg-black/5 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
                         }`}
                       >
                         <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">
@@ -467,7 +467,7 @@ const AdminInbox: React.FC = () => {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Reply to this user..."
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all resize-none"
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all resize-none"
                 />
               </div>
 

@@ -4,7 +4,7 @@ import { Gavel, Scale, FileCheck, Briefcase, CreditCard } from 'lucide-react';
 
 const TermsOfService: React.FC = () => {
   return (
-    <div className="animate-fade-in bg-transparent text-murzak-ink transition-colors duration-300">
+    <div className="animate-fade-in bg-transparent text-murzak-ink dark:text-slate-100 transition-colors duration-300">
       <section className="relative min-h-[60vh] flex items-start pt-12 lg:pt-24 pb-20 overflow-hidden bg-transparent">
         <div className="absolute inset-0 z-[-1] bg-murzak-ink">
           <img 
@@ -22,7 +22,7 @@ const TermsOfService: React.FC = () => {
             <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
               Legal framework
             </div>
-            <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
+            <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
               Service <br /><span className="text-murzak-accent">terms.</span>
             </h1>
             <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">

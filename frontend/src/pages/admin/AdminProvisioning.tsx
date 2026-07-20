@@ -161,7 +161,7 @@ const AdminProvisioning: React.FC = () => {
             <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><ShieldCheck className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Go-live readiness</Label>
-              <p className="text-sm font-black text-murzak-ink">
+              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">
                 {readiness ? (readiness.ready ? "Ready to go live" : "Not ready — see below") : "—"}
               </p>
             </div>
@@ -186,7 +186,7 @@ const AdminProvisioning: React.FC = () => {
                   <li key={c.key} className="flex items-start gap-2.5">
                     <Dot ok={c.ok} />
                     <div className="min-w-0">
-                      <p className="text-[12px] font-bold text-murzak-ink leading-tight">{c.label}</p>
+                      <p className="text-[12px] font-bold text-murzak-ink dark:text-slate-100 leading-tight">{c.label}</p>
                       {c.detail && <p className="text-micro font-semibold text-slate-600 dark:text-slate-400 leading-tight mt-0.5">{c.detail}</p>}
                     </div>
                   </li>
@@ -204,7 +204,7 @@ const AdminProvisioning: React.FC = () => {
             <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Activity className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Dispatcher</Label>
-              <p className="text-sm font-black text-murzak-ink">mode: {queue?.mode || "—"}</p>
+              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">mode: {queue?.mode || "—"}</p>
             </div>
           </div>
           <div className="p-6">
@@ -212,7 +212,7 @@ const AdminProvisioning: React.FC = () => {
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {Object.entries(queue.counts).map(([k, v]) => (
                   <div key={k} className="rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border p-3 text-center">
-                    <p className="text-lg font-black text-murzak-ink">{v}</p>
+                    <p className="text-lg font-black text-murzak-ink dark:text-slate-100">{v}</p>
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-0.5">{k}</p>
                   </div>
                 ))}
@@ -230,7 +230,7 @@ const AdminProvisioning: React.FC = () => {
             <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Capacity (RAM per box)</Label>
-              <p className="text-sm font-black text-murzak-ink">{capacity?.targets.length || 0} box(es)</p>
+              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">{capacity?.targets.length || 0} box(es)</p>
             </div>
           </div>
           <div className="p-6 space-y-4">
@@ -240,7 +240,7 @@ const AdminProvisioning: React.FC = () => {
               return (
                 <div key={t.id}>
                   <div className="flex items-center justify-between text-label font-black mb-1.5">
-                    <span className="text-murzak-ink uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
+                    <span className="text-murzak-ink dark:text-slate-100 uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
                     <span className="text-slate-500">{t.reservedRamMb} / {t.limitRamMb} MB</span>
                   </div>
                   <div className="h-2.5 rounded-full bg-slate-100 dark:bg-black/5 overflow-hidden">
@@ -305,11 +305,11 @@ const AdminProvisioning: React.FC = () => {
                   return (
                     <tr key={j.name} className="border-b border-slate-50 dark:border-murzak-border/50 align-top">
                       <td className="p-4">
-                        <p className="text-[13px] font-black text-murzak-ink">{j.service_name || j.service_id}</p>
+                        <p className="text-[13px] font-black text-murzak-ink dark:text-slate-100">{j.service_name || j.service_id}</p>
                         <p className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-label font-black text-murzak-ink">{j.lane || "—"}</p>
+                        <p className="text-label font-black text-murzak-ink dark:text-slate-100">{j.lane || "—"}</p>
                         <p className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-0.5">{j.target || "box-1"}</p>
                       </td>
                       <td className="p-4">
@@ -371,12 +371,12 @@ const AdminProvisioning: React.FC = () => {
               <div>
                 <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
                 <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent" />
               </div>
               <div>
                 <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Access Credentials (JSON)</label>
                 <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
               </div>
               
               <div className="pt-4 flex gap-3">

@@ -239,7 +239,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
   const messages = thread?.messages || [];
 
   const inputBase =
-    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all";
+    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all";
 
   const inputClasses = (key: string) =>
     `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
@@ -300,7 +300,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                       className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
                         isUser
                           ? "bg-murzak-accent/20 text-murzak-ink border-murzak-accent"
-                          : "bg-slate-50 text-murzak-ink border-slate-200 dark:border-murzak-border"
+                          : "bg-slate-50 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
                       }`}
                     >
                       <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">{m.message}</p>

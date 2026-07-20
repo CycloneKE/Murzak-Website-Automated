@@ -107,3 +107,20 @@ html.dark body { background-color: #090C10; color: #F1F5F9; }
   }
 }
 
+/* Respect prefers-reduced-motion globally. Tailwind's animate-* utilities
+   (ambient blob drift, pulse, spin) don't honor this on their own — without
+   this override every infinite/looping animation keeps running at full
+   speed for users who've asked the OS to reduce motion. Scroll-triggered
+   and hover micro-transitions stay snappy (near-zero duration) rather than
+   fully removed, so state changes are still perceivable. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+

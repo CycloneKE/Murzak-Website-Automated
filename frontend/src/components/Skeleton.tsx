@@ -27,7 +27,7 @@ export const SkeletonHero: React.FC = () => (
 );
 
 export const SkeletonCard: React.FC = () => (
-  <div className="bg-white dark:bg-murzak-surface rounded-[3rem] overflow-hidden border border-slate-100 dark:border-murzak-border/50 h-full">
+  <div className="bg-white dark:bg-murzak-ink rounded-[3rem] overflow-hidden border border-slate-100 dark:border-murzak-border/50 h-full">
     <Skeleton className="h-48 lg:h-64 rounded-none" />
     <div className="p-8 lg:p-12 space-y-6">
       <Skeleton className="h-10 w-10 rounded-xl" />

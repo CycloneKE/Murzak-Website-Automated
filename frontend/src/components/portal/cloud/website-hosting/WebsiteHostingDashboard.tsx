@@ -35,6 +35,8 @@ import type {
   HostingDomainChoice,
   HostingFile,
 } from "../../../../types/hosting";
+import ResourceUtilizationCard from "../../ResourceUtilizationCard";
+import ServiceHealthCard from "../../ServiceHealthCard";
 
 type SetupTab = "overview" | "setup" | "requests";
 type LiveTab = "overview" | "files" | "deployments" | "subdomains" | "requests" | "activity";
@@ -1406,7 +1408,12 @@ const WebsiteHostingDashboard: React.FC = () => {
           diskUsagePercent={storagePercent ?? 0}
         />
         <ServiceHealthCard
-          service={{ id: activeSite?.id || '', name: activeSite?.primaryHost || 'Website', status: activeSite?.status === 'active' ? 'running' : 'stopped' }}
+          service={{
+            id: activeSite?.id || '',
+            name: activeSite?.primaryHost || 'Website',
+            type: 'Website Hosting',
+            status: activeSite?.status === 'active' ? 'online' : 'offline',
+          }}
           onAction={() => {}}
         />
       </div>

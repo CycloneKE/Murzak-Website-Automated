@@ -479,7 +479,7 @@ const handleReset = async (e: React.FormEvent) => {
       <div className="max-w-4xl w-full relative z-10 py-10">
         <div className="text-center mb-10">
           <Logo className="h-12 lg:h-14 mx-auto mb-8" />
-          <h1 className="text-3xl lg:text-4xl font-bold text-murzak-ink tracking-tight">
+          <h1 className="text-3xl lg:text-4xl font-bold text-murzak-ink dark:text-slate-100 tracking-tight">
             {mode === 'login' && 'Client Dashboard'}
             {mode === 'signup' && 'Account Setup'}
             {mode === 'forgot' && 'Reset Password'}

@@ -93,7 +93,7 @@ const ConciergeWidget: React.FC = () => {
                 <Bot size={18} />
               </div>
               <div>
-                <h3 className="text-murzak-ink font-bold text-sm">Murzaker</h3>
+                <h3 className="text-murzak-ink dark:text-slate-100 font-bold text-sm">Murzaker</h3>
                 <p className="text-murzak-accent text-micro uppercase">AI Concierge</p>
               </div>
             </div>
@@ -123,7 +123,7 @@ const ConciergeWidget: React.FC = () => {
             )}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-black/5 text-murzak-ink border border-murzak-border/50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm flex gap-1">
+                <div className="bg-black/5 text-murzak-ink dark:text-slate-100 border border-murzak-border/50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm flex gap-1">
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-100" />
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-200" />
@@ -141,7 +141,7 @@ const ConciergeWidget: React.FC = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Murzaker..."
-                className="w-full bg-black/5 border border-murzak-border rounded-xl pl-4 pr-12 py-3 text-sm text-murzak-ink placeholder-slate-500 focus:outline-none focus:border-murzak-accent/50 resize-none max-h-32"
+                className="w-full bg-black/5 border border-murzak-border rounded-xl pl-4 pr-12 py-3 text-sm text-murzak-ink dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:border-murzak-accent/50 resize-none max-h-32"
                 rows={1}
               />
               <button

@@ -176,10 +176,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             <ShieldCheck size={16} className="text-murzak-accent w-3 h-3 sm:w-4 sm:h-4" />
             <span className="font-mono text-micro sm:text-micro font-black text-murzak-accent uppercase">Priced in shillings · no hidden fees</span>
           </div>
-          <h1 className="text-[clamp(2.2rem,10vw,7.5rem)] font-bold text-murzak-ink mb-6 tracking-tight leading-[0.9] sm:leading-[0.85] text-balance">
+          <h1 className="text-[clamp(2.2rem,10vw,7.5rem)] font-bold text-murzak-ink dark:text-slate-100 mb-6 tracking-tight leading-[0.9] sm:leading-[0.85] text-balance">
             Pay for what you use. <br /><span className="text-transparent bg-clip-text bg-brand-gradient">See it first.</span>
           </h1>
-          <p className="text-base sm:text-xl lg:text-2xl text-murzak-muted max-w-3xl mx-auto mb-10 font-medium leading-relaxed">
+          <p className="text-base sm:text-xl lg:text-2xl text-murzak-muted dark:text-slate-400 max-w-3xl mx-auto mb-10 font-medium leading-relaxed">
             Pick your services, watch the total add up in shillings, and start. No quotes to chase, no surprises on the invoice.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -197,7 +197,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       <section id="pricing-plans" ref={gridRef} className="relative scroll-mt-24 py-12 sm:py-20 lg:py-24 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 xl:px-24">
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
           <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Choose your solution</p>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
             Infrastructure & SaaS
           </h2>
           <p className="mt-4 text-sm sm:text-base text-slate-500 dark:text-slate-500 font-medium">
@@ -225,16 +225,16 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                   </h3>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     {plan.pricePrefix && (
-                      <span className="text-xs font-semibold text-murzak-muted">{plan.pricePrefix}</span>
+                      <span className="text-xs font-semibold text-murzak-muted dark:text-slate-400">{plan.pricePrefix}</span>
                     )}
-                    <div className="text-2xl sm:text-3xl font-mono font-bold text-murzak-ink">{plan.price}</div>
-                    <div className="text-murzak-muted text-xs font-medium">{plan.period}</div>
+                    <div className="text-2xl sm:text-3xl font-mono font-bold text-murzak-ink dark:text-slate-100">{plan.price}</div>
+                    <div className="text-murzak-muted dark:text-slate-400 text-xs font-medium">{plan.period}</div>
                   </div>
-                  <p className="text-sm font-medium text-murzak-muted leading-relaxed mb-6">{plan.description}</p>
+                  <p className="text-sm font-medium text-murzak-muted dark:text-slate-400 leading-relaxed mb-6">{plan.description}</p>
                   
                   <ul className="space-y-3 mb-8 flex-grow">
                     {plan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-murzak-ink leading-tight">
+                      <li key={i} className="flex items-start gap-2 text-xs font-medium text-murzak-ink dark:text-slate-100 leading-tight">
                         <Check size={14} className="text-murzak-success flex-shrink-0 mt-0.5" />
                         {feature}
                       </li>
@@ -266,7 +266,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Included, not extra</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
               “Managed” means we actually do the work.
             </h2>
             <p className="mt-5 text-base sm:text-lg text-slate-500 font-medium leading-relaxed">
@@ -284,7 +284,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             ].map((c) => (
               <div key={c.t} className="glass-panel rounded-3xl p-7 hover:-translate-y-1 transition-transform">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5 shadow-[0_0_15px_rgba(0,189,252,0.15)]">{c.icon}</div>
-                <h3 className="text-lg font-black text-murzak-ink mb-2">{c.t}</h3>
+                <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{c.t}</h3>
                 <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{c.s}</p>
               </div>
             ))}
@@ -302,7 +302,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No surprises</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
               How billing actually works.
             </h2>
           </div>
@@ -315,7 +315,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
               <div key={step.n} className="glass-panel relative rounded-3xl p-7 lg:p-8 hover:-translate-y-1 transition-transform">
                 <span className="absolute top-6 right-6 font-mono text-label font-black text-slate-600 dark:text-murzak-ink/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5 shadow-[0_0_15px_rgba(0,189,252,0.15)]">{step.icon}</div>
-                <h3 className="text-lg font-black text-murzak-ink mb-2">{step.t}</h3>
+                <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{step.t}</h3>
                 <p className="text-[13px] text-slate-500 font-medium leading-relaxed">{step.s}</p>
               </div>
             ))}
@@ -333,8 +333,8 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         <div className="absolute inset-0 -z-10 bg-murzak-surface/50 border-y border-murzak-border" />
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 sm:px-10 text-center">
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink">Still weighing it up?</h2>
-          <p className="mt-4 text-base sm:text-lg text-murzak-ink/85 font-medium">
+          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">Still weighing it up?</h2>
+          <p className="mt-4 text-base sm:text-lg text-murzak-ink/85 dark:text-slate-300 font-medium">
             Take it for a spin with a free 36-hour trial, or let us recommend the right plan in a minute.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">

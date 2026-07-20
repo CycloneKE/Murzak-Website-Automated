@@ -172,7 +172,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
             <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
               Invoice amount
             </div>
-            <div className="mt-2 text-xl font-black text-murzak-ink">
+            <div className="mt-2 text-xl font-black text-murzak-ink dark:text-slate-100">
               KES {Number(amountKes || 0).toLocaleString()}
             </div>
             <div className="mt-1 text-label font-bold text-slate-600 dark:text-slate-400">

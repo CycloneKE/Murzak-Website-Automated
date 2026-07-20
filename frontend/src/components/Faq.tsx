@@ -33,7 +33,7 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
               className={`rounded-2xl border transition-all ${
                 isOpen
                   ? "border-murzak-accent bg-murzak-accent/5 dark:bg-murzak-accent/10"
-                  : "border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-surface/60"
+                  : "border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-ink"
               }`}
             >
               <button

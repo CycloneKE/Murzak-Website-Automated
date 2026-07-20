@@ -242,7 +242,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
             Invoice {invoice?.invoiceNo || "…"}{invoice?.plan ? ` · ${invoice.plan} plan` : ""}
           </p>
         </div>
-        <span className="text-2xl font-black text-murzak-ink tracking-tighter whitespace-nowrap">
+        <span className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter whitespace-nowrap">
           {loadingInvoice ? "…" : `KES ${chargeKes.toLocaleString()}`}
         </span>
       </div>
@@ -278,7 +278,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
           <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 font-black text-label uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
             <ChevronLeft size={16} /> Back to your portal
           </button>
-          <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink mb-4 tracking-tighter leading-none">
+          <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-none">
             Pay <span className="text-murzak-accent">securely.</span>
           </h1>
           <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -386,9 +386,9 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
             pollTimedOut ? (
               <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
                 <Smartphone size={48} className="text-murzak-accent mb-6" />
-                <h3 className="text-2xl sm:text-3xl font-black text-murzak-ink tracking-tighter mb-4">Waiting for your payment</h3>
+                <h3 className="text-2xl sm:text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Waiting for your payment</h3>
                 <p className="text-sm font-bold text-slate-500 leading-relaxed mb-8">
-                  We sent a payment request to <span className="text-murzak-ink">{phoneNumber}</span> but haven't received confirmation yet.
+                  We sent a payment request to <span className="text-murzak-ink dark:text-slate-100">{phoneNumber}</span> but haven't received confirmation yet.
                   If you entered your PIN, give it a moment and check again. If no prompt arrived, start over.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
@@ -417,17 +417,17 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center p-20 text-center animate-fade-in">
                 <RefreshCw size={56} className="animate-spin text-murzak-accent mb-8" />
-                <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4">Check your phone</h3>
+                <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Check your phone</h3>
                 <p className="text-sm font-bold text-slate-500">Enter your M-Pesa PIN to approve the payment of KES {chargeKes.toLocaleString()}.</p>
               </div>
             )
           ) : (
             <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
               <CheckCircle2 size={56} className="text-green-500 mb-8" />
-              <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4">Payment received</h3>
+              <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Payment received</h3>
               {mpesaReceipt && (
                 <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 bg-black/5 border border-murzak-border rounded-2xl px-5 py-3 mb-6">
-                  <Receipt size={16} className="text-murzak-accent" /> M-Pesa confirmation: <span className="font-black text-murzak-ink">{mpesaReceipt}</span>
+                  <Receipt size={16} className="text-murzak-accent" /> M-Pesa confirmation: <span className="font-black text-murzak-ink dark:text-slate-100">{mpesaReceipt}</span>
                 </p>
               )}
               <p className="text-sm font-bold text-slate-500 leading-relaxed">

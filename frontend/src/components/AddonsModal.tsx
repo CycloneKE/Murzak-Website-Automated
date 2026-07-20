@@ -227,7 +227,7 @@ return createPortal(
                   <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     {a.category} • {a.tier}
                   </p>
-                  <p className="text-sm sm:text-base font-black text-murzak-ink mt-2">
+                  <p className="text-sm sm:text-base font-black text-murzak-ink dark:text-slate-100 mt-2">
                     {a.name}
                   </p>
                   <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
@@ -239,7 +239,7 @@ return createPortal(
                   <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     Monthly
                   </p>
-                  <p className="text-lg font-black text-murzak-ink">
+                  <p className="text-lg font-black text-murzak-ink dark:text-slate-100">
                     KES {Number(a?.pricing?.monthlyKes || 0).toLocaleString()}
                   </p>
                 </div>
@@ -285,7 +285,7 @@ return createPortal(
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                       #{idx + 1} • {row.tier}
                     </p>
-                    <p className="text-sm font-black text-murzak-ink mt-1 truncate">
+                    <p className="text-sm font-black text-murzak-ink dark:text-slate-100 mt-1 truncate">
                       {row.name}
                     </p>
                   </div>
@@ -401,7 +401,7 @@ return createPortal(
           className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 p-3"
         >
           <div className="min-w-0">
-            <p className="text-micro font-black truncate text-murzak-ink">
+            <p className="text-micro font-black truncate text-murzak-ink dark:text-slate-100">
               {row.name}
             </p>
             <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">

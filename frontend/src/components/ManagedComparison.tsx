@@ -19,7 +19,7 @@ export default function ManagedComparison() {
         <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
           <Sparkles size={14} /> Managed, not DIY
         </div>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink tracking-tighter">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           Why teams pick <span className="text-murzak-gradient">managed Murzak</span>
         </h2>
         <p className="mt-4 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto">
@@ -27,7 +27,7 @@ export default function ManagedComparison() {
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-surface/60 shadow-xl">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-ink shadow-xl">
         {/* header */}
         <div className="grid grid-cols-[1.4fr_1fr_1fr]">
           <div className="p-4 sm:p-5" />
@@ -35,7 +35,7 @@ export default function ManagedComparison() {
             <span className="text-micro sm:text-xs font-black uppercase text-slate-600 dark:text-slate-400">Raw VPS / DIY</span>
           </div>
           <div className="p-4 sm:p-5 text-center border-l border-slate-200 dark:border-murzak-border bg-brand-gradient">
-            <span className="text-micro sm:text-xs font-black uppercase text-murzak-ink">Murzak Managed</span>
+            <span className="text-micro sm:text-xs font-black uppercase text-murzak-ink dark:text-slate-100">Murzak Managed</span>
           </div>
         </div>
 
@@ -46,7 +46,7 @@ export default function ManagedComparison() {
               i % 2 ? "bg-slate-50/60 dark:bg-white/[0.02]" : ""
             }`}
           >
-            <div className="p-4 sm:p-5 text-label sm:text-[13px] font-black text-murzak-ink">
+            <div className="p-4 sm:p-5 text-label sm:text-[13px] font-black text-murzak-ink dark:text-slate-100">
               {r.feature}
             </div>
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center text-center">
@@ -59,7 +59,7 @@ export default function ManagedComparison() {
             <div className="p-4 sm:p-5 border-l border-slate-200 dark:border-murzak-border flex items-center justify-center gap-2 text-center">
               <Check className="w-4 h-4 text-murzak-accent shrink-0" />
               {typeof r.murzak === "string" && (
-                <span className="text-micro sm:text-[12px] font-black text-murzak-ink">{r.murzak}</span>
+                <span className="text-micro sm:text-[12px] font-black text-murzak-ink dark:text-slate-100">{r.murzak}</span>
               )}
             </div>
           </div>

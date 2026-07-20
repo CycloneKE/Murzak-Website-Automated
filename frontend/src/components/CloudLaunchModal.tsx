@@ -287,7 +287,7 @@ export default function CloudLaunchModal({
                       : "border-murzak-border bg-black/5 hover:border-murzak-accent/40"
                   }`}
                 >
-                  <p className="text-sm font-black text-murzak-ink">{svc.name}</p>
+                  <p className="text-sm font-black text-murzak-ink dark:text-slate-100">{svc.name}</p>
                   <p className="text-label text-slate-600 dark:text-slate-400 font-medium mt-1 leading-relaxed">
                     {svc.description}
                   </p>
@@ -318,7 +318,7 @@ export default function CloudLaunchModal({
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   placeholder="https://github.com/you/app"
-                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                 />
                 <details className="mt-3">
                   <summary className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none">
@@ -330,7 +330,7 @@ export default function CloudLaunchModal({
                     value={appPort}
                     onChange={(e) => setAppPort(e.target.value)}
                     placeholder="3000"
-                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
                   <p className="mt-2 text-label text-slate-600 dark:text-slate-400 font-medium">
                     The port your app listens on inside its container. Leave blank if it uses 3000.
@@ -373,7 +373,7 @@ export default function CloudLaunchModal({
           <div className="p-5 sm:p-6 border-t border-murzak-border flex items-center justify-between gap-4">
             <div>
               <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Total</p>
-              <p className="text-xl font-black text-murzak-ink">
+              <p className="text-xl font-black text-murzak-ink dark:text-slate-100">
                 {selected ? formatKes(selected.pricing.monthlyKes) : "—"}/mo
               </p>
             </div>

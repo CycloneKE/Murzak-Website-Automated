@@ -116,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({
                       className={`flex items-center gap-1.5 text-sm font-semibold transition-all relative py-2 group focus:outline-none whitespace-nowrap ${
                         activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage)))
                           ? "text-murzak-brand2"
-                          : "text-murzak-muted hover:text-murzak-accent"
+                          : "text-murzak-muted dark:text-slate-400 hover:text-murzak-accent"
                       }`}
                     >
                       {item.label}
@@ -182,7 +182,7 @@ const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={toggle}
-                className="p-2.5 sm:p-3 rounded-full text-murzak-ink hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-2.5 sm:p-3 rounded-full text-murzak-ink dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 aria-label={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 title={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
@@ -191,7 +191,7 @@ const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={() => setIsMenuOpen((v) => !v)}
-                className="xl:hidden p-2.5 sm:p-3 text-murzak-ink relative z-[70]"
+                className="xl:hidden p-2.5 sm:p-3 text-murzak-ink dark:text-slate-100 relative z-[70]"
                 aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               >
                 {isMenuOpen ? <X className="w-6 h-6 sm:w-7 sm:h-7" /> : <Menu className="w-6 h-6 sm:w-7 sm:h-7" />}
@@ -217,7 +217,7 @@ const Header: React.FC<HeaderProps> = ({
           <Logo className="scale-90 origin-left" />
           <button
             onClick={() => setIsMenuOpen(false)}
-            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-black/5 text-murzak-ink transition"
+            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-black/5 text-murzak-ink dark:text-slate-100 transition"
             aria-label="Close menu"
           >
             <X className="w-6 h-6" />

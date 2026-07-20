@@ -155,7 +155,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
                 <CheckCircle2 size={40} />
               </div>
-              <h3 className="text-3xl font-black text-murzak-ink tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
+              <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
               <p className="text-sm font-bold text-slate-500 dark:text-slate-500 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
                 Your reference is <span className="text-murzak-accent font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
               </p>
@@ -182,7 +182,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                   <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Package size={28} />
                   </div>
-                  <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">See a Demo</h4>
+                  <h4 className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-2 uppercase">See a Demo</h4>
                   <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase leading-relaxed">Watch Murzak ERP, POS, CRM or your custom build running live on a quick screen-share.</p>
                 </button>
                 
@@ -193,7 +193,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                   <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Briefcase size={28} />
                   </div>
-                  <h4 className="text-2xl font-black text-murzak-ink tracking-tighter mb-2 uppercase">Get a Quote</h4>
+                  <h4 className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-2 uppercase">Get a Quote</h4>
                   <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase leading-relaxed">Tell us what you need built and we'll send pricing and a clear plan to get there.</p>
                 </button>
                 

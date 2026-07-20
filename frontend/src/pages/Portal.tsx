@@ -1335,11 +1335,11 @@ const renderCloudSystemsGrid = () => null;
             <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
                 <Crown className="w-4 h-4 text-murzak-accent" />
-                <span className="text-micro font-black uppercase text-murzak-ink">
+                <span className="text-micro font-black uppercase text-murzak-ink dark:text-slate-100">
                   {user.plan} Plan
                 </span>
               </div>
-              <p className="text-body font-bold text-murzak-ink">
+              <p className="text-body font-bold text-murzak-ink dark:text-slate-100">
                 {selectedServices.length === 0
                   ? "No services deployed yet"
                   : hasDegradedService
@@ -1358,7 +1358,7 @@ const renderCloudSystemsGrid = () => null;
                   <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
                 </button>
               ))}
-              <button onClick={() => setIsContactOpen(true)} className="px-5 py-3 rounded-2xl bg-black/5 text-murzak-ink font-black text-micro uppercase border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+              <button onClick={() => setIsContactOpen(true)} className="px-5 py-3 rounded-2xl bg-black/5 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                 <Headphones className="w-4 h-4" /> Get Support
               </button>
             </div>
@@ -1392,7 +1392,7 @@ const renderCloudSystemsGrid = () => null;
             <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">System Health</h3>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">System Health</h3>
                   <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Live status of your active infrastructure</p>
                 </div>
                 <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink transition-colors p-2">
@@ -1436,10 +1436,10 @@ const renderCloudSystemsGrid = () => null;
             <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink">Project Files</h3>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">Project Files</h3>
                   <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Upload assets for engineers</p>
                 </div>
-                <label className="cursor-pointer px-4 py-2 rounded-xl bg-black/5 hover:bg-white/20 text-murzak-ink font-black text-micro uppercase transition-all inline-flex items-center gap-2">
+                <label className="cursor-pointer px-4 py-2 rounded-xl bg-black/5 hover:bg-white/20 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase transition-all inline-flex items-center gap-2">
                   <UploadCloud className="w-4 h-4" />
                   {uploading ? "Uploading..." : "Upload"}
                   <input
@@ -1493,7 +1493,7 @@ const renderCloudSystemsGrid = () => null;
           <div className="space-y-8">
             {/* Activity Timeline */}
             <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full">
-              <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink mb-8">Activity Hub</h3>
+              <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-8">Activity Hub</h3>
               <ActivityTimeline events={timelineEvents} />
             </div>
           </div>
@@ -1525,19 +1525,19 @@ const renderCloudSystemsGrid = () => null;
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
             
             <div className="absolute top-8 right-8 opacity-10 group-hover:scale-110 transition-transform duration-700 z-0">
-              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-murzak-ink" />
+              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-murzak-ink dark:text-slate-100" />
             </div>
 
             <div className="relative z-10 flex flex-col md:flex-row gap-8 justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-black/5 rounded-full border border-white/20 mb-6 backdrop-blur-md">
                   <div className={`w-2 h-2 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                  <span className="text-micro font-black uppercase text-murzak-ink">
+                  <span className="text-micro font-black uppercase text-murzak-ink dark:text-slate-100">
                     {user.accountStatus} Subscription
                   </span>
                 </div>
 
-                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-murzak-ink">
+                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-murzak-ink dark:text-slate-100">
                   {user.plan}
                 </h3>
                 <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mb-8">
@@ -1548,7 +1548,7 @@ const renderCloudSystemsGrid = () => null;
                   <button onClick={goToUpgrade} className="px-6 py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase shadow-[0_0_20px_rgba(0,189,252,0.3)] hover:scale-105 transition-all flex items-center gap-2">
                     <ArrowUpCircle className="w-4 h-4" /> Change Plan
                   </button>
-                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-black/5 text-murzak-ink border border-white/20 font-black text-micro uppercase hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-black/5 text-murzak-ink dark:text-slate-100 border border-white/20 font-black text-micro uppercase hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                     <Plus className="w-4 h-4" /> Add Services
                   </button>
                 </div>
@@ -1559,7 +1559,7 @@ const renderCloudSystemsGrid = () => null;
                 <p className="text-3xl font-black text-murzak-accent tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
                 <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
                   <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Slots used</span>
-                  <span className="text-micro font-black text-murzak-ink">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
+                  <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
                 </div>
               </div>
             </div>
@@ -1610,7 +1610,7 @@ const renderCloudSystemsGrid = () => null;
 
                     <div className="flex items-center gap-3 self-end sm:self-auto">
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-ink dark:bg-black/5 text-murzak-ink border border-slate-200 dark:border-white/20 text-micro font-black uppercase flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(0,189,252,0.15)] group-hover:shadow-[0_0_20px_rgba(0,189,252,0.3)]">
+                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-ink dark:bg-black/5 text-murzak-ink dark:text-slate-100 border border-slate-200 dark:border-white/20 text-micro font-black uppercase flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(0,189,252,0.15)] group-hover:shadow-[0_0_20px_rgba(0,189,252,0.3)]">
                           <Terminal className="w-3 h-3 text-murzak-accent" /> Developer Access
                         </button>
                         
@@ -1692,7 +1692,7 @@ const renderCloudSystemsGrid = () => null;
                         <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">
                           {inv.date}
                         </p>
-                        <p className="text-xs font-black text-murzak-ink">
+                        <p className="text-xs font-black text-murzak-ink dark:text-slate-100">
                           {(inv.type || "").toLowerCase().replace(/[^a-z]/g, "").includes("addon") ? "Add-on Invoice" : inv.type}
                         </p>
                         {inv.plan && (
@@ -1838,7 +1838,7 @@ const renderCloudSystemsGrid = () => null;
 
         <div className="relative z-10 flex items-center gap-6 w-full md:w-auto">
           <div className="p-4 sm:p-5 bg-black/5 backdrop-blur-md border border-white/20 rounded-2xl relative shadow-lg group-hover:scale-110 transition-transform duration-500">
-            <Headphones className="w-8 h-8 text-murzak-ink" />
+            <Headphones className="w-8 h-8 text-murzak-ink dark:text-slate-100" />
             {unreadChatCount > 0 && (
               <span className="absolute -top-2 -right-2 min-w-[24px] h-[24px] px-1 rounded-full bg-murzak-accent text-murzak-ink text-label font-black flex items-center justify-center shadow-[0_0_10px_rgba(0,189,252,0.5)] border-2 border-murzak-ink animate-pulse">
                 {unreadChatCount}
@@ -1847,7 +1847,7 @@ const renderCloudSystemsGrid = () => null;
           </div>
 
           <div>
-            <h4 className="text-xl sm:text-2xl font-black tracking-tight text-murzak-ink group-hover:text-murzak-accent transition-colors">
+            <h4 className="text-xl sm:text-2xl font-black tracking-tight text-murzak-ink dark:text-slate-100 group-hover:text-murzak-accent transition-colors">
               Need a hand with something?
             </h4>
             <p className="text-micro sm:text-xs font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">
@@ -1930,7 +1930,7 @@ const renderCloudSystemsGrid = () => null;
                       onChange={() => toggleSelected(update.id)}
                       className="w-5 h-5 rounded border-slate-300 dark:border-white/20 text-murzak-accent focus:ring-murzak-accent/50 cursor-pointer appearance-none bg-white dark:bg-black/5 checked:bg-murzak-accent checked:border-murzak-accent transition-all peer"
                     />
-                    <CheckCircle2 className="w-3.5 h-3.5 text-murzak-ink absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-murzak-ink dark:text-slate-100 absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
                   </div>
 
                   <button
@@ -2091,7 +2091,7 @@ const renderCloudSystemsGrid = () => null;
                   <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     {svc?.category || "Service"}{svc?.tier ? ` • ${svc.tier}` : ""}
                   </p>
-                  <h3 className="text-xl sm:text-2xl font-black text-murzak-ink mt-1">
+                  <h3 className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 mt-1">
                     {svc?.name || "Your service"}
                   </h3>
                 </div>
@@ -2108,7 +2108,7 @@ const renderCloudSystemsGrid = () => null;
             <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
               <Shield className="w-5 h-5 text-murzak-accent shrink-0 mt-0.5" />
               <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
-                This is a fully <span className="font-black text-murzak-ink">managed</span> service — our Nairobi team
+                This is a fully <span className="font-black text-murzak-ink dark:text-slate-100">managed</span> service — our Nairobi team
                 runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
                 Message support and we’ll take care of it.
               </p>
@@ -2125,7 +2125,7 @@ const renderCloudSystemsGrid = () => null;
                   <div className="p-2.5 rounded-xl bg-murzak-accent/10 text-murzak-accent shrink-0"><ExternalLink className="w-4 h-4" /></div>
                   <div className="min-w-0">
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Live</p>
-                    <p className="text-[13px] font-black text-murzak-ink truncate">{cloudAccessUrl}</p>
+                    <p className="text-[13px] font-black text-murzak-ink dark:text-slate-100 truncate">{cloudAccessUrl}</p>
                   </div>
                 </div>
                 <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0 group-hover:translate-x-1 transition-transform" />
@@ -2138,7 +2138,7 @@ const renderCloudSystemsGrid = () => null;
             {cloudJob?.statusDetail === "waiting_on_repo" && (
               <div className="mt-4 rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
                 <p className="text-micro font-black uppercase text-orange-500 mb-1">Action needed</p>
-                <p className="text-[13px] font-bold text-murzak-ink">
+                <p className="text-[13px] font-bold text-murzak-ink dark:text-slate-100">
                   Add your repository to start deployment.
                 </p>
                 <p className="text-[12px] font-medium text-slate-500 mt-1 leading-relaxed">
@@ -2153,7 +2153,7 @@ const renderCloudSystemsGrid = () => null;
             {cloudJob?.statusDetail === "needs_attention" && (
               <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
                 <p className="text-micro font-black uppercase text-red-500 mb-1">Deployment issue</p>
-                <p className="text-[13px] font-bold text-murzak-ink">
+                <p className="text-[13px] font-bold text-murzak-ink dark:text-slate-100">
                   The last deployment didn't complete — our team has been notified and is on it.
                 </p>
                 {cloudJob?.error && (
@@ -2248,7 +2248,7 @@ const renderCloudSystemsGrid = () => null;
                             }`}
                           />
                           <div className="min-w-0">
-                            <p className="text-label font-black text-murzak-ink truncate">
+                            <p className="text-label font-black text-murzak-ink dark:text-slate-100 truncate">
                               {d.commit ? `${d.commit}` : d.uuid.slice(0, 8)}
                               <span className="ml-2 font-bold text-slate-500 normal-case">
                                 {d.status || "unknown"}
@@ -2316,7 +2316,7 @@ const renderCloudSystemsGrid = () => null;
                     value={domainInput}
                     onChange={(e) => setDomainInput(e.target.value)}
                     placeholder="shop.yourbusiness.co.ke"
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
                   <button
                     onClick={submitDomainAttach}
@@ -2344,7 +2344,7 @@ const renderCloudSystemsGrid = () => null;
               {!isActive && (
                 <button
                   onClick={() => onTabClick("billing")}
-                  className="px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-white/15 text-murzak-ink font-black text-micro uppercase hover:bg-slate-100 dark:hover:bg-black/5 transition-all"
+                  className="px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-white/15 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase hover:bg-slate-100 dark:hover:bg-black/5 transition-all"
                 >
                   Pay & activate
                 </button>
@@ -2404,7 +2404,7 @@ const renderCloudSystemsGrid = () => null;
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Full Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.name}
               </p>
             </div>
@@ -2413,7 +2413,7 @@ const renderCloudSystemsGrid = () => null;
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
               </p>
-              <p className="text-lg sm:text-xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-lg sm:text-xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.email}
               </p>
             </div>
@@ -2422,7 +2422,7 @@ const renderCloudSystemsGrid = () => null;
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.company}
               </p>
             </div>
@@ -2440,7 +2440,7 @@ const renderCloudSystemsGrid = () => null;
                   value={repoDraft}
                   onChange={(e) => { setRepoDraft(e.target.value); if (repoMsg) setRepoMsg(null); }}
                   placeholder="https://github.com/you/your-app"
-                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:border-murzak-accent/60"
+                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-murzak-accent/60"
                 />
                 <button
                   type="button"
@@ -2466,12 +2466,12 @@ const renderCloudSystemsGrid = () => null;
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
 
           <div className="relative z-10">
-            <h3 className="text-[12px] font-black text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3">
+            <h3 className="text-[12px] font-black text-murzak-ink dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
               <Shield className="w-5 h-5 text-murzak-accent" /> Service Plan
             </h3>
             
             <div className="flex flex-col gap-2 mb-8">
-              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-murzak-ink">
+              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-murzak-ink dark:text-slate-100">
                 {user.plan || "None"}
               </p>
               <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
@@ -2488,7 +2488,7 @@ const renderCloudSystemsGrid = () => null;
                   Provisioned Services
                 </p>
                 <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
-                  <Server className="w-4 h-4 text-murzak-ink" />
+                  <Server className="w-4 h-4 text-murzak-ink dark:text-slate-100" />
                 </div>
               </div>
               
@@ -2501,7 +2501,7 @@ const renderCloudSystemsGrid = () => null;
               
               <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
                 <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Available Slots</span>
-                <span className="text-micro font-black text-murzak-ink">{remainingSlots}</span>
+                <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{remainingSlots}</span>
               </div>
             </div>
           </div>
@@ -2519,7 +2519,7 @@ const renderCloudSystemsGrid = () => null;
 
             <button
               onClick={goToUpgrade}
-              className="w-full bg-black/5 border border-white/15 text-murzak-ink rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
+              className="w-full bg-black/5 border border-white/15 text-murzak-ink dark:text-slate-100 rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
             >
               <Crown className="w-4 h-4 text-murzak-accent" /> Upgrade Plan
             </button>
@@ -2537,12 +2537,12 @@ const renderCloudSystemsGrid = () => null;
           
           <div className="pt-8 mt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
             <div>
-              <h4 className="text-sm font-black text-murzak-ink">Welcome Tour</h4>
+              <h4 className="text-sm font-black text-murzak-ink dark:text-slate-100">Welcome Tour</h4>
               <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">Re-run the onboarding experience</p>
             </div>
             <button
               onClick={() => setShowOnboarding(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-murzak-ink font-black text-micro uppercase hover:border-murzak-accent hover:bg-murzak-accent/5 transition-all"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase hover:border-murzak-accent hover:bg-murzak-accent/5 transition-all"
             >
               <Activity className="w-4 h-4 text-murzak-accent" /> Replay Tour
             </button>
@@ -2574,7 +2574,7 @@ const renderCloudSystemsGrid = () => null;
             <Navigation className="w-10 h-10 sm:w-12 sm:h-12 text-murzak-accent" />
           </div>
           
-          <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase mb-4 text-murzak-ink">
+          <h3 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase mb-4 text-murzak-ink dark:text-slate-100">
             Charting the Future
           </h3>
           
@@ -2641,7 +2641,7 @@ const renderCloudSystemsGrid = () => null;
             {(user.name || "U").split(" ").map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-black text-murzak-ink truncate">{user.name}</p>
+            <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">{user.name}</p>
             <div className="mt-1 flex items-center gap-1.5">
               <span className="px-2 py-0.5 rounded-full bg-murzak-accent/10 text-murzak-accent text-micro font-black uppercase">
                 {user.plan || "No plan"}
@@ -2764,7 +2764,7 @@ const renderCloudSystemsGrid = () => null;
 
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
           <div className="flex-grow">
-            <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink tracking-tighter uppercase leading-none">
+            <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter uppercase leading-none">
               Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
             <p className="text-micro sm:text-micro font-black text-slate-600 dark:text-slate-400 uppercase sm:mt-3 sm:mt-4">
@@ -2796,7 +2796,7 @@ const renderCloudSystemsGrid = () => null;
             return (
               <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
                 <div className="shrink-0">{icon}</div>
-                <p className="flex-grow text-sm font-bold text-murzak-ink leading-relaxed">{text}</p>
+                <p className="flex-grow text-sm font-bold text-murzak-ink dark:text-slate-100 leading-relaxed">{text}</p>
                 {cta && (
                   <button
                     type="button"
@@ -2912,7 +2912,7 @@ const renderCloudSystemsGrid = () => null;
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => setStopConfirmService(null)} />
           <div className="relative w-full max-w-md bg-white dark:bg-murzak-ink rounded-[2rem] border border-slate-200 dark:border-murzak-border p-7 shadow-2xl">
             <p className="text-micro font-black uppercase text-orange-500">Stop service</p>
-            <h3 className="text-lg font-black text-murzak-ink mt-2">
+            <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mt-2">
               Stop {stopConfirmService.name}?
             </h3>
             <p className="text-[12px] font-medium text-slate-500 dark:text-slate-500 mt-3 leading-relaxed">
@@ -2931,7 +2931,7 @@ const renderCloudSystemsGrid = () => null;
                   setStopConfirmService(null);
                   performServiceAction("stop", svc.id);
                 }}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-murzak-ink text-micro font-black uppercase hover:bg-red-600 transition"
+                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-murzak-ink dark:text-slate-100 text-micro font-black uppercase hover:bg-red-600 transition"
               >
                 Stop it
               </button>
@@ -2957,7 +2957,7 @@ const renderCloudSystemsGrid = () => null;
                 Paid service deletion
               </p>
 
-              <p className="mt-3 text-sm font-black text-murzak-ink">
+              <p className="mt-3 text-sm font-black text-murzak-ink dark:text-slate-100">
                 You are about to delete a paid service: {deleteTarget.name}
               </p>
 
@@ -2968,7 +2968,7 @@ const renderCloudSystemsGrid = () => null;
               <input
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="mt-4 w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 px-4 py-3 text-sm font-bold text-murzak-ink"
+                className="mt-4 w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 px-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100"
                 placeholder="Type DELETE"
               />
 
@@ -2994,7 +2994,7 @@ const renderCloudSystemsGrid = () => null;
                   onClick={() => void handleDelete(deleteTarget.serviceId, deleteConfirmText)}
                   className={`flex-1 py-3 rounded-xl font-black text-micro uppercase ${
                     deleteConfirmText.trim() === "DELETE"
-                      ? "bg-red-500 text-murzak-ink"
+                      ? "bg-red-500 text-murzak-ink dark:text-slate-100"
                       : "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
                   }`}
                 >
@@ -3016,7 +3016,7 @@ const renderCloudSystemsGrid = () => null;
               Upgrade plan
             </p>
 
-            <p className="mt-3 text-sm font-black text-murzak-ink">
+            <p className="mt-3 text-sm font-black text-murzak-ink dark:text-slate-100">
               Your current plan is already paid.
             </p>
 
@@ -3074,7 +3074,7 @@ const renderCloudSystemsGrid = () => null;
               <div className="inline-flex p-4 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">
                 <Terminal className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-ink mb-2">Unlock Developer Tier</h3>
+              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-ink dark:text-slate-100 mb-2">Unlock Developer Tier</h3>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-500 mb-6">
                 Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
               </p>
@@ -3083,21 +3083,21 @@ const renderCloudSystemsGrid = () => null;
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
                   <Terminal className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink mb-1">Jailed SSH Access</h4>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Jailed SSH Access</h4>
                     <p className="text-xs text-slate-500">Secure shell access directly into your service environment.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
                   <Database className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink mb-1">Direct DB Connection</h4>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Direct DB Connection</h4>
                     <p className="text-xs text-slate-500">Read/Write access to your isolated MariaDB instance.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
                   <Shield className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink mb-1">Full Frappe Administrator</h4>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Full Frappe Administrator</h4>
                     <p className="text-xs text-slate-500">Create custom doctypes, server scripts, and UI tweaks.</p>
                   </div>
                 </div>
