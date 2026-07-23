@@ -45,8 +45,8 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
     const email = `test_lnch03_${suffix}@example.com`;
 
     // Register + pay a Business plan first, mirroring cloud-launch.spec.ts's
-    // logged-in add-on path — /api/addons/invoice/create is the endpoint
-    // under test here and only exists for an already-paid account.
+    // logged-in launch path — POST /api/orders is the endpoint under test
+    // here, exercised the way a returning, already-paid customer would.
     await page.goto('/pricing?configure=biz-pos-inventory');
     const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
@@ -82,7 +82,7 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
     let capturedBody: Record<string, unknown> | null = null;
     let capturedRawText = '';
     page.on('request', (req) => {
-      if (req.url().includes('/api/addons/invoice/create') && req.method() === 'POST') {
+      if (req.url().endsWith('/api/orders') && req.method() === 'POST') {
         capturedRawText = req.postData() || '';
         try {
           capturedBody = JSON.parse(capturedRawText);
@@ -92,13 +92,13 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
       }
     });
 
-    const [addonResp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/addons/invoice/create')),
+    const [orderResp] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/api/orders')),
       page.getByRole('button', { name: /Launch now/i }).click(),
     ]);
-    expect(addonResp.status()).toBe(200);
+    expect(orderResp.status()).toBe(200);
 
-    expect(capturedBody, 'never observed the /api/addons/invoice/create request').not.toBeNull();
+    expect(capturedBody, 'never observed the POST /api/orders request').not.toBeNull();
     // The critical assertion: no price/amount field anywhere in the payload —
     // the server derives it entirely from serviceId+tier via the catalog
     // snapshot, so there is nothing for a tampered client to lie about.

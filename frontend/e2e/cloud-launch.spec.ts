@@ -114,26 +114,28 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     }, firstInvoiceId);
 
     // Now this account has a PAID Business plan. Launch a Light-tier volume
-    // resource — this must succeed via /api/addons/invoice/create, which
-    // before Task 1's fix would have rejected it with a tier-mismatch error.
+    // resource — this must succeed via POST /api/orders (order creation is
+    // capacity/tier-aware server-side; it used to go through
+    // /api/addons/invoice/create, which before Task 1's fix would have
+    // rejected it with a tier-mismatch error).
     await page.goto('/cloud?launch=starter-storage');
     const launchBtn = page.getByRole('button', { name: /Launch now/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
 
-    // Assert the add-on endpoint itself succeeded (not just that we landed
-    // on /payment/): the regression under test is that a paid customer's
-    // volume-class launch goes through /api/addons/invoice/create without a
+    // Assert the order-creation endpoint itself succeeded (not just that we
+    // landed on /checkout/): the regression under test is that a paid
+    // customer's volume-class launch goes through POST /api/orders without a
     // tier-mismatch rejection, and a status assertion won't degrade silently
     // if backend error copy is ever reworded.
-    const [addonResp] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/addons/invoice/create')),
+    const [orderResp] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/api/orders')),
       launchBtn.click(),
     ]);
-    expect(addonResp.status()).toBe(200);
+    expect(orderResp.status()).toBe(200);
 
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
-    const secondInvoiceId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
-    expect(secondInvoiceId).toBeTruthy();
-    expect(secondInvoiceId).not.toBe(firstInvoiceId);
+    await expect(page).toHaveURL(/.*\/checkout\/.+/, { timeout: 15000 });
+    const secondOrderId = page.url().match(/\/checkout\/([^/]+)/)?.[1] || '';
+    expect(secondOrderId).toBeTruthy();
+    expect(secondOrderId).not.toBe(firstInvoiceId);
   });
 });

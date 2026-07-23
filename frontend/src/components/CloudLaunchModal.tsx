@@ -52,6 +52,9 @@ export default function CloudLaunchModal({
   const [domainChoice, setDomainChoice] = useState<DomainChoice>("Use Murzak Subdomain");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
+  const [capacityFull, setCapacityFull] = useState(false);
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistJoined, setWaitlistJoined] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -71,6 +74,9 @@ export default function CloudLaunchModal({
     if (!isOpen) return;
     setErr("");
     setSubmitting(false);
+    setCapacityFull(false);
+    setWaitlistSubmitting(false);
+    setWaitlistJoined(false);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -106,69 +112,53 @@ export default function CloudLaunchModal({
   const launchLoggedIn = async () => {
     if (!selected) return;
 
-    // Save the repo URL BEFORE creating any invoice: a repo-save failure
-    // aborts cleanly with nothing created, while an invoice failure after a
-    // successful repo save leaves only harmless account metadata — never a
-    // stranded paid order without its repo.
+    // Save the repo URL BEFORE creating the order (unchanged rationale: a
+    // repo-save failure aborts cleanly with nothing else created).
     await attachRepoIfNeeded();
 
-    // Try the existing-customer add-on path first — the backend is the
-    // single source of truth on whether this account has a paid plan yet.
-    const addonRes = await fetch("/api/addons/invoice/create", {
+    const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
-        services: [
-          {
-            serviceId: selected.id,
-            serviceName: selected.name,
-            tier: selected.tier,
-            domainChoice: selected.requiresDomainChoice ? domainChoice : "",
-          },
-        ],
+        serviceId: selected.id,
+        planKey: planForService(selected.id) || "Starter",
+        source: "CloudLaunch",
+        config: {
+          domainChoice: selected.requiresDomainChoice ? domainChoice : "",
+          ...(selected.requiresRepo ? { repoUrl } : {}),
+          ...(appPort.trim() ? { appPort: Number(appPort.trim()) } : {}),
+        },
       }),
     });
-    const addonData = await addonRes.json().catch(() => ({}));
-
-    if (addonRes.ok) {
-      onNavigate(`/payment/${addonData.invoiceId}`);
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409 && data?.code === "CAPACITY") {
+      setCapacityFull(true);
       return;
     }
+    if (!res.ok) throw new Error(data?.error || "Failed to start checkout.");
+    onClose();
+    onNavigate(`/checkout/${data.order.id}`);
+  };
 
-    // Not paid on any plan yet (first-ever order) -> establish it via the
-    // same call the bundled configurator already makes for a first Starter
-    // order. Any other rejection (e.g. genuine plan conflict) surfaces as-is.
-    const planNotPaid =
-      addonData?.code === "PLAN_NOT_PAID" ||
-      /pay your subscription plan first/i.test(addonData?.error || "");
-    if (!planNotPaid) {
-      throw new Error(addonData?.error || "Failed to launch resource.");
+  const joinWaitlist = async () => {
+    if (!selected) return;
+    setWaitlistSubmitting(true);
+    try {
+      const res = await fetch("/api/orders/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ serviceId: selected.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "Failed to join the waitlist.");
+      setWaitlistJoined(true);
+    } catch (e: any) {
+      setErr(e?.message || "Failed to join the waitlist.");
+    } finally {
+      setWaitlistSubmitting(false);
     }
-
-    const attachRes = await fetch("/api/plan/attach-selection", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        planKey: planForService(selected.id) || "Starter",
-        selectedServices: [
-          {
-            serviceId: selected.id,
-            serviceName: selected.name,
-            category: selected.category,
-            tier: selected.tier,
-            domainChoice: selected.requiresDomainChoice ? domainChoice : "",
-          },
-        ],
-      }),
-    });
-    const attachData = await attachRes.json().catch(() => ({}));
-    if (!attachRes.ok) throw new Error(attachData?.error || "Failed to launch resource.");
-
-    const unpaid = (attachData?.invoices || []).find((inv: any) => inv.status === "Unpaid");
-    if (!unpaid) throw new Error("Order created but no invoice was generated — contact support.");
-    onNavigate(`/payment/${unpaid.docName || unpaid.name}`);
   };
 
   const launchLoggedOut = () => {
@@ -203,6 +193,8 @@ export default function CloudLaunchModal({
 
   const handleLaunch = async () => {
     setErr("");
+    setCapacityFull(false);
+    setWaitlistJoined(false);
     if (!selected) {
       setErr("Pick a resource to continue.");
       return;
@@ -360,6 +352,28 @@ export default function CloudLaunchModal({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {capacityFull && (
+              <div className="p-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-500 flex flex-col gap-3 text-sm font-bold">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5" /> We're at capacity right now.
+                </div>
+                {waitlistJoined ? (
+                  <p className="text-slate-600 dark:text-slate-400 font-medium">
+                    You're on the list — we'll email you the moment a slot opens.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={joinWaitlist}
+                    disabled={waitlistSubmitting}
+                    className="self-start px-4 py-2 rounded-full text-label font-black uppercase tracking-widest bg-murzak-accent text-murzak-ink disabled:opacity-50"
+                  >
+                    {waitlistSubmitting ? "Joining…" : "Join the waitlist"}
+                  </button>
+                )}
               </div>
             )}
 
