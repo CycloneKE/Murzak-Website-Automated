@@ -90,7 +90,7 @@ const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmoun
 const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
-const { isAddonEligible } = require("./services/addonEligibility");
+const { createAddonInvoice } = require("./services/addonInvoiceService");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -1150,145 +1150,27 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
     const { services } = req.body || {};
-    if (!Array.isArray(services) || services.length === 0) {
-      return res.status(400).json({ error: "No add-on services selected." });
-    }
-
     const client = frappeClient();
-    const record = await fetchWebAccount(client, webAccountName);
-    const planKey = record?.plan || "None";
 
-    // Block add-ons if plan not paid
-    const paid = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
-    if (!paid) {
-      return res.status(403).json({ code: "PLAN_NOT_PAID", error: "Pay your subscription plan first before purchasing add-ons." });
-    }
+    // Pricing/eligibility/capacity gates + invoice create-or-merge live in
+    // addonInvoiceService so prepare-payment (ordersRoutes) can reuse the
+    // exact same logic. See services/addonInvoiceService.js.
+    const result = await createAddonInvoice({
+      client,
+      webAccountName,
+      services,
+      deps: {
+        fetchWebAccount, hasPaidSubscriptionForPlan, normalizeSelectedServices,
+        findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
+        PORTAL_INVOICE_SERVICES_FIELD,
+      },
+    });
+    const createdInvoiceId = result.invoiceDocName;
 
-    const norm = normalizeSelectedServices(services);
-    if (norm.length === 0) {
-      return res.status(400).json({ error: "No add-on services selected." });
-    }
-
-    // Every add-on must be a real, priced catalog service — no fabricated
-    // pricing for something not in the catalog snapshot. Also enforce
-    // eligibility per-service (volume-class is plan-agnostic; premium-class
-    // must match the customer's plan tier).
-    for (const s of norm) {
-      const meta = getServiceMeta(s.serviceId);
-      if (!meta || !(Number(meta.monthlyKes) > 0)) {
-        return res.status(400).json({ error: `Add-on pricing not configured for service: ${s.serviceId}` });
-      }
-      const elig = isAddonEligible({ planKey, service: meta });
-      if (!elig.ok) {
-        return res.status(400).json({ error: elig.error });
-      }
-    }
-
-    // Capacity guard: an add-on adds to what the tenant already runs, so check
-    // the EXISTING active services + the new order — not the order alone — or a
-    // tenant could split an over-capacity build across two requests.
-    const existingSelection = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD])
-      .map((r) => ({ serviceId: r?.[CHILD_SERVICE_ID_FIELD] }))
-      .filter((s) => s.serviceId);
-    assertOrderWithinCapacity([...existingSelection, ...norm]);
-
-    // Add-ons are always priced à la carte — there are no free plan-included
-    // slots (matches the configurator/checkout, which never offers a free
-    // service). The per-service pricing check above guarantees this is > 0.
-    const amount = sumSelectedServicesMonthlyKes(norm);
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    // Find any open unpaid add-on invoice
-    const open = await findOpenInvoice(client, webAccountName, "Add-on");
-
-    let createdInvoiceId = null;
-    if (open?.name && String(open.status || "").toLowerCase() !== "paid") {
-      // Read the full current invoice and merge, not replace
-      const openRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(open.name)}`);
-      const openInvoice = openRes.data?.data || {};
-
-      const existingInvoiceRows = Array.isArray(openInvoice?.[PORTAL_INVOICE_SERVICES_FIELD])
-        ? openInvoice[PORTAL_INVOICE_SERVICES_FIELD]
-        : [];
-
-    const existingServices = existingInvoiceRows
-      .map(normalizeInvoiceServiceRow)
-      .filter((s) => !!s.serviceId)
-      .filter((s) => String(s.status || "").toLowerCase() !== "paid");
-
-      // Merge old unpaid invoice services with new selections
-      const mergedMap = new Map();
-
-      existingServices.forEach((s) => {
-        mergedMap.set(s.serviceId, {
-          ...s,
-          status: s.status || "Awaiting Payment",
-        });
-      });
-
-      norm.forEach((s) => {
-        if (!s.serviceId) return;
-
-        // preserve existing row if already there; otherwise add new one
-        if (!mergedMap.has(s.serviceId)) {
-          mergedMap.set(s.serviceId, {
-            serviceId: s.serviceId,
-            serviceName: s.serviceName || "",
-            tier: s.tier || "",
-            domainChoice: s.domainChoice || "",
-            status: "Awaiting Payment",
-          });
-        }
-      });
-
-      const mergedServices = Array.from(mergedMap.values());
-
-      // For open unpaid add-on invoice, all rows are chargeable add-ons
-      const mergedAmount = sumSelectedServicesMonthlyKes(mergedServices);
-
-      const mergedRows = buildInvoiceServiceRows(
-        mergedServices.map((s) => ({
-          ...s,
-          status: "Awaiting Payment",
-        }))
-      );
-
-      await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(open.name)}`, {
-        type: "Add-on",
-        plan: planKey,
-        amount: mergedAmount,
-        invoice_date: today,
-        status: open.status || "Unpaid",
-        [PORTAL_INVOICE_SERVICES_FIELD]: mergedRows,
-      });
-      createdInvoiceId = open.name;
-    } else {
-      const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
-      const clientName = accRes.data?.data?.account_holder_name || "";
-
-      const rows = buildInvoiceServiceRows(
-        norm.map((s) => ({
-          ...s,
-          status: "Awaiting Payment",
-        }))
-      );
-
-      const created = await client.post("/api/resource/Portal Invoice", {
-        web_account: webAccountName,
-        client_name: clientName,
-        invoice_no: `ADD-${Date.now()}`,
-        type: "Add-on",
-        plan: planKey,
-        amount,
-        status: "Unpaid",
-        invoice_date: today,
-        [PORTAL_INVOICE_SERVICES_FIELD]: rows,
-      });
-      createdInvoiceId = created.data?.data?.name || null;
-    }
-
+    // Attach the newly purchased add-on service(s) to the Web Account
+    // (status "Selected", pending until payment) — same as before extraction.
     try {
+      const norm = normalizeSelectedServices(services);
       const accRes2 = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
       const account2 = accRes2.data?.data || {};
       const existingRows2 = asArray(account2?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
@@ -1330,11 +1212,13 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
 
     return res.json({ ok: true, user: userPayload, invoiceId: createdInvoiceId });
   } catch (err) {
-    console.error("ADDON INVOICE ERROR:", err.response?.data || err.message);
     const status = err.statusCode || 500;
-    return res.status(status).json({
-      error: status >= 500 ? "Failed to create add-on invoice." : err.message,
-    });
+    const body = {
+      error: status >= 500 ? "Failed to create add-on invoice." : (err.message || "Failed to create add-on invoice."),
+    };
+    if (err.code) body.code = err.code;
+    if (status >= 500) console.error("ADDON INVOICE ERROR:", err.response?.data || err.message);
+    return res.status(status).json(body);
   }
 });
 
