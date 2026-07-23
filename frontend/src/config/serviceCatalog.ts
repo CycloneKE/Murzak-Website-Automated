@@ -816,6 +816,39 @@ export function isManagedSetup(svc: ServiceItem): boolean {
   return svc.capacityClass === "premium";
 }
 
+/**
+ * Which /checkout order-summary "line" a service belongs to — drives which
+ * post-purchase copy and framing the checkout page shows. Order matters:
+ * premium (managed) beats category, and "App Hosting" is checked before the
+ * broader CLOUD_LAUNCH_CATEGORIES membership so BYOA app hosting reads as
+ * "app-hosting" rather than the generic "cloud" line.
+ */
+export type CheckoutLine = "cloud" | "app-hosting" | "business-system" | "hosting-service";
+
+export function checkoutLineFor(svc: ServiceItem): CheckoutLine {
+  if (svc.capacityClass === "premium") return "business-system";
+  if (svc.category === "App Hosting") return "app-hosting";
+  if ((CLOUD_LAUNCH_CATEGORIES as ServiceCategory[]).includes(svc.category)) return "cloud";
+  return "hosting-service";
+}
+
+/**
+ * "What happens after payment" copy for the checkout page — no plan/provider
+ * vocabulary, just what the buyer should expect next.
+ */
+export function postPurchaseCopy(svc: ServiceItem): string {
+  if (isManagedSetup(svc)) {
+    return "Our team configures your system and hands it over within 24 hours — watch progress in your portal.";
+  }
+  if (svc.requiresRepo) {
+    return "We deploy straight from your repository — your app is typically live in about 10 minutes.";
+  }
+  return "Your resource is provisioned automatically and is typically live in about 10 minutes.";
+}
+
+/** How long a checkout order's capacity reservation holds before it lapses. */
+export const CHECKOUT_RESERVATION_MINUTES = 30;
+
 // =====================================================================
 //  SINGLE SOURCE OF TRUTH — price + lookup helpers.
 //  Every customer-facing price MUST be derived from these, never hardcoded

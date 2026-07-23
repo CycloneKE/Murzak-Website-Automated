@@ -18,6 +18,7 @@ import SLA from "./pages/SLA";
 import Login from "./pages/Login";
 import Portal from "./pages/Portal";
 import Payment from "./pages/Payment";
+import Checkout from "./pages/Checkout";
 import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 import { DeployWizard } from "./pages/DeployWizard/DeployWizard";
@@ -403,6 +404,24 @@ const App: React.FC = () => {
               <Route
                 path="/payment"
                 element={<Navigate to="/portal/billing" replace />}
+              />
+
+              <Route
+                path="/checkout/new"
+                element={
+                  <RequireAuth user={user}>
+                    <Checkout onSuccess={handlePaymentSuccess} />
+                  </RequireAuth>
+                }
+              />
+
+              <Route
+                path="/checkout/:orderId"
+                element={
+                  <RequireAuth user={user}>
+                    <Checkout onSuccess={handlePaymentSuccess} />
+                  </RequireAuth>
+                }
               />
 
               {/* 404 */}
