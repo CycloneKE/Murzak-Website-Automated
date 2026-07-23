@@ -833,8 +833,17 @@ export function checkoutLineFor(svc: ServiceItem): CheckoutLine {
 }
 
 /**
- * "What happens after payment" copy for the checkout page — no plan/provider
- * vocabulary, just what the buyer should expect next.
+ * Fallback "what happens after payment" copy for the checkout page, used both
+ * as postPurchaseCopy()'s default branch and by the checkout page itself when
+ * the order's service can't be resolved from the catalog — kept as one
+ * exported constant so the two call sites can't drift apart.
+ */
+export const GENERIC_POST_PURCHASE_COPY =
+  "Your resource is provisioned automatically and is typically live in about 10 minutes.";
+
+/**
+ * "What happens after payment" copy for the checkout page — no plan-tier or
+ * hosting-provider names, just what the buyer should expect next.
  */
 export function postPurchaseCopy(svc: ServiceItem): string {
   if (isManagedSetup(svc)) {
@@ -843,7 +852,7 @@ export function postPurchaseCopy(svc: ServiceItem): string {
   if (svc.requiresRepo) {
     return "We deploy straight from your repository — your app is typically live in about 10 minutes.";
   }
-  return "Your resource is provisioned automatically and is typically live in about 10 minutes.";
+  return GENERIC_POST_PURCHASE_COPY;
 }
 
 /** How long a checkout order's capacity reservation holds before it lapses. */

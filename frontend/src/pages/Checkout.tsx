@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
-import { getService, formatKes, postPurchaseCopy } from '../config/serviceCatalog';
+import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY } from '../config/serviceCatalog';
 
 interface CheckoutProps {
   onSuccess: (user?: any) => void;
@@ -42,9 +42,6 @@ function formatCountdown(ms: number): string {
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
-
-const GENERIC_POST_PURCHASE_COPY =
-  'Your resource is provisioned automatically and is typically live in about 10 minutes.';
 
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
@@ -209,6 +206,15 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         setOrder(data.order);
         if (data.order.status === 'Paid') {
           navigate('/portal/overview', { replace: true });
+          return;
+        }
+        if (data.order.status === 'Cancelled') {
+          // Mirror handleResume's Cancelled handling: stop polling and fall
+          // back to the same "order cancelled" error state the initial-load
+          // and resume paths already use, so a stale invoiceDocName never
+          // stays on screen behind a live PaymentMethods form.
+          setError('This order was cancelled.');
+          clearInterval(interval);
         }
       } catch {
         // Transient network issue — the next heartbeat retries.
