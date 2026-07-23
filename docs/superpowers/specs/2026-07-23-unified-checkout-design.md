@@ -55,6 +55,10 @@ decides) so prices are never trusted from the client.
 plan-first configurator. The existing `mode=add-services` portal deep-link
 keeps working for current customers until the legacy migration phase.
 
+> **Amended 2026-07-23** by `2026-07-23-two-lane-storefront-design.md`:
+> `/pricing` becomes a thin router page to per-lane pricing sections instead
+> of a cross-line comparison. See the storefront spec's Pricing decision.
+
 ### Domains — dependency note
 
 Today domains are a manual request (`POST /api/hosting/domain-purchase-requests`).
