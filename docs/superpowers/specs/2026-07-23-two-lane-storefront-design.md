@@ -47,16 +47,34 @@ server, RAM, VPS, deploy, or instance. The buyer learns their system will be
 "live at yourname.murzak.app" — nothing more technical is required to buy.
 
 **Tech-stack story ("Why our technology wins" section):** the lane sells the
-stack's strengths in business language:
+stack's strengths in business language, **without naming upstream projects**
+(Frappe/ERPNext never appear in marketing copy — white-label rule). The
+strategy is *name the layer, not the lineage*: the stack is branded the
+**Murzak Platform** and every claim is made about it.
 
-- *Built on proven open source* — the Frappe/ERPNext core means no per-user
-  license fees and no vendor lock-in; the buyer's data is theirs, exportable
-  in standard formats.
-- *The same stack powers our custom builds* — makes the Custom Software CTA
-  credible: a customized system extends the platform their POS already runs
-  on, not a from-scratch gamble.
+- *Built on the Murzak Platform* — "an enterprise-grade core refined by a
+  global open-source community and tailored by us for Kenyan businesses."
+- *No per-user license fees, ever* / *no vendor lock-in* / *your data is
+  yours, exportable in standard formats anytime* — open source sold as
+  benefits, never as an identity or brand name.
+- *One platform, shared database* — POS, CRM and ERP are modules of one
+  platform; no integrations to buy, and customizing doesn't mean starting
+  over.
+- *Proven in production by thousands of businesses worldwide* — credibility
+  claim that is true of the core without naming it.
+- *The same platform powers our custom builds* — makes the Custom Software
+  CTA credible: "you're extending a proven system, not commissioning an
+  experiment."
 - *Hosted in-region, billed in KES* — infrastructure presented as trust
   benefits (speed, data residency, M-Pesa-native billing), never as specs.
+
+**Disclosure policy:** every claim must be literally true ("built on open
+technology we've customized and operate" — never "built from scratch").
+Sales/support answer a direct "what's under the hood?" honestly; marketing
+surfaces never volunteer it. **Dependency:** this strategy requires the
+product-side white-label hygiene already flagged in the go-live audit (login
+screens, system emails, error pages, About dialogs, help links must not show
+upstream branding); marketing copy and product hygiene are one workstream.
 
 Principle: buyers **decide** outcomes; the tech story exists to earn
 **trust**.
