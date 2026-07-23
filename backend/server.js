@@ -97,8 +97,9 @@ const { createAddonInvoice } = require("./services/addonInvoiceService");
 const TRIAL_SANDBOX_SERVICE_ID = process.env.TRIAL_SANDBOX_SERVICE_ID || "test-erpnext-demo";
 const provisioningRunner = require("./services/provisioning/runner");
 const provisioningQueue = require("./services/provisioning/queue");
-const { JOB_DOCTYPE: PROVISIONING_JOB_DOCTYPE } = require("./services/provisioning/provisioningService");
+const { JOB_DOCTYPE: PROVISIONING_JOB_DOCTYPE, getReservedRamMb } = require("./services/provisioning/provisioningService");
 const { CAPACITY_REQUEST_DOCTYPE } = require("./services/provisioning/scaling");
+const { createOrder, getOrder, cancelOrder, linkInvoice } = require("./services/checkout/orderStore");
 const provisioningTargets = require("./services/provisioning/targets");
 const { paypalConfig } = require("./config/paypal");
 const fs = require("fs");
@@ -3540,7 +3541,13 @@ const routeContext = {
   toDisplayHostingPath,
   getWebAccountByEmail,
   PROVISIONING_JOB_DOCTYPE,
-  CAPACITY_REQUEST_DOCTYPE
+  CAPACITY_REQUEST_DOCTYPE,
+  createAddonInvoice,
+  getReservedRamMb,
+  createOrder,
+  getOrder,
+  cancelOrder,
+  linkInvoice
 };
 
 app.use('/api/byoa', require('./routes/byoaRoutes')(routeContext));
@@ -3549,6 +3556,7 @@ app.use(require('./routes/portalRoutes')(routeContext));
 app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
+app.use(require('./routes/ordersRoutes')(routeContext));
 app.use(require('./routes/adminRoutes')(routeContext));
 
 // Unmatched API routes get a JSON 404, not the SPA's index.html — a wrong URL

@@ -1,0 +1,320 @@
+/**
+ * /api/orders route tests — runs without Redis or Frappe.
+ *   node test/ordersRoutes.test.js   (or: npm test)
+ *
+ * Instantiates the ordersRoutes factory directly (no HTTP server) and calls
+ * handlers with stub req/res, backed by the shared in-memory mock Frappe
+ * client. Covers the happy-path draft order, the fleet-capacity 409, the
+ * ownership 403, both prepare-payment branches (add-on vs. first-purchase),
+ * prepare-payment idempotency, and the waitlist endpoint.
+ */
+
+let passed = 0;
+let failed = 0;
+const fails = [];
+function ok(cond, msg) {
+  if (cond) { passed++; console.log("  ok:", msg); }
+  else { failed++; fails.push(msg); console.error("  FAIL:", msg); }
+}
+function section(name) { console.log(`\n# ${name}`); }
+
+const createOrdersRouter = require("../routes/ordersRoutes");
+const { makeMockFrappe } = require("./helpers/mockFrappe");
+const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
+const { assertOrderWithinCapacity } = require("../services/orderCapacity");
+
+function makeRes() {
+  const r = { statusCode: 200, body: null };
+  r.status = (c) => { r.statusCode = c; return r; };
+  r.json = (b) => { r.body = b; return r; };
+  return r;
+}
+function findHandler(router, method, path) {
+  const layer = router.stack.find(
+    (l) => l.route && l.route.path === path && l.route.methods[method]
+  );
+  if (!layer) throw new Error(`No route registered for ${method.toUpperCase()} ${path}`);
+  // last handler in the stack is the business handler (first is requireAuth)
+  return layer.route.stack[layer.route.stack.length - 1].handle;
+}
+
+// ---- Minimal, faithful-enough stand-ins for the server.js helpers that
+// aren't independently importable (server.js is a monolith). Mirrors the
+// real implementations closely; pricing itself always comes from the real
+// catalog snapshot via the real orderStore/orderCapacity modules above. ----
+
+function seqOf(name) {
+  const m = /-(\d+)$/.exec(String(name || ""));
+  return m ? Number(m[1]) : 0;
+}
+
+function normalizeSelectedServices(input) {
+  return (Array.isArray(input) ? input : [])
+    .map((s) => ({
+      serviceId: String(s?.serviceId || s?.service_id || "").trim(),
+      serviceName: String(s?.serviceName || s?.service_name || "").trim(),
+      tier: String(s?.tier || "").trim(),
+      domainChoice: String(s?.domainChoice || s?.domain_choice || "").trim(),
+      status: String(s?.status || "").trim() === "Active" ? "Active" : "Awaiting Payment",
+    }))
+    .filter((s) => !!s.serviceId);
+}
+
+function mergeServicesById(existing = [], incoming = []) {
+  const merged = new Map();
+  existing.forEach((s) => {
+    if (!s?.serviceId) return;
+    merged.set(String(s.serviceId).trim(), {
+      serviceId: String(s.serviceId).trim(),
+      serviceName: s.serviceName || "",
+      tier: s.tier || "",
+      domainChoice: s.domainChoice || "",
+      status: s.status || "Awaiting Payment",
+    });
+  });
+  incoming.forEach((s) => {
+    if (!s?.serviceId) return;
+    const key = String(s.serviceId).trim();
+    if (!merged.has(key)) {
+      merged.set(key, {
+        serviceId: key,
+        serviceName: s.serviceName || "",
+        tier: s.tier || "",
+        domainChoice: s.domainChoice || "",
+        status: "Awaiting Payment",
+      });
+    }
+  });
+  return Array.from(merged.values());
+}
+
+function buildWebAccountServiceRows(rows) {
+  return rows.map((s) => ({
+    doctype: "Web Account Service",
+    serviceId: s.serviceId,
+    serviceName: s.serviceName || "",
+    tier: s.tier || "",
+    domainChoice: s.domainChoice || "",
+    status: s.status || "Awaiting Payment",
+  }));
+}
+
+async function fetchWebAccount(client, webAccountName) {
+  const res = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
+  return res.data?.data;
+}
+
+async function updateWebAccountServices(client, webAccountName, rows) {
+  return client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+    selected_services: rows,
+  });
+}
+
+async function applyPlanAndCreateInvoice(client, webAccountName, planKey /* , opts */) {
+  await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, { plan: planKey });
+  const created = await client.post("/api/resource/Portal Invoice", {
+    web_account: webAccountName,
+    type: "Subscription",
+    plan: planKey,
+    status: "Unpaid",
+    amount: 1200,
+  });
+  return { ok: true, invoice: created.data?.data };
+}
+
+async function fetchInvoicesForUser(client, webAccountName) {
+  const res = await client.get("/api/resource/Portal Invoice");
+  const rows = (res.data?.data || []).filter((i) => i.web_account === webAccountName);
+  rows.sort((a, b) => seqOf(b.name) - seqOf(a.name));
+  return rows.map((i) => ({ docName: i.name, status: i.status, type: i.type, plan: i.plan, amount: i.amount }));
+}
+
+function baseCtx(client, overrides = {}) {
+  return {
+    requireAuth: (req, res, next) => next(), // never invoked directly; findHandler skips it
+    frappeClient: () => client,
+    assertOrderWithinCapacity,
+    getReservedRamMb: async () => 0,
+    createOrder,
+    getOrder,
+    cancelOrder,
+    linkInvoice,
+    createAddonInvoice: async () => {
+      throw new Error("createAddonInvoice should not be called in this test");
+    },
+    hasPaidSubscriptionForPlan: async () => false,
+    fetchWebAccount,
+    applyPlanAndCreateInvoice,
+    updateWebAccountServices,
+    fetchInvoicesForUser,
+    asArray: (v) => (Array.isArray(v) ? v : []),
+    normalizeSelectedServices,
+    findOpenInvoice: async () => null,
+    normalizeInvoiceServiceRow: (r) => r,
+    buildInvoiceServiceRows: (rows) => rows,
+    PORTAL_INVOICE_SERVICES_FIELD: "services",
+    WEB_ACCOUNT_SERVICES_FIELD: "selected_services",
+    mergeServicesById,
+    buildWebAccountServiceRows,
+    CAPACITY_REQUEST_DOCTYPE: "Capacity Request",
+    ...overrides,
+  };
+}
+
+(async () => {
+  section("POST /api/orders — happy path");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+    const req = {
+      session: { webAccount: "acct-1" },
+      body: { serviceId: "starter-web-hosting", config: { domainChoice: "Use Murzak Subdomain" }, planKey: "Starter", source: "CloudLaunch" },
+    };
+    const res = makeRes();
+    await handler(req, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.ok === true, "ok true");
+    ok(res.body?.order?.monthlyKes === 1200, "monthlyKes === 1200");
+    ok(res.body?.order?.status === "Draft", "status === Draft");
+  }
+
+  section("POST /api/orders — fleet capacity exceeded -> 409 CAPACITY");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client, { getReservedRamMb: async () => 999999 }));
+    const handler = findHandler(router, "post", "/api/orders");
+    const req = { session: { webAccount: "acct-1" }, body: { serviceId: "starter-web-hosting" } };
+    const res = makeRes();
+    await handler(req, res);
+    ok(res.statusCode === 409, "status 409");
+    ok(res.body?.code === "CAPACITY", "code === CAPACITY");
+    ok(res.body?.waitlistAvailable === true, "waitlistAvailable === true");
+  }
+
+  section("GET /api/orders/:id — another account is 403");
+  {
+    const client = makeMockFrappe();
+    const ctx = baseCtx(client);
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const getHandler = findHandler(router, "get", "/api/orders/:id");
+
+    const createRes = makeRes();
+    await createHandler({ session: { webAccount: "acct-1" }, body: { serviceId: "starter-web-hosting" } }, createRes);
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await getHandler({ session: { webAccount: "intruder" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 403, "status 403");
+  }
+
+  section("prepare-payment — add-on branch (has paid plan)");
+  let addonOrderId;
+  let addonClient;
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-1": { name: "acct-1", plan: "Starter", selected_services: [] } },
+    });
+    addonClient = client;
+    let createAddonCalls = 0;
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => {
+        createAddonCalls++;
+        return { invoiceDocName: "PINV-9" };
+      },
+    });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler({ session: { webAccount: "acct-1" }, body: { serviceId: "starter-web-hosting" } }, createRes);
+    addonOrderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-1" }, params: { id: addonOrderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.invoiceDocName === "PINV-9", "invoiceDocName === PINV-9");
+    ok(createAddonCalls === 1, "createAddonInvoice called once");
+    ok(client.store["Checkout Order"][addonOrderId].invoice_doc_name === "PINV-9", "order doc invoice_doc_name linked");
+
+    section("prepare-payment — idempotent on second call");
+    const res2 = makeRes();
+    await prepHandler({ session: { webAccount: "acct-1" }, params: { id: addonOrderId } }, res2);
+    ok(res2.statusCode === 200, "second call status 200");
+    ok(res2.body?.invoiceDocName === "PINV-9", "second call same invoiceDocName");
+    ok(createAddonCalls === 1, "createAddonInvoice NOT called again");
+  }
+
+  section("prepare-payment — first-purchase branch (no paid plan)");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-2": { name: "acct-2", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-2" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-2" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(typeof res.body?.invoiceDocName === "string" && res.body.invoiceDocName.length > 0, "invoiceDocName returned");
+
+    const acct = client.store["Web Account"]["acct-2"];
+    ok(acct.plan === "Starter", "plan applied to account");
+    ok(
+      (acct.selected_services || []).some((r) => r.serviceId === "starter-web-hosting"),
+      "order's service merged into account selected_services"
+    );
+    ok(
+      client.store["Checkout Order"][orderId].invoice_doc_name === res.body.invoiceDocName,
+      "order doc linked to the created invoice"
+    );
+  }
+
+  section("POST /api/orders/:id/cancel — refuses to cancel a Paid order");
+  {
+    ok(!!addonOrderId, "precondition: addon order exists");
+    // Flip the linked order to Paid the way getOrder would once its invoice pays.
+    addonClient.store["Portal Invoice"] = addonClient.store["Portal Invoice"] || {};
+    addonClient.store["Portal Invoice"]["PINV-9"] = { name: "PINV-9", status: "Paid" };
+    const ctx = baseCtx(addonClient);
+    const router = createOrdersRouter(ctx);
+    const cancelHandler = findHandler(router, "post", "/api/orders/:id/cancel");
+    const res = makeRes();
+    await cancelHandler({ session: { webAccount: "acct-1" }, params: { id: addonOrderId } }, res);
+    ok(res.statusCode === 409, "status 409");
+    ok(addonClient.store["Checkout Order"][addonOrderId].status === "Paid", "order remains Paid, not Cancelled");
+  }
+
+  section("POST /api/orders/waitlist — posts a Capacity Request doc");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders/waitlist");
+    const res = makeRes();
+    await handler({ session: { webAccount: "acct-1" }, body: { serviceId: "starter-web-hosting" } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.ok === true, "ok true");
+
+    const created = Object.values(client.store["Capacity Request"] || {})[0];
+    ok(!!created, "a Capacity Request doc was created");
+    ok(created?.reason === "checkout-waitlist", "reason === checkout-waitlist");
+    ok(created?.service_id === "starter-web-hosting", "service_id set");
+    ok(created?.web_account === "acct-1", "web_account set");
+    ok(created?.status === "Open", "status === Open");
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
+})();
