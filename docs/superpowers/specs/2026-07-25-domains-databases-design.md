@@ -61,27 +61,72 @@ before the next begins; B3 (the money-touching piece) lands last.
 
 ### B1 — Live availability search
 
-- New backend secret: `HOSTINGER_API_TOKEN` (generated in Hostinger's hPanel,
-  tied to Murzak's own Hostinger account — not a separate paid third-party
-  API). Never exposed to the client; all calls are server-side, preserving
-  the white-label rule.
-- Server-side integration with Hostinger's `checkDomainAvailabilityV1`
-  endpoint (rate limit: 10 requests/minute — the backend debounces domain
-  search input and never proxies raw client keystrokes 1:1 to Hostinger).
-- **Curated TLD allow-list** for this first pass: `.com`, `.co.ke`, `.org`,
-  `.net`, `.info`, `.africa`. Search only offers these TLDs, not Hostinger's
-  full catalog — bounds support load and pricing complexity. Extending the
-  list later is a catalog-only change.
-- **Pricing**: fetched live from Hostinger per TLD at search time, marked up
-  by a flat **30%** and rounded to a clean KES figure. Reuses the existing
-  `monthlyKes` order/catalog field (per the phase-1 pricing-shape decision)
-  but displayed as "**/yr**" wherever domain products render — no schema
-  change anywhere in the catalog, orders API, or checkout page.
-- **Fallback**: if the Hostinger call fails or times out, the product page
-  does not block the buyer — it falls back to the phase-1-anticipated
-  behavior: accept a well-formed domain name, and checkout copy reads
-  "availability confirmed within 24 hours" instead of showing a live
-  price/status.
+> **Amended 2026-07-25**, after discovering most of this sub-phase already
+> exists in the codebase (missed during the original brainstorm — see
+> "Corrected baseline" below). The amendments below supersede the original
+> bullets in this section as written.
+
+**Corrected baseline (already built, predates this spec):**
+- `HOSTINGER_API_TOKEN` env var, read server-side only by
+  `hostingerAvailability()` in `backend/server.js` — calls
+  `POST {HOSTINGER_API_BASE}/domains/v1/availability`, returns a
+  `Map<domain, available>`, and returns `null` on any failure (missing
+  token, timeout, non-2xx) so the caller falls back cleanly. White-label
+  preserved — the token and all Hostinger calls are server-side only.
+- `POST /api/domains/check` (rate-limited via `domainCheckLimiter`, 40
+  requests / 15 min per IP) — the public availability endpoint. On a
+  Hostinger failure it falls back to a deterministic local simulation
+  (`stableHash`-based, ~70% available) rather than blocking the caller —
+  the same fail-open philosophy this spec's original fallback bullet called
+  for, already implemented.
+- `DOMAIN_TLD_PRICES` (backend) / `TLD_OPTIONS` (frontend,
+  `frontend/src/services/domains.ts`) — a **fixed retail KES-per-TLD price
+  table** (`.co.ke`, `.com`, `.ke`, `.org`, `.net`, `.africa`, `.io`),
+  explicitly NOT a live pass-through of Hostinger's wholesale price (code
+  comment: "we resell, so we don't pass through Hostinger's wholesale
+  price").
+- `frontend/src/components/DomainSearch.tsx` — a working search UI already
+  showing results with `formatKes(priceKes)}/yr`. Currently only reachable
+  *inside* `PlanServicesModal` (the old plan-first configurator) as an
+  add-on to another purchase (`domainChoice: "Register New Domain"`), not
+  as a standalone product.
+
+**Superseded decision — pricing model:** the original design chose "live
+per-TLD pricing from Hostinger + 30% markup." This is now **replaced**:
+there is no confirmed evidence Hostinger's availability API returns price
+data at all (`hostingerAvailability()` only reads
+`is_available`/`available`/`is_free` from the response), and no confirmed
+separate pricing endpoint. **B1 keeps the existing fixed
+`DOMAIN_TLD_PRICES` table** — real, live availability from Hostinger;
+fixed, already-correct retail pricing. True dynamic pricing is deferred
+to a future phase, gated on confirming with Hostinger support whether/how
+their API exposes live per-TLD cost (same category of external blocker as
+B2/B3 below).
+
+**Curated TLD list:** keep the existing table's TLDs (`.co.ke`, `.com`,
+`.ke`, `.org`, `.net`, `.africa`, `.io`) rather than introducing a
+different curated list — no reason to diverge from what's already tested
+and priced.
+
+**What B1 actually still needs to build:**
+1. A standalone "Domains" section on the products page (`Products.tsx`),
+   using `DomainSearch` directly — not nested inside `PlanServicesModal`.
+2. Selecting a domain there creates a Checkout Order (`POST /api/orders`)
+   whose `config` carries the exact chosen domain (`{ domain, tld,
+   priceKes }`), instead of `PlanServicesModal`'s local
+   `registeredDomain`/`domainYearlyKes` state. The order's price must be
+   **re-validated server-side** against `DOMAIN_TLD_PRICES[tld]` — never
+   trusted from the client request body, per the phase-1 global constraint
+   that pricing is always server-derived.
+3. A `PRODUCT_CATALOG`-compatible representation for "domain
+   registration" as an orderable line, since today's `getServiceMeta(serviceId)`
+   lookup (used by `createOrder`) assumes one static price per `serviceId`
+   — a domain purchase needs one price per `(serviceId, tld)` pair. See the
+   implementation plan for the exact mechanism.
+4. Checkout-page copy for a domain order reads "confirmed within 24 hours"
+   only when the availability check itself failed/fell back to simulation
+   (`source: "estimate"` from `/api/domains/check`) — when Hostinger
+   confirmed availability live, checkout can say so plainly instead.
 
 ### B2 — Registrant details + automated registration
 
