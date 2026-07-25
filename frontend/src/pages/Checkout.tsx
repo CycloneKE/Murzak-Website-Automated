@@ -261,14 +261,30 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       }
       // The renewal heartbeat only extends a reservation that hasn't already
       // lapsed (see orderStore.getOrder) — if it's still expired after this
-      // GET, there's no documented way to force a fresh hold, so ask the
-      // buyer to start over instead of retrying forever.
+      // GET, there's no way to force a fresh hold on THIS order doc. Instead
+      // of dead-ending here, reserve a brand-new order for the same
+      // service/config (the same POST /api/orders the catalog deep-link
+      // uses, capacity-checked the same way) and hand off to it.
       const stillExpired = Date.parse(ord.reservationExpiresAt) <= Date.now();
-      if (stillExpired) {
-        setResumeError(
-          "We couldn't renew your reservation automatically. Please start over from the catalog."
-        );
+      if (!stillExpired) return;
+
+      const createRes = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ serviceId: ord.serviceId, config: ord.config, source: 'resume' }),
+      });
+      const createData = await createRes.json().catch(() => ({}));
+
+      if (createRes.status === 409 && createData?.code === 'CAPACITY') {
+        setWaitlistServiceId(ord.serviceId);
+        setShowWaitlist(true);
+        return;
       }
+      if (!createRes.ok || !createData?.order) {
+        throw new Error(createData?.error || "We couldn't reserve a new spot. Please start over from the catalog.");
+      }
+      navigate(`/checkout/${createData.order.id}`, { replace: true });
     } catch (e: any) {
       setResumeError(e?.message || 'Failed to resume checkout.');
     } finally {
@@ -422,16 +438,16 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           </span>
         </div>
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
-          {order.setupKes > 0 && (
-            <div className="flex items-center justify-between text-sm font-bold text-slate-600 dark:text-slate-400">
-              <span>One-time setup</span>
-              <span>{formatKes(order.setupKes)}</span>
-            </div>
-          )}
           <div className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100">
             <span>Due now</span>
-            <span>{formatKes(order.totalDueKes)}</span>
+            <span>{formatKes(order.monthlyKes)}</span>
           </div>
+          {order.setupKes > 0 && (
+            <p className="text-xs font-semibold text-slate-500 pt-1">
+              This service also lists a one-time setup fee of {formatKes(order.setupKes)}, which is not part of
+              today's charge.
+            </p>
+          )}
         </div>
       </div>
 

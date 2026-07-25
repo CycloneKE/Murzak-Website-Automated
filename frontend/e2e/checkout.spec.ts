@@ -68,7 +68,7 @@ test.describe('CHK-01 — happy path: launch, checkout, pay', () => {
     // anything the client could have supplied.
     await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(SERVICE_NAME)).toBeVisible();
-    await expect(page.getByText(MONTHLY_KES_TEXT, { exact: false })).toBeVisible();
+    await expect(page.getByText(MONTHLY_KES_TEXT, { exact: false }).first()).toBeVisible();
 
     // Reservation countdown (Checkout.tsx: "We're holding your spot · MM:SS").
     await expect(page.getByText(/holding your spot/i)).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('CHK-02 — deep link creates an order and renders its summary', (
 
     await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(SERVICE_NAME)).toBeVisible();
-    await expect(page.getByText(MONTHLY_KES_TEXT, { exact: false })).toBeVisible();
+    await expect(page.getByText(MONTHLY_KES_TEXT, { exact: false }).first()).toBeVisible();
   });
 });
 

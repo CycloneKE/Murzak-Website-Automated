@@ -507,7 +507,8 @@ function frappeClient() {
           const prefix = doctype === 'Provisioning Job' ? 'PRV' :
                          doctype === 'Capacity Request' ? 'CAP' :
                          doctype === 'Portal Invoice'   ? 'INV' :
-                         doctype === 'Web Account'      ? 'WA'  : 'DOC';
+                         doctype === 'Web Account'      ? 'WA'  :
+                         doctype === 'Checkout Order'   ? 'CHK' : 'DOC';
           const name = data?.name || `${prefix}-MOCK-${seq}`;
           // Check unique job_key
           if (data?.job_key && store[doctype].some(d => d.job_key === data.job_key)) {

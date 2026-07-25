@@ -192,7 +192,15 @@ module.exports = function (ctx) {
         // First purchase: apply the order's plan and bill it, then attach
         // the order's service to the account (mirrors mergeServicesById's
         // usage at server.js:1115-1145).
-        await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", {
+        //
+        // The 4th arg MUST be an array of selected services — passing an
+        // opts object here (as an earlier version of this call did) makes
+        // applyPlanAndCreateInvoice default selectedServices to [], bill
+        // KES 0, and skip invoice creation entirely (server.js's zero_amount
+        // early-return), leaving prepare-payment with no invoice to link and
+        // a guaranteed 500. Reuse serviceRow (built above) so there's always
+        // something to bill on a brand-new account's first purchase.
+        await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
           force: true,
           creditKes: 0,
         });

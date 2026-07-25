@@ -22,6 +22,7 @@ const createOrdersRouter = require("../routes/ordersRoutes");
 const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
+const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
 
 function makeRes() {
   const r = { statusCode: 200, body: null };
@@ -110,14 +111,35 @@ async function updateWebAccountServices(client, webAccountName, rows) {
   });
 }
 
-async function applyPlanAndCreateInvoice(client, webAccountName, planKey /* , opts */) {
-  await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, { plan: planKey });
+// Faithful-enough stand-in for server.js's applyPlanAndCreateInvoice: mirrors
+// its real call-style flexibility (3rd arg can be a services array OR an
+// opts object) AND — this is the part a prior version of this mock got
+// wrong — its zero-amount skip: pricing comes from the real catalog
+// snapshot via sumSelectedServicesMonthlyKes, and an empty/unpriced
+// selection creates NO invoice, exactly like the real function
+// (server.js:1471-1472). That divergence previously masked a regression
+// where the real call site passed an opts object instead of a services
+// array and silently stopped creating invoices — see
+// "prepare-payment — first-purchase branch bills a real service" below.
+async function applyPlanAndCreateInvoice(client, webAccountName, planKey, selectedServicesOrOpts = [], maybeOpts = {}) {
+  const selectedServices = Array.isArray(selectedServicesOrOpts) ? selectedServicesOrOpts : [];
+  const opts = Array.isArray(selectedServicesOrOpts) ? (maybeOpts || {}) : (selectedServicesOrOpts || {});
+  const { force = false } = opts;
+
+  await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+    plan: planKey,
+    ...(force ? { account_status: "Active" } : {}),
+  });
+
+  const amount = sumSelectedServicesMonthlyKes(selectedServices);
+  if (amount <= 0) return { ok: true, skipped: true, reason: "zero_amount" };
+
   const created = await client.post("/api/resource/Portal Invoice", {
     web_account: webAccountName,
     type: "Subscription",
     plan: planKey,
     status: "Unpaid",
-    amount: 1200,
+    amount,
   });
   return { ok: true, invoice: created.data?.data };
 }
@@ -280,6 +302,37 @@ function baseCtx(client, overrides = {}) {
       client.store["Checkout Order"][orderId].invoice_doc_name === res.body.invoiceDocName,
       "order doc linked to the created invoice"
     );
+
+    // Regression guard for the Critical first-purchase bug: the route MUST
+    // call applyPlanAndCreateInvoice with the order's service as a non-empty
+    // array (not just an opts object), or the real function bills KES 0 and
+    // skips invoice creation entirely — leaving nothing for
+    // fetchInvoicesForUser to find and a guaranteed 500 back at the browser.
+    const createdInvoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!createdInvoice, "an actual Portal Invoice doc was created (not skipped)");
+    ok(createdInvoice?.amount === 1200, "invoice amount reflects the order's service (KES 1200), not zero_amount skip");
+    ok(createdInvoice?.status === "Unpaid", "created invoice is Unpaid");
+  }
+
+  section("applyPlanAndCreateInvoice mock — faithfully skips on empty services (no invoice)");
+  {
+    // Direct unit check on the shared mock itself: prove it mirrors the real
+    // server.js function's zero-amount-skip behavior instead of always
+    // creating an invoice regardless of input, which is what let the
+    // Critical first-purchase bug slip through every prior review.
+    const client = makeMockFrappe({
+      "Web Account": { "acct-skip": { name: "acct-skip", plan: "None", selected_services: [] } },
+    });
+    const before = Object.keys(client.store["Portal Invoice"] || {}).length;
+    const result = await applyPlanAndCreateInvoice(client, "acct-skip", "Starter", [], { force: true });
+    ok(result?.skipped === true, "mock returns skipped:true for an empty services array, like the real function");
+    const after = Object.keys(client.store["Portal Invoice"] || {}).length;
+    ok(after === before, "no Portal Invoice doc was created when services array is empty");
+
+    // Same call style as the old buggy call site (opts object as 4th arg,
+    // no services array) must ALSO skip — this is exactly the regression.
+    const result2 = await applyPlanAndCreateInvoice(client, "acct-skip", "Starter", { force: true, creditKes: 0 });
+    ok(result2?.skipped === true, "opts-object-as-4th-arg call style also skips (matches real function, catches the exact old bug)");
   }
 
   section("POST /api/orders/:id/cancel — refuses to cancel a Paid order");
