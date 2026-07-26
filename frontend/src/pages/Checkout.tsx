@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
-import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY } from '../config/serviceCatalog';
+import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
 
 interface CheckoutProps {
   onSuccess: (user?: any) => void;
@@ -314,6 +314,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   };
 
   const svcForOrder = order ? getService(order.serviceId) : undefined;
+  const period = svcForOrder && isYearlyBilled(svcForOrder) ? "/yr" : "/mo";
   const afterPaymentCopy = svcForOrder ? postPurchaseCopy(svcForOrder) : GENERIC_POST_PURCHASE_COPY;
 
   const chrome = (children: React.ReactNode) => (
@@ -434,7 +435,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             </p>
           </div>
           <span className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter whitespace-nowrap">
-            {formatKes(order.monthlyKes)}/mo
+            {formatKes(order.monthlyKes)}{period}
           </span>
         </div>
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
