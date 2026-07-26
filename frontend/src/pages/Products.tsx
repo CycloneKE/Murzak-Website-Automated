@@ -25,6 +25,13 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
     { title: "Professional Services", path: "for-services", icon: <Briefcase size={24} /> }
   ];
 
+  const databases = [
+    { id: "db-mysql", name: "MySQL", desc: "The world's most popular open-source relational database." },
+    { id: "db-postgres", name: "PostgreSQL", desc: "Advanced open-source relational database with strong SQL compliance." },
+    { id: "db-mongo", name: "MongoDB", desc: "Flexible document database for apps that outgrow rigid schemas." },
+    { id: "db-redis", name: "Redis", desc: "In-memory store for caching, queues, and fast session storage." },
+  ];
+
   return (
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       {/* Hero Section — background photo behind the headline, not a separate card */}
@@ -100,6 +107,26 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                   <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>
                 </div>
              </div>
+          </div>
+        </Section>
+
+        {/* Databases */}
+        <Section className="relative z-10 border-t border-murzak-border/50">
+          <div className="max-w-2xl mb-12">
+             <h2 className="text-3xl font-[900] tracking-tight mb-4">Managed databases</h2>
+             <p className="text-slate-500 font-medium">Pick your engine. We host, back up, and keep it running.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+             {databases.map((db) => (
+               <div key={db.id} onClick={() => onNavigate(`/checkout/new?serviceId=${db.id}`)} className="cursor-pointer group p-6 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
+                  <h3 className="text-lg font-black mb-2 text-murzak-ink dark:text-slate-100">{db.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{db.desc}</p>
+                  <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400 text-xs font-mono uppercase">From {formatKes(serviceMonthlyKes(db.id))}/mo</span>
+                    <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">Launch <ArrowRight size={14} /></span>
+                  </div>
+               </div>
+             ))}
           </div>
         </Section>
 
