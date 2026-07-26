@@ -30,6 +30,23 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
     ok(!!getServiceMeta(id), `${id} still resolves post-deprecation`);
   }
 
+  section("domain registration products resolve from the snapshot, prices match DOMAIN_TLD_PRICES");
+  const domainPrices = {
+    "domain-coke": 1200,
+    "domain-com": 1500,
+    "domain-ke": 1800,
+    "domain-org": 1800,
+    "domain-net": 1800,
+    "domain-africa": 2500,
+    "domain-io": 4500,
+  };
+  for (const [id, price] of Object.entries(domainPrices)) {
+    const meta = getServiceMeta(id);
+    ok(!!meta, `${id} resolves`);
+    ok(meta?.monthlyKes === price, `${id} prices at KES ${price}`);
+    ok(meta?.ramMb === 0 && meta?.diskGb === 0, `${id} has zero server footprint`);
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

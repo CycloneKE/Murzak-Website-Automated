@@ -623,6 +623,97 @@
       "monthlyKes": 0,
       "setupKes": 3000,
       "requiresRepo": false
+    },
+    "domain-coke": {
+      "id": "domain-coke",
+      "name": "Domain — .co.ke",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1200,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-com": {
+      "id": "domain-com",
+      "name": "Domain — .com",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1500,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-ke": {
+      "id": "domain-ke",
+      "name": "Domain — .ke",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1800,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-org": {
+      "id": "domain-org",
+      "name": "Domain — .org",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1800,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-net": {
+      "id": "domain-net",
+      "name": "Domain — .net",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1800,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-africa": {
+      "id": "domain-africa",
+      "name": "Domain — .africa",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 2500,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
+    "domain-io": {
+      "id": "domain-io",
+      "name": "Domain — .io",
+      "category": "Domain Registration",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 4500,
+      "setupKes": 0,
+      "requiresRepo": false
     }
   }
 }

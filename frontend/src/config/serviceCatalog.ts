@@ -8,6 +8,7 @@ export type ServiceCategory =
   | "CRM & Helpdesk"
   | "Email Hosting"
   | "Database Hosting"
+  | "Domain Registration"
   | "Storage"
   | "Apps"
   | "Security & Backup"
@@ -843,6 +844,121 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
   },
 ];
 
+// =====================================================================
+//  DOMAIN REGISTRATION — priced per TLD, not per plan. Billed yearly
+//  (displayed "/yr" via isYearlyBilled), zero server footprint (a domain
+//  purchase reserves no RAM/disk — fulfillment is the existing manual
+//  domain-purchase-requests flow, unchanged by this catalog entry).
+//  Prices MUST match backend/server.js's DOMAIN_TLD_PRICES exactly — that
+//  object remains the server-side source of truth for /api/domains/check;
+//  this catalog is what actually gets billed via /api/orders.
+// =====================================================================
+export const DOMAIN_CATALOG: ServiceItem[] = [
+  {
+    id: "domain-coke",
+    name: "Domain — .co.ke",
+    description: "Register a .co.ke domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1200 },
+    sortOrder: 10,
+  },
+  {
+    id: "domain-com",
+    name: "Domain — .com",
+    description: "Register a .com domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1500 },
+    sortOrder: 20,
+  },
+  {
+    id: "domain-ke",
+    name: "Domain — .ke",
+    description: "Register a .ke domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 30,
+  },
+  {
+    id: "domain-org",
+    name: "Domain — .org",
+    description: "Register a .org domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 40,
+  },
+  {
+    id: "domain-net",
+    name: "Domain — .net",
+    description: "Register a .net domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 50,
+  },
+  {
+    id: "domain-africa",
+    name: "Domain — .africa",
+    description: "Register a .africa domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 2500 },
+    sortOrder: 60,
+  },
+  {
+    id: "domain-io",
+    name: "Domain — .io",
+    description: "Register a .io domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 4500 },
+    sortOrder: 70,
+  },
+];
+
+/** True for products billed yearly (domains) rather than monthly (everything else). */
+export function isYearlyBilled(svc: ServiceItem): boolean {
+  return svc.category === "Domain Registration";
+}
+
+/** Map a full TLD string (e.g. ".co.ke") to its DOMAIN_CATALOG product id. */
+export function domainCatalogIdForTld(tld: string): string | null {
+  const byTld: Record<string, string> = {
+    ".co.ke": "domain-coke",
+    ".com": "domain-com",
+    ".ke": "domain-ke",
+    ".org": "domain-org",
+    ".net": "domain-net",
+    ".africa": "domain-africa",
+    ".io": "domain-io",
+  };
+  return byTld[tld] ?? null;
+}
+
 /**
  * Services shown in the configurator for a plan: the plan's own catalog plus
  * the universal add-ons (for self-serve paid plans). Test and Enterprise stay
@@ -930,6 +1046,7 @@ const SERVICE_INDEX: Record<string, ServiceItem> = (() => {
     for (const s of SERVICE_CATALOG[code]) idx[s.id] = s;
   });
   for (const s of UNIVERSAL_ADDONS) idx[s.id] = s;
+  for (const s of DOMAIN_CATALOG) idx[s.id] = s;
   return idx;
 })();
 
