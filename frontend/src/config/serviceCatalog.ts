@@ -104,6 +104,12 @@ export type ServiceOption = {
 
   tags?: string[];
   sortOrder?: number;
+
+  /** Hidden from new self-serve purchases (cloudLaunchCatalog), but still
+   * resolvable by getService/getServiceMeta so existing customers' pricing
+   * and renewals keep working. Never delete a catalog id a customer might
+   * already own — deprecate it instead. */
+  deprecated?: boolean;
 };
 
 export type ServiceItem = ServiceOption;
@@ -320,6 +326,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["MySQL or Postgres", "Daily backups", "Remote access"],
       sortOrder: 50,
+      deprecated: true,
     },
     {
       id: "starter-db-mongo",
@@ -333,6 +340,59 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["MongoDB 7", "Daily backups", "Remote access"],
       sortOrder: 55,
+      deprecated: true,
+    },
+    {
+      id: "db-mysql",
+      name: "MySQL Database",
+      description: "Managed MySQL for your app or website.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      sortOrder: 51,
+    },
+    {
+      id: "db-postgres",
+      name: "PostgreSQL Database",
+      description: "Managed PostgreSQL for your app or website.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      sortOrder: 52,
+    },
+    {
+      id: "db-mongo",
+      name: "MongoDB Database",
+      description: "Managed MongoDB for apps built on a document database.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["MongoDB 7", "Daily backups", "Remote access"],
+      sortOrder: 53,
+    },
+    {
+      id: "db-redis",
+      name: "Redis Database",
+      description: "Managed Redis for caching, queues, and session storage.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "5GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 5 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["In-memory speed", "Daily backups", "Managed by us"],
+      sortOrder: 54,
     },
     {
       id: "starter-hrpay",
@@ -941,7 +1001,7 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
 export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]> {
   const allVolumeServices = (Object.keys(SERVICE_CATALOG) as PlanCode[])
     .flatMap((code) => SERVICE_CATALOG[code])
-    .filter((s) => s.capacityClass === "volume" && s.pricing.model === "addon");
+    .filter((s) => s.capacityClass === "volume" && s.pricing.model === "addon" && !s.deprecated);
 
   const result = {} as Record<CloudLaunchCategory, ServiceItem[]>;
   for (const cat of CLOUD_LAUNCH_CATEGORIES) {

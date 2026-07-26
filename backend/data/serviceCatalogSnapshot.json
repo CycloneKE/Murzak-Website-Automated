@@ -143,6 +143,58 @@
       "setupKes": 500,
       "requiresRepo": false
     },
+    "db-mysql": {
+      "id": "db-mysql",
+      "name": "MySQL Database",
+      "category": "Database Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 768,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 2000,
+      "setupKes": 500,
+      "requiresRepo": false
+    },
+    "db-postgres": {
+      "id": "db-postgres",
+      "name": "PostgreSQL Database",
+      "category": "Database Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 768,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 2000,
+      "setupKes": 500,
+      "requiresRepo": false
+    },
+    "db-mongo": {
+      "id": "db-mongo",
+      "name": "MongoDB Database",
+      "category": "Database Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 768,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 2000,
+      "setupKes": 500,
+      "requiresRepo": false
+    },
+    "db-redis": {
+      "id": "db-redis",
+      "name": "Redis Database",
+      "category": "Database Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 768,
+      "diskGb": 5,
+      "pricingModel": "addon",
+      "monthlyKes": 2000,
+      "setupKes": 500,
+      "requiresRepo": false
+    },
     "starter-hrpay": {
       "id": "starter-hrpay",
       "name": "HR & Payroll (Light)",
