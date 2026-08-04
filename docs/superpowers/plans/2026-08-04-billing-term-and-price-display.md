@@ -241,6 +241,10 @@ git commit -m "feat: show domains at monthly-equivalent price with annual disclo
   function renewalAmountForTerm(term, monthlySumKes)      // -> number
   /** Annual price of one add-on, pro-rated to the days left in the term. */
   function proRatedAddonKes(addonMonthlyKes, daysRemainingInTerm) // -> number
+  /** Days left in an annual term that began on termStartedOn ("YYYY-MM-DD").
+   *  Returns 0 for a missing/unparseable date (bill nothing off garbage data)
+   *  and clamps to [0, 365]. */
+  function daysRemainingInTerm(termStartedOn, nowMs)      // -> number
   ```
 
 - [ ] **Step 1: Write the failing test**
@@ -266,6 +270,7 @@ const {
   cycleDaysForTerm,
   renewalAmountForTerm,
   proRatedAddonKes,
+  daysRemainingInTerm,
 } = require("../services/billingTerm");
 
 (async () => {
@@ -304,6 +309,17 @@ const {
   ok(proRatedAddonKes(2500, 182) === Math.round(24000 * (182 / 365)), "mid-term is proportional");
   ok(proRatedAddonKes(2500, 182) < 24000, "mid-term costs less than a full term");
   ok(proRatedAddonKes(2500, 1) > 0, "one day remaining still bills something");
+
+  section("daysRemainingInTerm");
+  const NOW = Date.parse("2026-07-02T12:00:00Z");
+  ok(daysRemainingInTerm("2026-07-02", NOW) === 365, "term started today -> full 365 left");
+  ok(daysRemainingInTerm("2026-06-02", NOW) === 335, "30 days in -> 335 left");
+  ok(daysRemainingInTerm("2025-07-02", NOW) === 0, "a full year elapsed -> 0 left");
+  ok(daysRemainingInTerm("2020-01-01", NOW) === 0, "long past -> clamps at 0, never negative");
+  // Garbage data must bill nothing, never a wrong amount.
+  ok(daysRemainingInTerm(undefined, NOW) === 0, "missing date -> 0");
+  ok(daysRemainingInTerm("", NOW) === 0, "empty date -> 0");
+  ok(daysRemainingInTerm("not-a-date", NOW) === 0, "unparseable date -> 0");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
@@ -371,6 +387,24 @@ function proRatedAddonKes(addonMonthlyKes, daysRemainingInTerm) {
   return Math.round(annualPrepayKes(addonMonthlyKes) * (days / ANNUAL_CYCLE_DAYS));
 }
 
+/**
+ * Days left in an annual term that began on `termStartedOn` ("YYYY-MM-DD").
+ *
+ * FAILS SAFE TO 0 on missing/unparseable input: a pro-rated charge computed
+ * from garbage would be a wrong amount on a real invoice, whereas 0 simply
+ * bills nothing and is visible as an anomaly. Clamped to [0, 365] so an
+ * expired or future-dated term can never produce a negative or inflated
+ * charge.
+ */
+function daysRemainingInTerm(termStartedOn, nowMs = Date.now()) {
+  if (!termStartedOn) return 0;
+  const iso = String(termStartedOn).slice(0, 10);
+  const startMs = Date.parse(`${iso}T00:00:00Z`);
+  if (!Number.isFinite(startMs)) return 0;
+  const elapsedDays = Math.floor((nowMs - startMs) / (24 * 60 * 60 * 1000));
+  return Math.max(0, Math.min(ANNUAL_CYCLE_DAYS, ANNUAL_CYCLE_DAYS - elapsedDays));
+}
+
 module.exports = {
   ANNUAL_DISCOUNT_PCT,
   ANNUAL_CYCLE_DAYS,
@@ -379,6 +413,7 @@ module.exports = {
   cycleDaysForTerm,
   renewalAmountForTerm,
   proRatedAddonKes,
+  daysRemainingInTerm,
 };
 ```
 
@@ -649,14 +684,21 @@ In the `prepare-payment` handler, when the normalized term on the order is `"ann
       // Persist the chosen term on the account so the renewal sweep bills on
       // the right cadence from here on. Only ever writes "annual" — an account
       // is never silently downgraded to monthly by an order.
+      //
+      // `term_started_on` anchors pro-rata for mid-term add-ons. It is written
+      // ONLY when the account is not already annual, so a second annual
+      // purchase never resets an in-flight term (which would hand the customer
+      // a fresh 365 days they did not pay for).
       if (String(order.config?.billingTerm || "").toLowerCase() === "annual") {
+        const alreadyAnnual = accountBillingTerm(record) === "annual";
         await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
           billing_term: "annual",
+          ...(alreadyAnnual ? {} : { term_started_on: new Date().toISOString().slice(0, 10) }),
         });
       }
 ```
 
-Place this immediately before the `hasPaidPlan` branch so it applies to both invoice paths.
+Place this immediately before the `hasPaidPlan` branch so it applies to both invoice paths. (`record` is the Web Account already fetched a few lines above via `fetchWebAccount`.)
 
 - [ ] **Step 4: Run tests**
 
@@ -672,7 +714,145 @@ git commit -m "feat: accept and persist billing term on order creation"
 
 ---
 
-### Task 6: Checkout term selector
+### Task 6: Pro-rate mid-term add-ons for annual accounts
+
+**Files:**
+- Modify: `backend/services/addonInvoiceService.js`
+- Test: `backend/test/addonInvoiceService.test.js`
+
+**Interfaces:**
+- Consumes: `accountBillingTerm`, `daysRemainingInTerm`, `proRatedAddonKes` (Task 3); `term_started_on` on the Web Account (Task 5).
+
+**Behavior:** when an account's term is `"annual"`, an add-on bought mid-term is billed the annual price of that add-on pro-rated to the days left in the term, so everything renews on one anniversary. Monthly-term accounts (and every legacy account with no `billing_term`) are billed exactly as today — unchanged.
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `backend/test/addonInvoiceService.test.js`, before its final summary block:
+
+```js
+  section("annual-term accounts get mid-term add-ons pro-rated");
+  {
+    const { annualPrepayKes } = require("../services/billingTerm");
+    // Term started 182 days ago -> ~half the year left.
+    const started = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: started,
+        selected_services: [],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    const fullAnnual = annualPrepayKes(1200); // starter-web-hosting is 1200/mo
+    ok(res.amountKes < fullAnnual, "mid-term add-on costs less than a full annual term");
+    ok(res.amountKes > 1200, "but more than a single month");
+    ok(
+      Math.abs(res.amountKes - Math.round(fullAnnual * (183 / 365))) <= 100,
+      "roughly half the annual price with ~half the term left"
+    );
+  }
+
+  section("monthly-term and legacy accounts are billed exactly as before");
+  {
+    const client = makeClient({ account: { plan: "Starter", selected_services: [] } });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.amountKes === 1200, "legacy account (no billing_term) still bills the monthly price");
+  }
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run (from `backend/`): `"/c/Program Files/nodejs/node.exe" test/addonInvoiceService.test.js`
+Expected: FAIL on `mid-term add-on costs less than a full annual term` — the annual account is currently billed the flat monthly 1200, so the assertion that it exceeds a single month fails.
+
+- [ ] **Step 3: Pro-rate in `createAddonInvoice`**
+
+In `backend/services/addonInvoiceService.js`, add to the requires at the top:
+
+```js
+const {
+  accountBillingTerm,
+  daysRemainingInTerm,
+  proRatedAddonKes,
+} = require("./billingTerm");
+```
+
+Find where the à-la-carte amount is computed (`const amount = sumSelectedServicesMonthlyKes(norm);`) and replace it with:
+
+```js
+  // Annual-term accounts pay each add-on's ANNUAL price pro-rated to the days
+  // left in their current term, so the whole account keeps renewing on one
+  // anniversary. Monthly-term accounts — and every legacy account with no
+  // billing_term — are billed the monthly sum exactly as before.
+  const monthlySum = sumSelectedServicesMonthlyKes(norm);
+  const term = accountBillingTerm(record);
+  const amount =
+    term === "annual"
+      ? norm.reduce((total, s) => {
+          const meta = getServiceMeta(s.serviceId);
+          return (
+            total +
+            proRatedAddonKes(
+              Number(meta?.monthlyKes) || 0,
+              daysRemainingInTerm(record?.term_started_on)
+            )
+          );
+        }, 0)
+      : monthlySum;
+```
+
+`record` is the Web Account already fetched earlier in this function; `getServiceMeta` is already imported.
+
+Apply the same treatment to the merged-invoice branch: where it computes `const mergedAmount = sumSelectedServicesMonthlyKes(mergedServices);`, wrap it identically so a merged open invoice does not silently revert an annual account to monthly pricing:
+
+```js
+      const mergedAmount =
+        term === "annual"
+          ? mergedServices.reduce((total, s) => {
+              const meta = getServiceMeta(s.serviceId);
+              return (
+                total +
+                proRatedAddonKes(
+                  Number(meta?.monthlyKes) || 0,
+                  daysRemainingInTerm(record?.term_started_on)
+                )
+              );
+            }, 0)
+          : sumSelectedServicesMonthlyKes(mergedServices);
+```
+
+- [ ] **Step 4: Run tests**
+
+Run: `"/c/Program Files/nodejs/node.exe" test/addonInvoiceService.test.js` — Expected: all `ok:`, exit 0.
+Run the full chain (each file individually):
+```bash
+cd backend && for f in test/*.test.js; do "/c/Program Files/nodejs/node.exe" "$f" || echo "FAILED: $f"; done
+```
+Expected: no `FAILED:` lines.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/services/addonInvoiceService.js backend/test/addonInvoiceService.test.js
+git commit -m "feat: pro-rate mid-term add-ons for annual-term accounts"
+```
+
+---
+
+### Task 7: Checkout term selector
 
 **Files:**
 - Modify: `frontend/src/pages/Checkout.tsx`
@@ -764,7 +944,7 @@ git commit -m "feat: checkout offers monthly or annual-prepay billing term"
 
 ---
 
-### Task 7: E2E coverage
+### Task 8: E2E coverage
 
 **Files:**
 - Create: `frontend/e2e/domain-price-display.spec.ts`
@@ -850,6 +1030,5 @@ git commit -m "test: e2e coverage for domain price display and billing term sele
 ## Follow-ups (explicitly out of this plan's scope)
 
 - **Switching an existing customer's term mid-relationship** (monthly → annual upgrade, annual → monthly downgrade) and any refund/credit logic. New purchases pick a term; changing it later is its own project.
-- **Wiring `proRatedAddonKes` into the actual add-on invoice path.** Task 3 builds and tests the function; using it in `createAddonInvoice` requires knowing each account's term start date, which is not currently stored. Storing a `term_started_on` field and pro-rating real add-on invoices is a follow-up task — until then, an annual customer buying a mid-term add-on is billed by the existing monthly path.
 - Live Hostinger cost lookup / markup-derived domain pricing (blocked on `HOSTINGER_API_TOKEN`).
 - RAM ceiling monitoring and upgrade prompts — separate feature; actual-consumption telemetry does not exist yet.
