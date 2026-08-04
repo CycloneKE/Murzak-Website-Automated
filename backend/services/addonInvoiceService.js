@@ -6,7 +6,7 @@
 // gates are preserved exactly.
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
-const { isAddonEligible } = require("./addonEligibility");
+const { isAddonEligible, accountHasNonDomainPaidService } = require("./addonEligibility");
 const { assertOrderWithinCapacity } = require("./orderCapacity");
 
 // Web Account child-table field names, used only to read the tenant's
@@ -16,6 +16,7 @@ const { assertOrderWithinCapacity } = require("./orderCapacity");
 // not part of pricing/invoicing).
 const WEB_ACCOUNT_SERVICES_FIELD = "selected_services";
 const CHILD_SERVICE_ID_FIELD = "service_id";
+const CHILD_STATUS_FIELD = "status";
 
 const asArray = (v) => (Array.isArray(v) ? v : []);
 
@@ -60,10 +61,24 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     throw err;
   }
 
+  // Does this account own any actually-paid NON-domain service already?
+  // Read from the Web Account's own existing service history (not from
+  // `hasPaidSubscriptionForPlan`'s Subscription-invoice-existence check
+  // above, which order-routing in ordersRoutes.js also depends on and must
+  // NOT be repurposed here — see addonEligibility.js's module docblock,
+  // "Fix round 2", for the full reasoning and why a prior attempt at this
+  // fix broke repeat domain purchases by conflating the two checks).
+  const existingServiceRows = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD]).map((r) => ({
+    serviceId: r?.[CHILD_SERVICE_ID_FIELD],
+    status: r?.[CHILD_STATUS_FIELD],
+  }));
+  const hasNonDomainPaidHistory = accountHasNonDomainPaidService(existingServiceRows);
+
   // Every add-on must be a real, priced catalog service — no fabricated
   // pricing for something not in the catalog snapshot. Also enforce
   // eligibility per-service (volume-class is plan-agnostic; premium-class
-  // must match the customer's plan tier).
+  // must match the customer's plan tier; non-domain add-ons additionally
+  // require hasNonDomainPaidHistory — see isAddonEligible).
   for (const s of norm) {
     const meta = getServiceMeta(s.serviceId);
     if (!meta || !(Number(meta.monthlyKes) > 0)) {
@@ -71,7 +86,7 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
       err.statusCode = 400;
       throw err;
     }
-    const elig = isAddonEligible({ planKey, service: meta });
+    const elig = isAddonEligible({ planKey, service: meta, hasNonDomainPaidHistory });
     if (!elig.ok) {
       const err = new Error(elig.error);
       err.statusCode = 400;

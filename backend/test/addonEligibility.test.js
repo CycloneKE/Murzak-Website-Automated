@@ -11,7 +11,7 @@ function ok(cond, msg) {
 }
 function section(name) { console.log(`\n# ${name}`); }
 
-const { isAddonEligible } = require("../services/addonEligibility");
+const { isAddonEligible, accountHasNonDomainPaidService } = require("../services/addonEligibility");
 const { getServiceMeta } = require("../services/provisioning/catalog");
 
 (async () => {
@@ -90,6 +90,137 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
   ok(
     isAddonEligible({ planKey: "Business", service: getServiceMeta("starter-app-hosting") }).ok === true,
     "Business-plan customer can add starter-app-hosting (volume is plan-agnostic)"
+  );
+
+  section("accountHasNonDomainPaidService: domain-only history");
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "domain-com", status: "Active" }]) === false,
+    "a single paid domain row alone is NOT non-domain paid history"
+  );
+  ok(
+    accountHasNonDomainPaidService([
+      { serviceId: "domain-com", status: "Active" },
+      { serviceId: "domain-net", status: "Active" },
+    ]) === false,
+    "multiple paid domain rows still are NOT non-domain paid history"
+  );
+
+  section("accountHasNonDomainPaidService: real hosting history");
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "starter-web-hosting", status: "Active" }]) === true,
+    "an Active non-domain service counts as real paid history"
+  );
+  ok(
+    accountHasNonDomainPaidService([
+      { serviceId: "domain-com", status: "Active" },
+      { serviceId: "starter-web-hosting", status: "Active" },
+    ]) === true,
+    "domain + real hosting together still count as real paid history"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "biz-erp-configured", status: "Setting up" }]) === true,
+    "a premium service still 'Setting up' (not yet fully Active) counts as paid"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "starter-web-hosting", status: "Suspended" }]) === true,
+    "a Suspended (lapsed-renewal) non-domain service still counts — it WAS paid"
+  );
+
+  section("accountHasNonDomainPaidService: unpaid rows don't count");
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "starter-web-hosting", status: "Awaiting Payment" }]) === false,
+    "an unpaid/pending non-domain selection does NOT count as paid history"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "starter-web-hosting", status: "Selected" }]) === false,
+    "a merely-selected (unpaid) non-domain service does NOT count"
+  );
+  ok(
+    accountHasNonDomainPaidService([]) === false,
+    "no service history at all -> false"
+  );
+  ok(
+    accountHasNonDomainPaidService(undefined) === false,
+    "undefined/garbage input is handled safely -> false"
+  );
+
+  section("isAddonEligible: FIX ROUND 2 — domain-only account add-on gate bypass");
+  // Requirement 1: a domain-only account must NOT pass the gate for a REAL
+  // (non-domain) add-on, of either capacity class.
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: getServiceMeta("starter-web-hosting"),
+      hasNonDomainPaidHistory: false,
+    }).ok === false,
+    "domain-only account cannot buy a volume-class real add-on (starter-web-hosting)"
+  );
+  ok(
+    isAddonEligible({
+      planKey: "Business",
+      service: getServiceMeta("biz-pos-inventory"),
+      hasNonDomainPaidHistory: false,
+    }).ok === false,
+    "domain-only account cannot buy a premium-class real add-on (biz-pos-inventory), even though its tier would otherwise match"
+  );
+
+  // Requirement 2: a domain-only account MUST still be able to buy MORE
+  // domains — this is exactly what the previous, reverted fix attempt broke.
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: getServiceMeta("domain-net"),
+      hasNonDomainPaidHistory: false,
+    }).ok === true,
+    "domain-only account CAN still buy a second domain (repeat domain purchase keeps working)"
+  );
+
+  // Requirement 3: a real paid-hosting account keeps full, unrestricted
+  // add-on rights — completely unaffected by this fix.
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: getServiceMeta("db-mysql"),
+      hasNonDomainPaidHistory: true,
+    }).ok === true,
+    "real-hosting account can still buy a volume-class add-on"
+  );
+  ok(
+    isAddonEligible({
+      planKey: "Business",
+      service: getServiceMeta("biz-pos-inventory"),
+      hasNonDomainPaidHistory: true,
+    }).ok === true,
+    "real-hosting account can still buy a premium-class add-on matching its tier"
+  );
+
+  // Requirement 4: an account with BOTH real hosting and a domain keeps full
+  // add-on rights, for either a domain or a real add-on.
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: getServiceMeta("domain-com"),
+      hasNonDomainPaidHistory: true,
+    }).ok === true,
+    "hosting+domain account can buy another domain"
+  );
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: getServiceMeta("starter-web-hosting"),
+      hasNonDomainPaidHistory: true,
+    }).ok === true,
+    "hosting+domain account can buy a real add-on"
+  );
+
+  // Back-compat: callers that don't pass hasNonDomainPaidHistory at all
+  // (every pre-existing call site/test above) must keep the old behavior.
+  ok(
+    isAddonEligible({
+      planKey: "Starter",
+      service: { tier: "Light", capacityClass: "volume", monthlyKes: 1200, category: "Website Hosting" },
+    }).ok === true,
+    "omitting hasNonDomainPaidHistory defaults to fail-open (unchanged pre-existing behavior)"
   );
 
   console.log(`\n${passed} passed, ${failed} failed`);

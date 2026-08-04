@@ -214,23 +214,25 @@ module.exports = function (ctx) {
         // a guaranteed 500. Reuse serviceRow (built above) so there's always
         // something to bill on a brand-new account's first purchase.
         //
-        // KNOWN ISSUE (documented, not fixed here — see
-        // .superpowers/sdd/final-review-fix-report.md "Critical 1 secondary
-        // issue"): a domain-only first purchase still defaults to planKey
+        // NOTE — a domain-only first purchase still defaults to planKey
         // "Starter" here, which flips the account to plan Starter and — once
         // that Subscription invoice is paid — makes
-        // hasPaidSubscriptionForPlan(client, acct, "Starter") return true,
-        // unlocking the paid-plan add-on gate for a KES 1,200 domain. A
-        // targeted fix (defaulting to planKey "None" for domain products) was
-        // evaluated and reverted: it makes hasPaidSubscriptionForPlan("None")
-        // true after the first domain purchase, which then makes a SECOND
-        // domain (or any add-on) purchase 400 inside createAddonInvoice's
-        // isAddonEligible check (isPaidPlan("None") is false) — trading a
-        // billing-gate leak for a broken repeat-purchase flow. Fixing this
-        // correctly needs a real distinction between "has a paid Subscription
-        // invoice" and "owns real hosting infrastructure" across
-        // hasPaidSubscriptionForPlan / isAddonEligible / applyPlanAndCreateInvoice
-        // — out of scope for this change; needs its own task + tests.
+        // hasPaidSubscriptionForPlan(client, acct, "Starter") return true.
+        // This is intentionally left as-is: hasPaidSubscriptionForPlan is
+        // also what THIS function's routing (hasPaidPlan, above) and several
+        // other shared billing primitives (findExistingUnpaidSubscriptionInvoice,
+        // findLatestPaidSubscriptionInvoice, applyPlanAndCreateInvoice) rely
+        // on — repurposing it to mean "owns real infrastructure" broke a
+        // repeat domain purchase in a prior fix attempt (see
+        // .superpowers/sdd/final-review-fix-report.md "Fix round 2" for the
+        // trace). The actual billing-gate leak this caused — a domain-only
+        // account unlocking real infrastructure add-ons — is fixed
+        // separately and more narrowly at the add-on ELIGIBILITY gate
+        // itself: addonEligibility.js's isAddonEligible() now requires
+        // hasNonDomainPaidHistory (computed from the Web Account's own
+        // service history, not from this Subscription-invoice check) for
+        // any non-domain add-on, while still allowing domain-only accounts
+        // to buy more domains through the exact same gate.
         await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
           force: true,
           creditKes: 0,
