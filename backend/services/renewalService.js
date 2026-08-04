@@ -3,9 +3,13 @@
 // Recurring billing for a subscription business that (until now) only had
 // one-shot invoices. A periodic sweep:
 //   1. finds each account's LATEST Paid Subscription invoice,
-//   2. when it is older than the billing cycle (default 30 days) and the
-//      account has no open Subscription invoice, creates the renewal invoice
-//      (Unpaid), logs a portal alert and emails the customer (best-effort),
+//   2. when it is older than the billing cycle FOR THAT ACCOUNT'S TERM (see
+//      billingTerm.js — "monthly" is 30 days by default, "annual" is 365
+//      days at a 20% prepay discount; an account with no `billing_term` at
+//      all is treated as monthly, which is every pre-existing customer) and
+//      the account has no open Subscription invoice, creates the renewal
+//      invoice (Unpaid), logs a portal alert and emails the customer
+//      (best-effort),
 //   3. optionally (RENEWAL_SUSPEND_ENABLED=true) suspends services when a
 //      renewal stays unpaid past the grace window.
 //
@@ -20,6 +24,7 @@ const {
   accountBillingTerm,
   cycleDaysForTerm,
   renewalAmountForTerm,
+  ANNUAL_CYCLE_DAYS,
 } = require("./billingTerm");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -162,7 +167,7 @@ async function sweepRenewals(deps) {
           ["type", "=", "Subscription"],
           ["status", "=", "Paid"],
         ]),
-        fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date"]),
+        fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date", "billing_term"]),
         limit_page_length: 500,
         order_by: "invoice_date desc",
       },
@@ -172,15 +177,50 @@ async function sweepRenewals(deps) {
 
     for (const [webAccount, lastPaid] of latest) {
       try {
-        // The billing term lives on the account, so the account must be loaded
-        // BEFORE the due-check — an annual account is not due at 30 days, and
-        // checking with the monthly cycle first would bill it 12x a year.
+        // Cheap pre-filter using the SHORTEST cycle across every billing term
+        // (today: monthly 30d < annual 365d) — an account not yet due under
+        // the shortest possible cycle cannot be due under ANY term, so this
+        // is safe to run before we know the account's real term at all. This
+        // restores the old fetch volume (one Web Account GET only for
+        // accounts that could plausibly be due) instead of fetching every
+        // account with a paid Subscription invoice on every sweep.
+        // Math.min(...) IS THE POINT and is NOT the double-charge bug this
+        // file already fixed once (see the comment below) — it only ever
+        // makes the filter MORE permissive (checked against the shortest
+        // cycle), never causes an early bill. Do NOT "simplify" this to
+        // cfg.cycleDays alone — that would reject annual accounts here,
+        // before the real, term-aware due-check below ever runs.
+        if (!isDueForRenewal(lastPaid.invoice_date, Math.min(cfg.cycleDays, ANNUAL_CYCLE_DAYS))) continue;
+
+        // The billing term lives on the account, so the account must be
+        // loaded BEFORE the real due-check below — an annual account is not
+        // due at 30 days, and checking with the monthly cycle first would
+        // bill it 12x a year. Do NOT move this fetch back below the due-check
+        // to "avoid a network call" — that reintroduces exactly that
+        // double-charge, and with RENEWAL_SUSPEND_ENABLED=true the affected
+        // account then gets suspended a week later for not paying a renewal
+        // invoice it never should have received.
         const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
         const account = accRes.data?.data;
         if (!account) continue;
 
         const term = accountBillingTerm(account);
-        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(term, cfg.cycleDays))) continue;
+        // Prefer the term the invoice was actually BILLED under (not the
+        // account's current term): if an account's billing_term is ever
+        // edited after invoicing (e.g. an admin flips annual -> monthly in
+        // the Frappe desk UI — no code path does this today), the due-check
+        // must still honor the term the customer prepaid at, or a
+        // prepaid-annual customer becomes due at 30 days and gets suspended
+        // for not paying an invoice it never should have received. Every
+        // invoice that predates this fix has no billing_term recorded at
+        // all, so this falls back to the account's current term for every
+        // one of them — unchanged behavior for every existing invoice.
+        const invoiceTerm =
+          lastPaid.billing_term === "annual" || lastPaid.billing_term === "monthly"
+            ? lastPaid.billing_term
+            : null;
+        const cycleTerm = invoiceTerm || term;
+        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(cycleTerm, cfg.cycleDays))) continue;
 
         // Idempotency guard: never stack a second open Subscription invoice.
         const openRes = await client.get("/api/resource/Portal Invoice", {
@@ -233,6 +273,10 @@ async function sweepRenewals(deps) {
           type: "Subscription",
           plan,
           amount,
+          // Persisted so a future term edit on the account can never change
+          // what this invoice's own renewal cycle was billed under — see the
+          // invoiceTerm fallback above (Finding 2).
+          billing_term: term,
           status: "Unpaid",
           invoice_date: today,
           [PORTAL_INVOICE_SERVICES_FIELD]: buildInvoiceServiceRows(serviceRows),
