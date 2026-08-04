@@ -30,6 +30,26 @@ function adminRecipients() {
     .filter(Boolean);
 }
 
+/**
+ * serviceIds accepts either plain string ids (legacy callers, and every
+ * existing test in this file) or { serviceId, domainChoice } objects — the
+ * richer shape billingActivationService.js now passes so a domain
+ * registration's purchased domain string survives into the staff
+ * notification email (see jobLine/notifyStaffOfJobs below). domainChoice is
+ * NEVER written onto the persisted Provisioning Job doc (that doctype's
+ * schema is not ours to extend here) — it is carried only in the in-memory
+ * created/skipped entries used for the email.
+ */
+function normalizeServiceInputs(serviceIds) {
+  return (Array.isArray(serviceIds) ? serviceIds : [])
+    .map((s) =>
+      typeof s === "string"
+        ? { serviceId: s, domainChoice: "" }
+        : { serviceId: s?.serviceId, domainChoice: s?.domainChoice || "" }
+    )
+    .filter((s) => s.serviceId);
+}
+
 /** Find an existing job for (invoice, serviceId), or null. Best-effort. */
 async function findExistingJob(client, invoice, serviceId) {
   try {
@@ -122,6 +142,9 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   const skipped = [];
   let doctypeMissing = false;
 
+  const services = normalizeServiceInputs(serviceIds);
+  const ids = services.map((s) => s.serviceId);
+
   // Capacity gate (Phase 2): premium tenants are RAM-heavy. Ask scaling which
   // box can host each one; if none has headroom, park it as needs_human and
   // request scale-out (the "provision KVM #2" signal). Lazy require avoids a
@@ -135,7 +158,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   // means the job is born needs_human (same as no repo on file).
   let accountRepoUrl = "";
   let accountAppPort = 0;
-  if (serviceIds.some((id) => getServiceMeta(id)?.requiresRepo)) {
+  if (ids.some((id) => getServiceMeta(id)?.requiresRepo)) {
     try {
       const accRes = await client.get(
         `/api/resource/Web Account/${encodeURIComponent(webAccount)}`
@@ -147,7 +170,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     }
   }
 
-  for (const serviceId of serviceIds) {
+  for (const { serviceId, domainChoice } of services) {
     const payload = buildJobPayload({
       webAccount,
       invoice: invoiceDocName,
@@ -176,12 +199,12 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     try {
       const existing = await findExistingJob(client, invoiceDocName, serviceId);
       if (existing?.name) {
-        skipped.push({ ...payload, name: existing.name, reason: "already queued" });
+        skipped.push({ ...payload, name: existing.name, reason: "already queued", domainChoice });
         continue;
       }
       const res = await client.post(`/api/resource/${encodeURIComponent(JOB_DOCTYPE)}`, payload);
       const createdName = res.data?.data?.name;
-      created.push({ ...payload, name: createdName });
+      created.push({ ...payload, name: createdName, domainChoice });
       // Low-latency dispatch (bullmq mode only; no-op in poll/off). Lazy require
       // avoids a load-time cycle; never throws into the payment path. Only
       // dispatch jobs that are actually runnable (queued), not gated ones.
@@ -199,13 +222,13 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       if (status === 404 || status === 417 || e.__doctypeMissing) {
         doctypeMissing = true;
         // Still surface the service so staff get notified even without the doctype.
-        skipped.push({ ...payload, reason: "doctype not installed" });
+        skipped.push({ ...payload, reason: "doctype not installed", domainChoice });
       } else if (status === 409 || /duplicate|already exists|unique/i.test(errText)) {
         // Lost the enqueue race — the unique job_key index rejected this insert.
         // Idempotent: a job for (invoice, service) already exists.
-        skipped.push({ ...payload, reason: "already queued (unique)" });
+        skipped.push({ ...payload, reason: "already queued (unique)", domainChoice });
       } else {
-        skipped.push({ ...payload, reason: `error: ${e?.message || status || "unknown"}` });
+        skipped.push({ ...payload, reason: `error: ${e?.message || status || "unknown"}`, domainChoice });
       }
     }
   }
@@ -221,12 +244,16 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
 function jobLine(j) {
   const lane = j.lane === "manual" ? "MANUAL (quote/separate box)" : j.lane;
   const ram = j.ram_mb ? ` · ~${(j.ram_mb / 1024).toFixed(1)}GB RAM` : "";
+  // Surfaces the purchased domain string (or hosting domainChoice) so staff
+  // fulfilling a manually-provisioned order — most importantly a domain
+  // registration — can actually see WHAT was bought, not just the SKU name.
+  const domain = j.domainChoice ? ` · domain: ${j.domainChoice}` : "";
   const flag = j.gated
     ? " · ⚠ CAPACITY-GATED (needs KVM #2)"
     : j.status === "needs_human"
     ? " · ⚠ needs human"
     : "";
-  return `• ${j.service_name} [${j.category}] → lane: ${lane}${ram}${flag}`;
+  return `• ${j.service_name} [${j.category}]${domain} → lane: ${lane}${ram}${flag}`;
 }
 
 /** Email staff about newly-queued jobs. Best-effort; never throws. */
@@ -292,6 +319,9 @@ async function runProvisioningForInvoice({ client, webAccount, invoiceDocName, s
   if (!isEnabled()) {
     return { ok: true, skipped: true, reason: "PROVISIONING_ENABLED=false" };
   }
+  // serviceIds may be plain string ids or { serviceId, domainChoice } objects
+  // (see normalizeServiceInputs) — both are truthy, so filter(Boolean) works
+  // for either shape; enqueueProvisioningForInvoice normalizes it further.
   const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
   if (!ids.length) {
     return { ok: true, jobs: 0, reason: "no services to provision" };

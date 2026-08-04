@@ -143,6 +143,18 @@ async function activateServicesForInvoice({
     .map((s) => s?.[CHILD_SERVICE_ID_FIELD])
     .filter(Boolean);
 
+  // Carries the domain_choice child-table field (which, for a Domain
+  // Registration purchase, holds the purchased domain string — see Critical 2
+  // in .superpowers/sdd/final-review-fix-report.md) alongside each service id
+  // so runProvisioningForInvoice's staff notification can show a human what
+  // was actually bought, not just the SKU name.
+  const invoiceServicesWithDomain = invServices
+    .map((s) => ({
+      serviceId: s?.[CHILD_SERVICE_ID_FIELD],
+      domainChoice: s?.domain_choice || "",
+    }))
+    .filter((s) => s.serviceId);
+
   const accRes = await client.get(
     `/api/resource/Web Account/${encodeURIComponent(webAccountName)}`
   );
@@ -174,7 +186,7 @@ async function activateServicesForInvoice({
     client,
     webAccount: webAccountName,
     invoiceDocName,
-    serviceIds: invoiceServiceIds,
+    serviceIds: invoiceServicesWithDomain,
   });
   if (provisioning && provisioning.ok === false) {
     console.error(

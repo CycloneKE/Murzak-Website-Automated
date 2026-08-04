@@ -9,13 +9,13 @@ export type TldOption = {
 };
 
 export const TLD_OPTIONS: TldOption[] = [
-  { tld: ".co.ke", priceKes: 1500, popular: true },
-  { tld: ".com", priceKes: 1900, popular: true },
-  { tld: ".ke", priceKes: 2200 },
-  { tld: ".org", priceKes: 2000 },
-  { tld: ".net", priceKes: 2000 },
-  { tld: ".africa", priceKes: 2800 },
-  { tld: ".io", priceKes: 4800 },
+  { tld: ".co.ke", priceKes: 1200, popular: true },
+  { tld: ".com", priceKes: 1500, popular: true },
+  { tld: ".ke", priceKes: 1800 },
+  { tld: ".org", priceKes: 1800 },
+  { tld: ".net", priceKes: 1800 },
+  { tld: ".africa", priceKes: 2500 },
+  { tld: ".io", priceKes: 4500 },
 ];
 
 export type DomainResult = {
