@@ -1,7 +1,28 @@
 # Monthly Domain Pricing (Hosting-Bundled) — Design
 
+> ## ⚠️ SUPERSEDED — DO NOT IMPLEMENT
+>
+> **Superseded 2026-08-04 (same day) by
+> `2026-08-04-billing-term-and-price-display-design.md`.**
+>
+> This spec designed *actually billing domains monthly*, bundled with hosting
+> to cover the financing risk. The decision changed before any of it was
+> built: domains are **displayed** at a monthly-equivalent price but still
+> **billed yearly**, which eliminates the financing exposure, the churn
+> break-even problem, the hosting-bundle gate, the seven extra catalog
+> products, and — most importantly — the renewal-sweep change this spec
+> called for, which was its highest-risk element.
+>
+> Kept for the record because its analysis is still useful: the break-even
+> table, the sunk-cost reasoning behind letting a cancelled customer's domain
+> run to its paid-through date, and the finding that suspension in this
+> codebase is account-level rather than per-service.
+>
+> **Nothing in this document was implemented.** For the live design, read the
+> superseding spec.
+
 **Date:** 2026-08-04
-**Status:** Approved design, pending implementation plan
+**Status:** SUPERSEDED — never implemented
 **Builds on:** `2026-07-25-domains-databases-design.md` (shipped as PR #3)
 
 ## Problem
