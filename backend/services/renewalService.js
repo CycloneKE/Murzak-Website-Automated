@@ -16,6 +16,11 @@
 
 const { sendMail } = require("../utils/mailer");
 const { sumSelectedServicesMonthlyKes, getServiceMeta } = require("./provisioning/catalog");
+const {
+  accountBillingTerm,
+  cycleDaysForTerm,
+  renewalAmountForTerm,
+} = require("./billingTerm");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -167,7 +172,15 @@ async function sweepRenewals(deps) {
 
     for (const [webAccount, lastPaid] of latest) {
       try {
-        if (!isDueForRenewal(lastPaid.invoice_date, cfg.cycleDays)) continue;
+        // The billing term lives on the account, so the account must be loaded
+        // BEFORE the due-check — an annual account is not due at 30 days, and
+        // checking with the monthly cycle first would bill it 12x a year.
+        const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
+        const account = accRes.data?.data;
+        if (!account) continue;
+
+        const term = accountBillingTerm(account);
+        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(term, cfg.cycleDays))) continue;
 
         // Idempotency guard: never stack a second open Subscription invoice.
         const openRes = await client.get("/api/resource/Portal Invoice", {
@@ -182,10 +195,6 @@ async function sweepRenewals(deps) {
           },
         });
         if (openRes.data?.data?.[0]) continue;
-
-        const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
-        const account = accRes.data?.data;
-        if (!account) continue;
 
         const plan = account.plan || lastPaid.plan;
         const allServiceRows = (Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
@@ -207,8 +216,11 @@ async function sweepRenewals(deps) {
         // per-plan-tier rate. Test/Enterprise/None have no self-serve price
         // (their services aren't in the volume/premium catalog) — never
         // auto-bill them.
-        const amount = sumSelectedServicesMonthlyKes(serviceRows);
-        if (!(amount > 0)) continue;
+        const monthlySum = sumSelectedServicesMonthlyKes(serviceRows);
+        if (!(monthlySum > 0)) continue;
+        // Annual-term accounts pay the discounted year up front; monthly-term
+        // (and every legacy account with no billing_term) pay the monthly sum.
+        const amount = renewalAmountForTerm(term, monthlySum);
         if (String(account.account_status || "").toLowerCase() === "cancelled") continue;
 
         const today = new Date().toISOString().slice(0, 10);

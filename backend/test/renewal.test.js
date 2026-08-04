@@ -76,6 +76,58 @@ console.log("# excludeDomainRegistrations (Critical 1: a yearly domain must neve
   ok(excludeDomainRegistrations([{ serviceId: "does-not-exist" }]).length === 1, "unknown service id is not treated as a domain (kept, priced 0 elsewhere)");
 }
 
+console.log("# billing term — sweep cycle and amount");
+{
+  const {
+    accountBillingTerm,
+    cycleDaysForTerm,
+    renewalAmountForTerm,
+  } = require("../services/billingTerm");
+
+  const monthlyCycle = 30;
+
+  // The four rows of the safety matrix from the spec.
+  const monthlyAcct = { billing_term: "monthly" };
+  const annualAcct = { billing_term: "annual" };
+  const legacyAcct = {}; // every existing customer
+
+  const mTerm = accountBillingTerm(monthlyAcct);
+  const aTerm = accountBillingTerm(annualAcct);
+  const lTerm = accountBillingTerm(legacyAcct);
+
+  // Row 1: annual account is NOT due at 30 days. THE double-charge guard.
+  ok(
+    !isDueForRenewal("2026-06-02", cycleDaysForTerm(aTerm, monthlyCycle), NOW),
+    "annual account is NOT due after 30 days (double-charge guard)"
+  );
+  // Row 2: annual account IS due past 365 days, at the discounted amount.
+  const longAgo = "2025-06-02"; // > 365d before NOW (2026-07-02)
+  ok(
+    isDueForRenewal(longAgo, cycleDaysForTerm(aTerm, monthlyCycle), NOW),
+    "annual account IS due after 365 days"
+  );
+  ok(
+    renewalAmountForTerm(aTerm, 2500) === 24000,
+    "annual account bills the 20%-discounted year"
+  );
+  // Row 3: monthly account unchanged.
+  ok(
+    isDueForRenewal("2026-06-02", cycleDaysForTerm(mTerm, monthlyCycle), NOW),
+    "monthly account still due at 30 days (no regression)"
+  );
+  ok(
+    renewalAmountForTerm(mTerm, 2500) === 2500,
+    "monthly account still bills the monthly sum"
+  );
+  // Row 4: legacy account (no billing_term) behaves exactly as monthly.
+  ok(lTerm === "monthly", "account with no billing_term is treated as monthly");
+  ok(
+    isDueForRenewal("2026-06-02", cycleDaysForTerm(lTerm, monthlyCycle), NOW) === true &&
+      renewalAmountForTerm(lTerm, 2500) === 2500,
+    "legacy account bills identically to an explicit monthly account"
+  );
+}
+
 console.log("================================================");
 console.log(`RENEWAL TESTS: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);
