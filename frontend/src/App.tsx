@@ -331,7 +331,18 @@ const App: React.FC = () => {
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
       <InteractiveBackground isDarkMode={false} />
 
-      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-md rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
+      <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
+        {(isPortalRoute || isPaymentRoute) && (
+          // backdrop-blur lives on this decorative child, not the wrapper itself — a
+          // backdrop-filter/filter/transform on an ancestor becomes the containing
+          // block for every `position: fixed` descendant (spec behavior, not a bug
+          // in the descendants), which silently breaks every portal modal's fixed
+          // positioning (OnboardingWizard, CommandPalette, delete-confirm dialogs,
+          // etc. all render off the true viewport once the page scrolls). Keeping
+          // the blur on a sibling layer preserves the frosted-glass look without
+          // making the wrapper a containing block for anything inside <main>.
+          <div className="pointer-events-none absolute inset-0 -z-10 rounded-t-[40px] backdrop-blur-md" aria-hidden="true" />
+        )}
         {!hideChrome && (
           <Header
             activePage={activePage}

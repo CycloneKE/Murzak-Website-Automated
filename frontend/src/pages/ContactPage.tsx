@@ -67,7 +67,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
   return (
     <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
       <div className="text-center mb-12 sm:mb-16">
-        <p className="font-mono text-micro font-black text-murzak-accent uppercase mb-4">Get in touch</p>
+        <p className="font-mono text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Get in touch</p>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
@@ -83,21 +83,21 @@ const ContactPage: React.FC<ContactPageProps> = () => {
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Mail size={18} /></div>
               <div>
-                <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Email us</p>
+                <p className="text-micro font-black text-slate-400 uppercase mb-1">Email us</p>
                 <a href={`mailto:${SUPPORT_EMAIL}`} className="text-sm font-black hover:text-murzak-accent transition break-all">{SUPPORT_EMAIL}</a>
               </div>
             </div>
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><MapPin size={18} /></div>
               <div>
-                <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Location</p>
+                <p className="text-micro font-black text-slate-400 uppercase mb-1">Location</p>
                 <p className="text-sm font-black">Nairobi, Kenya</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-2xl bg-murzak-accent/15 text-murzak-accent"><Clock size={18} /></div>
               <div>
-                <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-1">Hours</p>
+                <p className="text-micro font-black text-slate-400 uppercase mb-1">Hours</p>
                 <p className="text-sm font-black">Mon–Fri · 8:00–18:00 EAT</p>
               </div>
             </div>

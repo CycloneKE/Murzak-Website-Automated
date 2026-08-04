@@ -2637,13 +2637,13 @@ const renderCloudSystemsGrid = () => null;
           onClick={() => onTabClick("profile")}
           className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-3 text-left hover:border-murzak-accent/40 transition-all"
         >
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-accent/15 text-murzak-accent flex items-center justify-center font-black text-sm">
+          <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-accent/15 text-sky-700 dark:text-murzak-accent flex items-center justify-center font-black text-sm">
             {(user.name || "U").split(" ").map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">{user.name}</p>
             <div className="mt-1 flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full bg-murzak-accent/10 text-murzak-accent text-micro font-black uppercase">
+              <span className="px-2 py-0.5 rounded-full bg-murzak-accent/10 text-sky-700 dark:text-murzak-accent text-micro font-black uppercase">
                 {user.plan || "No plan"}
               </span>
               <span className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === "Active" ? "bg-green-500" : "bg-orange-400"}`} />

@@ -149,12 +149,73 @@ test.describe('CFG-08 — plan tile price/CTA tokens are correct per plan', () =
     await page.goto('/pricing');
     await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
 
+    // "Custom" appears twice on the Enterprise card — the price token itself
+    // and an unrelated "Custom scaling & DR" feature bullet — so this must
+    // be scoped to the price element specifically (font-mono price div),
+    // not a loose text= match across the whole card.
     const enterpriseCard = page.locator('article').filter({ hasText: 'Enterprise' }).first();
-    await expect(enterpriseCard.locator('text=Custom')).toBeVisible();
+    await expect(enterpriseCard.getByText('Custom', { exact: true })).toBeVisible();
 
     const trialCard = page.locator('article').filter({ hasText: /Test Drive|Evaluating/i }).first();
     if (await trialCard.count()) {
-      await expect(trialCard.locator('text=Free')).toBeVisible();
+      await expect(trialCard.getByText('Free', { exact: true })).toBeVisible();
     }
+  });
+});
+
+test.describe('CFG-03 — plan advisor recommends exactly one plan with a legible reason', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) })
+    );
+  });
+
+  test('each need+size answer path yields one recommendation, and "start over" resets it', async ({ page }) => {
+    await page.goto('/pricing');
+    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await page.getByRole('button', { name: /Not sure\? Help me choose/i }).click();
+    await expect(page.locator('text=Find your perfect fit')).toBeVisible({ timeout: 5000 });
+
+    await page.getByRole('button', { name: /Business apps/i }).click();
+    await page.getByRole('button', { name: '2–10 people' }).click();
+
+    // Exactly one recommended-plan heading, with a non-empty reason.
+    const recHeading = page.locator('h3, h2').filter({ hasText: /Business|Starter|Enterprise/i }).last();
+    await expect(recHeading).toBeVisible({ timeout: 5000 });
+    const reasonEl = page.locator('p').filter({ hasText: /\./ }).last();
+    const reasonText = (await reasonEl.textContent()) || '';
+    expect(reasonText.length).toBeGreaterThan(10);
+
+    // The dark-mode fix applies here — the reason text must not render as
+    // the pre-fix too-dark slate-600 with no override.
+    const color = await reasonEl.evaluate((el) => getComputedStyle(el).color);
+    const [r, g, b] = (color.match(/rgba?\(([^)]+)\)/)?.[1] || '0,0,0').split(',').map((v) => parseFloat(v));
+    expect(r + g + b).toBeGreaterThan(150);
+
+    await page.getByRole('button', { name: /Start over/i }).click();
+    await expect(page.locator('text=What do you want to host?')).toBeVisible({ timeout: 5000 });
+  });
+});
+
+test.describe('CFG-07 — the repo requirement for App Hosting is communicated before purchase', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) })
+    );
+  });
+
+  test('expanding App Hosting (Node.js / Docker) shows its Git-repo description', async ({ page }) => {
+    await page.goto('/pricing');
+    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    const infraCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
+    await infraCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
+
+    const serviceList = page.locator('.lg\\:col-span-8');
+    const appHostingItem = serviceList.locator('.group').filter({ hasText: 'App Hosting (Node.js / Docker)' }).first();
+    await expect(appHostingItem, 'App Hosting service not offered on this plan').toBeVisible({ timeout: 5000 });
+    await appHostingItem.getByRole('button', { name: 'Details' }).click();
+
+    await expect(appHostingItem.locator('text=/Git repository/i')).toBeVisible({ timeout: 5000 });
   });
 });

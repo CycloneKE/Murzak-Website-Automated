@@ -544,7 +544,7 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             <div className="space-y-6">
-              <h3 className="text-micro font-black text-murzak-accent uppercase mb-4">Your Details</h3>
+              <h3 className="text-micro font-black text-sky-700 uppercase mb-4">Your Details</h3>
               {mode === 'signup' && (
                 <>
                   <div className="space-y-1">
@@ -618,7 +618,7 @@ const handleReset = async (e: React.FormEvent) => {
 
             {mode === 'signup' ? (
               <div className="space-y-6">
-                <h3 className="text-micro font-black text-murzak-accent uppercase mb-4">Project Setup</h3>
+                <h3 className="text-micro font-black text-sky-700 uppercase mb-4">Project Setup</h3>
                 <div className="space-y-1">
                   <label className={labelStyles}>What is the goal of this project?</label>
                   <div className="relative">

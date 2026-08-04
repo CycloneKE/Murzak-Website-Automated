@@ -114,7 +114,7 @@ const ConciergeWidget: React.FC = () => {
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     msg.role === 'user' 
                       ? 'bg-murzak-accent text-murzak-ink rounded-tr-sm'
-                      : 'bg-black/5 text-murzak-ink border border-murzak-border/50 rounded-tl-sm'
+                      : 'bg-black/5 text-slate-100 border border-murzak-border/50 rounded-tl-sm'
                   }`}>
                     {msg.content}
                   </div>

@@ -190,7 +190,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
 
       {/* 02 · TRUST STRIP + STATS (merged — one compact band instead of two) */}
-      <section className="glass-dark">
+      <section className="relative z-10 glass-dark">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
           <p className="font-mono text-micro uppercase text-slate-400 max-w-xs text-center lg:text-left">
             Trusted by teams who'd rather be doing their actual job
@@ -217,7 +217,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 03 · EMPATHY */}
-      <section className="py-24 lg:py-36">
+      <section className="relative z-10 py-24 lg:py-36">
         <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-6xl font-[900] tracking-tight leading-[1.05]">
             You didn't start your business<br className="hidden sm:block" /> to babysit servers.
@@ -229,14 +229,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p className="mt-6 text-lg sm:text-xl font-black text-white">
             That's the part we take off your plate — <span className="text-murzak-gradient">and keep off it.</span>
           </p>
-          <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-600 dark:text-slate-400">
+          <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-400">
             A day of downtime during month-end can cost more than a year of hosting.
           </p>
         </div>
       </section>
 
       {/* 04 · WHAT WE DO (bento) */}
-      <section id="what-we-do" className="py-20 lg:py-28 border-t border-white/5">
+      <section id="what-we-do" className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">What we do</p>
@@ -266,7 +266,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 05 · CONFIGURATOR TEASER */}
-      <section className="py-20 lg:py-28">
+      <section className="relative z-10 py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No hidden pricing</p>
@@ -288,7 +288,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 05b · HOW IT WORKS */}
-      <section className="py-20 lg:py-28 border-t border-white/5">
+      <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How it works</p>
@@ -313,7 +313,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 06 · PRODUCTS */}
-      <section className="py-20 lg:py-28 border-t border-white/5">
+      <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Products</p>
@@ -347,7 +347,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
             {/* bespoke — spec-editor styling */}
             <div className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
-              <p className="text-micro uppercase text-slate-600 dark:text-slate-400 mb-5">// bespoke build</p>
+              <p className="text-micro uppercase text-slate-400 mb-5">// bespoke build</p>
               <div className="space-y-2 text-[13px] leading-relaxed">
                 <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-accent">"dispatch is run on WhatsApp"</span></p>
                 <p className="text-slate-500">02 <span className="text-slate-300">we_build</span> <span className="text-white">delivery + tracking system</span></p>
@@ -366,7 +366,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 07 · LOCAL EDGE */}
-      <section className="py-20 lg:py-28">
+      <section className="relative z-10 py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why Murzak</p>
@@ -389,7 +389,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 07b · WHY SWITCH (comparison) */}
-      <section className="py-20 lg:py-28 border-t border-white/5">
+      <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why businesses switch</p>
@@ -398,7 +398,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
             <div className="rounded-3xl glass-dark p-8 lg:p-10">
-              <p className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400 mb-6">The usual way</p>
+              <p className="font-mono text-micro uppercase text-slate-400 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
                   'Invoiced in dollars — you do the forex math',
@@ -408,7 +408,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   'A vendor sets it up, then disappears',
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-3 text-slate-400 font-medium text-[15px] leading-snug">
-                    <span className="mt-0.5 text-slate-600 dark:text-slate-400"><X size={17} /></span> {t}
+                    <span className="mt-0.5 text-slate-400"><X size={17} /></span> {t}
                   </li>
                 ))}
               </ul>
@@ -436,7 +436,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* 07c · PRICING PREVIEW */}
-      <section className="py-20 lg:py-28 border-t border-white/5">
+      <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
             <div className="max-w-2xl">
@@ -470,12 +470,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <p className="font-mono text-micro uppercase text-murzak-accent mb-4">{m.bestFor}</p>
                 <div className="flex items-baseline gap-1.5 mb-4">
                   {m.startingKes != null && m.startingKes > 0 && (
-                    <span className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">from</span>
+                    <span className="font-mono text-micro uppercase text-slate-400">from</span>
                   )}
                   <span className="text-2xl font-[900] text-white tracking-tight">
                     {m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes)}
                   </span>
-                  <span className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">{m.period}</span>
+                  <span className="font-mono text-micro uppercase text-slate-400">{m.period}</span>
                 </div>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
                 <span className="mt-5 inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent">
@@ -489,23 +489,29 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
       {/* 08 · PROOF (gated) */}
       {TESTIMONIALS.length > 0 && (
-        <section className="py-20 lg:py-28 border-t border-white/5">
+        <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
           <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
             <div className="text-5xl text-murzak-gradient font-black mb-6">"</div>
             <blockquote className="text-2xl sm:text-3xl font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
             <p className="mt-6 text-sm font-bold text-slate-300">{TESTIMONIALS[0].name}</p>
-            <p className="font-mono text-micro uppercase text-slate-600 dark:text-slate-400">{TESTIMONIALS[0].org}</p>
+            <p className="font-mono text-micro uppercase text-slate-400">{TESTIMONIALS[0].org}</p>
           </div>
         </section>
       )}
 
       {/* 09 · FAQ */}
-      <section className="py-20 lg:py-28 border-t border-white/5">
+      {/* Faq.tsx uses theme-conditional `dark:` pairings (correct on the pages
+          that embed it normally) — but this whole section of Home sits inside
+          the always-dark "GLOBAL BACKGROUND WRAPPER" above, regardless of the
+          site's light/dark toggle. Scoping a literal `dark` class here forces
+          Faq's existing dark-mode styling on, without touching the shared
+          component or its behavior anywhere else it's used. */}
+      <section className="relative z-10 py-20 lg:py-28 border-t border-white/5 dark">
         <Faq items={faqItems} />
       </section>
 
       {/* 10 · FINAL CTA */}
-      <section className="relative py-24 lg:py-36 overflow-hidden">
+      <section className="relative z-10 py-24 lg:py-36 overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '28px 28px' }} />
         <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-5xl font-[900] tracking-tight text-white">Let's get your business set up properly.</h2>

@@ -71,7 +71,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/about-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/90 via-murzak-ink/70 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <p className="font-mono text-micro uppercase text-murzak-accent mb-5">About Murzak</p>
+          <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-5">About Murzak</p>
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
           </h1>
@@ -111,7 +111,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         {/* Story */}
         <section className="relative z-10 py-16 lg:py-24 border-t border-murzak-border/50">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Founded 2023</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Founded 2023</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-8 max-w-2xl">
               Built for the business owner, not the IT department.
             </h2>
@@ -143,13 +143,13 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-16 lg:py-24 border-t border-murzak-border/50">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
             <div className="max-w-2xl mb-12">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-4 inline-flex items-center gap-2"><Users size={14} /> The team</p>
+              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4 inline-flex items-center gap-2"><Users size={14} /> The team</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The people behind Murzak.</h2>
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
               {team.map((p) => (
                 <div key={p.name} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
-                  <div className="relative w-16 h-16 rounded-full mb-5 flex items-center justify-center bg-murzak-accent/10 text-murzak-accent font-black text-lg overflow-hidden">
+                  <div className="relative w-16 h-16 rounded-full mb-5 flex items-center justify-center bg-murzak-accent/10 text-sky-700 dark:text-murzak-accent font-black text-lg overflow-hidden">
                     <span>{p.initials}</span>
                     <img
                       src={p.img}
@@ -159,7 +159,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                     />
                   </div>
                   <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1">{p.name}</h3>
-                  <p className="text-micro font-black uppercase text-murzak-accent mb-3">{p.role}</p>
+                  <p className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent mb-3">{p.role}</p>
                   <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{p.bio}</p>
                 </div>
               ))}
@@ -171,7 +171,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-16 lg:py-24 border-t border-murzak-border/50">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
             <div className="max-w-2xl mb-12">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-4">What we do</p>
+              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">What we do</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Three things, done properly.</h2>
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
@@ -195,7 +195,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-16 lg:py-24 border-t border-murzak-border/50">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
             <div className="max-w-2xl mb-12">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Track record</p>
+              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Track record</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">What we've built.</h2>
             </div>
             <div className="grid sm:grid-cols-2 gap-5">
@@ -205,8 +205,8 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                     <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{p.icon}</div>
                     <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full ${
                       p.status === 'Live'
-                        ? 'bg-murzak-success/10 text-murzak-success'
-                        : 'bg-murzak-warning/10 text-murzak-warning'
+                        ? 'bg-murzak-success/10 text-green-700 dark:text-murzak-success'
+                        : 'bg-murzak-warning/10 text-amber-700 dark:text-murzak-warning'
                     }`}>
                       {p.status}
                     </span>
@@ -223,7 +223,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-16 lg:py-24 border-t border-murzak-border/50">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
             <div className="max-w-2xl mb-12">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How we work</p>
+              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">How we work</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">What you can expect from us.</h2>
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
@@ -243,7 +243,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
             <div className="grid lg:grid-cols-2 gap-10 items-center">
               <div>
-                <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Contact us</p>
+                <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Contact us</p>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
                   Talk to a real person — <span className="text-murzak-gradient">no call centre.</span>
                 </h2>

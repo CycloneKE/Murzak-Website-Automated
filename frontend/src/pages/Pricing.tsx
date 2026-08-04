@@ -173,8 +173,8 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
 
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-murzak-accent/10 rounded-full border border-murzak-accent/20 mb-6 sm:mb-8 backdrop-blur-md">
-            <ShieldCheck size={16} className="text-murzak-accent w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="font-mono text-micro sm:text-micro font-black text-murzak-accent uppercase">Priced in shillings · no hidden fees</span>
+            <ShieldCheck size={16} className="text-sky-700 dark:text-murzak-accent w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="font-mono text-micro sm:text-micro font-black text-sky-700 dark:text-murzak-accent uppercase">Priced in shillings · no hidden fees</span>
           </div>
           <h1 className="text-[clamp(2.2rem,10vw,7.5rem)] font-bold text-murzak-ink dark:text-slate-100 mb-6 tracking-tight leading-[0.9] sm:leading-[0.85] text-balance">
             Pay for what you use. <br /><span className="text-transparent bg-clip-text bg-brand-gradient">See it first.</span>
@@ -196,7 +196,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       {/* Main Pricing Grid — now BELOW the CTA landing */}
       <section id="pricing-plans" ref={gridRef} className="relative scroll-mt-24 py-12 sm:py-20 lg:py-24 max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 xl:px-24">
         <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
-          <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Choose your solution</p>
+          <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Choose your solution</p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
             Infrastructure & SaaS
           </h2>
@@ -220,7 +220,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
                 {/* Image section removed as the Glass UI design is minimal, text-focused, and cleaner without heavy images in the cards. */}
 
                 <div className="p-6 sm:p-8 flex-grow flex flex-col">
-                  <h3 className="text-micro sm:text-xs font-semibold uppercase text-murzak-accent mb-2">
+                  <h3 className="text-micro sm:text-xs font-semibold uppercase text-sky-700 dark:text-murzak-accent mb-2">
                     {plan.name} {plan.isFeatured ? ' — POPULAR' : ''}
                   </h3>
                   <div className="flex items-baseline gap-1.5 mb-2">
@@ -265,7 +265,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       <section className="py-16 sm:py-24 relative z-20">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Included, not extra</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Included, not extra</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
               “Managed” means we actually do the work.
             </h2>
@@ -301,7 +301,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
       <section className="py-16 sm:py-24 relative z-20">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No surprises</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">No surprises</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
               How billing actually works.
             </h2>
@@ -330,7 +330,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
 
       {/* Final CTA */}
       <section className="relative py-20 sm:py-28 overflow-hidden z-20">
-        <div className="absolute inset-0 -z-10 bg-murzak-surface/50 border-y border-murzak-border" />
+        <div className="absolute inset-0 -z-10 bg-murzak-surface/50 dark:bg-murzak-ink/50 border-y border-murzak-border" />
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">Still weighing it up?</h2>

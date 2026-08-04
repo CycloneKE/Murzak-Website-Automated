@@ -11,7 +11,7 @@ interface FooterProps {
 const SUPPORT_EMAIL = 'support@murzaktech.com';
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
-  const linkCls = 'hover:text-murzak-ink transition-colors text-left';
+  const linkCls = 'hover:text-white transition-colors text-left';
 
   const exploreLinks: { label: string; page: Page }[] = [
     { label: 'Home', page: 'home' },
@@ -143,7 +143,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </p>
               <button
                 onClick={() => onNavigate('sla')}
-                className="mt-5 pt-5 border-t border-murzak-border w-full flex items-center gap-2 text-murzak-accent text-micro font-black uppercase hover:text-murzak-ink transition-colors"
+                className="mt-5 pt-5 border-t border-murzak-border w-full flex items-center gap-2 text-murzak-accent text-micro font-black uppercase hover:text-white transition-colors"
               >
                 <Activity size={14} /> 99.9% uptime SLA →
               </button>
@@ -151,14 +151,19 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-600 dark:text-slate-400 text-micro font-black uppercase text-center md:text-left gap-6">
+        <div className="mt-16 pt-10 border-t border-murzak-border/50 flex flex-col md:flex-row justify-between items-center text-slate-400 text-micro font-black uppercase text-center md:text-left gap-6">
           <p>© {new Date().getFullYear()} Murzak Technologies Limited · Registered in Kenya</p>
           <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
-            <button onClick={() => onNavigate('about')} className="hover:text-murzak-ink transition-colors">About</button>
-            <button onClick={() => onNavigate('contact')} className="hover:text-murzak-ink transition-colors">Contact</button>
-            <button onClick={() => onNavigate('privacy')} className="hover:text-murzak-ink transition-colors">Privacy Policy</button>
-            <button onClick={() => onNavigate('terms')} className="hover:text-murzak-ink transition-colors">Terms of Service</button>
-            <button onClick={() => onNavigate('sla')} className="hover:text-murzak-ink transition-colors">SLA</button>
+            {/* Explicit text-slate-400 on every link, not just the parent — the
+                footer's own background is always dark regardless of site theme,
+                so these can't rely on the (broken, in this case) theme cascade;
+                hover targets white instead of murzak-ink, which would go
+                near-black-on-near-black against this always-dark footer. */}
+            <button onClick={() => onNavigate('about')} className="text-slate-400 hover:text-white transition-colors">About</button>
+            <button onClick={() => onNavigate('contact')} className="text-slate-400 hover:text-white transition-colors">Contact</button>
+            <button onClick={() => onNavigate('privacy')} className="text-slate-400 hover:text-white transition-colors">Privacy Policy</button>
+            <button onClick={() => onNavigate('terms')} className="text-slate-400 hover:text-white transition-colors">Terms of Service</button>
+            <button onClick={() => onNavigate('sla')} className="text-slate-400 hover:text-white transition-colors">SLA</button>
           </div>
         </div>
       </div>

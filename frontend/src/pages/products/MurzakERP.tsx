@@ -91,7 +91,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-              <span className="text-micro font-black uppercase text-murzak-accent">Murzak ERP</span>
+              <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">Murzak ERP</span>
             </div>
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
               One system for your whole business. <span className="text-murzak-gradient">Made for Kenya.</span>
@@ -151,7 +151,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       {/* Modules Grid */}
       <Section className="border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
-          <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Core Modules</p>
+          <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Core Modules</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything connects automatically.</h2>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -184,15 +184,15 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
             <div className="space-y-4">
               <div className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-2">Tax Settings</div>
               <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
-                <span className="font-bold">VAT (16%)</span>
+                <span className="font-bold text-slate-100">VAT (16%)</span>
                 <span className="text-murzak-accent text-sm">Active</span>
               </div>
               <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
-                <span className="font-bold">KRA eTIMS Integration</span>
+                <span className="font-bold text-slate-100">KRA eTIMS Integration</span>
                 <span className="text-murzak-accent text-sm">Configured</span>
               </div>
               <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
-                <span className="font-bold">PAYE & NHIF Rates</span>
+                <span className="font-bold text-slate-100">PAYE & NHIF Rates</span>
                 <span className="text-murzak-accent text-sm">Updated 2024</span>
               </div>
             </div>

@@ -133,7 +133,7 @@ const Header: React.FC<HeaderProps> = ({
                         <div className="glass-panel rounded-3xl p-8 shadow-xl flex gap-12 w-[650px]">
                           {item.submenu.map(group => (
                             <div key={group.group} className="flex-1">
-                              <h4 className="font-mono text-xs font-semibold tracking-wider text-murzak-accent mb-4 uppercase">{group.group}</h4>
+                              <h4 className="font-mono text-xs font-semibold tracking-wider text-sky-700 dark:text-murzak-accent mb-4 uppercase">{group.group}</h4>
                               <ul className="space-y-3">
                                 {group.items.map(sub => (
                                   <li key={sub.page}>

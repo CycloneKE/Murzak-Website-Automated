@@ -126,3 +126,103 @@ test.describe('LNCH-06 — closing the modal before confirm creates nothing', ()
     expect(addonCallSeen).toBe(false);
   });
 });
+
+test.describe('LNCH-05 — free 36-hour trial request needs no card', () => {
+  test('the 2-step trial form submits without ever asking for payment info', async ({ page }) => {
+    await page.route('**/api/auth/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) })
+    );
+    const suffix = Math.floor(Math.random() * 1e9);
+
+    await page.goto('/test-request');
+    await expect(page.locator('text=Get your')).toBeVisible({ timeout: 10000 });
+
+    // No card/payment field anywhere on either step.
+    await expect(page.locator('input[type="text"][placeholder*="4242"], input[placeholder*="card" i]')).toHaveCount(0);
+
+    await page.locator('input[placeholder="Samuel Okoth"]').fill('Trial Tester');
+    await page.locator('input[placeholder="samuel@company.co.ke"]').fill(`test_trial_${suffix}@example.com`);
+    await page.locator('input[placeholder="Regional Enterprise Ltd"]').fill('Trial Test Co');
+    await page.getByRole('button', { name: /Next Step/i }).click();
+
+    await expect(page.locator('text=What are you testing?')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('input[type="text"][placeholder*="4242"], input[placeholder*="card" i]')).toHaveCount(0);
+
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/') && r.request().method() === 'POST'),
+      page.getByRole('button', { name: /Save My Plan/i }).click(),
+    ]);
+    expect(resp.status()).toBeLessThan(400);
+
+    await expect(page.locator('text=Trial Ready.')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Create account & start trial/i })).toBeVisible();
+  });
+});
+
+test.describe('LNCH-07 — the capacity cap is enforced server-side, not just in the UI', () => {
+  // NOTE: same DEV_AUTO_LOGIN caveat as elsewhere. This registers + pays a
+  // Business plan, then fires an /api/addons/invoice/create request DIRECTLY
+  // (bypassing any client-side capacity guard) with a batch of services
+  // whose combined RAM comfortably exceeds SELF_SERVE_ORDER_RAM_CAP_MB
+  // (6144MB) — the server (assertOrderWithinCapacity) must reject it.
+  test('a directly-POSTed over-cap add-on order is rejected, not accepted', async ({ page }) => {
+    const suffix = Math.floor(Math.random() * 1e9);
+    const email = `test_lnch07_${suffix}@example.com`;
+
+    // Establish a paid Business plan (mirrors cloud-launch.spec.ts).
+    await page.goto('/pricing?configure=biz-pos-inventory');
+    const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
+    await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
+    const domainInput = page.locator('input[placeholder="myshop"]');
+    if (await domainInput.isVisible()) await domainInput.fill(`lnch07${suffix}`);
+    await checkoutBtn.click();
+
+    await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    await page.getByRole('button', { name: /Need a New Account\? Get Started/i }).click();
+    await page.getByPlaceholder('Samuel Okoth').fill('Lnch07 Tester');
+    await page.getByPlaceholder('My Company Ltd').fill('Lnch07 Co');
+    await page.getByPlaceholder('e.g. Launching Logistics App').fill('Testing capacity gate at launch');
+    await page.getByPlaceholder('sam@company.co.ke').fill(email);
+    await page.getByPlaceholder('••••••••').fill('TestPassword123!');
+    await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
+    await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/payment\/.+/, { timeout: 15000 });
+    const invoiceId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
+    await page.evaluate(async (id) => {
+      await fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ invoiceDocName: id, orderID: 'MOCK_PAYPAL_SUCCESS' }),
+      });
+    }, invoiceId);
+
+    // Over-cap batch: 6 volume services totalling well over 6144MB RAM
+    // (1536+1024+768+768+256+256 across web-plus/app/db-light/db-mongo/
+    //  email/storage) — all volume-class so plan-eligibility can't be the
+    // thing that rejects it; the CAPACITY guard has to be what fires.
+    const overCap = await page.evaluate(async () => {
+      const services = [
+        { serviceId: 'starter-web-hosting-plus', serviceName: 'Website Hosting (Growth)', tier: 'Medium', domainChoice: 'Use Murzak Subdomain' },
+        { serviceId: 'starter-app-hosting', serviceName: 'App Hosting', tier: 'Light', domainChoice: 'Use Murzak Subdomain' },
+        { serviceId: 'starter-db-light', serviceName: 'Database (Shared)', tier: 'Light', domainChoice: '' },
+        { serviceId: 'starter-db-mongo', serviceName: 'Database (MongoDB)', tier: 'Light', domainChoice: '' },
+        { serviceId: 'starter-email', serviceName: 'Business Email', tier: 'Light', domainChoice: '' },
+        { serviceId: 'starter-storage', serviceName: 'File Storage', tier: 'Light', domainChoice: '' },
+      ];
+      const r = await fetch('/api/addons/invoice/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ services }),
+      });
+      return { status: r.status, body: await r.json().catch(() => ({})) };
+    });
+
+    // Must be a clean 4xx rejection (capacity guard), never a 200 that
+    // silently over-commits the shared box, and never a 500.
+    expect(overCap.status, `over-cap order returned ${overCap.status}: ${JSON.stringify(overCap.body)}`).toBeGreaterThanOrEqual(400);
+    expect(overCap.status).toBeLessThan(500);
+  });
+});

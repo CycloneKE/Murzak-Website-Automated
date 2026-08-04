@@ -128,3 +128,105 @@ test.describe('AUTH-06 — logout clears the session', () => {
     await expect(page).toHaveURL(/\/login\?returnTo=/, { timeout: 10000 });
   });
 });
+
+// AUTH-02: per-account brute-force lockout. Driven via direct API calls
+// (POST /api/login) rather than the UI — MAX_FAILURES=8 (see
+// backend/utils/loginThrottle.js) would mean 8+ slow form submissions;
+// hitting the endpoint directly is both faster and a more precise test of
+// the actual guarded boundary. Uses a fresh, never-registered email so the
+// per-account counter starts clean.
+test.describe('AUTH-02 — per-account login lockout', () => {
+  test('the 9th failed attempt in a row locks the account (429), a fresh account is unaffected', async ({ page }) => {
+    const suffix = Math.floor(Math.random() * 1e9);
+    const email = `test_lockout_${suffix}@example.com`;
+
+    let lastStatus = 0;
+    let lastBody: any = {};
+    for (let i = 0; i < 8; i++) {
+      const res = await page.evaluate(async (em) => {
+        const r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: em, password: 'definitely-wrong-password' }),
+        });
+        return { status: r.status, body: await r.json().catch(() => ({})) };
+      }, email);
+      lastStatus = res.status;
+      lastBody = res.body;
+    }
+    // The 8th failure should itself report the account as locked (or the
+    // very next attempt does, depending on off-by-one) — assert on the 9th
+    // call specifically to remove any ambiguity.
+    const ninth = await page.evaluate(async (em) => {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: em, password: 'still-wrong' }),
+      });
+      return { status: r.status, body: await r.json().catch(() => ({})) };
+    }, email);
+    expect(ninth.status, `expected 429 after 8 prior failures, got ${ninth.status}: ${JSON.stringify(ninth.body)}`).toBe(429);
+    expect(ninth.body?.error || '').toMatch(/too many failed attempts/i);
+
+    // A DIFFERENT, never-attempted account is not affected by the first
+    // account's lockout — the throttle is per-account, not global/per-IP.
+    const otherEmail = `test_lockout_unaffected_${suffix}@example.com`;
+    const otherRes = await page.evaluate(async (em) => {
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: em, password: 'wrong-but-first-try' }),
+      });
+      return { status: r.status };
+    }, otherEmail);
+    expect(otherRes.status, 'a fresh account got locked out by another account\'s failures — throttle is not per-account').toBe(401);
+  });
+});
+
+// AUTH-07: Google sign-in is entirely env-guarded on the client
+// (services/firebase.ts's `firebaseEnabled`, computed from VITE_FIREBASE_*).
+// This dev server was built with those unset (see murzaktech-local-dev-run
+// memory) — the assertion below reflects that default, not a hardcoded
+// assumption; if Firebase env is ever configured, this test's premise
+// changes and it should be updated to assert the button IS visible instead.
+test.describe('AUTH-07 — Google sign-in absent when Firebase env is unset', () => {
+  test('no "Continue with Google" button and no console crash', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/login');
+    await expect(page.locator('h1')).toContainText(/Client Dashboard/, { timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Continue with Google/i })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+});
+
+// AUTH-09: password reset always returns the same neutral message —
+// Login.tsx's handleForgot() has this text baked in as the client-side
+// fallback regardless of what the server returns, so a real vs. fake email
+// must be indistinguishable to the user (no account-enumeration signal).
+test.describe('AUTH-09 — password reset never confirms or denies an account exists', () => {
+  test('a real-looking email and an obviously-fake one get the identical message', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.locator('h1')).toContainText(/Client Dashboard/, { timeout: 10000 });
+    await page.getByRole('button', { name: /Forgot password\?/i }).click();
+
+    const emailInput = page.locator('input[type="email"]');
+    const submit = page.getByRole('button', { name: /Send reset link|Reset/i });
+
+    await emailInput.fill('definitely-not-a-real-account@example.com');
+    await submit.click();
+    const fakeMsg = await page.locator('text=/reset link has been sent/i').textContent({ timeout: 10000 });
+
+    // A second, differently-shaped but still-fake address — the point is
+    // only that the message text can't be used to distinguish "exists" from
+    // "doesn't", so this deliberately never targets a real inbox.
+    const suffix = Math.floor(Math.random() * 1e9);
+    await page.goto('/login');
+    await page.getByRole('button', { name: /Forgot password\?/i }).click();
+    await page.locator('input[type="email"]').fill(`test_reset_${suffix}@example.com`);
+    await page.getByRole('button', { name: /Send reset link|Reset/i }).click();
+    const secondMsg = await page.locator('text=/reset link has been sent/i').textContent({ timeout: 10000 });
+
+    expect(fakeMsg?.trim()).toBe(secondMsg?.trim());
+  });
+});

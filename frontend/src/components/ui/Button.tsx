@@ -3,7 +3,7 @@ import React from "react";
 // Glass UI Button Component
 // Implements the primary gradient, secondary outline, and ghost variants.
 
-type Variant = "primary" | "secondary" | "ghost" | "onDark";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "onDark" | "outlineOnDark";
 type Size = "sm" | "md" | "lg";
 
 const BASE =
@@ -21,11 +21,18 @@ const VARIANTS: Record<Variant, string> = {
   // Secondary: White with light border
   secondary:
     "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
+  // Outline: same as secondary — every call site in the app uses "outline",
+  // not "secondary" (which has zero call sites), so this is the real name.
+  outline:
+    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
   // Ghost: No background, subtle hover
   ghost:
     "bg-transparent text-murzak-ink dark:text-slate-100 hover:bg-slate-100/50 dark:hover:bg-white/5",
   // For use on dark glass/spatial panels
   onDark: "bg-black/5 border border-white/20 text-murzak-ink dark:text-slate-100 hover:bg-white/20",
+  // Bordered/transparent counterpart of onDark — for a secondary CTA sitting
+  // next to a solid "onDark" or "primary" button on a dark hero/CTA section.
+  outlineOnDark: "bg-transparent border border-white/30 text-white hover:bg-white/10",
 };
 
 type ButtonProps = React.ComponentPropsWithoutRef<"button"> & {

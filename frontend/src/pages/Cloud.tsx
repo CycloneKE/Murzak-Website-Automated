@@ -48,7 +48,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow z-0" />
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-7 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 lg:p-14 shadow-2xl">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-5">Murzak Cloud</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-5">Murzak Cloud</p>
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-murzak-ink dark:text-slate-100">
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
@@ -105,7 +105,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       <section className="py-16 lg:py-24 border-t border-murzak-border/50 relative overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">What you can host</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">What you can host</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything your business runs online.</h2>
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
@@ -137,7 +137,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <div className="grid lg:grid-cols-12 gap-10 items-center mb-12">
             <div className="lg:col-span-7">
-              <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Fully managed</p>
+              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Fully managed</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
               <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
                 Real engineers watching real infrastructure — not a support queue that routes you overseas.

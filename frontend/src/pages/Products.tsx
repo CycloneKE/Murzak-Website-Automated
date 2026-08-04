@@ -77,13 +77,17 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
         {/* Cloud & Custom */}
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="grid md:grid-cols-2 gap-6">
-             <div className="p-10 rounded-[2rem] border border-murzak-border bg-slate-900 overflow-hidden relative group">
+             {/* This card is unconditionally dark (bg-slate-900, no `dark:` pairing)
+                 regardless of site theme, so its content is wrapped in a scoped
+                 `dark` class to force the correct (already-defined) dark-mode
+                 text colors on — rather than duplicating them as fixed classes. */}
+             <div className="p-10 rounded-[2rem] border border-murzak-border bg-slate-900 overflow-hidden relative group dark">
                 <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-accent group-hover:scale-110 transition-transform duration-700">
                   <Terminal size={120} strokeWidth={1} />
                 </div>
                 <div className="relative z-10">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 text-murzak-ink dark:text-slate-100 text-micro font-black uppercase mb-6">Custom Build</div>
-                  <h3 className="text-3xl font-black mb-4">Custom Software Development</h3>
+                  <h3 className="text-3xl font-black mb-4 text-murzak-ink dark:text-slate-100">Custom Software Development</h3>
                   <p className="text-slate-500 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
                   <Button variant="ghost" onClick={() => onNavigate('custom-software')}>Learn more</Button>
                 </div>
@@ -94,7 +98,7 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                   <Cloud size={120} strokeWidth={1} />
                 </div>
                 <div className="relative z-10">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-murzak-accent text-micro font-black uppercase mb-6">Infrastructure</div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-sky-700 dark:text-murzak-accent text-micro font-black uppercase mb-6">Infrastructure</div>
                   <h3 className="text-3xl font-black mb-4">Murzak Cloud</h3>
                   <p className="text-slate-500 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
                   <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>

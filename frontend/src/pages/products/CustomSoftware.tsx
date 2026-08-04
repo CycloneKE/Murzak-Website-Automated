@@ -64,7 +64,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
         {/* The Process */}
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">How we work</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">How we work</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">One team. No ghosting.</h2>
           </div>
 
@@ -95,7 +95,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
         {/* Quality before it ships */}
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl">
-            <p className="font-mono text-micro uppercase text-murzak-accent mb-3">Before it ships</p>
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Before it ships</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-5">We test it like it's our own business on the line.</h2>
             <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
               Every build goes through a real review pass — payment flows, edge cases, and the things that only break in production — before we hand you the keys. If it's not something we'd trust with our own operations, it doesn't ship.
