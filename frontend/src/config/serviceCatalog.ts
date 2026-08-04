@@ -945,6 +945,20 @@ export function isYearlyBilled(svc: ServiceItem): boolean {
   return svc.category === "Domain Registration";
 }
 
+/**
+ * Monthly-equivalent of a yearly price, for DISPLAY ONLY — nothing is billed
+ * monthly. Rounded UP so the advertised monthly figure can never annualize to
+ * less than the amount actually charged (only .africa is non-exact:
+ * 2500/12 = 208.33 -> 209).
+ *
+ * Callers MUST show the annual total alongside this figure — a bare
+ * "KES 125/mo" without "billed annually at KES 1,500" is a misleading price
+ * representation.
+ */
+export function monthlyEquivalentKes(yearlyKes: number): number {
+  return Math.ceil(yearlyKes / 12);
+}
+
 /** Map a full TLD string (e.g. ".co.ke") to its DOMAIN_CATALOG product id. */
 export function domainCatalogIdForTld(tld: string): string | null {
   const byTld: Record<string, string> = {
