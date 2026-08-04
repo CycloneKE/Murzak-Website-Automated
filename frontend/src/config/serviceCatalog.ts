@@ -8,6 +8,7 @@ export type ServiceCategory =
   | "CRM & Helpdesk"
   | "Email Hosting"
   | "Database Hosting"
+  | "Domain Registration"
   | "Storage"
   | "Apps"
   | "Security & Backup"
@@ -104,6 +105,12 @@ export type ServiceOption = {
 
   tags?: string[];
   sortOrder?: number;
+
+  /** Hidden from new self-serve purchases (cloudLaunchCatalog), but still
+   * resolvable by getService/getServiceMeta so existing customers' pricing
+   * and renewals keep working. Never delete a catalog id a customer might
+   * already own — deprecate it instead. */
+  deprecated?: boolean;
 };
 
 export type ServiceItem = ServiceOption;
@@ -320,6 +327,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["MySQL or Postgres", "Daily backups", "Remote access"],
       sortOrder: 50,
+      deprecated: true,
     },
     {
       id: "starter-db-mongo",
@@ -333,6 +341,59 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["MongoDB 7", "Daily backups", "Remote access"],
       sortOrder: 55,
+      deprecated: true,
+    },
+    {
+      id: "db-mysql",
+      name: "MySQL Database",
+      description: "Managed MySQL for your app or website.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      sortOrder: 51,
+    },
+    {
+      id: "db-postgres",
+      name: "PostgreSQL Database",
+      description: "Managed PostgreSQL for your app or website.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      sortOrder: 52,
+    },
+    {
+      id: "db-mongo",
+      name: "MongoDB Database",
+      description: "Managed MongoDB for apps built on a document database.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["MongoDB 7", "Daily backups", "Remote access"],
+      sortOrder: 53,
+    },
+    {
+      id: "db-redis",
+      name: "Redis Database",
+      description: "Managed Redis for caching, queues, and session storage.",
+      category: "Database Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "5GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 768, diskGb: 5 },
+      pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
+      highlights: ["In-memory speed", "Daily backups", "Managed by us"],
+      sortOrder: 54,
     },
     {
       id: "starter-hrpay",
@@ -783,15 +844,137 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
   },
 ];
 
+// =====================================================================
+//  DOMAIN REGISTRATION — priced per TLD, not per plan. Billed yearly
+//  (displayed "/yr" via isYearlyBilled), zero server footprint (a domain
+//  purchase reserves no RAM/disk — fulfillment is the existing manual
+//  domain-purchase-requests flow, unchanged by this catalog entry).
+//  Prices MUST match backend/server.js's DOMAIN_TLD_PRICES exactly — that
+//  object remains the server-side source of truth for /api/domains/check;
+//  this catalog is what actually gets billed via /api/orders.
+// =====================================================================
+export const DOMAIN_CATALOG: ServiceItem[] = [
+  {
+    id: "domain-coke",
+    name: "Domain — .co.ke",
+    description: "Register a .co.ke domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1200 },
+    sortOrder: 10,
+  },
+  {
+    id: "domain-com",
+    name: "Domain — .com",
+    description: "Register a .com domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1500 },
+    sortOrder: 20,
+  },
+  {
+    id: "domain-ke",
+    name: "Domain — .ke",
+    description: "Register a .ke domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 30,
+  },
+  {
+    id: "domain-org",
+    name: "Domain — .org",
+    description: "Register a .org domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 40,
+  },
+  {
+    id: "domain-net",
+    name: "Domain — .net",
+    description: "Register a .net domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 1800 },
+    sortOrder: 50,
+  },
+  {
+    id: "domain-africa",
+    name: "Domain — .africa",
+    description: "Register a .africa domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 2500 },
+    sortOrder: 60,
+  },
+  {
+    id: "domain-io",
+    name: "Domain — .io",
+    description: "Register a .io domain, billed yearly.",
+    category: "Domain Registration",
+    tier: "Light",
+    capacityClass: "volume",
+    specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
+    resources: { ramMb: 0, diskGb: 0 },
+    pricing: { model: "addon", monthlyKes: 4500 },
+    sortOrder: 70,
+  },
+];
+
+/** True for products billed yearly (domains) rather than monthly (everything else). */
+export function isYearlyBilled(svc: ServiceItem): boolean {
+  return svc.category === "Domain Registration";
+}
+
+/** Map a full TLD string (e.g. ".co.ke") to its DOMAIN_CATALOG product id. */
+export function domainCatalogIdForTld(tld: string): string | null {
+  const byTld: Record<string, string> = {
+    ".co.ke": "domain-coke",
+    ".com": "domain-com",
+    ".ke": "domain-ke",
+    ".org": "domain-org",
+    ".net": "domain-net",
+    ".africa": "domain-africa",
+    ".io": "domain-io",
+  };
+  return byTld[tld] ?? null;
+}
+
 /**
  * Services shown in the configurator for a plan: the plan's own catalog plus
  * the universal add-ons (for self-serve paid plans). Test and Enterprise stay
  * scoped to their own lists (trial / dedicated quote).
+ *
+ * Deprecated ids (e.g. starter-db-light / starter-db-mongo, superseded by the
+ * db-mysql/db-postgres/db-mongo/db-redis engine products) are hidden from
+ * this NEW-purchase surface, same as cloudLaunchCatalog() — a new customer
+ * must never be able to buy a deprecated id. They still resolve via
+ * getService/getServiceMeta (SERVICE_INDEX below is never filtered) so
+ * existing customers who already own one keep correct pricing/renewals.
  */
 export function configuratorServices(planCode: PlanCode): ServiceItem[] {
   const base = SERVICE_CATALOG[planCode] ?? [];
-  if (planCode === "Test" || planCode === "Enterprise") return base;
-  return [...base, ...UNIVERSAL_ADDONS];
+  const pool = planCode === "Test" || planCode === "Enterprise" ? base : [...base, ...UNIVERSAL_ADDONS];
+  return pool.filter((s) => !s.deprecated);
 }
 
 // ---- Helpers ----
@@ -870,6 +1053,7 @@ const SERVICE_INDEX: Record<string, ServiceItem> = (() => {
     for (const s of SERVICE_CATALOG[code]) idx[s.id] = s;
   });
   for (const s of UNIVERSAL_ADDONS) idx[s.id] = s;
+  for (const s of DOMAIN_CATALOG) idx[s.id] = s;
   return idx;
 })();
 
@@ -941,7 +1125,7 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
 export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]> {
   const allVolumeServices = (Object.keys(SERVICE_CATALOG) as PlanCode[])
     .flatMap((code) => SERVICE_CATALOG[code])
-    .filter((s) => s.capacityClass === "volume" && s.pricing.model === "addon");
+    .filter((s) => s.capacityClass === "volume" && s.pricing.model === "addon" && !s.deprecated);
 
   const result = {} as Record<CloudLaunchCategory, ServiceItem[]>;
   for (const cat of CLOUD_LAUNCH_CATEGORIES) {

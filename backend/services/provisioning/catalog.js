@@ -54,12 +54,24 @@ function sumSelectedServicesMonthlyKes(selectedServices = []) {
  *  - premium  (managed Frappe apps: ERP/POS/CRM/HR)  -> bench
  *  - volume   (light web/email/storage/db slices)    -> coolify
  * Unknown ids fall back to manual so a human always reviews them.
+ *
+ * Domain Registration (and any other product with a genuinely zero server
+ * footprint — ramMb 0 AND diskGb 0) is capacityClass "volume" but has
+ * NOTHING to build: no container, no RAM, no disk. Before this fix these
+ * fell through to "coolify" and (a) enqueued a real Coolify build job for a
+ * purchase that should touch no infrastructure, and (b) coolify.js's RAM
+ * floor (Math.max(job.ram_mb, DEFAULT_RAM_MB)) then allocated real RAM on the
+ * capacity-capped shared box anyway. Manual = "escalate to a human", which is
+ * exactly right for a manually-fulfilled, zero-footprint purchase like a
+ * domain registration.
  */
 function laneFor(meta) {
   if (!meta) return "manual";
   if (meta.capacityClass === "dedicated") return "manual";
   if (meta.capacityClass === "premium") return "bench";
   if (meta.capacityClass === "scalable") return "k8s";
+  if (meta.category === "Domain Registration") return "manual";
+  if (!(Number(meta.ramMb) > 0) && !(Number(meta.diskGb) > 0)) return "manual";
   return "coolify";
 }
 

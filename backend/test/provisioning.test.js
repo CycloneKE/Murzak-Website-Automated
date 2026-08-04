@@ -94,6 +94,17 @@ const okLane = {
   ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "volume web -> coolify lane");
   ok(catalog.laneFor(catalog.getServiceMeta("ent-erp-large")) === "manual", "dedicated -> manual lane");
   ok(catalog.laneFor(catalog.getServiceMeta("nope")) === "manual", "unknown id -> manual lane");
+  // Critical 3 (final-review-fix-report.md): domain-registration products are
+  // capacityClass "volume" but zero-footprint (ramMb 0 / diskGb 0) — they must
+  // never fall through to the coolify lane, which would enqueue a real
+  // container build (and coolify.js's RAM floor would then actually consume
+  // real box RAM) for a purchase that touches no infrastructure at all.
+  for (const id of ["domain-coke", "domain-com", "domain-ke", "domain-org", "domain-net", "domain-africa", "domain-io"]) {
+    ok(catalog.laneFor(catalog.getServiceMeta(id)) === "manual", `${id} (domain registration) -> manual lane, never coolify`);
+  }
+  // Same rule generalizes to any other genuinely zero-footprint "volume" product.
+  ok(catalog.laneFor(catalog.getServiceMeta("addon-priority-support")) === "manual", "zero-footprint addon -> manual lane, not a fake coolify build");
+  ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "real-footprint volume product still routes to coolify (no regression)");
   ok(capacity.thresholdMb() === 10880, "RAM threshold = 10880MB (85% of 12800)");
 
   section("runner state machine");
@@ -242,6 +253,56 @@ const okLane = {
   const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
   ok(gated.status === "needs_human" && gated.gated === 1, "enqueue premium over-cap -> needs_human + gated");
   ok(Object.values(CR(s)).length === 1, "enqueue fired one scale-out request");
+
+  section("domain registration: manual lane, and the purchased domain reaches the staff email (Critical 2 + 3)");
+  {
+    // enqueueProvisioningForInvoice also accepts the richer
+    // { serviceId, domainChoice } shape billingActivationService.js now
+    // sends (plain string ids, used everywhere above, still work too).
+    const sDom = makeStore([]);
+    const eqDom = await svc.enqueueProvisioningForInvoice({
+      client: sDom,
+      webAccount: "WD",
+      invoiceDocName: "INV-DOM",
+      serviceIds: [{ serviceId: "domain-com", domainChoice: "acme.com" }],
+    });
+    ok(eqDom.created.length === 1, "domain purchase creates exactly one job");
+    const domJob = Object.values(PJ(sDom))[0];
+    ok(domJob.lane === "manual", "domain job is queued on the manual lane, not coolify");
+    ok((domJob.ram_mb || 0) === 0, "domain job carries zero RAM (never floored/allocated on the shared box)");
+    ok(eqDom.created[0].domainChoice === "acme.com", "the purchased domain string survives onto the created-job entry used for the staff email");
+
+    // Legacy plain-string serviceIds must keep working with no domain info.
+    const eqLegacy = await svc.enqueueProvisioningForInvoice({
+      client: makeStore([]), webAccount: "WD2", invoiceDocName: "INV-DOM2", serviceIds: ["domain-com"],
+    });
+    ok(eqLegacy.created[0].domainChoice === "", "plain string serviceIds still work, with an empty domainChoice");
+
+    // End-to-end: the domain must actually reach the staff notification EMAIL
+    // TEXT, not just an in-memory field — that's the whole point of Critical 2.
+    const mailer = require("../utils/mailer");
+    const originalSendMail = mailer.sendMail;
+    const savedAdminEmails = process.env.ADMIN_EMAILS;
+    process.env.ADMIN_EMAILS = "ops@murzaktech.test";
+    let capturedText = null;
+    mailer.sendMail = async ({ text }) => { capturedText = text; };
+    try {
+      const notify = await svc.notifyStaffOfJobs({
+        jobs: eqDom.created,
+        webAccount: "WD",
+        invoiceDocName: "INV-DOM",
+        reservedRamMb: 0,
+        doctypeMissing: false,
+      });
+      ok(notify.sent === true, "staff notification email was sent");
+      ok(/acme\.com/.test(capturedText || ""), "staff notification email body contains the purchased domain string");
+      ok(/MANUAL/.test(capturedText || ""), "staff notification email flags the manual lane for the domain job");
+    } finally {
+      mailer.sendMail = originalSendMail;
+      if (savedAdminEmails === undefined) delete process.env.ADMIN_EMAILS;
+      else process.env.ADMIN_EMAILS = savedAdminEmails;
+    }
+  }
 
   section("enqueue idempotency + doctype-missing");
   const existingStore = makeStore([{ name: "EX", invoice: "INV3", service_id: "starter-web-hosting", status: "queued" }]);

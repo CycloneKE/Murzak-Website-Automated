@@ -3,14 +3,61 @@ import { ArrowRight, ShoppingCart, Briefcase, Truck, Stethoscope, Terminal, Clou
 import { Button } from '../components/ui/Button';
 import { Section } from '../components/ui/Section';
 import { Page } from '../types';
-import { formatKes, serviceMonthlyKes } from '../config/serviceCatalog';
+import { formatKes, serviceMonthlyKes, domainCatalogIdForTld } from '../config/serviceCatalog';
+import DomainSearch from '../components/DomainSearch';
 
 interface Props {
   onNavigate: (page: Page | string) => void;
   isLoading?: boolean;
+  isLoggedIn?: boolean;
 }
 
-const Products: React.FC<Props> = ({ onNavigate }) => {
+const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
+  const [domainError, setDomainError] = React.useState("");
+  const [domainSubmitting, setDomainSubmitting] = React.useState(false);
+  const [selectedDomain, setSelectedDomain] = React.useState<string | undefined>(undefined);
+
+  const handleSelectDomain = async (domain: string, priceKes: number) => {
+    setDomainError("");
+    if (!isLoggedIn) {
+      onNavigate("/login?returnTo=%2Fproducts");
+      return;
+    }
+    const tld = domain.slice(domain.indexOf("."));
+    const serviceId = domainCatalogIdForTld(tld);
+    if (!serviceId) {
+      setDomainError("That domain extension isn't available for purchase yet.");
+      return;
+    }
+    setSelectedDomain(domain);
+    setDomainSubmitting(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        // priceKes here is client-supplied metadata for display/audit only —
+        // the actual charge is always re-derived server-side from
+        // getServiceMeta(serviceId) against the domain catalog, never trusted
+        // from this payload.
+        body: JSON.stringify({ serviceId, config: { domain, priceKes }, source: "products-page" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data?.code === "CAPACITY") {
+        setDomainError("We're at capacity right now — please try again shortly.");
+        return;
+      }
+      if (!res.ok || !data?.order) {
+        setDomainError(data?.error || "Failed to start checkout.");
+        return;
+      }
+      onNavigate(`/checkout/${data.order.id}`);
+    } catch {
+      setDomainError("Failed to start checkout. Check your connection and try again.");
+    } finally {
+      setDomainSubmitting(false);
+    }
+  };
 
   const businessSystems = [
     { title: "Murzak POS", desc: "Multi-branch point of sale, inventory tracking, and M-Pesa integration.", path: "pos", priceId: "biz-pos-inventory", previewLabel: "Today's total", previewValue: "KES 24,180" },
@@ -23,6 +70,13 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
     { title: "Clinics & Healthcare", path: "for-clinics", icon: <Stethoscope size={24} /> },
     { title: "Logistics & Delivery", path: "for-logistics", icon: <Truck size={24} /> },
     { title: "Professional Services", path: "for-services", icon: <Briefcase size={24} /> }
+  ];
+
+  const databases = [
+    { id: "db-mysql", name: "MySQL", desc: "The world's most popular open-source relational database." },
+    { id: "db-postgres", name: "PostgreSQL", desc: "Advanced open-source relational database with strong SQL compliance." },
+    { id: "db-mongo", name: "MongoDB", desc: "Flexible document database for apps that outgrow rigid schemas." },
+    { id: "db-redis", name: "Redis", desc: "In-memory store for caching, queues, and fast session storage." },
   ];
 
   return (
@@ -104,6 +158,43 @@ const Products: React.FC<Props> = ({ onNavigate }) => {
                   <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>
                 </div>
              </div>
+          </div>
+        </Section>
+
+        {/* Databases */}
+        <Section className="relative z-10 border-t border-murzak-border/50">
+          <div className="max-w-2xl mb-12">
+             <h2 className="text-3xl font-[900] tracking-tight mb-4">Managed databases</h2>
+             <p className="text-slate-500 font-medium">Pick your engine. We host, back up, and keep it running.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+             {databases.map((db) => (
+               <div key={db.id} onClick={() => onNavigate(`/checkout/new?serviceId=${db.id}`)} className="cursor-pointer group p-6 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
+                  <h3 className="text-lg font-black mb-2 text-murzak-ink dark:text-slate-100">{db.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{db.desc}</p>
+                  <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400 text-xs font-mono uppercase">From {formatKes(serviceMonthlyKes(db.id))}/mo</span>
+                    <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">Launch <ArrowRight size={14} /></span>
+                  </div>
+               </div>
+             ))}
+          </div>
+        </Section>
+
+        {/* Domains */}
+        <Section className="relative z-10 border-t border-murzak-border/50">
+          <div className="max-w-2xl mb-8">
+             <h2 className="text-3xl font-[900] tracking-tight mb-4">Register a domain</h2>
+             <p className="text-slate-500 font-medium">Search, pick your extension, and check out — billed yearly.</p>
+          </div>
+          <div className="max-w-xl">
+            <DomainSearch selectedDomain={selectedDomain} onSelect={handleSelectDomain} />
+            {domainSubmitting && (
+              <p className="mt-3 text-sm font-bold text-slate-500">Starting checkout…</p>
+            )}
+            {domainError && (
+              <p className="mt-3 text-sm font-bold text-red-500">{domainError}</p>
+            )}
           </div>
         </Section>
 

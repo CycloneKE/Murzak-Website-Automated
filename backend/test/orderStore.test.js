@@ -99,6 +99,58 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     ok((await reservedDraftRamMb(client, T0 + 120_000)) === 0, "paid order no longer reserves");
   }
 
+  section("Important 5: domain purchases must have config.domain matching the charged serviceId's TLD");
+  {
+    // Crafted request: charged for the cheap .co.ke product (KES 1,200) but
+    // supplying a .io domain (real price KES 4,500) — must be rejected, not
+    // silently priced at the cheaper product.
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "domain-coke",
+        config: { domain: "acme.io" }, fleetReservedRamMb: 0, nowMs: T0,
+      }),
+      400, "TLD mismatch (domain-coke charged, .io domain supplied) is refused"
+    );
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "domain-com",
+        config: {}, fleetReservedRamMb: 0, nowMs: T0,
+      }),
+      400, "missing config.domain on a domain product is refused"
+    );
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "domain-com",
+        config: { domain: "not a domain!!" }, fleetReservedRamMb: 0, nowMs: T0,
+      }),
+      400, "malformed domain string is refused"
+    );
+    // Matching TLD succeeds and the domain flows into config for later reads
+    // (Critical 2 / Important 6 depend on this round-tripping).
+    const client = makeClient();
+    const order = await createOrder({
+      client, webAccountName: "a", serviceId: "domain-com",
+      config: { domain: "acme.com", priceKes: 1500 }, fleetReservedRamMb: 0, nowMs: T0,
+    });
+    ok(order.config?.domain === "acme.com", "matching TLD is accepted and the domain round-trips through config");
+    ok(order.monthlyKes === 1500 && order.category === "Domain Registration", "domain-com prices at KES 1500 and carries its category");
+    // A subdomain of the right TLD is still that TLD (co.ke has a longer,
+    // more specific TLD than .com, so this also guards against a prefix
+    // false-positive like "acmeXcom" or "acme.company").
+    const client2 = makeClient();
+    await createOrder({
+      client: client2, webAccountName: "a", serviceId: "domain-coke",
+      config: { domain: "my-shop.co.ke" }, fleetReservedRamMb: 0, nowMs: T0,
+    });
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "domain-com",
+        config: { domain: "acme.company" }, fleetReservedRamMb: 0, nowMs: T0,
+      }),
+      400, "a TLD that merely starts with .com (e.g. .company) is refused, not treated as a match"
+    );
+  }
+
   section("cancelOrder releases the reservation");
   {
     const client = makeClient();

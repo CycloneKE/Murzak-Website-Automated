@@ -66,6 +66,47 @@ function checkoutNotConfigured() {
   return err;
 }
 
+// Mirrors frontend/src/config/serviceCatalog.ts's domainCatalogIdForTld() and
+// backend/server.js's DOMAIN_TLD_PRICES — all three must stay in sync (see
+// that file's DOMAIN_CATALOG comment). Kept local (not required from
+// server.js) to avoid a require cycle between orderStore -> server.js.
+const DOMAIN_PRODUCT_TLDS = {
+  "domain-coke": ".co.ke",
+  "domain-com": ".com",
+  "domain-ke": ".ke",
+  "domain-org": ".org",
+  "domain-net": ".net",
+  "domain-africa": ".africa",
+  "domain-io": ".io",
+};
+
+// A reasonably strict domain-label shape: one or more dot-separated labels,
+// each alphanumeric with internal hyphens only (no leading/trailing hyphen).
+const DOMAIN_SHAPE_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/**
+ * Important 5 (final-review-fix-report.md): without this, a crafted request
+ * like { serviceId: "domain-coke", config: { domain: "acme.io" } } would be
+ * charged the domain-coke price (KES 1,200) for what is actually a KES 4,500
+ * .io domain — the price and the TLD were never cross-checked. For a "Domain
+ * Registration" catalog product, require config.domain to be present,
+ * well-formed, and to end with the exact TLD the charged serviceId prices.
+ */
+function assertDomainConfigMatchesService(serviceId, meta, config) {
+  if (meta?.category !== "Domain Registration") return;
+
+  const expectedTld = DOMAIN_PRODUCT_TLDS[serviceId];
+  const domain = String(config?.domain || "").trim().toLowerCase();
+
+  if (!expectedTld || !domain || !DOMAIN_SHAPE_RE.test(domain) || !domain.endsWith(expectedTld)) {
+    throw badRequest(
+      expectedTld
+        ? `config.domain must be a valid domain ending in ${expectedTld} for ${serviceId}.`
+        : `Unknown domain product: ${serviceId}.`
+    );
+  }
+}
+
 /**
  * List Draft order rows (fresh read, no caching). A 404 here means the
  * "Checkout Order" doctype itself hasn't been created in this environment
@@ -144,6 +185,7 @@ async function createOrder({
   if (!meta || !(Number(meta.monthlyKes) > 0) || meta.capacityClass === "dedicated") {
     throw badRequest(`Checkout is not available for service: ${serviceId}`);
   }
+  assertDomainConfigMatchesService(serviceId, meta, config);
 
   return serialize(async () => {
     const ramMb = Number(meta.ramMb) || 0;

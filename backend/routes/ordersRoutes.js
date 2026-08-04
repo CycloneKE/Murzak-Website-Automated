@@ -164,11 +164,24 @@ module.exports = function (ctx) {
       const planKey = record?.plan || "None";
       const hasPaidPlan = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 
+      // Domain-registration purchases carry the purchased domain string in
+      // config.domain (see frontend Products.tsx's handleSelectDomain), NOT
+      // config.domainChoice — that key is a different, pre-existing concept
+      // reused by the hosting flow for "Bring My Domain" / "Use Murzak
+      // Subdomain" / "Register New Domain". Route the right value into the
+      // domainChoice field so it flows into the invoice + Web Account service
+      // rows (buildInvoiceServiceRows / buildWebAccountServiceRows already
+      // persist it) and from there into the staff provisioning notification —
+      // without this, the domain a customer paid for is dropped on the floor
+      // and no human can tell what to register.
+      const isDomainProduct = order.category === "Domain Registration";
       const serviceRow = {
         serviceId: order.serviceId,
         serviceName: order.serviceName,
         tier: order.tier,
-        domainChoice: order.config?.domainChoice || "",
+        domainChoice: isDomainProduct
+          ? String(order.config?.domain || "").trim()
+          : (order.config?.domainChoice || ""),
       };
 
       let invoiceDocName;
@@ -200,6 +213,26 @@ module.exports = function (ctx) {
         // early-return), leaving prepare-payment with no invoice to link and
         // a guaranteed 500. Reuse serviceRow (built above) so there's always
         // something to bill on a brand-new account's first purchase.
+        //
+        // NOTE — a domain-only first purchase still defaults to planKey
+        // "Starter" here, which flips the account to plan Starter and — once
+        // that Subscription invoice is paid — makes
+        // hasPaidSubscriptionForPlan(client, acct, "Starter") return true.
+        // This is intentionally left as-is: hasPaidSubscriptionForPlan is
+        // also what THIS function's routing (hasPaidPlan, above) and several
+        // other shared billing primitives (findExistingUnpaidSubscriptionInvoice,
+        // findLatestPaidSubscriptionInvoice, applyPlanAndCreateInvoice) rely
+        // on — repurposing it to mean "owns real infrastructure" broke a
+        // repeat domain purchase in a prior fix attempt (see
+        // .superpowers/sdd/final-review-fix-report.md "Fix round 2" for the
+        // trace). The actual billing-gate leak this caused — a domain-only
+        // account unlocking real infrastructure add-ons — is fixed
+        // separately and more narrowly at the add-on ELIGIBILITY gate
+        // itself: addonEligibility.js's isAddonEligible() now requires
+        // hasNonDomainPaidHistory (computed from the Web Account's own
+        // service history, not from this Subscription-invoice check) for
+        // any non-domain add-on, while still allowing domain-only accounts
+        // to buy more domains through the exact same gate.
         await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
           force: true,
           creditKes: 0,
