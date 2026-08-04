@@ -9,6 +9,13 @@
 // uses (first purchase).
 
 const express = require("express");
+// NOTE: deliberately a plain-assignment require, not brace destructuring —
+// test/routesContext.test.js's static wiring check greps this file for its
+// FIRST curly-brace destructuring assignment to find the ctx keys it wires;
+// an earlier destructured require would make its lazy regex swallow
+// everything up to the real ctx destructure below and misreport bogus
+// "missing" keys. A plain assignment sidesteps that collision.
+const accountBillingTerm = require("../services/billingTerm").accountBillingTerm;
 
 module.exports = function (ctx) {
   const {
@@ -62,7 +69,7 @@ module.exports = function (ctx) {
       const webAccountName = webAccountOf(req);
       if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-      const { serviceId, config, planKey, source } = req.body || {};
+      const { serviceId, config, planKey, source, billingTerm } = req.body || {};
       if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
 
       // Per-order cap (422) before touching fleet capacity/reservations.
@@ -71,17 +78,22 @@ module.exports = function (ctx) {
       const client = frappeClient();
       const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
 
+      // Normalized here (not trusted raw) so an unknown value can never become
+      // an accidental "annual". Mirrors accountBillingTerm's fail-safe rule.
+      const normalizedTerm =
+        String(billingTerm || "").toLowerCase() === "annual" ? "annual" : "monthly";
+
       const order = await createOrder({
         client,
         webAccountName,
         serviceId,
-        config,
+        config: { ...(config || {}), billingTerm: normalizedTerm },
         planKey,
         source,
         fleetReservedRamMb,
         nowMs: Date.now(),
       });
-      return res.json({ ok: true, order });
+      return res.json({ ok: true, order: { ...order, billingTerm: normalizedTerm } });
     } catch (err) {
       return sendError(res, err, "Failed to create order.", "CREATE ORDER");
     }
@@ -183,6 +195,22 @@ module.exports = function (ctx) {
           ? String(order.config?.domain || "").trim()
           : (order.config?.domainChoice || ""),
       };
+
+      // Persist the chosen term on the account so the renewal sweep bills on
+      // the right cadence from here on. Only ever writes "annual" — an account
+      // is never silently downgraded to monthly by an order.
+      //
+      // `term_started_on` anchors pro-rata for mid-term add-ons. It is written
+      // ONLY when the account is not already annual, so a second annual
+      // purchase never resets an in-flight term (which would hand the customer
+      // a fresh 365 days they did not pay for).
+      if (String(order.config?.billingTerm || "").toLowerCase() === "annual") {
+        const alreadyAnnual = accountBillingTerm(record) === "annual";
+        await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+          billing_term: "annual",
+          ...(alreadyAnnual ? {} : { term_started_on: new Date().toISOString().slice(0, 10) }),
+        });
+      }
 
       let invoiceDocName;
       if (hasPaidPlan) {

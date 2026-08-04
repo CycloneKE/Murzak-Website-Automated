@@ -368,6 +368,38 @@ function baseCtx(client, overrides = {}) {
     ok(created?.status === "Open", "status === Open");
   }
 
+  section("POST /api/orders — billingTerm is accepted and persisted");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-term": { name: "acct-term", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client);
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+
+    const res = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting", billingTerm: "annual" } },
+      res
+    );
+    ok(res.statusCode === 200, "annual-term order is accepted");
+    ok(res.body?.order?.billingTerm === "annual", "order echoes the requested term");
+
+    const res2 = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting" } },
+      res2
+    );
+    ok(res2.body?.order?.billingTerm === "monthly", "omitted term defaults to monthly");
+
+    const res3 = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting", billingTerm: "bogus" } },
+      res3
+    );
+    ok(res3.body?.order?.billingTerm === "monthly", "unknown term falls back to monthly, never errors");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
