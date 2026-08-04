@@ -164,11 +164,24 @@ module.exports = function (ctx) {
       const planKey = record?.plan || "None";
       const hasPaidPlan = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 
+      // Domain-registration purchases carry the purchased domain string in
+      // config.domain (see frontend Products.tsx's handleSelectDomain), NOT
+      // config.domainChoice — that key is a different, pre-existing concept
+      // reused by the hosting flow for "Bring My Domain" / "Use Murzak
+      // Subdomain" / "Register New Domain". Route the right value into the
+      // domainChoice field so it flows into the invoice + Web Account service
+      // rows (buildInvoiceServiceRows / buildWebAccountServiceRows already
+      // persist it) and from there into the staff provisioning notification —
+      // without this, the domain a customer paid for is dropped on the floor
+      // and no human can tell what to register.
+      const isDomainProduct = order.category === "Domain Registration";
       const serviceRow = {
         serviceId: order.serviceId,
         serviceName: order.serviceName,
         tier: order.tier,
-        domainChoice: order.config?.domainChoice || "",
+        domainChoice: isDomainProduct
+          ? String(order.config?.domain || "").trim()
+          : (order.config?.domainChoice || ""),
       };
 
       let invoiceDocName;
@@ -200,6 +213,24 @@ module.exports = function (ctx) {
         // early-return), leaving prepare-payment with no invoice to link and
         // a guaranteed 500. Reuse serviceRow (built above) so there's always
         // something to bill on a brand-new account's first purchase.
+        //
+        // KNOWN ISSUE (documented, not fixed here — see
+        // .superpowers/sdd/final-review-fix-report.md "Critical 1 secondary
+        // issue"): a domain-only first purchase still defaults to planKey
+        // "Starter" here, which flips the account to plan Starter and — once
+        // that Subscription invoice is paid — makes
+        // hasPaidSubscriptionForPlan(client, acct, "Starter") return true,
+        // unlocking the paid-plan add-on gate for a KES 1,200 domain. A
+        // targeted fix (defaulting to planKey "None" for domain products) was
+        // evaluated and reverted: it makes hasPaidSubscriptionForPlan("None")
+        // true after the first domain purchase, which then makes a SECOND
+        // domain (or any add-on) purchase 400 inside createAddonInvoice's
+        // isAddonEligible check (isPaidPlan("None") is false) — trading a
+        // billing-gate leak for a broken repeat-purchase flow. Fixing this
+        // correctly needs a real distinction between "has a paid Subscription
+        // invoice" and "owns real hosting infrastructure" across
+        // hasPaidSubscriptionForPlan / isAddonEligible / applyPlanAndCreateInvoice
+        // — out of scope for this change; needs its own task + tests.
         await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
           force: true,
           creditKes: 0,

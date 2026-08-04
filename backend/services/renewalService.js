@@ -15,7 +15,7 @@
 // cut-off; enable it once the renewal email flow is proven.
 
 const { sendMail } = require("../utils/mailer");
-const { sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
+const { sumSelectedServicesMonthlyKes, getServiceMeta } = require("./provisioning/catalog");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -52,6 +52,26 @@ function isDueForRenewal(lastPaidDateStr, cycleDays, nowMs = Date.now()) {
 function isPastGrace(invoiceDateStr, graceDays, nowMs = Date.now()) {
   const days = daysSince(invoiceDateStr, nowMs);
   return days != null && days > graceDays;
+}
+
+// DELIBERATE EXCLUSION, not an oversight — see the module docblock's billing
+// note. Domain-registration products are priced and sold YEARLY per TLD
+// (catalog `monthlyKes` on a domain row actually holds the yearly price — see
+// frontend/src/config/serviceCatalog.ts's DOMAIN_CATALOG comment). This sweep
+// bills every RENEWAL_CYCLE_DAYS (~30 days), so summing a domain row in here
+// would re-charge a full year's price every month (~12x overcharge) and, with
+// RENEWAL_SUSPEND_ENABLED, suspend the customer for not paying it.
+//
+// Domain fulfillment is manual in this phase (see design docs) and there is
+// no real yearly-renewal billing pipeline yet — excluding domains from the
+// automated monthly sweep is the safe interim behavior. A future phase must
+// add real yearly-renewal handling for these; until then, do NOT remove this
+// filter to "fix" a domain that looks like it's never being rebilled — that
+// is the point.
+function excludeDomainRegistrations(serviceRows) {
+  return (Array.isArray(serviceRows) ? serviceRows : []).filter(
+    (s) => getServiceMeta(s?.serviceId)?.category !== "Domain Registration"
+  );
 }
 
 // rows: Paid Subscription invoices, any order. Returns Map<web_account, row>
@@ -168,7 +188,7 @@ async function sweepRenewals(deps) {
         if (!account) continue;
 
         const plan = account.plan || lastPaid.plan;
-        const serviceRows = (Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
+        const allServiceRows = (Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
           .map((r) => ({
             serviceId: r?.[CHILD_SERVICE_ID_FIELD],
             serviceName: r?.[CHILD_SERVICE_NAME_FIELD] || "",
@@ -177,6 +197,10 @@ async function sweepRenewals(deps) {
             status: r?.[CHILD_STATUS_FIELD] || "Active",
           }))
           .filter((s) => s.serviceId);
+
+        // Domain-registration rows are deliberately excluded from the
+        // automated monthly sum — see excludeDomainRegistrations() above.
+        const serviceRows = excludeDomainRegistrations(allServiceRows);
 
         // Bill the sum of what's actually on the account (catalog snapshot —
         // same source the configurator/checkout price from), not a flat
@@ -313,4 +337,5 @@ module.exports = {
   isDueForRenewal,
   isPastGrace,
   latestPaidByAccount,
+  excludeDomainRegistrations,
 };

@@ -433,6 +433,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               {order.serviceName}
               {order.tier ? <span className="text-slate-500 font-semibold"> · {order.tier}</span> : null}
             </p>
+            {order.config?.domain ? (
+              <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1">
+                {order.config.domain}
+              </p>
+            ) : null}
           </div>
           <span className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter whitespace-nowrap">
             {formatKes(order.monthlyKes)}{period}

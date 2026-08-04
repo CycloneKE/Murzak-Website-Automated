@@ -6,7 +6,9 @@ const {
   isPastGrace,
   latestPaidByAccount,
   renewalConfig,
+  excludeDomainRegistrations,
 } = require("../services/renewalService");
+const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
 
 let failed = 0;
 let passed = 0;
@@ -58,6 +60,21 @@ ok(cfg.cycleDays === 30, "default cycle 30d");
 ok(cfg.graceDays === 7, "default grace 7d");
 ok(cfg.suspendEnabled === false, "suspension OFF by default");
 ok(cfg.enabled === true, "sweep ON by default");
+
+console.log("# excludeDomainRegistrations (Critical 1: a yearly domain must never be swept into monthly renewal billing)");
+{
+  const rows = [
+    { serviceId: "domain-com", serviceName: "Domain — .com", tier: "Light", domainChoice: "" },
+    { serviceId: "db-mysql", serviceName: "MySQL Database", tier: "Light", domainChoice: "" },
+  ];
+  const filtered = excludeDomainRegistrations(rows);
+  ok(filtered.length === 1 && filtered[0].serviceId === "db-mysql", "domain-registration service excluded, other services kept");
+  ok(sumSelectedServicesMonthlyKes(rows) === 1500 + 2000, "sanity: unfiltered sum WOULD include the domain's yearly price (1500)");
+  ok(sumSelectedServicesMonthlyKes(filtered) === 2000, "renewal sum with domains excluded bills only the real monthly service (2000), not 1500 extra");
+  ok(excludeDomainRegistrations([]).length === 0, "empty input -> empty output");
+  ok(excludeDomainRegistrations(null).length === 0, "non-array input tolerated, never throws");
+  ok(excludeDomainRegistrations([{ serviceId: "does-not-exist" }]).length === 1, "unknown service id is not treated as a domain (kept, priced 0 elsewhere)");
+}
 
 console.log("================================================");
 console.log(`RENEWAL TESTS: ${passed} passed, ${failed} failed`);

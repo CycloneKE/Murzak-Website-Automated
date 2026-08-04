@@ -963,11 +963,18 @@ export function domainCatalogIdForTld(tld: string): string | null {
  * Services shown in the configurator for a plan: the plan's own catalog plus
  * the universal add-ons (for self-serve paid plans). Test and Enterprise stay
  * scoped to their own lists (trial / dedicated quote).
+ *
+ * Deprecated ids (e.g. starter-db-light / starter-db-mongo, superseded by the
+ * db-mysql/db-postgres/db-mongo/db-redis engine products) are hidden from
+ * this NEW-purchase surface, same as cloudLaunchCatalog() — a new customer
+ * must never be able to buy a deprecated id. They still resolve via
+ * getService/getServiceMeta (SERVICE_INDEX below is never filtered) so
+ * existing customers who already own one keep correct pricing/renewals.
  */
 export function configuratorServices(planCode: PlanCode): ServiceItem[] {
   const base = SERVICE_CATALOG[planCode] ?? [];
-  if (planCode === "Test" || planCode === "Enterprise") return base;
-  return [...base, ...UNIVERSAL_ADDONS];
+  const pool = planCode === "Test" || planCode === "Enterprise" ? base : [...base, ...UNIVERSAL_ADDONS];
+  return pool.filter((s) => !s.deprecated);
 }
 
 // ---- Helpers ----
