@@ -25,6 +25,51 @@ const CHILD_STATUS_FIELD = "status";
 
 const asArray = (v) => (Array.isArray(v) ? v : []);
 
+// Mirrors ONLY the "is this parseable at all" half of billingTerm.js's
+// daysRemainingInTerm — used to tell "term_started_on is missing/garbage"
+// (corrupted account data) apart from "term_started_on is a valid date that
+// simply lands on or past the term's last day" (a legitimate, if unusual,
+// zero). Does NOT duplicate the days-remaining math itself, and does not
+// change daysRemainingInTerm's own fail-safe contract — see FIX ROUND 1.
+function hasParsableTermStart(termStartedOn) {
+  if (!termStartedOn) return false;
+  const iso = String(termStartedOn).slice(0, 10);
+  return Number.isFinite(Date.parse(`${iso}T00:00:00Z`));
+}
+
+// A corrupted annual account (billing_term: "annual" but a missing or
+// unparseable term_started_on) makes daysRemainingInTerm fail safe to 0 (its
+// documented, deliberate behavior — see billingTerm.js), which pro-rates
+// every add-on down to KES 0 regardless of its real catalog price. Nothing
+// downstream of this call site was catching that free invoice, so guard it
+// HERE rather than loosening the helper's contract (other callers, e.g. the
+// renewal sweep, may depend on the 0 fail-safe as-is).
+//
+// Fires ONLY when: the account is on an annual term, EVERY service being
+// billed is a real catalog item with a positive monthly price (so this is
+// never mistaken for a legitimately-unpriced/unknown service), the computed
+// total is exactly 0, AND term_started_on itself is missing/unparseable.
+// Deliberately does NOT fire when term_started_on is a valid date that just
+// happens to put daysRemainingInTerm at 0 (term's last day, or an already-
+// elapsed term awaiting renewal) — that 0 is a real, legitimate amount.
+function assertNotFreeAnnualAddonInvoice({ term, amount, record, serviceRows }) {
+  if (term !== "annual" || amount !== 0) return;
+  if (hasParsableTermStart(record?.term_started_on)) return;
+
+  const rows = asArray(serviceRows).filter((s) => s?.serviceId);
+  const allRowsArePriced =
+    rows.length > 0 &&
+    rows.every((s) => Number(getServiceMeta(s.serviceId)?.monthlyKes) > 0);
+  if (!allRowsArePriced) return;
+
+  const err = new Error(
+    "Cannot invoice add-on(s): this account's annual billing term is missing a valid start date, which would otherwise produce a KES 0 invoice for a real service. Fix the account's term_started_on before billing add-ons."
+  );
+  err.statusCode = 422;
+  err.code = "CORRUPTED_ANNUAL_TERM";
+  throw err;
+}
+
 /**
  * Creates or merges an unpaid Add-on Portal Invoice. Throws err.statusCode
  * (400/403/422) on validation failure. `deps` carries the server.js helpers:
@@ -198,6 +243,8 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
           }, 0)
         : sumSelectedServicesMonthlyKes(mergedServices);
 
+    assertNotFreeAnnualAddonInvoice({ term, amount: mergedAmount, record, serviceRows: mergedServices });
+
     const mergedRows = buildInvoiceServiceRows(
       mergedServices.map((s) => ({
         ...s,
@@ -216,6 +263,8 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     createdInvoiceId = open.name;
     invoiceAmountKes = mergedAmount;
   } else {
+    assertNotFreeAnnualAddonInvoice({ term, amount, record, serviceRows: norm });
+
     const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
     const clientName = accRes.data?.data?.account_holder_name || "";
 

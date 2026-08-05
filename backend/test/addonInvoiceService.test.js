@@ -231,13 +231,24 @@ const deps = {
   section("annual-term accounts: merged open invoice is pro-rated too, not flat monthly");
   {
     const { proRatedAddonKes, daysRemainingInTerm } = require("../services/billingTerm");
-    // Term started 182 days ago -> ~half the year left (same fixture as above).
-    const started = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+    // Term started 181 days ago -> 184 days remaining. The two merged
+    // services here are priced DIFFERENTLY (starter-storage 1200, starter-
+    // email 1500) and 184 is a day count at which
+    // proRatedAddonKes(1200,184) + proRatedAddonKes(1500,184) provably
+    // differs (by rounding) from the naive proRatedAddonKes(1200+1500,184)
+    // — i.e. "sum the monthly prices first, pro-rate once" gives a
+    // DIFFERENT number than "pro-rate each service's price, then sum".
+    // (An earlier version of this test used two services both priced at
+    // 1200 KES/mo, for which those two computations are numerically
+    // identical at every day count actually exercised — see FIX ROUND 1 —
+    // so it could not have caught a regression to the naive form.)
+    const started = new Date(Date.now() - 181 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     // An existing OPEN unpaid add-on invoice already carries one service
-    // (storage). The new purchase (web-hosting) must merge into it — and the
-    // MERGED total must be pro-rated, not the flat monthly sum of both rows.
+    // (storage). The new purchase (email) must merge into it — and the
+    // MERGED total must be pro-rated per-service, not the flat monthly sum
+    // of both rows, and not a single pro-ration of the summed monthly price.
     const openInvoice = {
       name: "PINV-OPEN-1",
       status: "Unpaid",
@@ -258,15 +269,161 @@ const deps = {
       client,
       webAccountName: "acct-1",
       deps: { ...deps, findOpenInvoice: async () => openInvoice },
-      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+      services: [{ serviceId: "starter-email", serviceName: "Business Email", tier: "Light", domainChoice: "" }],
     });
     ok(res.invoiceDocName === "PINV-OPEN-1", "merges into the existing open invoice, not a new one");
-    ok(res.amountKes !== 1200 + 1200, "merged amount is NOT the flat monthly sum of both add-ons (2400)");
+    ok(res.amountKes !== 1200 + 1500, "merged amount is NOT the flat monthly sum of both add-ons (2700)");
     const days = daysRemainingInTerm(started);
-    const expected = proRatedAddonKes(1200, days) + proRatedAddonKes(1200, days);
-    ok(res.amountKes === expected, "merged amount equals the sum of each service's pro-rated annual price");
+    const perServiceExpected = proRatedAddonKes(1200, days) + proRatedAddonKes(1500, days);
+    const naiveSumThenProRateExpected = proRatedAddonKes(1200 + 1500, days);
+    ok(
+      perServiceExpected !== naiveSumThenProRateExpected,
+      "sanity check on fixture: per-service pro-ration and sum-then-pro-rate-once actually diverge at this day count"
+    );
+    ok(res.amountKes === perServiceExpected, "merged amount equals the sum of each service's pro-rated annual price");
+    ok(res.amountKes !== naiveSumThenProRateExpected, "merged amount is NOT the naive sum-then-pro-rate-once amount");
     ok(client.puts.length === 1, "existing open invoice was updated via PUT, not re-created via POST");
-    ok(client.puts[0].body.amount === expected, "the PUT body's amount field is also pro-rated");
+    ok(client.puts[0].body.amount === perServiceExpected, "the PUT body's amount field is also pro-rated per-service");
+  }
+
+  section("guard: corrupted annual account cannot get a free (KES 0) add-on invoice");
+  {
+    // Fresh-invoice branch — missing term_started_on entirely.
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        // term_started_on omitted entirely.
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    await throws(
+      () => createAddonInvoice({
+        client, webAccountName: "acct-1", deps,
+        services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+      }),
+      422, "missing term_started_on on an annual account is refused, not billed free (fresh path)"
+    );
+    ok(client.posts.length === 0, "no invoice was created for the rejected purchase");
+  }
+  {
+    // Fresh-invoice branch — garbage/unparseable term_started_on.
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: "not-a-real-date",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    await throws(
+      () => createAddonInvoice({
+        client, webAccountName: "acct-1", deps,
+        services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+      }),
+      422, "unparseable term_started_on on an annual account is refused, not billed free (fresh path)"
+    );
+  }
+  {
+    // Merged-invoice branch — same corruption, but this time there's
+    // already an open unpaid add-on invoice, so the merged branch (not the
+    // fresh branch) is what would otherwise compute a free amount.
+    const openInvoice = {
+      name: "PINV-OPEN-CORRUPT",
+      status: "Unpaid",
+      services: [
+        { serviceId: "starter-storage", serviceName: "File Storage (25GB)", tier: "Light", domainChoice: "", status: "Awaiting Payment" },
+      ],
+    };
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        // term_started_on omitted entirely.
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+      openInvoice,
+    });
+    await throws(
+      () => createAddonInvoice({
+        client, webAccountName: "acct-1",
+        deps: { ...deps, findOpenInvoice: async () => openInvoice },
+        services: [{ serviceId: "starter-email", serviceName: "Business Email", tier: "Light", domainChoice: "" }],
+      }),
+      422, "missing term_started_on on an annual account is refused, not billed free (merged path)"
+    );
+    ok(client.puts.length === 0, "no invoice was updated for the rejected merge");
+  }
+
+  section("guard does not fire on legitimate (non-corrupted) zero/near-zero amounts");
+  {
+    // A valid term_started_on that lands EXACTLY on the term's last day is a
+    // real, legitimate KES 0 pro-rated amount, not corruption — the guard
+    // must not catch it. (No genuinely zero-priced service scenario exists
+    // to test here: the per-service eligibility loop above already rejects
+    // any newly-selected service with monthlyKes <= 0 with its own 400,
+    // before pricing ever runs, so a zero-priced add-on can never reach this
+    // guard via the fresh-invoice path; a merge could only reach it if every
+    // merged row — including pre-existing ones — were priced at 0, which
+    // does not occur for any real catalog add-on.)
+    const startedExactlyAYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: startedExactlyAYearAgo,
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.amountKes === 0, "term's last day legitimately produces a KES 0 pro-rated amount");
+    ok(!!res.invoiceDocName, "the guard does not block a legitimate zero — invoice is still created");
+  }
+  {
+    // A valid term_started_on late in the term (small but nonzero days
+    // remaining) must not be affected by the guard at all (amount !== 0).
+    const startedLateInTerm = new Date(Date.now() - 360 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: startedLateInTerm,
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.amountKes > 0, "small-but-nonzero days-remaining still bills a small nonzero amount, not blocked");
+  }
+  {
+    // Monthly-term and legacy accounts never touch the guard at all.
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        // No billing_term, no term_started_on — a plain legacy account.
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.amountKes === 1200, "monthly/legacy account is unaffected by the annual-only guard");
   }
 
   section("monthly-term and legacy accounts are billed exactly as before");
