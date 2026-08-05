@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
-import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
+import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 
 interface CheckoutProps {
   onSuccess: (user?: any) => void;
@@ -66,6 +66,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [now, setNow] = useState(() => Date.now());
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState('');
+
+  // Billing-term choice — monthly (default) or annual-prepay at a discount.
+  // Only offered for monthly-billed products (see the `period === "/mo"`
+  // guard below); domains render their own yearly-only pricing.
+  const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
 
   // ---- /checkout/new?serviceId=<id> — create the draft order, then move to
   // /checkout/:orderId. Only runs when there's no orderId in the URL yet. ----
@@ -469,6 +474,48 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           )}
         </div>
       </div>
+
+      {period === "/mo" && (
+        <div className="glass-card rounded-3xl p-6">
+          <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-3">
+            Billing
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setBillingTerm('monthly')}
+              className={`text-left rounded-2xl p-4 border transition-all ${
+                billingTerm === 'monthly'
+                  ? 'border-murzak-accent bg-murzak-accent/10'
+                  : 'border-murzak-border hover:border-murzak-accent/40'
+              }`}
+            >
+              <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
+                {formatKes(order.monthlyKes)}/mo
+              </span>
+              <span className="block text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">
+                Billed monthly
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingTerm('annual')}
+              className={`text-left rounded-2xl p-4 border transition-all ${
+                billingTerm === 'annual'
+                  ? 'border-murzak-accent bg-murzak-accent/10'
+                  : 'border-murzak-border hover:border-murzak-accent/40'
+              }`}
+            >
+              <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
+                {formatKes(annualPrepayKes(order.monthlyKes))}/yr
+              </span>
+              <span className="block text-xs font-bold text-murzak-accent mt-1">
+                Save {ANNUAL_DISCOUNT_PCT}% — paid once a year
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* What happens after payment */}
       <div className="glass-card rounded-3xl p-6 flex items-start gap-3">

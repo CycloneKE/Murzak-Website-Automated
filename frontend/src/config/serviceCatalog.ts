@@ -959,6 +959,21 @@ export function monthlyEquivalentKes(yearlyKes: number): number {
   return Math.ceil(yearlyKes / 12);
 }
 
+/**
+ * Annual-prepay discount, must stay in sync with backend/services/billingTerm.js
+ * (ANNUAL_DISCOUNT_PCT there). If one changes, change the other.
+ */
+export const ANNUAL_DISCOUNT_PCT = 20;
+
+/**
+ * Annualized monthly price less the annual-prepay discount. Must stay in sync
+ * with backend/services/billingTerm.js's annualPrepayKes — if one changes,
+ * change the other.
+ */
+export function annualPrepayKes(monthlyKes: number): number {
+  return Math.round(monthlyKes * 12 * (1 - ANNUAL_DISCOUNT_PCT / 100));
+}
+
 /** Map a full TLD string (e.g. ".co.ke") to its DOMAIN_CATALOG product id. */
 export function domainCatalogIdForTld(tld: string): string | null {
   const byTld: Record<string, string> = {
