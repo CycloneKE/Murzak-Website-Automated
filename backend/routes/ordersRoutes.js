@@ -17,6 +17,18 @@ const express = require("express");
 // "missing" keys. A plain assignment sidesteps that collision.
 const accountBillingTerm = require("../services/billingTerm").accountBillingTerm;
 
+// Shared by POST /api/orders (order-creation) and POST
+// /api/orders/:id/prepare-payment (payment-prep, which now also accepts a
+// billingTerm so the checkout page's term selector — which only renders
+// AFTER the order already exists — can still reach the account). Normalized
+// here, never trusted raw: anything that isn't exactly "annual"
+// (case-insensitively) resolves to "monthly", mirroring
+// accountBillingTerm's fail-safe rule so an unknown/garbage value can never
+// become an accidental "annual".
+function normalizeBillingTerm(value) {
+  return String(value || "").toLowerCase() === "annual" ? "annual" : "monthly";
+}
+
 module.exports = function (ctx) {
   const {
     requireAuth,
@@ -78,10 +90,7 @@ module.exports = function (ctx) {
       const client = frappeClient();
       const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
 
-      // Normalized here (not trusted raw) so an unknown value can never become
-      // an accidental "annual". Mirrors accountBillingTerm's fail-safe rule.
-      const normalizedTerm =
-        String(billingTerm || "").toLowerCase() === "annual" ? "annual" : "monthly";
+      const normalizedTerm = normalizeBillingTerm(billingTerm);
 
       const order = await createOrder({
         client,
@@ -154,11 +163,55 @@ module.exports = function (ctx) {
 
       const order = await getOrder({ client, webAccountName, orderId, nowMs, renew: false });
 
+      // billingTerm in the request body — from the checkout page's term
+      // selector, which only renders AFTER the order already exists as a
+      // Draft — takes priority over the order's own stored config for this
+      // call. Normalized (never trusted raw) via the shared helper above.
+      // Omitting the field entirely (every caller before this fix, and the
+      // domain flow, which never offers a term choice) falls back to the
+      // order's stored config exactly as before this fix.
+      const bodyBillingTerm = (req.body || {}).billingTerm;
+      const effectiveBillingTerm =
+        bodyBillingTerm === undefined
+          ? normalizeBillingTerm(order.config?.billingTerm)
+          : normalizeBillingTerm(bodyBillingTerm);
+
+      // Persist the chosen term on the account so the renewal sweep bills on
+      // the right cadence from here on. Only ever writes "annual" — an
+      // account is never silently downgraded to monthly by an order.
+      //
+      // `term_started_on` anchors pro-rata for mid-term add-ons. It is
+      // written ONLY when the account is not already annual, so a repeat
+      // annual write never resets an in-flight term (which would hand the
+      // customer a fresh 365 days they did not pay for).
+      async function writeAnnualBillingTermIfNeeded(currentRecord) {
+        if (effectiveBillingTerm !== "annual") return;
+        const alreadyAnnual = accountBillingTerm(currentRecord) === "annual";
+        await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+          billing_term: "annual",
+          ...(alreadyAnnual ? {} : { term_started_on: new Date().toISOString().slice(0, 10) }),
+        });
+      }
+
       // Idempotent: already prepared. getOrder above already reconciled
       // order.status against the linked invoice's paid state, so returning
       // the same invoiceDocName here is correct whether or not it has since
       // been paid.
+      //
+      // The customer may have changed their billing-term selection AFTER
+      // this endpoint already ran once — the checkout page auto-calls
+      // prepare-payment on load, using whatever term was selected (or the
+      // default) at that moment, before the customer has necessarily
+      // touched the selector. Re-applying the annual-term account write here
+      // (guarded by the same no-downgrade / no-reset rules as the
+      // first-time write below) means a later term change delivered via a
+      // repeat call to this endpoint still reaches the account, instead of
+      // being silently dropped by this idempotency short-circuit.
       if (order.invoiceDocName) {
+        if (effectiveBillingTerm === "annual") {
+          const record = await fetchWebAccount(client, webAccountName);
+          await writeAnnualBillingTermIfNeeded(record);
+        }
         return res.json({ ok: true, invoiceDocName: order.invoiceDocName });
       }
 
@@ -196,21 +249,11 @@ module.exports = function (ctx) {
           : (order.config?.domainChoice || ""),
       };
 
-      // Persist the chosen term on the account so the renewal sweep bills on
-      // the right cadence from here on. Only ever writes "annual" — an account
-      // is never silently downgraded to monthly by an order.
-      //
-      // `term_started_on` anchors pro-rata for mid-term add-ons. It is written
-      // ONLY when the account is not already annual, so a second annual
-      // purchase never resets an in-flight term (which would hand the customer
-      // a fresh 365 days they did not pay for).
-      if (String(order.config?.billingTerm || "").toLowerCase() === "annual") {
-        const alreadyAnnual = accountBillingTerm(record) === "annual";
-        await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
-          billing_term: "annual",
-          ...(alreadyAnnual ? {} : { term_started_on: new Date().toISOString().slice(0, 10) }),
-        });
-      }
+      // Persist the chosen term on the account (see writeAnnualBillingTermIfNeeded
+      // above for the no-downgrade / no-reset rules). `record` here is the
+      // same fetchWebAccount result used for planKey/hasPaidPlan just above —
+      // reused rather than re-fetched.
+      await writeAnnualBillingTermIfNeeded(record);
 
       let invoiceDocName;
       if (hasPaidPlan) {

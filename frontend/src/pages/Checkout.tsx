@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck, ChevronLeft, AlertCircle, Clock3, Loader2, Info,
 } from 'lucide-react';
@@ -156,9 +156,22 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           return;
         }
 
+        // billingTerm here is whatever the term selector is set to at the
+        // moment this fires — 'monthly' (the default) on first load, since
+        // the selector only renders once `order` (and thus `svcForOrder`) is
+        // set below, i.e. strictly after this effect starts. Deliberately
+        // NOT a dependency of this effect (see the eslint-disable below) —
+        // adding it would re-run the whole order-load/prepare/invoice-fetch
+        // pipeline on every click of the selector. Instead, a later term
+        // change is re-sent by the dedicated effect further down.
         const prepRes = await fetch(
           `/api/orders/${encodeURIComponent(orderId)}/prepare-payment`,
-          { method: 'POST', credentials: 'include' }
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ billingTerm }),
+          }
         );
         const prepData = await prepRes.json().catch(() => ({}));
         if (cancelled) return;
@@ -193,7 +206,49 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, navigate]);
+
+  // ---- Re-send a billing-term change made AFTER the initial prepare-payment
+  // call above already ran. The selector only renders once `order` is loaded
+  // (see the `period === "/mo"` block below), i.e. strictly after that first
+  // call — so a customer who switches to annual needs this change relayed
+  // separately. prepare-payment is idempotent once order.invoiceDocName
+  // exists (it just re-applies the account billing_term write and returns
+  // the same invoiceDocName — see ordersRoutes.js), so this is safe to fire
+  // on every change without disturbing the already-loaded invoice/pricing.
+  //
+  // The mount-skip guard (isFirstRenderRef) is required because this effect
+  // also runs once on mount purely from React's effect lifecycle, even
+  // though billingTerm hasn't actually changed yet — without the guard that
+  // would fire a redundant prepare-payment call duplicating the one above.
+  const isFirstRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+    if (!orderId || !order || order.status !== 'Draft') return;
+
+    // Fire-and-forget: no component state depends on the response here (the
+    // invoice/pricing already loaded by the effect above is unaffected), so
+    // there's nothing to guard with an unmount/cancelled flag.
+    fetch(`/api/orders/${encodeURIComponent(orderId)}/prepare-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ billingTerm }),
+    }).catch(() => {
+      // Best-effort — a transient failure here just means the account's
+      // billing_term isn't updated yet; it isn't fatal to checkout (the
+      // invoice/payment flow already in progress is unaffected), and the
+      // next term change (or a future prepare-payment call) will retry.
+    });
+    // Deliberately keyed ONLY on billingTerm — see comment above. orderId
+    // and order.status are read from the closure, which is fine since this
+    // effect's whole purpose is reacting to billingTerm changes, not those.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billingTerm]);
 
   // ---- Heartbeat: re-GET every 5 minutes while unpaid, to keep the reservation alive. ----
   useEffect(() => {

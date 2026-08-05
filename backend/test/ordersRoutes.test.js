@@ -539,6 +539,208 @@ function baseCtx(client, overrides = {}) {
     ok(!("term_started_on" in acct), "term_started_on never written for a monthly/omitted-term order");
   }
 
+  // ---- prepare-payment — request-body billingTerm (frontend wiring) ----
+  // Regression coverage for the Fix-round-1 change: prepare-payment now reads
+  // billingTerm from req.body FIRST, falling back to the order's stored
+  // config.billingTerm only when the body omits the field entirely. Nothing
+  // above exercises the body path directly — every existing prepare-payment
+  // test either omits req.body or relies on the order's own creation-time
+  // config, so a regression that dropped the body-read entirely (reverting
+  // to config-only) or that let a raw/unnormalized body value flow straight
+  // into the account write would pass every test above silently.
+
+  section("prepare-payment — body billingTerm 'annual' overrides the order's stored monthly config");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-body-override": { name: "acct-body-override", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    // Order created WITHOUT billingTerm -> config.billingTerm ends up "monthly".
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-body-override" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+    ok(createRes.body?.order?.billingTerm === "monthly", "precondition: order's stored config is monthly");
+
+    // prepare-payment called with body.billingTerm === "annual" must win over
+    // the stored monthly config.
+    const res = makeRes();
+    await prep(
+      { session: { webAccount: "acct-body-override" }, params: { id: orderId }, body: { billingTerm: "annual" } },
+      res
+    );
+    ok(res.statusCode === 200, "status 200");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const acct = client.store["Web Account"]["acct-body-override"];
+    ok(acct.billing_term === "annual", "body billingTerm 'annual' wins over the order's stored monthly config");
+    ok(acct.term_started_on === today, "term_started_on set to today when the body drives the annual write");
+  }
+
+  section("prepare-payment — omitted body falls back to the order's stored config (both ways)");
+  {
+    // 2a: stored config is annual, body omitted entirely -> still writes annual.
+    const clientA = makeMockFrappe({
+      "Web Account": { "acct-body-fallback-annual": { name: "acct-body-fallback-annual", plan: "None", selected_services: [] } },
+    });
+    const ctxA = baseCtx(clientA, { hasPaidSubscriptionForPlan: async () => false });
+    const routerA = createOrdersRouter(ctxA);
+    const createA = findHandler(routerA, "post", "/api/orders");
+    const prepA = findHandler(routerA, "post", "/api/orders/:id/prepare-payment");
+
+    const createResA = makeRes();
+    await createA(
+      {
+        session: { webAccount: "acct-body-fallback-annual" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createResA
+    );
+    const orderIdA = createResA.body.order.id;
+
+    const resA = makeRes();
+    // No `body` key at all on the request object, mirroring every caller
+    // before this fix (and the domain flow, which never sends a term).
+    await prepA({ session: { webAccount: "acct-body-fallback-annual" }, params: { id: orderIdA } }, resA);
+    ok(resA.statusCode === 200, "status 200 (body omitted, config annual)");
+    const acctA = clientA.store["Web Account"]["acct-body-fallback-annual"];
+    ok(acctA.billing_term === "annual", "omitted body falls back to the order's annual config and writes annual");
+
+    // 2b: stored config is monthly, body omitted entirely -> no annual write.
+    const clientB = makeMockFrappe({
+      "Web Account": { "acct-body-fallback-monthly": { name: "acct-body-fallback-monthly", plan: "None", selected_services: [] } },
+    });
+    const ctxB = baseCtx(clientB, { hasPaidSubscriptionForPlan: async () => false });
+    const routerB = createOrdersRouter(ctxB);
+    const createB = findHandler(routerB, "post", "/api/orders");
+    const prepB = findHandler(routerB, "post", "/api/orders/:id/prepare-payment");
+
+    const createResB = makeRes();
+    await createB(
+      { session: { webAccount: "acct-body-fallback-monthly" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createResB
+    );
+    const orderIdB = createResB.body.order.id;
+
+    const resB = makeRes();
+    await prepB({ session: { webAccount: "acct-body-fallback-monthly" }, params: { id: orderIdB } }, resB);
+    ok(resB.statusCode === 200, "status 200 (body omitted, config monthly)");
+    const acctB = clientB.store["Web Account"]["acct-body-fallback-monthly"];
+    ok(!("billing_term" in acctB), "omitted body falls back to the order's monthly config and never writes billing_term");
+  }
+
+  section("prepare-payment — body 'bogus' / 'MONTHLY' never write annual and never throw");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-body-bogus": { name: "acct-body-bogus", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    // Order's OWN stored config is annual, so only the (invalid) body value
+    // is what could still be steering this toward monthly.
+    const createRes = makeRes();
+    await create(
+      {
+        session: { webAccount: "acct-body-bogus" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep(
+      { session: { webAccount: "acct-body-bogus" }, params: { id: orderId }, body: { billingTerm: "bogus" } },
+      res
+    );
+    ok(res.statusCode === 200, "status 200, no throw, for a garbage billingTerm value");
+    const acct = client.store["Web Account"]["acct-body-bogus"];
+    ok(!("billing_term" in acct), "'bogus' body value normalizes to monthly and never writes billing_term");
+
+    // Separate account/order so the idempotent invoiceDocName short-circuit
+    // from the first call above doesn't mask this second call.
+    const client2 = makeMockFrappe({
+      "Web Account": { "acct-body-monthly-upper": { name: "acct-body-monthly-upper", plan: "None", selected_services: [] } },
+    });
+    const ctx2 = baseCtx(client2, { hasPaidSubscriptionForPlan: async () => false });
+    const router2 = createOrdersRouter(ctx2);
+    const create2 = findHandler(router2, "post", "/api/orders");
+    const prep2 = findHandler(router2, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes2 = makeRes();
+    await create2(
+      {
+        session: { webAccount: "acct-body-monthly-upper" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createRes2
+    );
+    const orderId2 = createRes2.body.order.id;
+
+    const res2 = makeRes();
+    await prep2(
+      { session: { webAccount: "acct-body-monthly-upper" }, params: { id: orderId2 }, body: { billingTerm: "MONTHLY" } },
+      res2
+    );
+    ok(res2.statusCode === 200, "status 200, no throw, for an uppercase 'MONTHLY' body value");
+    const acct2 = client2.store["Web Account"]["acct-body-monthly-upper"];
+    ok(!("billing_term" in acct2), "'MONTHLY' body value normalizes to monthly and never writes billing_term");
+  }
+
+  section("prepare-payment — already-annual account: body 'annual' never rewrites term_started_on");
+  {
+    const originalStart = new Date(Date.now() - 250 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-body-already-annual": {
+          name: "acct-body-already-annual",
+          plan: "None",
+          selected_services: [],
+          billing_term: "annual",
+          term_started_on: originalStart,
+        },
+      },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    // Order's own stored config is monthly — only the request body pushes
+    // this toward annual, proving the no-reset guard holds on the body path
+    // specifically (not just on the config-driven path already covered
+    // above).
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-body-already-annual" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep(
+      { session: { webAccount: "acct-body-already-annual" }, params: { id: orderId }, body: { billingTerm: "annual" } },
+      res
+    );
+    ok(res.statusCode === 200, "status 200");
+
+    const acct = client.store["Web Account"]["acct-body-already-annual"];
+    ok(acct.billing_term === "annual", "billing_term remains annual");
+    ok(
+      acct.term_started_on === originalStart,
+      "term_started_on is byte-identical to its original seeded value — no free extra days from a body-driven repeat annual write"
+    );
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
