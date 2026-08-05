@@ -193,6 +193,101 @@ const deps = {
     ok(!!resDomain.invoiceDocName, "hosting+domain account can buy another domain");
   }
 
+  section("annual-term accounts get mid-term add-ons pro-rated");
+  {
+    const { annualPrepayKes } = require("../services/billingTerm");
+    // Term started 182 days ago -> ~half the year left.
+    const started = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: started,
+        // Non-empty, non-domain paid history so the add-on eligibility gate
+        // (addonEligibility.js's hasNonDomainPaidHistory check) doesn't
+        // reject this purchase before pricing is ever computed — mirrors
+        // the file's first test above, which needs the same fixture shape
+        // to buy the same real (non-domain) add-on.
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    const fullAnnual = annualPrepayKes(1200); // starter-web-hosting is 1200/mo
+    ok(res.amountKes < fullAnnual, "mid-term add-on costs less than a full annual term");
+    ok(res.amountKes > 1200, "but more than a single month");
+    ok(
+      Math.abs(res.amountKes - Math.round(fullAnnual * (183 / 365))) <= 100,
+      "roughly half the annual price with ~half the term left"
+    );
+  }
+
+  section("annual-term accounts: merged open invoice is pro-rated too, not flat monthly");
+  {
+    const { proRatedAddonKes, daysRemainingInTerm } = require("../services/billingTerm");
+    // Term started 182 days ago -> ~half the year left (same fixture as above).
+    const started = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    // An existing OPEN unpaid add-on invoice already carries one service
+    // (storage). The new purchase (web-hosting) must merge into it — and the
+    // MERGED total must be pro-rated, not the flat monthly sum of both rows.
+    const openInvoice = {
+      name: "PINV-OPEN-1",
+      status: "Unpaid",
+      services: [
+        { serviceId: "starter-storage", serviceName: "File Storage (25GB)", tier: "Light", domainChoice: "", status: "Awaiting Payment" },
+      ],
+    };
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        billing_term: "annual",
+        term_started_on: started,
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+      openInvoice,
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps: { ...deps, findOpenInvoice: async () => openInvoice },
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.invoiceDocName === "PINV-OPEN-1", "merges into the existing open invoice, not a new one");
+    ok(res.amountKes !== 1200 + 1200, "merged amount is NOT the flat monthly sum of both add-ons (2400)");
+    const days = daysRemainingInTerm(started);
+    const expected = proRatedAddonKes(1200, days) + proRatedAddonKes(1200, days);
+    ok(res.amountKes === expected, "merged amount equals the sum of each service's pro-rated annual price");
+    ok(client.puts.length === 1, "existing open invoice was updated via PUT, not re-created via POST");
+    ok(client.puts[0].body.amount === expected, "the PUT body's amount field is also pro-rated");
+  }
+
+  section("monthly-term and legacy accounts are billed exactly as before");
+  {
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        // Same eligibility-satisfying fixture as above (no billing_term at
+        // all here -> exercises the legacy-account fail-safe path).
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    const res = await createAddonInvoice({
+      client,
+      webAccountName: "acct-1",
+      deps,
+      services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
+    });
+    ok(res.amountKes === 1200, "legacy account (no billing_term) still bills the monthly price");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

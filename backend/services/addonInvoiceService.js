@@ -8,6 +8,11 @@
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
 const { isAddonEligible, accountHasNonDomainPaidService } = require("./addonEligibility");
 const { assertOrderWithinCapacity } = require("./orderCapacity");
+const {
+  accountBillingTerm,
+  daysRemainingInTerm,
+  proRatedAddonKes,
+} = require("./billingTerm");
 
 // Web Account child-table field names, used only to read the tenant's
 // EXISTING services for the capacity guard below. Copied from their
@@ -105,7 +110,26 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
   // Add-ons are always priced à la carte — there are no free plan-included
   // slots (matches the configurator/checkout, which never offers a free
   // service). The per-service pricing check above guarantees this is > 0.
-  const amount = sumSelectedServicesMonthlyKes(norm);
+  //
+  // Annual-term accounts pay each add-on's ANNUAL price pro-rated to the days
+  // left in their current term, so the whole account keeps renewing on one
+  // anniversary. Monthly-term accounts — and every legacy account with no
+  // billing_term — are billed the monthly sum exactly as before.
+  const monthlySum = sumSelectedServicesMonthlyKes(norm);
+  const term = accountBillingTerm(record);
+  const amount =
+    term === "annual"
+      ? norm.reduce((total, s) => {
+          const meta = getServiceMeta(s.serviceId);
+          return (
+            total +
+            proRatedAddonKes(
+              Number(meta?.monthlyKes) || 0,
+              daysRemainingInTerm(record?.term_started_on)
+            )
+          );
+        }, 0)
+      : monthlySum;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -156,8 +180,23 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
 
     const mergedServices = Array.from(mergedMap.values());
 
-    // For open unpaid add-on invoice, all rows are chargeable add-ons
-    const mergedAmount = sumSelectedServicesMonthlyKes(mergedServices);
+    // For open unpaid add-on invoice, all rows are chargeable add-ons.
+    // Same annual pro-ration as the fresh-invoice path above — otherwise an
+    // annual account whose second add-on merges into an open invoice would
+    // silently revert to monthly pricing.
+    const mergedAmount =
+      term === "annual"
+        ? mergedServices.reduce((total, s) => {
+            const meta = getServiceMeta(s.serviceId);
+            return (
+              total +
+              proRatedAddonKes(
+                Number(meta?.monthlyKes) || 0,
+                daysRemainingInTerm(record?.term_started_on)
+              )
+            );
+          }, 0)
+        : sumSelectedServicesMonthlyKes(mergedServices);
 
     const mergedRows = buildInvoiceServiceRows(
       mergedServices.map((s) => ({
