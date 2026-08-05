@@ -400,6 +400,145 @@ function baseCtx(client, overrides = {}) {
     ok(res3.body?.order?.billingTerm === "monthly", "unknown term falls back to monthly, never errors");
   }
 
+  // ---- prepare-payment — billing_term / term_started_on account writes ----
+  // Regression coverage for the Task 5 review finding: nothing previously
+  // drove the real prepare-payment handler and asserted on the Web Account
+  // store, so a broken alreadyAnnual guard, a write moved inside the
+  // hasPaidPlan branch, or an accidental monthly write would all pass every
+  // existing test silently.
+
+  section("prepare-payment — annual term writes billing_term + term_started_on (fresh account, add-on branch)");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-ann-fresh": { name: "acct-ann-fresh", plan: "Starter", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true, // exercises the hasPaidPlan (add-on) branch
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-ANN-1" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-ann-fresh" }, body: { serviceId: "starter-web-hosting", billingTerm: "annual" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-ann-fresh" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const acct = client.store["Web Account"]["acct-ann-fresh"];
+    ok(acct.billing_term === "annual", "billing_term set to annual on a fresh account");
+    ok(acct.term_started_on === today, "term_started_on set to today on a fresh account");
+  }
+
+  section("prepare-payment — annual term writes billing_term + term_started_on (fresh account, first-purchase branch)");
+  {
+    // Same as the fresh-account/add-on case above, but on the OTHER branch
+    // (hasPaidPlan === false). Starting from an unset billing_term and
+    // asserting it becomes "annual" proves the write actually executes on
+    // this branch too — not just that it's a no-op here (which the
+    // already-annual case below could not distinguish on its own).
+    const client = makeMockFrappe({
+      "Web Account": { "acct-ann-fresh-fp": { name: "acct-ann-fresh-fp", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false }); // exercises the non-hasPaidPlan (first-purchase) branch
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      {
+        session: { webAccount: "acct-ann-fresh-fp" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-ann-fresh-fp" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const today = new Date().toISOString().slice(0, 10);
+    const acct = client.store["Web Account"]["acct-ann-fresh-fp"];
+    ok(acct.billing_term === "annual", "billing_term set to annual on the first-purchase branch too");
+    ok(acct.term_started_on === today, "term_started_on set to today on the first-purchase branch too");
+  }
+
+  section("prepare-payment — already-annual account does not reset term_started_on (first-purchase branch)");
+  {
+    const originalStart = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-ann-existing": {
+          name: "acct-ann-existing",
+          plan: "None",
+          selected_services: [],
+          billing_term: "annual",
+          term_started_on: originalStart,
+        },
+      },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false }); // exercises the non-hasPaidPlan (first-purchase) branch
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      {
+        session: { webAccount: "acct-ann-existing" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-ann-existing" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const acct = client.store["Web Account"]["acct-ann-existing"];
+    ok(acct.billing_term === "annual", "billing_term remains annual on a repeat annual purchase");
+    ok(
+      acct.term_started_on === originalStart,
+      "term_started_on unchanged from its original value — no free extra days"
+    );
+  }
+
+  section("prepare-payment — monthly/omitted term never writes billing_term fields");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-monthly": { name: "acct-monthly", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-monthly" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-monthly" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const acct = client.store["Web Account"]["acct-monthly"];
+    ok(!("billing_term" in acct), "billing_term never written for a monthly/omitted-term order");
+    ok(!("term_started_on" in acct), "term_started_on never written for a monthly/omitted-term order");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
