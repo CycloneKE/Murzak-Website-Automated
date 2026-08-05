@@ -3548,7 +3548,8 @@ const routeContext = {
   createOrder,
   getOrder,
   cancelOrder,
-  linkInvoice
+  linkInvoice,
+  sumSelectedServicesMonthlyKes
 };
 
 app.use('/api/byoa', require('./routes/byoaRoutes')(routeContext));

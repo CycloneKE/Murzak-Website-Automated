@@ -16,6 +16,10 @@ const express = require("express");
 // everything up to the real ctx destructure below and misreport bogus
 // "missing" keys. A plain assignment sidesteps that collision.
 const accountBillingTerm = require("../services/billingTerm").accountBillingTerm;
+// Same plain-assignment rationale as accountBillingTerm above — kept as a
+// second statement (not merged into one destructure) so the static wiring
+// check's regex still finds its target unambiguously.
+const annualPrepayKes = require("../services/billingTerm").annualPrepayKes;
 
 // Shared by POST /api/orders (order-creation) and POST
 // /api/orders/:id/prepare-payment (payment-prep, which now also accepts a
@@ -55,6 +59,7 @@ module.exports = function (ctx) {
     getOrder,
     cancelOrder,
     linkInvoice,
+    sumSelectedServicesMonthlyKes,
   } = ctx;
 
   const router = express.Router();
@@ -322,6 +327,25 @@ module.exports = function (ctx) {
           throw err;
         }
         invoiceDocName = unpaid.docName;
+
+        // applyPlanAndCreateInvoice above has NO billing-term awareness — it
+        // always bills the plain monthly sum (sumSelectedServicesMonthlyKes).
+        // For a first-time annual purchase that undercharges by ~5x (monthly
+        // instead of annual-prepay), so correct the just-created invoice's
+        // amount here rather than teaching the shared primitive about terms
+        // (applyPlanAndCreateInvoice is reused by upgrade/configurator/add-on
+        // flows this task has no coverage for — see the note above this
+        // branch). Deliberately scoped to ONLY this first-purchase branch:
+        // the hasPaidPlan branch above already bills the correct annual
+        // amount via createAddonInvoice's own pro-ration, and re-applying
+        // annualPrepayKes there would 12x-overcharge an add-on.
+        if (effectiveBillingTerm === "annual") {
+          const monthlySumKes = sumSelectedServicesMonthlyKes([serviceRow]);
+          const annualAmountKes = annualPrepayKes(monthlySumKes);
+          await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+            amount: annualAmountKes,
+          });
+        }
       }
 
       await linkInvoice({ client, orderId, invoiceDocName });

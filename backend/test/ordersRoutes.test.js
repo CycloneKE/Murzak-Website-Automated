@@ -23,6 +23,7 @@ const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
 const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const { annualPrepayKes } = require("../services/billingTerm");
 
 function makeRes() {
   const r = { statusCode: 200, body: null };
@@ -179,6 +180,7 @@ function baseCtx(client, overrides = {}) {
     mergeServicesById,
     buildWebAccountServiceRows,
     CAPACITY_REQUEST_DOCTYPE: "Capacity Request",
+    sumSelectedServicesMonthlyKes,
     ...overrides,
   };
 }
@@ -312,6 +314,129 @@ function baseCtx(client, overrides = {}) {
     ok(!!createdInvoice, "an actual Portal Invoice doc was created (not skipped)");
     ok(createdInvoice?.amount === 1200, "invoice amount reflects the order's service (KES 1200), not zero_amount skip");
     ok(createdInvoice?.status === "Unpaid", "created invoice is Unpaid");
+  }
+
+  // ---- prepare-payment — first-purchase annual amount correction ----
+  // Regression coverage for the Critical money bug: applyPlanAndCreateInvoice
+  // has no billing-term awareness and always bills the plain monthly sum, so
+  // a first-time annual purchase must have its just-created invoice's amount
+  // corrected in the route (see the comment above the correction code in
+  // ordersRoutes.js). These prove the correction fires exactly on the
+  // first-purchase branch and exactly when the effective term is annual —
+  // and that the sibling add-on branch, which already bills correctly via
+  // createAddonInvoice, is never touched by it.
+
+  section("prepare-payment — first purchase + annual term bills the annual-prepay amount, not monthly");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-ann-amt": { name: "acct-ann-amt", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      {
+        session: { webAccount: "acct-ann-amt" },
+        body: { serviceId: "starter-web-hosting", planKey: "Starter", billingTerm: "annual" },
+      },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-ann-amt" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const monthlySum = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    const expectedAnnual = annualPrepayKes(monthlySum);
+    const invoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!invoice, "invoice created");
+    ok(
+      invoice.amount === expectedAnnual,
+      `invoice amount === annualPrepayKes(monthly) (${expectedAnnual}), got ${invoice.amount}`
+    );
+    ok(invoice.amount !== monthlySum, "invoice amount is NOT the plain monthly sum (the confirmed bug)");
+  }
+
+  section("prepare-payment — first purchase + monthly/omitted term bills the plain monthly sum, unchanged");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-mo-amt": { name: "acct-mo-amt", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-mo-amt" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-mo-amt" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const monthlySum = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    const invoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!invoice, "invoice created");
+    ok(
+      invoice.amount === monthlySum,
+      `invoice amount === plain monthly sum (${monthlySum}), untouched by the annual correction`
+    );
+  }
+
+  section("prepare-payment — add-on branch on an annual account is NOT double-converted");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-addon-ann": {
+          name: "acct-addon-ann",
+          plan: "Starter",
+          selected_services: [],
+          billing_term: "annual",
+          term_started_on: new Date().toISOString().slice(0, 10),
+        },
+      },
+    });
+    // createAddonInvoice already produces the correct pro-rated annual amount
+    // internally (this task deliberately leaves that path untouched) —
+    // simulate that by seeding a Portal Invoice with a known "already
+    // correct" amount, and prove the first-purchase-only annual correction
+    // added in ordersRoutes.js never re-applies annualPrepayKes to it (which
+    // would 12x-overcharge a real add-on).
+    client.store["Portal Invoice"] = client.store["Portal Invoice"] || {};
+    client.store["Portal Invoice"]["PINV-ADDON-1"] = { name: "PINV-ADDON-1", amount: 5000, status: "Unpaid" };
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-ADDON-1" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-addon-ann" }, body: { serviceId: "starter-web-hosting", billingTerm: "annual" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-addon-ann" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.invoiceDocName === "PINV-ADDON-1", "invoiceDocName from createAddonInvoice");
+
+    const invoice = client.store["Portal Invoice"]["PINV-ADDON-1"];
+    ok(
+      invoice.amount === 5000,
+      "add-on invoice amount unchanged by the first-purchase-only annual correction (not 12x'd)"
+    );
   }
 
   section("applyPlanAndCreateInvoice mock — faithfully skips on empty services (no invoice)");
