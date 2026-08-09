@@ -24,6 +24,7 @@ interface OrderView {
   reservationExpiresAt: string;
   invoiceDocName: string | null;
   config: Record<string, any>;
+  eligibleForTermChoice: boolean;
 }
 
 interface InvoicePricing {
@@ -71,6 +72,9 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // Only offered for monthly-billed products (see the `period === "/mo"`
   // guard below); domains render their own yearly-only pricing.
   const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
+  const [preparingPayment, setPreparingPayment] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // ---- /checkout/new?serviceId=<id> — create the draft order, then move to
   // /checkout/:orderId. Only runs when there's no orderId in the URL yet. ----
@@ -124,6 +128,46 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, deepLinkServiceId]);
 
+  const preparePaymentAndPrice = async (term?: 'monthly' | 'annual') => {
+    if (!orderId) return;
+    try {
+      setPreparingPayment(true);
+      const body: Record<string, any> = {};
+      if (term) body.billingTerm = term;
+      const prepRes = await fetch(`/api/orders/${encodeURIComponent(orderId)}/prepare-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const prepData = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok || !prepData?.invoiceDocName) {
+        throw new Error(prepData?.error || 'Failed to prepare payment.');
+      }
+
+      const invRes = await fetch(`/api/billing/invoice/${encodeURIComponent(prepData.invoiceDocName)}`, {
+        credentials: 'include',
+      });
+      const invData = await invRes.json().catch(() => ({}));
+      if (!invRes.ok || !invData?.invoice) {
+        throw new Error(invData?.error || 'Failed to load invoice.');
+      }
+
+      if (!mountedRef.current) return;
+      setInvoice({
+        docName: prepData.invoiceDocName,
+        chargeKes: Number(invData.invoice.chargeKes ?? invData.invoice.amount ?? 0),
+        paypalAmountUsd: Number(invData.invoice.paypalAmountUsd || 0),
+      });
+    } catch (e: any) {
+      if (mountedRef.current) {
+        setError(e?.message || 'Something went wrong preparing your payment.');
+      }
+    } finally {
+      if (mountedRef.current) setPreparingPayment(false);
+    }
+  };
+
   // ---- /checkout/:orderId — load the order, prepare the invoice, price it. ----
   useEffect(() => {
     if (!orderId) return;
@@ -156,45 +200,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           return;
         }
 
-        // billingTerm here is whatever the term selector is set to at the
-        // moment this fires — 'monthly' (the default) on first load, since
-        // the selector only renders once `order` (and thus `svcForOrder`) is
-        // set below, i.e. strictly after this effect starts. Deliberately
-        // NOT a dependency of this effect (see the eslint-disable below) —
-        // adding it would re-run the whole order-load/prepare/invoice-fetch
-        // pipeline on every click of the selector. Instead, a later term
-        // change is re-sent by the dedicated effect further down.
-        const prepRes = await fetch(
-          `/api/orders/${encodeURIComponent(orderId)}/prepare-payment`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ billingTerm }),
-          }
-        );
-        const prepData = await prepRes.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!prepRes.ok || !prepData?.invoiceDocName) {
-          throw new Error(prepData?.error || 'Failed to prepare payment.');
-        }
-
-        const invRes = await fetch(
-          `/api/billing/invoice/${encodeURIComponent(prepData.invoiceDocName)}`,
-          { credentials: 'include' }
-        );
-        const invData = await invRes.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!invRes.ok || !invData?.invoice) {
-          throw new Error(invData?.error || 'Failed to load invoice.');
-        }
-
-        setInvoice({
-          docName: prepData.invoiceDocName,
-          chargeKes: Number(invData.invoice.chargeKes ?? invData.invoice.amount ?? 0),
-          paypalAmountUsd: Number(invData.invoice.paypalAmountUsd || 0),
-        });
         setLoading(false);
+
+        // Eligible orders (a genuine first monthly-billed purchase) wait for
+        // the customer to confirm a term via the selector + "Continue to
+        // payment" button below before prepare-payment is ever called.
+        // Every other order (add-ons, domains, returning customers) is
+        // unaffected — prepare-payment fires immediately, exactly as before
+        // this feature existed.
+        if (!ord.eligibleForTermChoice) {
+          await preparePaymentAndPrice();
+        }
       } catch (e: any) {
         if (!cancelled) {
           setError(e?.message || 'Something went wrong loading your order.');
@@ -208,47 +224,6 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, navigate]);
-
-  // ---- Re-send a billing-term change made AFTER the initial prepare-payment
-  // call above already ran. The selector only renders once `order` is loaded
-  // (see the `period === "/mo"` block below), i.e. strictly after that first
-  // call — so a customer who switches to annual needs this change relayed
-  // separately. prepare-payment is idempotent once order.invoiceDocName
-  // exists (it just re-applies the account billing_term write and returns
-  // the same invoiceDocName — see ordersRoutes.js), so this is safe to fire
-  // on every change without disturbing the already-loaded invoice/pricing.
-  //
-  // The mount-skip guard (isFirstRenderRef) is required because this effect
-  // also runs once on mount purely from React's effect lifecycle, even
-  // though billingTerm hasn't actually changed yet — without the guard that
-  // would fire a redundant prepare-payment call duplicating the one above.
-  const isFirstRenderRef = useRef(true);
-  useEffect(() => {
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-      return;
-    }
-    if (!orderId || !order || order.status !== 'Draft') return;
-
-    // Fire-and-forget: no component state depends on the response here (the
-    // invoice/pricing already loaded by the effect above is unaffected), so
-    // there's nothing to guard with an unmount/cancelled flag.
-    fetch(`/api/orders/${encodeURIComponent(orderId)}/prepare-payment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ billingTerm }),
-    }).catch(() => {
-      // Best-effort — a transient failure here just means the account's
-      // billing_term isn't updated yet; it isn't fatal to checkout (the
-      // invoice/payment flow already in progress is unaffected), and the
-      // next term change (or a future prepare-payment call) will retry.
-    });
-    // Deliberately keyed ONLY on billingTerm — see comment above. orderId
-    // and order.status are read from the closure, which is fine since this
-    // effect's whole purpose is reacting to billingTerm changes, not those.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billingTerm]);
 
   // ---- Heartbeat: re-GET every 5 minutes while unpaid, to keep the reservation alive. ----
   useEffect(() => {
@@ -350,6 +325,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     } finally {
       setResuming(false);
     }
+  };
+
+  const handleConfirmTerm = () => {
+    preparePaymentAndPrice(billingTerm);
   };
 
   const handleJoinWaitlist = async () => {
@@ -530,7 +509,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      {period === "/mo" && (
+      {order.eligibleForTermChoice && !invoice && (
         <div className="glass-card rounded-3xl p-6">
           <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-3">
             Billing
@@ -569,6 +548,15 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               </span>
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleConfirmTerm}
+            disabled={preparingPayment}
+            className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {preparingPayment ? <Loader2 size={16} className="animate-spin" /> : null}
+            Continue to payment
+          </button>
         </div>
       )}
 
@@ -614,7 +602,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           onSuccess={onSuccess}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
-      ) : (
+      ) : order.eligibleForTermChoice ? null : (
         <div className="glass-card rounded-3xl p-8 flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
           <Loader2 size={18} className="animate-spin text-murzak-accent" />
           Preparing payment…
