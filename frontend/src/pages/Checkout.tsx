@@ -74,7 +74,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
   const [preparingPayment, setPreparingPayment] = useState(false);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // ---- /checkout/new?serviceId=<id> — create the draft order, then move to
   // /checkout/:orderId. Only runs when there's no orderId in the URL yet. ----
