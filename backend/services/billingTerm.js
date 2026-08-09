@@ -1,28 +1,13 @@
 // services/billingTerm.js
 //
 // All billing-term arithmetic, as pure functions with no Frappe or clock
-// dependency so they can be tested exhaustively.
-//
-// Term lives on the Web Account (`billing_term`), NOT on catalog products.
-// That is deliberate: sweepRenewals already runs at account-level cadence, and
-// putting a yearly figure into a product's `monthlyKes` field is exactly the
-// pattern that caused the 12x domain-overcharge bug fixed in PR #3.
+// dependency so they can be tested exhaustively. The term itself is never
+// stored here or on any Web Account field — see checkoutBillingTerm.js for
+// how an account's current term is derived from its last paid Subscription
+// invoice.
 
 const ANNUAL_DISCOUNT_PCT = 20;
 const ANNUAL_CYCLE_DAYS = 365;
-
-/**
- * The account's billing term. FAILS SAFE TO "monthly": every pre-existing
- * customer has no `billing_term` field at all, and monthly is their current
- * (correct) behavior. Only an explicit "annual" opts in. If this ever
- * returned "annual" for a missing/garbage value, live customers would
- * silently stop being billed monthly.
- */
-function accountBillingTerm(account) {
-  return String(account?.billing_term || "").toLowerCase() === "annual"
-    ? "annual"
-    : "monthly";
-}
 
 /** Annualized monthly sum, less the annual-prepay discount. */
 function annualPrepayKes(monthlySumKes) {
@@ -72,7 +57,6 @@ function daysRemainingInTerm(termStartedOn, nowMs = Date.now()) {
 module.exports = {
   ANNUAL_DISCOUNT_PCT,
   ANNUAL_CYCLE_DAYS,
-  accountBillingTerm,
   annualPrepayKes,
   cycleDaysForTerm,
   renewalAmountForTerm,

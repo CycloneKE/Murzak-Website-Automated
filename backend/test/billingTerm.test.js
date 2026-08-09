@@ -11,7 +11,6 @@ function section(name) { console.log(`\n# ${name}`); }
 const {
   ANNUAL_DISCOUNT_PCT,
   ANNUAL_CYCLE_DAYS,
-  accountBillingTerm,
   annualPrepayKes,
   cycleDaysForTerm,
   renewalAmountForTerm,
@@ -20,17 +19,6 @@ const {
 } = require("../services/billingTerm");
 
 (async () => {
-  section("accountBillingTerm — missing/unknown defaults to monthly");
-  // EVERY existing customer has no billing_term field. A regression here
-  // silently changes live billing for the whole book.
-  ok(accountBillingTerm(undefined) === "monthly", "undefined account -> monthly");
-  ok(accountBillingTerm({}) === "monthly", "no billing_term -> monthly");
-  ok(accountBillingTerm({ billing_term: "" }) === "monthly", "empty string -> monthly");
-  ok(accountBillingTerm({ billing_term: "nonsense" }) === "monthly", "unknown value -> monthly");
-  ok(accountBillingTerm({ billing_term: "monthly" }) === "monthly", "explicit monthly");
-  ok(accountBillingTerm({ billing_term: "annual" }) === "annual", "explicit annual");
-  ok(accountBillingTerm({ billing_term: "ANNUAL" }) === "annual", "case-insensitive annual");
-
   section("annualPrepayKes — 20% off the annualized sum");
   ok(ANNUAL_DISCOUNT_PCT === 20, "discount is 20%");
   ok(annualPrepayKes(2500) === 24000, "2500/mo -> 24000/yr (30000 less 20%)");
