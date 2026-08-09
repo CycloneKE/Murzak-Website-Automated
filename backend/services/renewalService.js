@@ -21,11 +21,11 @@
 const { sendMail } = require("../utils/mailer");
 const { sumSelectedServicesMonthlyKes, getServiceMeta } = require("./provisioning/catalog");
 const {
-  accountBillingTerm,
   cycleDaysForTerm,
   renewalAmountForTerm,
   ANNUAL_CYCLE_DAYS,
 } = require("./billingTerm");
+const { readInvoiceBillingTerm } = require("./checkoutBillingTerm");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -167,7 +167,7 @@ async function sweepRenewals(deps) {
           ["type", "=", "Subscription"],
           ["status", "=", "Paid"],
         ]),
-        fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date", "billing_term"]),
+        fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date"]),
         limit_page_length: 500,
         order_by: "invoice_date desc",
       },
@@ -204,23 +204,16 @@ async function sweepRenewals(deps) {
         const account = accRes.data?.data;
         if (!account) continue;
 
-        const term = accountBillingTerm(account);
-        // Prefer the term the invoice was actually BILLED under (not the
-        // account's current term): if an account's billing_term is ever
-        // edited after invoicing (e.g. an admin flips annual -> monthly in
-        // the Frappe desk UI — no code path does this today), the due-check
-        // must still honor the term the customer prepaid at, or a
-        // prepaid-annual customer becomes due at 30 days and gets suspended
-        // for not paying an invoice it never should have received. Every
-        // invoice that predates this fix has no billing_term recorded at
-        // all, so this falls back to the account's current term for every
-        // one of them — unchanged behavior for every existing invoice.
-        const invoiceTerm =
-          lastPaid.billing_term === "annual" || lastPaid.billing_term === "monthly"
-            ? lastPaid.billing_term
-            : null;
-        const cycleTerm = invoiceTerm || term;
-        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(cycleTerm, cfg.cycleDays))) continue;
+        // The ONE safe read of this account's billing term: a
+        // single-document GET on the last paid Subscription invoice itself,
+        // never the bulk list query above (an unrecognized `billing_term`
+        // column there would fail the query for every account in the sweep
+        // — see C4). Used for BOTH the due-check cycle and the billed
+        // amount below — there is no second, independently-read term to
+        // disagree with it, which is what makes C2 structurally impossible
+        // here now.
+        const term = await readInvoiceBillingTerm(client, lastPaid.name);
+        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(term, cfg.cycleDays))) continue;
 
         // Idempotency guard: never stack a second open Subscription invoice.
         const openRes = await client.get("/api/resource/Portal Invoice", {

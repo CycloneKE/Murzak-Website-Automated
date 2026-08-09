@@ -76,58 +76,6 @@ console.log("# excludeDomainRegistrations (Critical 1: a yearly domain must neve
   ok(excludeDomainRegistrations([{ serviceId: "does-not-exist" }]).length === 1, "unknown service id is not treated as a domain (kept, priced 0 elsewhere)");
 }
 
-console.log("# billing term — sweep cycle and amount");
-{
-  const {
-    accountBillingTerm,
-    cycleDaysForTerm,
-    renewalAmountForTerm,
-  } = require("../services/billingTerm");
-
-  const monthlyCycle = 30;
-
-  // The four rows of the safety matrix from the spec.
-  const monthlyAcct = { billing_term: "monthly" };
-  const annualAcct = { billing_term: "annual" };
-  const legacyAcct = {}; // every existing customer
-
-  const mTerm = accountBillingTerm(monthlyAcct);
-  const aTerm = accountBillingTerm(annualAcct);
-  const lTerm = accountBillingTerm(legacyAcct);
-
-  // Row 1: annual account is NOT due at 30 days. THE double-charge guard.
-  ok(
-    !isDueForRenewal("2026-06-02", cycleDaysForTerm(aTerm, monthlyCycle), NOW),
-    "annual account is NOT due after 30 days (double-charge guard)"
-  );
-  // Row 2: annual account IS due past 365 days, at the discounted amount.
-  const longAgo = "2025-06-02"; // > 365d before NOW (2026-07-02)
-  ok(
-    isDueForRenewal(longAgo, cycleDaysForTerm(aTerm, monthlyCycle), NOW),
-    "annual account IS due after 365 days"
-  );
-  ok(
-    renewalAmountForTerm(aTerm, 2500) === 24000,
-    "annual account bills the 20%-discounted year"
-  );
-  // Row 3: monthly account unchanged.
-  ok(
-    isDueForRenewal("2026-06-02", cycleDaysForTerm(mTerm, monthlyCycle), NOW),
-    "monthly account still due at 30 days (no regression)"
-  );
-  ok(
-    renewalAmountForTerm(mTerm, 2500) === 2500,
-    "monthly account still bills the monthly sum"
-  );
-  // Row 4: legacy account (no billing_term) behaves exactly as monthly.
-  ok(lTerm === "monthly", "account with no billing_term is treated as monthly");
-  ok(
-    isDueForRenewal("2026-06-02", cycleDaysForTerm(lTerm, monthlyCycle), NOW) === true &&
-      renewalAmountForTerm(lTerm, 2500) === 2500,
-    "legacy account bills identically to an explicit monthly account"
-  );
-}
-
 // ---------------------------------------------------------------------------
 // sweepRenewals — wired end to end against a fake Frappe client.
 //
@@ -154,16 +102,14 @@ function daysAgoStr(n) {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
-function accountDoc(term) {
-  const doc = {
+function accountDoc() {
+  return {
     account_holder_name: "Test Co",
     plan: "Standard",
     account_status: "Active",
     selected_services: SWEEP_SERVICE_ROWS,
     // no work_email -> sendRenewalEmail is skipped entirely
   };
-  if (term) doc.billing_term = term;
-  return doc;
 }
 
 // Builds a fake Frappe client + injected deps for one account ("acct-1")
@@ -174,6 +120,7 @@ function accountDoc(term) {
 function makeSweepFrappe({ account, lastPaidInvoiceDate, lastPaidBillingTerm }) {
   const posts = [];
   let webAccountGets = 0;
+  let invoiceGets = 0;
   const client = {
     get: async (url, opts) => {
       const params = opts?.params || {};
@@ -181,18 +128,31 @@ function makeSweepFrappe({ account, lastPaidInvoiceDate, lastPaidBillingTerm }) 
         const filters = JSON.parse(params.filters || "[]");
         const isPaidScan = filters.some((f) => f[0] === "status" && f[2] === "Paid");
         if (isPaidScan) {
-          const row = {
-            name: "OLD-INV",
-            web_account: "acct-1",
-            plan: "Standard",
-            amount: 1,
-            invoice_date: lastPaidInvoiceDate,
+          // Deliberately NO billing_term on this bulk-query row — the real
+          // query's `fields` never include it (see C4). The sweep must read
+          // the term via the single-document GET below instead.
+          return {
+            data: {
+              data: [
+                { name: "OLD-INV", web_account: "acct-1", plan: "Standard", amount: 1, invoice_date: lastPaidInvoiceDate },
+              ],
+            },
           };
-          if (lastPaidBillingTerm) row.billing_term = lastPaidBillingTerm;
-          return { data: { data: [row] } };
         }
         // Open-invoice idempotency check -> nothing open.
         return { data: { data: [] } };
+      }
+      if (url === "/api/resource/Portal Invoice/OLD-INV") {
+        invoiceGets++;
+        return {
+          data: {
+            data: {
+              name: "OLD-INV",
+              invoice_date: lastPaidInvoiceDate,
+              ...(lastPaidBillingTerm ? { billing_term: lastPaidBillingTerm } : {}),
+            },
+          },
+        };
       }
       if (url === "/api/resource/Web Account/acct-1") {
         webAccountGets++;
@@ -217,91 +177,82 @@ function makeSweepFrappe({ account, lastPaidInvoiceDate, lastPaidBillingTerm }) 
     buildInvoiceServiceRows: (rows) => rows,
     logPortalUpdate: async () => {},
   };
-  return { deps, posts, webAccountGetCount: () => webAccountGets };
+  return { deps, posts, webAccountGetCount: () => webAccountGets, invoiceGetCount: () => invoiceGets };
 }
 
 (async () => {
   console.log("# sweepRenewals — wired end to end (mocked Frappe)");
 
   {
-    // Row 1: annual account, last paid invoice 30 days old -> NOT due.
+    // Row 1: last paid invoice recorded annual, 30 days old -> NOT due.
     // Regresses if the cycle reverts to the flat cfg.cycleDays (30d).
     const { deps, posts } = makeSweepFrappe({
-      account: accountDoc("annual"),
+      account: accountDoc(),
       lastPaidInvoiceDate: daysAgoStr(30),
+      lastPaidBillingTerm: "annual",
     });
     const res = await sweepRenewals(deps);
     ok(res.ok === true, "sweep returns ok");
-    ok(posts.length === 0, "annual account at 30 days -> zero invoices created (double-charge guard)");
+    ok(posts.length === 0, "annual invoice at 30 days -> zero invoices created (double-charge guard)");
   }
 
   {
-    // Row 2: same annual account, 366 days old -> due, at the discounted amount.
+    // Row 2: same annual term, 366 days old -> due, at the discounted amount.
     // Regresses if `amount` is set to monthlySum unconditionally.
     const { deps, posts } = makeSweepFrappe({
-      account: accountDoc("annual"),
+      account: accountDoc(),
       lastPaidInvoiceDate: daysAgoStr(366),
+      lastPaidBillingTerm: "annual",
     });
     await sweepRenewals(deps);
-    ok(posts.length === 1, "annual account at 366 days -> exactly one invoice created");
+    ok(posts.length === 1, "annual invoice at 366 days -> exactly one invoice created");
     ok(posts[0]?.body?.amount === SWEEP_ANNUAL_AMOUNT, `annual invoice billed the discounted amount (got ${posts[0]?.body?.amount})`);
-    ok(posts[0]?.body?.billing_term === "annual", "created invoice persists billing_term=annual (Finding 2)");
+    ok(posts[0]?.body?.billing_term === "annual", "created invoice persists billing_term=annual (becomes next year's anchor)");
   }
 
   {
-    // Row 3: monthly account, 30 days old -> due, at the undiscounted sum.
+    // Row 3: last paid invoice recorded monthly, 30 days old -> due, at the
+    // undiscounted sum.
     const { deps, posts } = makeSweepFrappe({
-      account: accountDoc("monthly"),
+      account: accountDoc(),
       lastPaidInvoiceDate: daysAgoStr(30),
+      lastPaidBillingTerm: "monthly",
     });
     await sweepRenewals(deps);
-    ok(posts.length === 1, "monthly account at 30 days -> exactly one invoice created");
+    ok(posts.length === 1, "monthly invoice at 30 days -> exactly one invoice created");
     ok(posts[0]?.body?.amount === SWEEP_MONTHLY_SUM, `monthly invoice billed the undiscounted sum (got ${posts[0]?.body?.amount})`);
     ok(posts[0]?.body?.billing_term === "monthly", "created invoice persists billing_term=monthly");
   }
 
   {
-    // Row 4: legacy account with NO billing_term, 30 days old -> behaves
-    // identically to an explicit monthly account. Regresses if a missing
-    // billing_term is ever treated as anything other than monthly.
+    // Row 4: last paid invoice has NO billing_term field at all (a
+    // pre-existing, never-migrated invoice) -> treated as monthly. This is
+    // the safety-by-construction case every invoice created before this
+    // feature falls into.
     const { deps, posts } = makeSweepFrappe({
-      account: accountDoc(null),
+      account: accountDoc(),
       lastPaidInvoiceDate: daysAgoStr(30),
+      lastPaidBillingTerm: null,
     });
     await sweepRenewals(deps);
-    ok(posts.length === 1, "legacy (no billing_term) account at 30 days -> exactly one invoice created");
-    ok(posts[0]?.body?.amount === SWEEP_MONTHLY_SUM, `legacy account billed the undiscounted monthly sum (got ${posts[0]?.body?.amount})`);
-  }
-
-  {
-    // Finding 2: the account's billing_term was flipped annual -> monthly
-    // AFTER the last invoice was billed (e.g. an admin edit in the Frappe
-    // desk UI). The last-paid invoice still recorded billing_term=annual —
-    // the due-check must honor THAT, not the account's current value, or the
-    // prepaid customer gets billed again at 30 days and (with
-    // RENEWAL_SUSPEND_ENABLED) suspended for not paying it. Regresses if the
-    // invoice's recorded term is ignored in favor of the account's current
-    // term.
-    const { deps, posts } = makeSweepFrappe({
-      account: accountDoc("monthly"), // current (flipped) term
-      lastPaidInvoiceDate: daysAgoStr(30),
-      lastPaidBillingTerm: "annual", // term the invoice was actually billed under
-    });
-    await sweepRenewals(deps);
-    ok(posts.length === 0, "invoice-recorded annual term overrides a since-flipped-to-monthly account (Finding 2 guard)");
+    ok(posts.length === 1, "invoice with no billing_term at 30 days -> exactly one invoice created");
+    ok(posts[0]?.body?.amount === SWEEP_MONTHLY_SUM, `pre-existing invoice billed the undiscounted monthly sum (got ${posts[0]?.body?.amount})`);
   }
 
   {
     // Finding 3: an account nowhere near due under ANY term must not even
-    // trigger a Web Account fetch. Regresses if the pre-filter is removed
-    // and every candidate account is fetched unconditionally.
-    const { deps, posts, webAccountGetCount } = makeSweepFrappe({
-      account: accountDoc("monthly"),
+    // trigger a Web Account fetch or an invoice-term GET. Regresses if the
+    // pre-filter is removed and every candidate account is fetched
+    // unconditionally.
+    const { deps, posts, webAccountGetCount, invoiceGetCount } = makeSweepFrappe({
+      account: accountDoc(),
       lastPaidInvoiceDate: daysAgoStr(5),
+      lastPaidBillingTerm: "monthly",
     });
     await sweepRenewals(deps);
     ok(posts.length === 0, "account far from due -> zero invoices created");
     ok(webAccountGetCount() === 0, "account far from due under the shortest cycle -> zero Web Account fetches (fetch-amplification guard)");
+    ok(invoiceGetCount() === 0, "account far from due under the shortest cycle -> zero invoice-term fetches");
   }
 
   console.log("================================================");
