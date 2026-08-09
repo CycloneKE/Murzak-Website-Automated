@@ -81,24 +81,209 @@ test.describe('PRICE-01 — domain results show monthly figure with annual discl
   });
 });
 
-test.describe('PRICE-02 — checkout offers a billing term for monthly products', () => {
+test.describe('PRICE-02 — checkout offers a billing term for monthly products (confirm-before-create)', () => {
   test.describe.configure({ timeout: 60_000 });
 
-  test('a hosting order shows monthly and annual options with the saving', async ({ page }) => {
+  // Task 6 rework: Tasks 1-5 replaced the old "auto-fire prepare-payment on
+  // load, then silently correct the invoice if the customer picks annual"
+  // flow (bug C1: an annual selection could charge monthly) with a
+  // confirm-before-create flow — the invoice is never created until the
+  // customer explicitly confirms a term via the selector + "Continue to
+  // payment" button. This test exercises that flow directly by mocking
+  // GET /api/orders/:id (deterministically eligibleForTermChoice: true,
+  // independent of whatever the real backend eligibility rule computes —
+  // that rule has its own backend tests), POST prepare-payment (with a call
+  // counter — the whole point of C1 was a SECOND, correcting call) and
+  // GET the resulting invoice, following this spec's existing route-mock
+  // conventions (see checkout.spec.ts / qa-checkout-launch.spec.ts).
+  test('an eligible order waits for the customer to confirm annual before any invoice is created', async ({ page }) => {
     await registerNewUser(page, 'term');
-    await page.goto('/checkout/new?serviceId=starter-web-hosting');
+
+    const orderId = 'CHK-PRICE02-MOCK';
+    const mockOrder = {
+      id: orderId,
+      status: 'Draft',
+      serviceId: 'starter-web-hosting',
+      serviceName: 'Website Hosting (Starter)',
+      tier: 'Light',
+      category: 'Website Hosting',
+      monthlyKes: 1200,
+      setupKes: 0,
+      totalDueKes: 1200,
+      reservationExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      invoiceDocName: null,
+      config: {},
+      eligibleForTermChoice: true,
+    };
+
+    await page.route(`**/api/orders/${orderId}`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, order: mockOrder }),
+      });
+    });
+
+    // The call counter is the crux of this test: the pre-Task-6 flow fired
+    // this endpoint once on load and again (silently correcting the price)
+    // when the customer picked a term — exactly the C1 bug. The new flow
+    // must fire it exactly once, only once the customer confirms.
+    let prepareCalls = 0;
+    let capturedBody: any = null;
+    await page.route(`**/api/orders/${orderId}/prepare-payment`, (route) => {
+      prepareCalls += 1;
+      capturedBody = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, invoiceDocName: 'INV-PRICE02-MOCK' }),
+      });
+    });
+
+    // Price the mocked invoice off the ACTUAL captured request body, not a
+    // hardcoded value — this ties "the UI shows KES 11,520" to "the server
+    // really did receive billingTerm: annual", the same way the real backend
+    // (routes/ordersRoutes.js) prices off the request it received.
+    await page.route('**/api/billing/invoice/INV-PRICE02-MOCK', (route) => {
+      const chargeKes = capturedBody?.billingTerm === 'annual' ? 11520 : 1200;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ invoice: { docName: 'INV-PRICE02-MOCK', chargeKes, paypalAmountUsd: 89 } }),
+      });
+    });
+
+    await page.goto(`/checkout/${orderId}`);
 
     await expect(page.getByText('Order summary')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Billed monthly')).toBeVisible();
     await expect(page.getByText(/Save 20%/i)).toBeVisible();
 
-    // Exact-value strengthening: "Save 20%" alone only proves the discount
-    // *label* is 20 — it says nothing about whether annualPrepayKes() (config/
-    // serviceCatalog.ts) actually computed the discounted total correctly.
-    // starter-web-hosting is KES 1,200/mo (checkout.spec.ts), so the annual
-    // tile must read the full derivation: 1,200 * 12 * 0.8 = KES 11,520/yr.
-    // A bug that dropped the *12 (e.g. discounting the monthly price instead
-    // of the annualized price) would still pass "Save 20%" but fail this.
+    // ---- Exact-value assertion (carried forward from the pre-Task-6 spec) ----
+    //
+    // "Save 20%" alone only proves the discount *label* is 20 — it says
+    // nothing about whether annualPrepayKes() (config/serviceCatalog.ts)
+    // actually computed the discounted total correctly. starter-web-hosting
+    // is KES 1,200/mo, so the annual tile must read the full derivation:
+    // 1,200 * 12 * 0.8 = KES 11,520/yr. A bug that dropped the *12 (e.g.
+    // discounting the monthly price instead of the annualized price) would
+    // still pass "Save 20%" but fail this.
+    //
+    // This must be checked NOW, before "Continue to payment": it's the
+    // annual tile's own client-side label (computed straight from
+    // order.monthlyKes, unrelated to the mocked invoice above), and the
+    // Billing selector — tile and all — unmounts the instant an invoice
+    // exists (Checkout.tsx: `order.eligibleForTermChoice && !invoice`).
     await expect(page.getByText('KES 11,520/yr', { exact: false })).toBeVisible();
+
+    // ---- C1/C5 regression guard: no invoice, no payment UI, until confirmed ----
+    // Proves the invoice truly hasn't been created yet — the crux of the
+    // confirm-before-create rework. "Payment method" is PaymentMethods.tsx's
+    // own section heading, only ever rendered once `invoice` is set.
+    await expect(page.getByText('Payment method')).toHaveCount(0);
+    expect(prepareCalls).toBe(0);
+
+    // Pick Annual, then confirm.
+    const annualTile = page.getByRole('button').filter({ hasText: /Save 20%/i });
+    await annualTile.click();
+
+    const continueBtn = page.getByRole('button', { name: 'Continue to payment' });
+    await expect(continueBtn).toBeVisible();
+    const [prepResp] = await Promise.all([
+      page.waitForResponse((r) => r.url().endsWith('/prepare-payment')),
+      continueBtn.click(),
+    ]);
+    expect(prepResp.status()).toBe(200);
+
+    // Exactly ONE prepare-payment request for the entire test — the old
+    // flow's extra "correction" call (bug C1) must never happen.
+    expect(prepareCalls).toBe(1);
+    expect(capturedBody).toEqual({ billingTerm: 'annual' });
+
+    // Payment UI now renders, priced at the annual figure the mocked invoice
+    // computed from that exact request body — end-to-end proof the annual
+    // selection actually reached the server-bound request, not just the
+    // client-side tile.
+    await expect(page.getByText('Payment method')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Pay KES 11,520', { exact: false })).toBeVisible();
+  });
+});
+
+test.describe('PRICE-03 — a returning customer\'s add-on skips the billing-term selector entirely (C5 guard)', () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  // Direct regression guard for C5: mid-relationship term switching must be
+  // STRUCTURALLY absent from the UI for an ineligible order (an add-on, a
+  // domain, a returning customer's purchase) — not merely untested, and not
+  // merely "present but never clicked". GET /api/orders/:id is mocked with
+  // eligibleForTermChoice: false; Checkout.tsx's own gate
+  // (`order.eligibleForTermChoice && !invoice`) must never render the
+  // selector, and prepare-payment must fire on its own, with zero clicks.
+  test('an ineligible order never renders the selector and prepares payment automatically', async ({ page }) => {
+    await registerNewUser(page, 'addon');
+
+    const orderId = 'CHK-PRICE03-MOCK';
+    const mockOrder = {
+      id: orderId,
+      status: 'Draft',
+      serviceId: 'starter-storage',
+      serviceName: 'File Storage (25GB)',
+      tier: 'Light',
+      category: 'Storage',
+      monthlyKes: 500,
+      setupKes: 0,
+      totalDueKes: 500,
+      reservationExpiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      invoiceDocName: null,
+      config: {},
+      eligibleForTermChoice: false,
+    };
+
+    await page.route(`**/api/orders/${orderId}`, (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, order: mockOrder }),
+      });
+    });
+
+    let prepareCalls = 0;
+    let capturedBody: any = null;
+    await page.route(`**/api/orders/${orderId}/prepare-payment`, (route) => {
+      prepareCalls += 1;
+      capturedBody = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, invoiceDocName: 'INV-PRICE03-MOCK' }),
+      });
+    });
+
+    await page.route('**/api/billing/invoice/INV-PRICE03-MOCK', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ invoice: { docName: 'INV-PRICE03-MOCK', chargeKes: 500, paypalAmountUsd: 4 } }),
+      })
+    );
+
+    await page.goto(`/checkout/${orderId}`);
+
+    await expect(page.getByText('Order summary')).toBeVisible({ timeout: 15000 });
+
+    // The selector must be structurally absent, not just un-clicked.
+    await expect(page.getByText('Billing', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Billed monthly')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Continue to payment' })).toHaveCount(0);
+
+    // prepare-payment fires on its own — no click anywhere in this test.
+    await expect(page.getByText('Payment method')).toBeVisible({ timeout: 15000 });
+    expect(prepareCalls).toBe(1);
+    // No term in the body: preparePaymentAndPrice() is called with no
+    // argument for an ineligible order (Checkout.tsx), so the client never
+    // even offers a term for the server to have to distrust.
+    expect(capturedBody).toEqual({});
   });
 });
