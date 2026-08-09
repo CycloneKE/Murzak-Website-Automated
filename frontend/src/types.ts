@@ -84,4 +84,5 @@ export type SelectedServiceView = {
   domainChoice?: string;
   status: ServiceStatus;
   isAddon: boolean;
+  capacityClass?: string;
 };
