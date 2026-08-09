@@ -15,20 +15,19 @@ const express = require("express");
 // an earlier destructured require would make its lazy regex swallow
 // everything up to the real ctx destructure below and misreport bogus
 // "missing" keys. A plain assignment sidesteps that collision.
-const accountBillingTerm = require("../services/billingTerm").accountBillingTerm;
-// Same plain-assignment rationale as accountBillingTerm above — kept as a
+const annualPrepayKes = require("../services/billingTerm").annualPrepayKes;
+// Same plain-assignment rationale as annualPrepayKes above — kept as a
 // second statement (not merged into one destructure) so the static wiring
 // check's regex still finds its target unambiguously.
-const annualPrepayKes = require("../services/billingTerm").annualPrepayKes;
+const isEligibleForTermChoice = require("../services/checkoutBillingTerm").isEligibleForTermChoice;
 
-// Shared by POST /api/orders (order-creation) and POST
-// /api/orders/:id/prepare-payment (payment-prep, which now also accepts a
-// billingTerm so the checkout page's term selector — which only renders
-// AFTER the order already exists — can still reach the account). Normalized
+// Shared by POST /api/orders (order-creation, purely informational — the
+// order's own stored config.billingTerm is never read back by
+// prepare-payment) and POST /api/orders/:id/prepare-payment (payment-prep,
+// which is where a confirmed term actually affects the invoice). Normalized
 // here, never trusted raw: anything that isn't exactly "annual"
-// (case-insensitively) resolves to "monthly", mirroring
-// accountBillingTerm's fail-safe rule so an unknown/garbage value can never
-// become an accidental "annual".
+// (case-insensitively) resolves to "monthly", so an unknown/garbage value can
+// never become an accidental "annual".
 function normalizeBillingTerm(value) {
   return String(value || "").toLowerCase() === "annual" ? "annual" : "monthly";
 }
@@ -40,7 +39,6 @@ module.exports = function (ctx) {
     fetchWebAccount,
     applyPlanAndCreateInvoice,
     updateWebAccountServices,
-    fetchInvoicesForUser,
     asArray,
     hasPaidSubscriptionForPlan,
     normalizeSelectedServices,
@@ -128,7 +126,18 @@ module.exports = function (ctx) {
         nowMs: Date.now(),
         renew: true,
       });
-      return res.json({ ok: true, order });
+
+      // Fails safe to false (never true) on error — the risk direction here
+      // is showing an inappropriate term choice to an existing customer
+      // (C5), the opposite of the renewal sweep's fail-safe-to-monthly.
+      let eligibleForTermChoice = false;
+      try {
+        eligibleForTermChoice = await isEligibleForTermChoice(client, webAccountName, order.category);
+      } catch (e) {
+        console.warn("GET ORDER eligibility check failed, defaulting to false:", e.response?.data || e.message);
+      }
+
+      return res.json({ ok: true, order: { ...order, eligibleForTermChoice } });
     } catch (err) {
       return sendError(res, err, "Failed to fetch order.", "GET ORDER");
     }
@@ -168,55 +177,12 @@ module.exports = function (ctx) {
 
       const order = await getOrder({ client, webAccountName, orderId, nowMs, renew: false });
 
-      // billingTerm in the request body — from the checkout page's term
-      // selector, which only renders AFTER the order already exists as a
-      // Draft — takes priority over the order's own stored config for this
-      // call. Normalized (never trusted raw) via the shared helper above.
-      // Omitting the field entirely (every caller before this fix, and the
-      // domain flow, which never offers a term choice) falls back to the
-      // order's stored config exactly as before this fix.
-      const bodyBillingTerm = (req.body || {}).billingTerm;
-      const effectiveBillingTerm =
-        bodyBillingTerm === undefined
-          ? normalizeBillingTerm(order.config?.billingTerm)
-          : normalizeBillingTerm(bodyBillingTerm);
-
-      // Persist the chosen term on the account so the renewal sweep bills on
-      // the right cadence from here on. Only ever writes "annual" — an
-      // account is never silently downgraded to monthly by an order.
-      //
-      // `term_started_on` anchors pro-rata for mid-term add-ons. It is
-      // written ONLY when the account is not already annual, so a repeat
-      // annual write never resets an in-flight term (which would hand the
-      // customer a fresh 365 days they did not pay for).
-      async function writeAnnualBillingTermIfNeeded(currentRecord) {
-        if (effectiveBillingTerm !== "annual") return;
-        const alreadyAnnual = accountBillingTerm(currentRecord) === "annual";
-        await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
-          billing_term: "annual",
-          ...(alreadyAnnual ? {} : { term_started_on: new Date().toISOString().slice(0, 10) }),
-        });
-      }
-
-      // Idempotent: already prepared. getOrder above already reconciled
-      // order.status against the linked invoice's paid state, so returning
-      // the same invoiceDocName here is correct whether or not it has since
-      // been paid.
-      //
-      // The customer may have changed their billing-term selection AFTER
-      // this endpoint already ran once — the checkout page auto-calls
-      // prepare-payment on load, using whatever term was selected (or the
-      // default) at that moment, before the customer has necessarily
-      // touched the selector. Re-applying the annual-term account write here
-      // (guarded by the same no-downgrade / no-reset rules as the
-      // first-time write below) means a later term change delivered via a
-      // repeat call to this endpoint still reaches the account, instead of
-      // being silently dropped by this idempotency short-circuit.
+      // Idempotent: already prepared. There is exactly one prepare-payment
+      // call per order under this design — the checkout page defers this
+      // call until any term choice is confirmed (see Checkout.tsx) — so a
+      // repeat call here only ever happens on a retry/refresh, never a term
+      // change. There is nothing left to re-apply; just return the invoice.
       if (order.invoiceDocName) {
-        if (effectiveBillingTerm === "annual") {
-          const record = await fetchWebAccount(client, webAccountName);
-          await writeAnnualBillingTermIfNeeded(record);
-        }
         return res.json({ ok: true, invoiceDocName: order.invoiceDocName });
       }
 
@@ -234,6 +200,20 @@ module.exports = function (ctx) {
       const planKey = record?.plan || "None";
       const hasPaidPlan = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 
+      // Re-verify eligibility server-side — never trust the client for
+      // whether annual is even on offer. A crafted request sending
+      // billingTerm: "annual" for an ineligible order (an add-on, a domain,
+      // a returning customer's purchase) is silently normalized back to
+      // monthly. A customer with any paid plan already has a paid
+      // Subscription invoice on file (some plan), so isEligibleForTermChoice
+      // would also return false for them — skip the extra query in that
+      // case rather than proving it twice.
+      const eligible = hasPaidPlan
+        ? false
+        : await isEligibleForTermChoice(client, webAccountName, order.category);
+      const bodyBillingTerm = (req.body || {}).billingTerm;
+      const effectiveBillingTerm = eligible ? normalizeBillingTerm(bodyBillingTerm) : "monthly";
+
       // Domain-registration purchases carry the purchased domain string in
       // config.domain (see frontend Products.tsx's handleSelectDomain), NOT
       // config.domainChoice — that key is a different, pre-existing concept
@@ -241,9 +221,7 @@ module.exports = function (ctx) {
       // Subdomain" / "Register New Domain". Route the right value into the
       // domainChoice field so it flows into the invoice + Web Account service
       // rows (buildInvoiceServiceRows / buildWebAccountServiceRows already
-      // persist it) and from there into the staff provisioning notification —
-      // without this, the domain a customer paid for is dropped on the floor
-      // and no human can tell what to register.
+      // persist it) and from there into the staff provisioning notification.
       const isDomainProduct = order.category === "Domain Registration";
       const serviceRow = {
         serviceId: order.serviceId,
@@ -254,14 +232,12 @@ module.exports = function (ctx) {
           : (order.config?.domainChoice || ""),
       };
 
-      // Persist the chosen term on the account (see writeAnnualBillingTermIfNeeded
-      // above for the no-downgrade / no-reset rules). `record` here is the
-      // same fetchWebAccount result used for planKey/hasPaidPlan just above —
-      // reused rather than re-fetched.
-      await writeAnnualBillingTermIfNeeded(record);
-
       let invoiceDocName;
       if (hasPaidPlan) {
+        // Never eligible for a term choice (eligible is false whenever
+        // hasPaidPlan is true) — createAddonInvoice's own pro-rata (via
+        // getCurrentBillingTerm) is the sole amount authority here,
+        // unaffected by effectiveBillingTerm.
         const result = await createAddonInvoice({
           client,
           webAccountName,
@@ -279,71 +255,44 @@ module.exports = function (ctx) {
         invoiceDocName = result.invoiceDocName;
       } else {
         // First purchase: apply the order's plan and bill it, then attach
-        // the order's service to the account (mirrors mergeServicesById's
-        // usage at server.js:1115-1145).
+        // the order's service to the account.
         //
         // The 4th arg MUST be an array of selected services — passing an
-        // opts object here (as an earlier version of this call did) makes
-        // applyPlanAndCreateInvoice default selectedServices to [], bill
-        // KES 0, and skip invoice creation entirely (server.js's zero_amount
-        // early-return), leaving prepare-payment with no invoice to link and
-        // a guaranteed 500. Reuse serviceRow (built above) so there's always
-        // something to bill on a brand-new account's first purchase.
-        //
-        // NOTE — a domain-only first purchase still defaults to planKey
-        // "Starter" here, which flips the account to plan Starter and — once
-        // that Subscription invoice is paid — makes
-        // hasPaidSubscriptionForPlan(client, acct, "Starter") return true.
-        // This is intentionally left as-is: hasPaidSubscriptionForPlan is
-        // also what THIS function's routing (hasPaidPlan, above) and several
-        // other shared billing primitives (findExistingUnpaidSubscriptionInvoice,
-        // findLatestPaidSubscriptionInvoice, applyPlanAndCreateInvoice) rely
-        // on — repurposing it to mean "owns real infrastructure" broke a
-        // repeat domain purchase in a prior fix attempt (see
-        // .superpowers/sdd/final-review-fix-report.md "Fix round 2" for the
-        // trace). The actual billing-gate leak this caused — a domain-only
-        // account unlocking real infrastructure add-ons — is fixed
-        // separately and more narrowly at the add-on ELIGIBILITY gate
-        // itself: addonEligibility.js's isAddonEligible() now requires
-        // hasNonDomainPaidHistory (computed from the Web Account's own
-        // service history, not from this Subscription-invoice check) for
-        // any non-domain add-on, while still allowing domain-only accounts
-        // to buy more domains through the exact same gate.
-        await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
+        // opts object here makes applyPlanAndCreateInvoice default
+        // selectedServices to [], bill KES 0, and skip invoice creation
+        // entirely (server.js's zero_amount early-return).
+        const result = await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
           force: true,
           creditKes: 0,
         });
+        if (!result?.invoice?.name) {
+          const err = new Error("Failed to create an invoice for this order.");
+          err.statusCode = 500;
+          throw err;
+        }
+        invoiceDocName = result.invoice.name;
 
         const acct = await fetchWebAccount(client, webAccountName);
         const existingServices = normalizeSelectedServices(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
         const merged = mergeServicesById(existingServices, [serviceRow]);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(merged));
 
-        const invoices = await fetchInvoicesForUser(client, webAccountName);
-        const unpaid = invoices.find((inv) => inv.status === "Unpaid");
-        if (!unpaid) {
-          const err = new Error("Failed to create an invoice for this order.");
-          err.statusCode = 500;
-          throw err;
-        }
-        invoiceDocName = unpaid.docName;
-
-        // applyPlanAndCreateInvoice above has NO billing-term awareness — it
-        // always bills the plain monthly sum (sumSelectedServicesMonthlyKes).
-        // For a first-time annual purchase that undercharges by ~5x (monthly
-        // instead of annual-prepay), so correct the just-created invoice's
-        // amount here rather than teaching the shared primitive about terms
-        // (applyPlanAndCreateInvoice is reused by upgrade/configurator/add-on
-        // flows this task has no coverage for — see the note above this
-        // branch). Deliberately scoped to ONLY this first-purchase branch:
-        // the hasPaidPlan branch above already bills the correct annual
-        // amount via createAddonInvoice's own pro-ration, and re-applying
-        // annualPrepayKes there would 12x-overcharge an add-on.
+        // applyPlanAndCreateInvoice has no billing-term awareness — it
+        // always bills the plain monthly sum. For a confirmed annual choice
+        // on this first purchase, immediately correct the invoice it just
+        // created to the annual-prepay amount and stamp its own
+        // billing_term, within this same request — there is no later
+        // correction step anywhere else in this design. Deliberately scoped
+        // to ONLY this first-purchase branch: the hasPaidPlan branch above
+        // already bills the correct annual amount via createAddonInvoice's
+        // own pro-ration, and re-applying annualPrepayKes there would
+        // 12x-overcharge an add-on.
         if (effectiveBillingTerm === "annual") {
           const monthlySumKes = sumSelectedServicesMonthlyKes([serviceRow]);
           const annualAmountKes = annualPrepayKes(monthlySumKes);
           await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
             amount: annualAmountKes,
+            billing_term: "annual",
           });
         }
       }
