@@ -25,7 +25,7 @@ const { createAddonInvoice } = require("../services/addonInvoiceService");
 
 // Minimal mock frappe client: GET returns account/invoice fixtures, POST
 // captures the created invoice and returns a name.
-function makeClient({ account, openInvoice = null }) {
+function makeClient({ account, openInvoice = null, lastPaidInvoice = null }) {
   const posts = [];
   const puts = [];
   return {
@@ -33,8 +33,14 @@ function makeClient({ account, openInvoice = null }) {
     get: async (url, opts) => {
       if (url.includes("/Web Account/") || url.includes("/Web%20Account/"))
         return { data: { data: account } };
-      if (url.includes("/api/resource/Portal Invoice") && opts?.params)
+      if (url === "/api/resource/Portal Invoice" && opts?.params) {
+        const filters = JSON.parse(opts.params.filters || "[]");
+        const isPaidScan = filters.some((f) => f[0] === "status" && f[2] === "Paid");
+        if (isPaidScan) return { data: { data: lastPaidInvoice ? [lastPaidInvoice] : [] } };
         return { data: { data: openInvoice ? [openInvoice] : [] } };
+      }
+      if (lastPaidInvoice && url.includes(`/api/resource/Portal Invoice/${lastPaidInvoice.name}`))
+        return { data: { data: lastPaidInvoice } };
       if (openInvoice && url.includes(openInvoice.name))
         return { data: { data: openInvoice } };
       return { data: { data: {} } };
@@ -196,22 +202,19 @@ const deps = {
   section("annual-term accounts get mid-term add-ons pro-rated");
   {
     const { annualPrepayKes } = require("../services/billingTerm");
-    // Term started 182 days ago -> ~half the year left.
+    // Last paid Subscription invoice dated 182 days ago -> ~half the year left.
     const started = new Date(Date.now() - 182 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     const client = makeClient({
       account: {
         plan: "Starter",
-        billing_term: "annual",
-        term_started_on: started,
         // Non-empty, non-domain paid history so the add-on eligibility gate
         // (addonEligibility.js's hasNonDomainPaidHistory check) doesn't
-        // reject this purchase before pricing is ever computed — mirrors
-        // the file's first test above, which needs the same fixture shape
-        // to buy the same real (non-domain) add-on.
+        // reject this purchase before pricing is ever computed.
         selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
       },
+      lastPaidInvoice: { name: "PINV-PAID-1", invoice_date: started, billing_term: "annual" },
     });
     const res = await createAddonInvoice({
       client,
@@ -231,17 +234,14 @@ const deps = {
   section("annual-term accounts: merged open invoice is pro-rated too, not flat monthly");
   {
     const { proRatedAddonKes, daysRemainingInTerm } = require("../services/billingTerm");
-    // Term started 181 days ago -> 184 days remaining. The two merged
-    // services here are priced DIFFERENTLY (starter-storage 1200, starter-
-    // email 1500) and 184 is a day count at which
-    // proRatedAddonKes(1200,184) + proRatedAddonKes(1500,184) provably
-    // differs (by rounding) from the naive proRatedAddonKes(1200+1500,184)
-    // — i.e. "sum the monthly prices first, pro-rate once" gives a
-    // DIFFERENT number than "pro-rate each service's price, then sum".
-    // (An earlier version of this test used two services both priced at
-    // 1200 KES/mo, for which those two computations are numerically
-    // identical at every day count actually exercised — see FIX ROUND 1 —
-    // so it could not have caught a regression to the naive form.)
+    // Last paid Subscription invoice dated 181 days ago -> 184 days
+    // remaining. The two merged services here are priced DIFFERENTLY
+    // (starter-storage 1200, starter-email 1500) and 184 is a day count at
+    // which proRatedAddonKes(1200,184) + proRatedAddonKes(1500,184)
+    // provably differs (by rounding) from the naive
+    // proRatedAddonKes(1200+1500,184) — i.e. "sum the monthly prices first,
+    // pro-rate once" gives a DIFFERENT number than "pro-rate each service's
+    // price, then sum".
     const started = new Date(Date.now() - 181 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
@@ -257,12 +257,8 @@ const deps = {
       ],
     };
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        term_started_on: started,
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-PAID-2", invoice_date: started, billing_term: "annual" },
       openInvoice,
     });
     const res = await createAddonInvoice({
@@ -288,40 +284,32 @@ const deps = {
 
   section("guard: corrupted annual account cannot get a free (KES 0) add-on invoice");
   {
-    // Fresh-invoice branch — missing term_started_on entirely.
+    // Fresh-invoice branch — the last paid invoice is missing invoice_date entirely.
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        // term_started_on omitted entirely.
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-CORRUPT-1", billing_term: "annual" }, // invoice_date omitted
     });
     await throws(
       () => createAddonInvoice({
         client, webAccountName: "acct-1", deps,
         services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
       }),
-      422, "missing term_started_on on an annual account is refused, not billed free (fresh path)"
+      422, "missing invoice_date on the last paid annual invoice is refused, not billed free (fresh path)"
     );
     ok(client.posts.length === 0, "no invoice was created for the rejected purchase");
   }
   {
-    // Fresh-invoice branch — garbage/unparseable term_started_on.
+    // Fresh-invoice branch — garbage/unparseable invoice_date.
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        term_started_on: "not-a-real-date",
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-CORRUPT-2", billing_term: "annual", invoice_date: "not-a-real-date" },
     });
     await throws(
       () => createAddonInvoice({
         client, webAccountName: "acct-1", deps,
         services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
       }),
-      422, "unparseable term_started_on on an annual account is refused, not billed free (fresh path)"
+      422, "unparseable invoice_date on the last paid annual invoice is refused, not billed free (fresh path)"
     );
   }
   {
@@ -336,12 +324,8 @@ const deps = {
       ],
     };
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        // term_started_on omitted entirely.
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-CORRUPT-3", billing_term: "annual" }, // invoice_date omitted
       openInvoice,
     });
     await throws(
@@ -350,7 +334,7 @@ const deps = {
         deps: { ...deps, findOpenInvoice: async () => openInvoice },
         services: [{ serviceId: "starter-email", serviceName: "Business Email", tier: "Light", domainChoice: "" }],
       }),
-      422, "missing term_started_on on an annual account is refused, not billed free (merged path)"
+      422, "missing invoice_date on the last paid annual invoice is refused, not billed free (merged path)"
     );
     ok(client.puts.length === 0, "no invoice was updated for the rejected merge");
   }
@@ -370,79 +354,55 @@ const deps = {
       .toISOString()
       .slice(0, 10);
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        term_started_on: startedExactlyAYearAgo,
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-EXACT-1", billing_term: "annual", invoice_date: startedExactlyAYearAgo },
     });
     const res = await createAddonInvoice({
-      client,
-      webAccountName: "acct-1",
-      deps,
+      client, webAccountName: "acct-1", deps,
       services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
     });
     ok(res.amountKes === 0, "term's last day legitimately produces a KES 0 pro-rated amount");
     ok(!!res.invoiceDocName, "the guard does not block a legitimate zero — invoice is still created");
   }
   {
-    // A valid term_started_on late in the term (small but nonzero days
-    // remaining) must not be affected by the guard at all (amount !== 0).
     const startedLateInTerm = new Date(Date.now() - 360 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        billing_term: "annual",
-        term_started_on: startedLateInTerm,
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-LATE-1", billing_term: "annual", invoice_date: startedLateInTerm },
     });
     const res = await createAddonInvoice({
-      client,
-      webAccountName: "acct-1",
-      deps,
+      client, webAccountName: "acct-1", deps,
       services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
     });
     ok(res.amountKes > 0, "small-but-nonzero days-remaining still bills a small nonzero amount, not blocked");
   }
   {
-    // Monthly-term and legacy accounts never touch the guard at all.
+    // A monthly-term account never touches the guard at all.
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        // No billing_term, no term_started_on — a plain legacy account.
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-MONTHLY-1", billing_term: "monthly", invoice_date: "2026-01-01" },
     });
     const res = await createAddonInvoice({
-      client,
-      webAccountName: "acct-1",
-      deps,
+      client, webAccountName: "acct-1", deps,
       services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
     });
-    ok(res.amountKes === 1200, "monthly/legacy account is unaffected by the annual-only guard");
+    ok(res.amountKes === 1200, "monthly account is unaffected by the annual-only guard");
   }
 
   section("monthly-term and legacy accounts are billed exactly as before");
   {
     const client = makeClient({
-      account: {
-        plan: "Starter",
-        // Same eligibility-satisfying fixture as above (no billing_term at
-        // all here -> exercises the legacy-account fail-safe path).
-        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
-      },
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      // Pre-existing invoice, no billing_term field at all -> monthly fail-safe.
+      lastPaidInvoice: { name: "PINV-LEGACY-1", invoice_date: "2026-01-01" },
     });
     const res = await createAddonInvoice({
-      client,
-      webAccountName: "acct-1",
-      deps,
+      client, webAccountName: "acct-1", deps,
       services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
     });
-    ok(res.amountKes === 1200, "legacy account (no billing_term) still bills the monthly price");
+    ok(res.amountKes === 1200, "legacy account (no billing_term on its last paid invoice) still bills the monthly price");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
