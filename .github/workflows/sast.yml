@@ -147,6 +147,15 @@ jobs:
           cat backend.log || true
           exit 1
 
+      - name: Run security & admin live-probe tests (test:qa-live)
+        working-directory: ./backend
+        # SEC-*/ADM-* suites (qaSecurity.test.js, qaAdmin.test.js) are live HTTP
+        # probes — headers, IDOR/auth gating, error-leak checks — that can't run
+        # under plain `npm test` since they need a live server. This job already
+        # has one up for Playwright, so run them here instead of leaving them to
+        # a human remembering `npm run test:qa-live` against staging.
+        run: npm run test:qa-live
+
       - name: Run E2E Tests
         working-directory: ./frontend
         run: npx playwright test --project=chromium
