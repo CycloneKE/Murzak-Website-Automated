@@ -68,12 +68,16 @@ test.describe('PRODDOM-01 — domain search selects and launches checkout', () =
     await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
     await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
     // Domain-registration orders are yearly-billed (Task 3's isYearlyBilled(),
-    // wired into Checkout.tsx by Task 4) — confirm "/yr" is shown and "/mo"
-    // is not, proving the period branch actually took the yearly path.
-    // Explicit timeout matches the other assertions in this file — the
-    // default 5s window is tight against a real (non-mocked) backend.
-    await expect(page.getByText('/yr', { exact: false })).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('/mo', { exact: false })).not.toBeVisible();
+    // wired into Checkout.tsx by Task 4) — but per the domain price-display
+    // design shipped earlier on this same branch (ac98b79/b1d8e59), the
+    // headline figure is deliberately a MONTHLY-EQUIVALENT price with "/mo",
+    // not a bare "/yr" figure (Checkout.tsx:488-496: the isYearlyBilled
+    // branch renders monthlyEquivalentKes(order.monthlyKes) + "/mo", plus a
+    // "billed annually at <real yearly price>" disclosure — there is no
+    // literal "/yr" string anywhere in this design). The disclosure text is
+    // the actual, correct signal that the period branch took the yearly
+    // path, not the raw "/mo" suffix, which now appears for every product.
+    await expect(page.getByText(/billed annually at/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('logged-out visitor is redirected to login instead of failing silently', async ({ page }) => {
