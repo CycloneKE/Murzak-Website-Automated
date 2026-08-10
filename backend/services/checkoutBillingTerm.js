@@ -26,7 +26,12 @@ async function findLastPaidSubscriptionInvoice(client, webAccountName) {
       ]),
       fields: JSON.stringify(["name", "invoice_date"]),
       limit_page_length: 1,
-      order_by: "invoice_date desc",
+      // Secondary tie-break so two paid Subscription invoices dated the same
+      // day (possible with a manual backfill or a same-day plan change) can
+      // never resolve inconsistently between this call site and
+      // renewalService.js's latestPaidByAccount, which applies the same
+      // name-desc tie-break in its own JS-side comparison.
+      order_by: "invoice_date desc, name desc",
     },
   });
   return res.data?.data?.[0] || null;

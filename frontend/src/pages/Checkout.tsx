@@ -69,8 +69,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [resumeError, setResumeError] = useState('');
 
   // Billing-term choice — monthly (default) or annual-prepay at a discount.
-  // Only offered for monthly-billed products (see the `period === "/mo"`
-  // guard below); domains render their own yearly-only pricing.
+  // Only offered when the server says this order is eligible (see
+  // `order.eligibleForTermChoice`, computed server-side by
+  // isEligibleForTermChoice in services/checkoutBillingTerm.js — a genuinely
+  // new customer's first monthly-billed purchase); domains render their own
+  // yearly-only pricing and are never eligible.
   const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
   const [preparingPayment, setPreparingPayment] = useState(false);
   const mountedRef = useRef(true);

@@ -54,6 +54,22 @@ ok(grouped.get("B")?.name === "only-B", "single-invoice account kept");
 ok(grouped.size === 2, "rows without web_account dropped");
 ok(latestPaidByAccount(null).size === 0, "null input -> empty map");
 
+// Same-day tie-break: two paid Subscription invoices dated identically for
+// the same account must resolve to a single, deterministic winner (name
+// desc) — the same rule checkoutBillingTerm.js's
+// findLastPaidSubscriptionInvoice applies via its own order_by, so the two
+// call sites can never disagree about which invoice is "the" last paid one.
+const tieBroken = latestPaidByAccount([
+  { web_account: "C", invoice_date: "2026-06-15", name: "PINV-100" },
+  { web_account: "C", invoice_date: "2026-06-15", name: "PINV-101" },
+]);
+ok(tieBroken.get("C")?.name === "PINV-101", "same-date tie broken by name desc, regardless of input order");
+const tieBrokenReversed = latestPaidByAccount([
+  { web_account: "C", invoice_date: "2026-06-15", name: "PINV-101" },
+  { web_account: "C", invoice_date: "2026-06-15", name: "PINV-100" },
+]);
+ok(tieBrokenReversed.get("C")?.name === "PINV-101", "tie-break result is order-independent");
+
 console.log("# renewalConfig defaults");
 const cfg = renewalConfig();
 ok(cfg.cycleDays === 30, "default cycle 30d");

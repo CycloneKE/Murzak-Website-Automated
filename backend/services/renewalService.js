@@ -85,14 +85,24 @@ function excludeDomainRegistrations(serviceRows) {
 }
 
 // rows: Paid Subscription invoices, any order. Returns Map<web_account, row>
-// keeping only the newest invoice_date per account.
+// keeping only the newest invoice_date per account. On a same-day tie,
+// breaks by `name` descending — the same tie-break
+// checkoutBillingTerm.js's findLastPaidSubscriptionInvoice applies via its
+// own order_by, so the two call sites can never disagree about which
+// invoice is "the" last paid one for an account.
 function latestPaidByAccount(rows) {
   const latest = new Map();
   for (const r of Array.isArray(rows) ? rows : []) {
     const acc = r?.web_account;
     if (!acc) continue;
     const prev = latest.get(acc);
-    if (!prev || String(r.invoice_date || "") > String(prev.invoice_date || "")) {
+    if (!prev) {
+      latest.set(acc, r);
+      continue;
+    }
+    const rDate = String(r.invoice_date || "");
+    const prevDate = String(prev.invoice_date || "");
+    if (rDate > prevDate || (rDate === prevDate && String(r.name || "") > String(prev.name || ""))) {
       latest.set(acc, r);
     }
   }
@@ -169,7 +179,13 @@ async function sweepRenewals(deps) {
         ]),
         fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date"]),
         limit_page_length: 500,
-        order_by: "invoice_date desc",
+        // Secondary tie-break so two paid Subscription invoices dated the
+        // same day for the same account can never resolve inconsistently
+        // between this bulk query and checkoutBillingTerm.js's
+        // findLastPaidSubscriptionInvoice, which applies the same
+        // name-desc tie-break — latestPaidByAccount below applies the same
+        // rule in its own JS-side comparison as a second line of defense.
+        order_by: "invoice_date desc, name desc",
       },
     });
 
