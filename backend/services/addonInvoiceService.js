@@ -23,14 +23,15 @@ const CHILD_STATUS_FIELD = "status";
 const asArray = (v) => (Array.isArray(v) ? v : []);
 
 // Mirrors ONLY the "is this parseable at all" half of billingTerm.js's
-// daysRemainingInTerm — used to tell "term_started_on is missing/garbage"
-// (corrupted account data) apart from "term_started_on is a valid date that
-// simply lands on or past the term's last day" (a legitimate, if unusual,
-// zero). Does NOT duplicate the days-remaining math itself, and does not
-// change daysRemainingInTerm's own fail-safe contract — see FIX ROUND 1.
-function hasParsableTermStart(termStartedOn) {
-  if (!termStartedOn) return false;
-  const iso = String(termStartedOn).slice(0, 10);
+// daysRemainingInTerm — used to tell "the account's anchor date (the last
+// paid annual invoice's invoice_date) is missing/garbage" (corrupted invoice
+// data) apart from "the anchor date is a valid date that simply lands on or
+// past the term's last day" (a legitimate, if unusual, zero). Does NOT
+// duplicate the days-remaining math itself, and does not change
+// daysRemainingInTerm's own fail-safe contract — see FIX ROUND 1.
+function hasParsableTermStart(anchorDate) {
+  if (!anchorDate) return false;
+  const iso = String(anchorDate).slice(0, 10);
   return Number.isFinite(Date.parse(`${iso}T00:00:00Z`));
 }
 
@@ -63,7 +64,7 @@ function assertNotFreeAnnualAddonInvoice({ term, amount, anchorDate, serviceRows
   if (!allRowsArePriced) return;
 
   const err = new Error(
-    "Cannot invoice add-on(s): this account's annual billing term is missing a valid start date, which would otherwise produce a KES 0 invoice for a real service. Fix the account's term_started_on before billing add-ons."
+    "Cannot invoice add-on(s): the account's last paid annual invoice has a missing or invalid invoice_date, which would otherwise produce a KES 0 invoice for a real service."
   );
   err.statusCode = 422;
   err.code = "CORRUPTED_ANNUAL_TERM";
