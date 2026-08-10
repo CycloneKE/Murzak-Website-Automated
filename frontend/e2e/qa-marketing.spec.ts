@@ -202,15 +202,22 @@ test.describe('MKT-03 — live config peek never contradicts the real catalog', 
     // source of truth. Wait for the widget to finish cycling to all 3, then
     // read each row's price straight from the DOM.
     await page.goto('/');
-    await expect(page.locator('text=your plan')).toBeVisible({ timeout: 10000 });
+    // .first() — this is just a "has the widget mounted" readiness gate, and
+    // "your plan" legitimately renders twice on Home (ConfigPeek plus another
+    // section), which trips Playwright's strict-mode uniqueness check.
+    await expect(page.locator('text=your plan').first()).toBeVisible({ timeout: 10000 });
 
     // Let the 2.2s cycle interval run through all 3 items before reading.
     await page.waitForTimeout(2200 * 3 + 500);
 
     const rows = await page.evaluate(() => {
-      const items = Array.from(document.querySelectorAll('li')).filter((li) =>
-        /Website Hosting|Business Email|Murzak ERP/.test(li.textContent || '')
-      );
+      // Also require a price figure in the same <li> — Home's nav menu has
+      // its own "Murzak ERP" list item (a plain link, no price) that matches
+      // the service-name half of this filter but isn't a price row at all.
+      const items = Array.from(document.querySelectorAll('li')).filter((li) => {
+        const text = li.textContent || '';
+        return /Website Hosting|Business Email|Murzak ERP/.test(text) && /KES\s?[\d,]+|\$\s?\d/.test(text);
+      });
       return items.map((li) => li.textContent?.replace(/\s+/g, ' ').trim() || '');
     });
     expect(rows.length, 'ConfigPeek did not render its 3 service rows').toBeGreaterThanOrEqual(3);
@@ -252,18 +259,20 @@ test.describe('MKT-07 — per-page SEO title updates on client-side navigation',
 });
 
 test.describe('MKT-08 — hero background survives a slow network without breaking layout', () => {
-  test('Home hero renders its headline and CTA even before background images finish loading', async ({ page, context }) => {
-    // Throttle via CDP so image/font requests are slow, then assert the
-    // above-the-fold content (headline, CTA) is visible well before a normal
-    // full-page load would complete — the layout must not depend on the
-    // hero background image arriving first.
-    const client = await context.newCDPSession(page);
-    await client.send('Network.enable');
-    await client.send('Network.emulateNetworkConditions', {
-      offline: false,
-      latency: 400,
-      downloadThroughput: (50 * 1024) / 8, // ~50kbps
-      uploadThroughput: (50 * 1024) / 8,
+  test('Home hero renders its headline and CTA even before background images finish loading', async ({ page }) => {
+    // Delay only image/font requests so the hero background is slow, then
+    // assert the above-the-fold content (headline, CTA) is visible well
+    // before those requests resolve — the layout must not depend on the
+    // hero background image arriving first. A CDP-wide throttle (delaying
+    // *every* request, including the dev server's unbundled JS modules)
+    // would also stall the page's own bootstrap and made this test time out
+    // regardless of the hero layout's actual behavior.
+    await page.route('**/*', async (route) => {
+      const type = route.request().resourceType();
+      if (type === 'image' || type === 'font') {
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+      await route.continue();
     });
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });

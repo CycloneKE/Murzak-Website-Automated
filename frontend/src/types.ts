@@ -84,5 +84,6 @@ export type SelectedServiceView = {
   domainChoice?: string;
   status: ServiceStatus;
   isAddon: boolean;
+  /** Looked up from the service catalog by serviceId — matches ServiceHealth's looseness. */
   capacityClass?: string;
 };
