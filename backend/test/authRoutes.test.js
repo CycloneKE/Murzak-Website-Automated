@@ -2,15 +2,21 @@
  * authRoutes.js route tests — runs without Redis or Frappe.
  *   node test/authRoutes.test.js   (or: npm test)
  *
- * Scope: regression coverage for the Critical #1 guard
- * (assertNotAnnualBeforePlanChange) inside the two "apply pending plan
- * selected from Pricing before login" blocks — POST /api/login and
- * POST /api/auth/google. Both mirror the same pattern: an EXISTING account
- * (found by email, not created in this request) that queued a plan/services
- * selection while logged out. If that account is on an annual term,
+ * Scope: regression coverage for the two "apply pending plan selected from
+ * Pricing before login" blocks — POST /api/login and POST /api/auth/google.
+ * Both mirror the same pattern: an EXISTING account (found by email, not
+ * created in this request) that queued a plan/services selection while
+ * logged out. If that account is on an annual term,
  * applyPlanAndCreateInvoice (no billing-term awareness) must never run
- * against it. An existing account with NO pending plan, or with a pending
- * plan but no annual history, must be completely unaffected.
+ * against it — but login/sign-in must ALWAYS succeed regardless, and the
+ * queued pendingPlan/pendingServices must always be cleared. Refusing the
+ * request here (as an earlier revision did, via
+ * assertNotAnnualBeforePlanChange) is a worse bug than the one it prevents:
+ * since POST /api/plan/select is public/unauthenticated, it leaves the
+ * customer both logged out AND unable to clear the stuck pendingPlan,
+ * because every retry re-triggers the same refusal. An existing account
+ * with NO pending plan, or with a pending plan but no annual history, must
+ * be completely unaffected.
  *
  * Instantiates the authRoutes factory directly (no HTTP server) and calls
  * handlers with stub req/res, backed by the shared in-memory mock Frappe
@@ -29,7 +35,7 @@ function section(name) { console.log(`\n# ${name}`); }
 const bcrypt = require("bcrypt");
 const createAuthRouter = require("../routes/authRoutes");
 const { makeMockFrappe } = require("./helpers/mockFrappe");
-const { assertNotAnnualBeforePlanChange } = require("../services/checkoutBillingTerm");
+const { getCurrentBillingTerm } = require("../services/checkoutBillingTerm");
 const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
 
 function makeRes() {
@@ -123,7 +129,7 @@ function baseCtx(client, overrides = {}) {
     requireAuth: (req, res, next) => next(), // never invoked directly; findHandler skips it
     frappeClient: () => client,
     bcrypt,
-    assertNotAnnualBeforePlanChange,
+    getCurrentBillingTerm,
     assertWithinPlanLimit: () => {}, // permissive no-op: plan-limit enforcement is out of scope here
     assertOrderWithinCapacity: () => {},
     normalizeSelectedServices,
@@ -177,7 +183,7 @@ function seedAnnualPaidInvoice(store, webAccountName) {
   const PASSWORD = "correct-horse-battery-staple";
   const passwordHash = bcrypt.hashSync(PASSWORD, 10);
 
-  section("POST /api/login — annual-term account with a pending plan is refused (409 ANNUAL_TERM_LOCKED)");
+  section("POST /api/login — annual-term account with a pending plan logs in, dropping the pending plan (no 409 lockout)");
   {
     const seed = seedAccount("acct-annual-login", { email: "annual@example.com", passwordHash, plan: "Starter" });
     seedAnnualPaidInvoice(seed, "acct-annual-login");
@@ -190,10 +196,14 @@ function seedAnnualPaidInvoice(store, webAccountName) {
     };
     const res = makeRes();
     await handler(req, res);
-    ok(res.statusCode === 409, `status 409 (got ${res.statusCode}, body: ${JSON.stringify(res.body)})`);
-    ok(res.body?.code === "ANNUAL_TERM_LOCKED", "code === ANNUAL_TERM_LOCKED");
+    ok(res.statusCode === 200, `status 200 (got ${res.statusCode}, body: ${JSON.stringify(res.body)})`);
+    ok(res.body?.ok === true, "login succeeds instead of being refused");
+    ok(req.session.user && req.session.user.id === "acct-annual-login", "a real session was established (req.session.user set)");
+    ok(req.session.webAccount === "acct-annual-login", "req.session.webAccount set to the logged-in account");
     ok(client.store["Web Account"]["acct-annual-login"].plan === "Starter", "Web Account plan untouched");
     ok(Object.keys(client.store["Portal Invoice"]).length === 1, "no new Portal Invoice created");
+    ok(req.session.pendingPlan === null, "pendingPlan cleared instead of being left to re-trigger on the next login attempt");
+    ok(req.session.pendingServices === null, "pendingServices cleared");
   }
 
   section("POST /api/login — annual-term account with NO pending plan logs in unaffected");
@@ -230,7 +240,7 @@ function seedAnnualPaidInvoice(store, webAccountName) {
     ok(client.store["Web Account"]["acct-login-ok"].plan === "Starter", "pending plan applied");
   }
 
-  section("POST /api/auth/google — annual-term account with a pending plan is refused (409 ANNUAL_TERM_LOCKED)");
+  section("POST /api/auth/google — annual-term account with a pending plan signs in, dropping the pending plan (no 409 lockout)");
   {
     const seed = seedAccount("acct-annual-google", { email: "annualg@example.com", plan: "Starter" });
     seedAnnualPaidInvoice(seed, "acct-annual-google");
@@ -245,9 +255,13 @@ function seedAnnualPaidInvoice(store, webAccountName) {
     };
     const res = makeRes();
     await handler(req, res);
-    ok(res.statusCode === 409, `status 409 (got ${res.statusCode}, body: ${JSON.stringify(res.body)})`);
-    ok(res.body?.code === "ANNUAL_TERM_LOCKED", "code === ANNUAL_TERM_LOCKED");
+    ok(res.statusCode === 200, `status 200 (got ${res.statusCode}, body: ${JSON.stringify(res.body)})`);
+    ok(res.body?.ok === true, "sign-in succeeds instead of being refused");
+    ok(req.session.user && req.session.user.id === "acct-annual-google", "a real session was established (req.session.user set)");
+    ok(req.session.webAccount === "acct-annual-google", "req.session.webAccount set to the signed-in account");
     ok(client.store["Web Account"]["acct-annual-google"].plan === "Starter", "Web Account plan untouched");
+    ok(req.session.pendingPlan === null, "pendingPlan cleared instead of being left to re-trigger on the next sign-in attempt");
+    ok(req.session.pendingServices === null, "pendingServices cleared");
   }
 
   section("POST /api/auth/google — non-annual account with a pending plan passes through unaffected");

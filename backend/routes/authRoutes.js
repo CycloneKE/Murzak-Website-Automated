@@ -6,7 +6,6 @@ module.exports = function(ctx) {
     WEB_ACCOUNT_SERVICES_FIELD,
     appBaseUrl,
     applyPlanAndCreateInvoice,
-    assertNotAnnualBeforePlanChange,
     assertOrderWithinCapacity,
     assertWithinPlanLimit,
     authLimiter,
@@ -19,6 +18,7 @@ module.exports = function(ctx) {
     fetchSelectedServicesForUser,
     firebaseAdmin,
     frappeClient,
+    getCurrentBillingTerm,
     hashToken,
     isValidEmail,
     loginThrottle,
@@ -319,28 +319,41 @@ router.post("/api/login", authLimiter, async (req, res) => {
       // /pricing while logged out is still an EXISTING customer — if they're
       // on an annual term, applyPlanAndCreateInvoice below must not touch
       // their invoice. A login with no pending plan is unaffected.
-      await assertNotAnnualBeforePlanChange(client, docName);
+      //
+      // Login must always succeed regardless of what's queued in
+      // pendingPlan — refusing here (as opposed to the post-auth routes
+      // that also guard with this same check) would leave the customer
+      // logged out AND unable to clear the stuck pendingPlan themselves,
+      // since /api/plan/select is public and re-queues it on every retry.
+      // So an annual account's pending plan is dropped, not applied, and
+      // login proceeds normally on the account's real (untouched) plan.
+      const { term } = await getCurrentBillingTerm(client, docName);
+      if (term === "annual") {
+        console.warn(`LOGIN: account ${docName} is on an annual term; dropping queued plan selection (${pendingPlan}) instead of applying it.`);
+        req.session.pendingPlan = null;
+        req.session.pendingServices = null;
+      } else {
+        assertWithinPlanLimit(pendingPlan, pendingServices);
 
-      assertWithinPlanLimit(pendingPlan, pendingServices);
+        // persist web account services as Awaiting Payment
+        await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
+          plan: pendingPlan,
+          [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(pendingServices.map(s => ({
+            ...s,
+            status: "Awaiting Payment"
+          }))),
+          account_status: record.account_status || "Active"
+        });
 
-      // persist web account services as Awaiting Payment
-      await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
-        plan: pendingPlan,
-        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(pendingServices.map(s => ({
-          ...s,
-          status: "Awaiting Payment"
-        }))),
-        account_status: record.account_status || "Active"
-      });
-
-      // update/create invoice (upsert)
-      if (pendingPlan !== "Test") {
-        await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
+        // update/create invoice (upsert)
+        if (pendingPlan !== "Test") {
+          await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
+        }
+        planOverride = pendingPlan;
+        record.plan = pendingPlan;
+        req.session.pendingPlan = null;
+        req.session.pendingServices = null;
       }
-      planOverride = pendingPlan;
-      record.plan = pendingPlan;
-      req.session.pendingPlan = null;
-      req.session.pendingServices = null;
     }
     // Fetch invoices for portal display
     const invoices = await fetchInvoicesForUser(client, record.name);
@@ -483,27 +496,34 @@ router.post("/api/auth/google", authLimiter, async (req, res) => {
     const pendingServices = normalizeSelectedServices(req.session.pendingServices);
     let planOverride = null;
     if (pendingPlan) {
-      // Mirrors /api/login's guard: an existing account signing in with a
-      // pending plan is still an EXISTING customer — refuse before
-      // applyPlanAndCreateInvoice below can touch an annual-term invoice.
-      await assertNotAnnualBeforePlanChange(client, docName);
-
-      assertWithinPlanLimit(pendingPlan, pendingServices);
-      await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
-        plan: pendingPlan,
-        [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(pendingServices.map(s => ({
-          ...s,
-          status: "Awaiting Payment"
-        }))),
-        account_status: record.account_status || "Active"
-      });
-      if (pendingPlan !== "Test") {
-        await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
+      // Mirrors /api/login's handling: an existing account signing in with a
+      // pending plan is still an EXISTING customer, and applyPlanAndCreateInvoice
+      // below has no billing-term awareness — but sign-in must always succeed
+      // regardless of what's queued in pendingPlan. See the matching comment
+      // in /api/login for why refusing here would be an unrecoverable lockout.
+      const { term } = await getCurrentBillingTerm(client, docName);
+      if (term === "annual") {
+        console.warn(`GOOGLE AUTH: account ${docName} is on an annual term; dropping queued plan selection (${pendingPlan}) instead of applying it.`);
+        req.session.pendingPlan = null;
+        req.session.pendingServices = null;
+      } else {
+        assertWithinPlanLimit(pendingPlan, pendingServices);
+        await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
+          plan: pendingPlan,
+          [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(pendingServices.map(s => ({
+            ...s,
+            status: "Awaiting Payment"
+          }))),
+          account_status: record.account_status || "Active"
+        });
+        if (pendingPlan !== "Test") {
+          await applyPlanAndCreateInvoice(client, docName, pendingPlan, pendingServices);
+        }
+        planOverride = pendingPlan;
+        record.plan = pendingPlan;
+        req.session.pendingPlan = null;
+        req.session.pendingServices = null;
       }
-      planOverride = pendingPlan;
-      record.plan = pendingPlan;
-      req.session.pendingPlan = null;
-      req.session.pendingServices = null;
     }
     const invoices = await fetchInvoicesForUser(client, docName);
     const selectedServices = await fetchSelectedServicesForUser(client, docName);
