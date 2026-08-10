@@ -45,11 +45,6 @@ function findHandler(router, method, path) {
 // real implementations closely; pricing itself always comes from the real
 // catalog snapshot via the real orderStore/orderCapacity modules above. ----
 
-function seqOf(name) {
-  const m = /-(\d+)$/.exec(String(name || ""));
-  return m ? Number(m[1]) : 0;
-}
-
 function normalizeSelectedServices(input) {
   return (Array.isArray(input) ? input : [])
     .map((s) => ({
@@ -145,13 +140,6 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
   return { ok: true, invoice: created.data?.data };
 }
 
-async function fetchInvoicesForUser(client, webAccountName) {
-  const res = await client.get("/api/resource/Portal Invoice");
-  const rows = (res.data?.data || []).filter((i) => i.web_account === webAccountName);
-  rows.sort((a, b) => seqOf(b.name) - seqOf(a.name));
-  return rows.map((i) => ({ docName: i.name, status: i.status, type: i.type, plan: i.plan, amount: i.amount }));
-}
-
 function baseCtx(client, overrides = {}) {
   return {
     requireAuth: (req, res, next) => next(), // never invoked directly; findHandler skips it
@@ -166,11 +154,9 @@ function baseCtx(client, overrides = {}) {
       throw new Error("createAddonInvoice should not be called in this test");
     },
     hasPaidSubscriptionForPlan: async () => false,
-    isEligibleForTermChoice: async () => false,
     fetchWebAccount,
     applyPlanAndCreateInvoice,
     updateWebAccountServices,
-    fetchInvoicesForUser,
     asArray: (v) => (Array.isArray(v) ? v : []),
     normalizeSelectedServices,
     findOpenInvoice: async () => null,
@@ -236,12 +222,16 @@ function baseCtx(client, overrides = {}) {
 
   section("GET /api/orders/:id — eligibleForTermChoice");
   {
+    // No ctx override here: ordersRoutes.js imports isEligibleForTermChoice
+    // directly as a plain module function (mirroring annualPrepayKes), never
+    // reading it off ctx, so a ctx override wouldn't affect the real call
+    // below. The real function returns true here because acct-elig
+    // genuinely has no paid Subscription invoice on file — a real first
+    // purchase, the actual condition this test documents.
     const client = makeMockFrappe({
       "Web Account": { "acct-elig": { name: "acct-elig", plan: "None", selected_services: [] } },
     });
-    const ctx = baseCtx(client, {
-      isEligibleForTermChoice: async () => true,
-    });
+    const ctx = baseCtx(client);
     const router = createOrdersRouter(ctx);
     const create = findHandler(router, "post", "/api/orders");
     const get = findHandler(router, "get", "/api/orders/:id");
@@ -253,7 +243,7 @@ function baseCtx(client, overrides = {}) {
     const res = makeRes();
     await get({ session: { webAccount: "acct-elig" }, params: { id: orderId } }, res);
     ok(res.statusCode === 200, "status 200");
-    ok(res.body?.order?.eligibleForTermChoice === true, "eligibleForTermChoice reflects the eligibility check");
+    ok(res.body?.order?.eligibleForTermChoice === true, "eligibleForTermChoice reflects the real eligibility check (no paid invoice history)");
   }
   {
     // Fail-safe direction: an eligibility-check error must resolve to
