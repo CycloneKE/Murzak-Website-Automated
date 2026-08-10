@@ -119,10 +119,10 @@ router.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
       user
     });
   } catch (err) {
-    console.error("UPGRADE ERROR:", err.response?.data || err.message);
     const status = err.statusCode || 500;
     const body = { error: status >= 500 ? "Failed to upgrade subscription." : err.message };
     if (err.code) body.code = err.code;
+    if (status >= 500) console.error("UPGRADE ERROR:", err.response?.data || err.message);
     return res.status(status).json(body);
   }
 });
@@ -276,10 +276,10 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
       user: userPayload
     });
   } catch (err) {
-    console.error("SERVICES UPDATE ERROR:", err.response?.data || err.message);
     const status = err.statusCode || 500;
-    const body = { error: err.message || "Failed to update services." };
+    const body = { error: status >= 500 ? "Failed to update services." : err.message };
     if (err.code) body.code = err.code;
+    if (status >= 500) console.error("SERVICES UPDATE ERROR:", err.response?.data || err.message);
     return res.status(status).json(body);
   }
 });

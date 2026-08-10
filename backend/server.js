@@ -91,7 +91,7 @@ const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
-const { assertNotAnnualBeforePlanChange } = require("./services/checkoutBillingTerm");
+const { assertNotAnnualBeforePlanChange, getCurrentBillingTerm } = require("./services/checkoutBillingTerm");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -2031,10 +2031,10 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
 
     return res.json({ ok: true, user, invoices });
   } catch (err) {
-    console.error("ATTACH SELECTION ERROR:", err.response?.data || err.message);
     const status = err.statusCode || 500;
     const body = { error: status >= 500 ? "Failed to attach selection." : err.message };
     if (err.code) body.code = err.code;
+    if (status >= 500) console.error("ATTACH SELECTION ERROR:", err.response?.data || err.message);
     return res.status(status).json(body);
   }
 });
@@ -3501,6 +3501,7 @@ const routeContext = {
   findLatestPaidSubscriptionInvoice,
   applyPlanAndCreateInvoice,
   assertNotAnnualBeforePlanChange,
+  getCurrentBillingTerm,
   setupTrialVerification,
   expireStaleTrials,
   fetchInvoicesForUser,
