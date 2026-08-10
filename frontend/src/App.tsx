@@ -34,36 +34,8 @@ import ForHealthcare from "./pages/for/ForHealthcare";
 import ForLogistics from "./pages/for/ForLogistics";
 import ForServices from "./pages/for/ForServices";
 
-import { Page, User } from "./types";
+import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
-
-// ---- Map Page keys -> URL paths ----
-const pageToPath: Record<Page, string> = {
-  home: "/",
-  services: "/services",
-  cloud: "/cloud",
-  pricing: "/pricing",
-  solutions: "/solutions",
-  products: "/products",
-  about: "/about",
-  contact: "/contact",
-  "test-request": "/test-request",
-  privacy: "/privacy",
-  terms: "/terms",
-  sla: "/sla",
-  login: "/login",
-  portal: "/portal",
-  payment: "/payment",
-  pos: "/products/pos",
-  erp: "/products/erp",
-  crm: "/products/crm",
-  "custom-software": "/products/custom",
-  "for-retail": "/for/retail",
-  "for-clinics": "/for/clinics",
-  "for-logistics": "/for/logistics",
-  "for-services": "/for/services",
-  deploy: "/deploy",
-};
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -238,6 +210,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const meta = isNotFoundRoute ? notFoundMeta : pageMetadata[activePage] || pageMetadata.home;
     document.title = meta.title;
+    // pageMetadata already carries a per-page description (written when the
+    // title map was authored) — it was just never applied to the actual tag,
+    // so every route showed index.html's static, homepage-only description
+    // in search results. Update the same tag in place rather than adding a
+    // new one, since index.html's is the one crawlers see before hydration.
+    const descTag = document.querySelector('meta[name="description"]');
+    if (descTag) descTag.setAttribute("content", meta.description);
     window.scrollTo({ top: 0, behavior: "auto" });
 
     setIsPageLoading(true);
