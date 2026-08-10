@@ -73,6 +73,14 @@ test.describe('CHK-01 — happy path: launch, checkout, pay', () => {
     // Reservation countdown (Checkout.tsx: "We're holding your spot · MM:SS").
     await expect(page.getByText(/holding your spot/i)).toBeVisible();
 
+    // A brand-new account's first monthly-billed purchase is eligible for a
+    // billing-term choice (checkoutBillingTerm.js's isEligibleForTermChoice)
+    // — Checkout.tsx defers prepare-payment until the selector is confirmed,
+    // so the payment rail below never appears until this is clicked. Default
+    // selection is Monthly, matching MONTHLY_KES_TEXT above.
+    await expect(page.getByText('Billing', { exact: true })).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+
     // Dev-only mock-pay rail (PaymentMethods.tsx, gated on import.meta.env.DEV
     // — only visible once /prepare-payment + the invoice GET have completed).
     const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });

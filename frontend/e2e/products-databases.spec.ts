@@ -63,7 +63,11 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
     await expect(page.getByText('KES 2,000', { exact: false }).first()).toBeVisible();
     // Database engines are monthly-billed (not a domain-registration order),
     // so Checkout.tsx's isYearlyBilled() branch must show "/mo", not "/yr".
-    await expect(page.getByText('KES 2,000/mo', { exact: false })).toBeVisible();
+    // A brand-new account's first purchase is also eligible for the annual-
+    // prepay term selector, whose "Billed monthly" tile legitimately shows
+    // this exact same price text a second time — .first() scopes this back
+    // to the order-summary figure specifically, matching line 63 above.
+    await expect(page.getByText('KES 2,000/mo', { exact: false }).first()).toBeVisible();
   });
 
   test('PostgreSQL, MongoDB, and Redis cards each deep-link to their own catalog id', async ({ page }) => {
@@ -90,6 +94,20 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
       await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(catalogName)).toBeVisible();
+
+      // Cancel before the next iteration: createOrder's shared-fleet RAM
+      // reservation guard (orderStore.js's reservedDraftRamMb) sums ALL
+      // accounts' live Draft orders, not just this one — three uncancelled
+      // Draft orders in a row (this loop never pays or cancels any of them)
+      // eventually trips a real 409 CAPACITY refusal on the next order, since
+      // the pool is shared across the whole CI run's other tests too. Each
+      // deep-link here only needs to prove routing/catalog-id resolution, not
+      // a live reservation, so releasing it immediately keeps this test from
+      // starving capacity for whatever runs after it.
+      const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+      if (orderId) {
+        await page.request.post(`/api/orders/${orderId}/cancel`);
+      }
     }
   });
 });

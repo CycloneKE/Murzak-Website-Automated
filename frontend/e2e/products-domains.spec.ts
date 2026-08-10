@@ -70,7 +70,9 @@ test.describe('PRODDOM-01 — domain search selects and launches checkout', () =
     // Domain-registration orders are yearly-billed (Task 3's isYearlyBilled(),
     // wired into Checkout.tsx by Task 4) — confirm "/yr" is shown and "/mo"
     // is not, proving the period branch actually took the yearly path.
-    await expect(page.getByText('/yr', { exact: false })).toBeVisible();
+    // Explicit timeout matches the other assertions in this file — the
+    // default 5s window is tight against a real (non-mocked) backend.
+    await expect(page.getByText('/yr', { exact: false })).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('/mo', { exact: false })).not.toBeVisible();
   });
 
