@@ -6,6 +6,7 @@ module.exports = function(ctx) {
     WEB_ACCOUNT_SERVICES_FIELD,
     appBaseUrl,
     applyPlanAndCreateInvoice,
+    assertNotAnnualBeforePlanChange,
     assertOrderWithinCapacity,
     assertWithinPlanLimit,
     authLimiter,
@@ -314,6 +315,12 @@ router.post("/api/login", authLimiter, async (req, res) => {
     const pendingServices = normalizeSelectedServices(req.session.pendingServices);
     let planOverride = null;
     if (pendingPlan) {
+      // An existing account logging in with a plan queued from browsing
+      // /pricing while logged out is still an EXISTING customer — if they're
+      // on an annual term, applyPlanAndCreateInvoice below must not touch
+      // their invoice. A login with no pending plan is unaffected.
+      await assertNotAnnualBeforePlanChange(client, docName);
+
       assertWithinPlanLimit(pendingPlan, pendingServices);
 
       // persist web account services as Awaiting Payment
@@ -373,9 +380,10 @@ router.post("/api/login", authLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("LOGIN ERROR:", err.response?.data || err.message);
-    return res.status(500).json({
-      error: "Login failed."
-    });
+    const status = err.statusCode || 500;
+    const body = { error: status >= 500 ? "Login failed." : err.message };
+    if (err.code) body.code = err.code;
+    return res.status(status).json(body);
   }
 });
 
@@ -475,6 +483,11 @@ router.post("/api/auth/google", authLimiter, async (req, res) => {
     const pendingServices = normalizeSelectedServices(req.session.pendingServices);
     let planOverride = null;
     if (pendingPlan) {
+      // Mirrors /api/login's guard: an existing account signing in with a
+      // pending plan is still an EXISTING customer — refuse before
+      // applyPlanAndCreateInvoice below can touch an annual-term invoice.
+      await assertNotAnnualBeforePlanChange(client, docName);
+
       assertWithinPlanLimit(pendingPlan, pendingServices);
       await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
         plan: pendingPlan,
@@ -529,9 +542,10 @@ router.post("/api/auth/google", authLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error("GOOGLE AUTH ERROR:", err.response?.data || err.message);
-    return res.status(500).json({
-      error: "Sign-in failed."
-    });
+    const status = err.statusCode || 500;
+    const body = { error: status >= 500 ? "Sign-in failed." : err.message };
+    if (err.code) body.code = err.code;
+    return res.status(status).json(body);
   }
 });
 

@@ -91,6 +91,7 @@ const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
+const { assertNotAnnualBeforePlanChange } = require("./services/checkoutBillingTerm");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -1794,6 +1795,12 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       return res.status(401).json({ error: "Not authenticated." });
     }
 
+    // An annual-term account's invoice must never be touched by this route's
+    // eventual applyPlanAndCreateInvoice call (it has no billing-term
+    // awareness) — refuse before any read/write happens. See
+    // assertNotAnnualBeforePlanChange's docblock in checkoutBillingTerm.js.
+    await assertNotAnnualBeforePlanChange(frappeClient(), webAccountName);
+
     const {
       planKey,
       selectedServices: incomingSelectedServices,
@@ -2025,7 +2032,10 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
     return res.json({ ok: true, user, invoices });
   } catch (err) {
     console.error("ATTACH SELECTION ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to attach selection." });
+    const status = err.statusCode || 500;
+    const body = { error: status >= 500 ? "Failed to attach selection." : err.message };
+    if (err.code) body.code = err.code;
+    return res.status(status).json(body);
   }
 });
 
@@ -3490,6 +3500,7 @@ const routeContext = {
   findExistingUnpaidSubscriptionInvoice,
   findLatestPaidSubscriptionInvoice,
   applyPlanAndCreateInvoice,
+  assertNotAnnualBeforePlanChange,
   setupTrialVerification,
   expireStaleTrials,
   fetchInvoicesForUser,

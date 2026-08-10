@@ -20,6 +20,7 @@ const {
   readInvoiceBillingTerm,
   getCurrentBillingTerm,
   isEligibleForTermChoice,
+  assertNotAnnualBeforePlanChange,
 } = require("../services/checkoutBillingTerm");
 
 // Minimal mock: a single "web_account" can have at most one paid Subscription
@@ -110,6 +111,51 @@ function makeClient({ paidInvoice = null, docsByName = {} } = {}) {
   {
     const client = makeClient({ paidInvoice: null });
     ok(await isEligibleForTermChoice(client, "acct-1", "Domain Registration") === false, "domain product -> never eligible, regardless of history");
+  }
+
+  section("assertNotAnnualBeforePlanChange");
+  {
+    // Guard against Critical #1: any route that can create/update a Portal
+    // Invoice via server.js's applyPlanAndCreateInvoice must refuse for an
+    // account whose last paid Subscription invoice is annual, since that
+    // function has no billing-term awareness at all.
+    const client = makeClient({
+      paidInvoice: { name: "PINV-ANN", invoice_date: "2026-01-01" },
+      docsByName: { "PINV-ANN": { name: "PINV-ANN", billing_term: "annual" } },
+    });
+    let caught = null;
+    try {
+      await assertNotAnnualBeforePlanChange(client, "acct-annual");
+    } catch (e) {
+      caught = e;
+    }
+    ok(!!caught, "throws for an account whose current term is annual");
+    ok(caught?.statusCode === 409, "statusCode === 409");
+    ok(caught?.code === "ANNUAL_TERM_LOCKED", "code === ANNUAL_TERM_LOCKED");
+    ok(!/term_started_on/.test(caught?.message || ""), "message does not reference the removed term_started_on field");
+  }
+  {
+    const client = makeClient({
+      paidInvoice: { name: "PINV-MO", invoice_date: "2026-01-01" },
+      docsByName: { "PINV-MO": { name: "PINV-MO", billing_term: "monthly" } },
+    });
+    let caught = null;
+    try {
+      await assertNotAnnualBeforePlanChange(client, "acct-monthly");
+    } catch (e) {
+      caught = e;
+    }
+    ok(!caught, "does NOT throw for an account whose current term is monthly");
+  }
+  {
+    const client = makeClient({ paidInvoice: null });
+    let caught = null;
+    try {
+      await assertNotAnnualBeforePlanChange(client, "acct-no-history");
+    } catch (e) {
+      caught = e;
+    }
+    ok(!caught, "does NOT throw for an account with no paid invoice history (first purchase)");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

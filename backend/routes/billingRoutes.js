@@ -16,6 +16,7 @@ module.exports = function(ctx) {
     applyPlanAndCreateInvoice,
     archiver,
     asArray,
+    assertNotAnnualBeforePlanChange,
     assertWithinPlanLimit,
     axios,
     buildUserPayload,
@@ -54,6 +55,12 @@ router.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
     if (!webAccountName) return res.status(401).json({
       error: "Missing web account in session."
     });
+
+    // An annual-term account's invoice must never be touched by this route's
+    // applyPlanAndCreateInvoice call below (it has no billing-term awareness)
+    // — refuse before any read/write happens.
+    await assertNotAnnualBeforePlanChange(client, webAccountName);
+
     const record = await fetchWebAccount(client, webAccountName);
     const currentPlan = record?.plan || "None";
     if (currentPlan === "None") {
@@ -113,9 +120,10 @@ router.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("UPGRADE ERROR:", err.response?.data || err.message);
-    return res.status(500).json({
-      error: "Failed to upgrade subscription."
-    });
+    const status = err.statusCode || 500;
+    const body = { error: status >= 500 ? "Failed to upgrade subscription." : err.message };
+    if (err.code) body.code = err.code;
+    return res.status(status).json(body);
   }
 });
 
@@ -215,6 +223,11 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
     assertWithinPlanLimit(plan, selectedServices);
     const client = frappeClient();
 
+    // An annual-term account's invoice must never be touched by this route's
+    // applyPlanAndCreateInvoice call below (it has no billing-term awareness)
+    // — refuse before any read/write happens.
+    await assertNotAnnualBeforePlanChange(client, webAccountName);
+
     // Read parent doc so we can update its child table safely
     const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
     const account = accRes.data?.data || {};
@@ -264,10 +277,10 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("SERVICES UPDATE ERROR:", err.response?.data || err.message);
-    const code = err.statusCode || 500;
-    return res.status(code).json({
-      error: err.message || "Failed to update services."
-    });
+    const status = err.statusCode || 500;
+    const body = { error: err.message || "Failed to update services." };
+    if (err.code) body.code = err.code;
+    return res.status(status).json(body);
   }
 });
 
