@@ -18,6 +18,38 @@ function sqlNow(d) {
   return d.toISOString().slice(0, 19).replace("T", " ");
 }
 
+// Per-account mutex around activateServicesForInvoice's critical section
+// below. That section does a read-modify-write on the Web Account's
+// services array (GET account -> map rows -> PUT the whole array back) —
+// two calls for the SAME account racing (a webhook and a browser capture
+// for the same invoice, or two invoices settling close together) can lose
+// one write to the other. Serializing per account closes that.
+//
+// In-process only: this app has no REDIS_URL configured today, so sessions
+// and the per-account login lockout already only work correctly within a
+// single instance — an in-process mutex is a strict improvement (nothing
+// was serialized before) and fully closes the race for that deployment. If
+// this ever runs as more than one instance, this needs to become a
+// Redis-backed lock (SET NX PX) instead; an in-process Map can't coordinate
+// across processes.
+const accountLocks = new Map(); // webAccountName -> tail Promise of that account's queue
+
+function withAccountLock(webAccountName, fn) {
+  const prev = accountLocks.get(webAccountName) || Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  // Chain off `run` (not `prev`) so the next caller queues behind this one
+  // too, but swallow this call's own rejection in the chain itself so one
+  // failed activation doesn't wedge every later call for the same account.
+  const tail = run.catch(() => {});
+  accountLocks.set(webAccountName, tail);
+  // Once nothing is queued behind us, drop the entry so the Map doesn't
+  // grow forever across the process's lifetime.
+  tail.then(() => {
+    if (accountLocks.get(webAccountName) === tail) accountLocks.delete(webAccountName);
+  });
+  return run;
+}
+
 // When a TRIAL verification invoice is paid, START the 36h trial: flip the
 // linked Test Plan Invoice to Active and stamp trial_start / trial_end.
 // Best-effort + idempotent (skips if already Active); never throws.
@@ -94,6 +126,40 @@ async function activateServicesForInvoice({
     throw err;
   }
 
+  // Everything below reads-then-writes the Web Account record, so it must
+  // run one-at-a-time per account — see withAccountLock's comment above.
+  return withAccountLock(webAccountName, () =>
+    activateServicesForInvoiceLocked({
+      req,
+      frappeClient,
+      invoiceDocName,
+      paymentVerified,
+      webAccountName,
+      PORTAL_INVOICE_SERVICES_FIELD,
+      CHILD_SERVICE_ID_FIELD,
+      WEB_ACCOUNT_SERVICES_FIELD,
+      CHILD_STATUS_FIELD,
+      fetchInvoicesForUser,
+      fetchSelectedServicesForUser,
+      buildUserPayload,
+    })
+  );
+}
+
+async function activateServicesForInvoiceLocked({
+  req,
+  frappeClient,
+  invoiceDocName,
+  paymentVerified,
+  webAccountName,
+  PORTAL_INVOICE_SERVICES_FIELD,
+  CHILD_SERVICE_ID_FIELD,
+  WEB_ACCOUNT_SERVICES_FIELD,
+  CHILD_STATUS_FIELD,
+  fetchInvoicesForUser,
+  fetchSelectedServicesForUser,
+  buildUserPayload,
+}) {
   const client = frappeClient();
 
   const invRes = await client.get(

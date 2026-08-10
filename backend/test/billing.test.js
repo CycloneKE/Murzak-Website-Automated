@@ -142,6 +142,71 @@ function baseArgs(extra) {
     );
   }
 
+  section("concurrency: two invoices activating for the SAME account don't clobber each other");
+  {
+    // Simulates the actual race withAccountLock guards against: a webhook and
+    // a browser capture (or two invoices settling close together) racing on
+    // the same account's Web Account record. Without the lock, both calls
+    // read the account before either write lands, and whichever PUT finishes
+    // last wins — silently dropping the other invoice's activation.
+    const invoices = {
+      "INV-A": { name: "INV-A", web_account: "acct-race", status: "Unpaid", services: [{ service_id: "svc-a" }] },
+      "INV-B": { name: "INV-B", web_account: "acct-race", status: "Unpaid", services: [{ service_id: "svc-b" }] },
+    };
+    let account = { services: [{ service_id: "svc-a", status: "Pending" }, { service_id: "svc-b", status: "Pending" }] };
+    // Explicit barrier instead of a raw setTimeout race: without the lock,
+    // both calls' Web Account reads arrive here close together, the barrier
+    // releases both at once with the SAME pre-write snapshot (guaranteed
+    // clobber below). With the lock, the second call's read can't happen
+    // until the first call's entire critical section (through its own
+    // write) has already finished, so it only ever proceeds via the
+    // fallback timeout, by which point it reads post-write state.
+    let arrivals = 0;
+    let releaseGate;
+    const gate = new Promise((resolve) => { releaseGate = resolve; });
+    const frappeClient = () => ({
+      get: async (url) => {
+        if (/Web(%20| )Account/.test(url)) {
+          arrivals++;
+          if (arrivals >= 2) releaseGate();
+          await Promise.race([gate, new Promise((r) => setTimeout(r, 50))]);
+          return { data: { data: account } };
+        }
+        const inv = Object.values(invoices).find((i) => url.includes(i.name));
+        return { data: { data: inv } };
+      },
+      put: async (url, body) => {
+        if (/Portal(%20| )Invoice/.test(url) && body.status) {
+          const inv = Object.values(invoices).find((i) => url.includes(i.name));
+          if (inv) inv.status = body.status;
+        }
+        if (/Web(%20| )Account/.test(url) && body.services) {
+          account = { ...account, services: body.services };
+        }
+        return { data: { data: {} } };
+      },
+      post: async () => ({ data: { data: {} } }),
+    });
+    const argsFor = (invName) => ({
+      req: { session: { webAccount: "acct-race", user: { id: "acct-race" } } },
+      invoiceDocName: invName,
+      ...FIELDS,
+      ...stubs,
+      frappeClient,
+      paymentVerified: true,
+    });
+
+    await Promise.all([
+      activateServicesForInvoice(argsFor("INV-A")),
+      activateServicesForInvoice(argsFor("INV-B")),
+    ]);
+
+    const svcA = account.services.find((s) => s.service_id === "svc-a");
+    const svcB = account.services.find((s) => s.service_id === "svc-b");
+    ok(svcA?.status !== "Pending", `concurrent activation: svc-a (INV-A) was not lost (got ${svcA?.status})`);
+    ok(svcB?.status !== "Pending", `concurrent activation: svc-b (INV-B) was not lost (got ${svcB?.status})`);
+  }
+
   section("server-side per-order capacity guard");
   {
     // biz-erp-configured (4096MB) + biz-db-medium (4096MB) = 8192MB > 6144 cap.

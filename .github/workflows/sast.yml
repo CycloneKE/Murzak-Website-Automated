@@ -127,6 +127,11 @@ jobs:
           # but preserves the browser Origin header; the fail-closed CORS
           # allow-list must include it or every POST is rejected.
           ALLOWED_ORIGINS: http://localhost:5173
+          # Skips the per-IP rate limiters (not the per-account login lockout)
+          # — the whole 115-test suite shares one backend process/IP, and
+          # register/login-heavy specs alone exceed those production budgets,
+          # 429-ing unrelated tests. See server.js's skipInE2E.
+          E2E_TEST: 'true'
         run: |
           nohup node server.js > backend.log 2>&1 &
           for i in $(seq 1 30); do
@@ -141,6 +146,15 @@ jobs:
           echo "Backend did not become ready in time." >&2
           cat backend.log || true
           exit 1
+
+      - name: Run security & admin live-probe tests (test:qa-live)
+        working-directory: ./backend
+        # SEC-*/ADM-* suites (qaSecurity.test.js, qaAdmin.test.js) are live HTTP
+        # probes — headers, IDOR/auth gating, error-leak checks — that can't run
+        # under plain `npm test` since they need a live server. This job already
+        # has one up for Playwright, so run them here instead of leaving them to
+        # a human remembering `npm run test:qa-live` against staging.
+        run: npm run test:qa-live
 
       - name: Run E2E Tests
         working-directory: ./frontend
