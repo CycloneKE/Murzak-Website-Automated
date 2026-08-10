@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
+export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'thank-you' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
 
 // Single source of truth for Page key -> URL path, shared by App.tsx's router
 // wiring and anything (e.g. Breadcrumbs) that needs to turn a Page key into a
@@ -22,6 +22,7 @@ export const pageToPath: Record<Page, string> = {
   login: "/login",
   portal: "/portal",
   payment: "/payment",
+  "thank-you": "/thank-you",
   pos: "/products/pos",
   erp: "/products/erp",
   crm: "/products/crm",
