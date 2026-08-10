@@ -127,6 +127,11 @@ jobs:
           # but preserves the browser Origin header; the fail-closed CORS
           # allow-list must include it or every POST is rejected.
           ALLOWED_ORIGINS: http://localhost:5173
+          # Skips the per-IP rate limiters (not the per-account login lockout)
+          # — the whole 115-test suite shares one backend process/IP, and
+          # register/login-heavy specs alone exceed those production budgets,
+          # 429-ing unrelated tests. See server.js's skipInE2E.
+          E2E_TEST: 'true'
         run: |
           nohup node server.js > backend.log 2>&1 &
           for i in $(seq 1 30); do

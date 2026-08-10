@@ -114,6 +114,13 @@ test.describe('AUTH-06 — logout clears the session', () => {
     // New accounts with nothing in the cart land straight in the portal.
     await expect(page).toHaveURL(/\/portal/, { timeout: 15000 });
 
+    // A brand-new account gets the full-screen "Getting Started" onboarding
+    // tour, which covers the sidebar (including Log out) until dismissed.
+    const skipOnboarding = page.getByRole('button', { name: /Skip for now/i });
+    if (await skipOnboarding.isVisible().catch(() => false)) {
+      await skipOnboarding.click();
+    }
+
     const [logoutResp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/logout')),
       page.getByRole('button', { name: /Log out/i }).click(),
@@ -139,6 +146,11 @@ test.describe('AUTH-02 — per-account login lockout', () => {
   test('the 9th failed attempt in a row locks the account (429), a fresh account is unaffected', async ({ page }) => {
     const suffix = Math.floor(Math.random() * 1e9);
     const email = `test_lockout_${suffix}@example.com`;
+
+    // Relative fetch() URLs only resolve once the page has a real origin —
+    // without this the evaluate() calls below throw "Failed to parse URL
+    // from /api/login" because a fresh page starts at about:blank.
+    await page.goto('/');
 
     let lastStatus = 0;
     let lastBody: any = {};

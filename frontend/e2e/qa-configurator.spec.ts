@@ -25,7 +25,12 @@ test.describe('CFG-02 — self-serve RAM/disk cap routes to a dedicated quote', 
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
 
     const serviceList = page.locator('.lg\\:col-span-8');
-    const addButtons = serviceList.locator('.group').getByRole('button', { name: 'Add' });
+    // exact: true matters here — role name matching is substring by default,
+    // so { name: 'Add' } without it also matches "Added" buttons. Since items
+    // never reorder after selection, an unqualified match would keep
+    // re-resolving to the same first (already-added) item and just toggle it
+    // on/off instead of accumulating new services.
+    const addButtons = serviceList.locator('.group').getByRole('button', { name: 'Add', exact: true });
 
     // Click "Add" repeatedly (skipping ones that flip to "Added" as we go —
     // Playwright re-resolves the locator each iteration) until the capacity
@@ -65,10 +70,16 @@ test.describe('CFG-05 — domain search shows honest available/taken states', ()
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([
-          { domain: 'qa-example.co.ke', tld: '.co.ke', available: true, priceKes: 1200 },
-          { domain: 'qa-example.com', tld: '.com', available: false, priceKes: 1500 },
-        ]),
+        // services/domains.ts's checkDomain() only trusts a response shaped
+        // like the real backend's ({ results: [...] }) — a bare array fails
+        // its Array.isArray(data?.results) check and silently falls back to
+        // the local pseudo-random simulation instead of this mock.
+        body: JSON.stringify({
+          results: [
+            { domain: 'qa-example.co.ke', tld: '.co.ke', available: true, priceKes: 1200 },
+            { domain: 'qa-example.com', tld: '.com', available: false, priceKes: 1500 },
+          ],
+        }),
       })
     );
 
@@ -80,7 +91,10 @@ test.describe('CFG-05 — domain search shows honest available/taken states', ()
 
     const serviceList = page.locator('.lg\\:col-span-8');
     const webHostingItem = serviceList.locator('.group').filter({ hasText: 'Website Hosting (Starter)' }).first();
-    await webHostingItem.getByRole('button', { name: 'Add' }).click();
+    await webHostingItem.getByRole('button', { name: 'Add', exact: true }).click();
+    // The domain-choice buttons only render once the card is expanded
+    // (progressive disclosure) — clicking "Add" alone doesn't expand it.
+    await webHostingItem.getByText('Website Hosting (Starter)').click();
 
     const registerBtn = page.getByRole('button', { name: /Register New Domain/i }).first();
     await expect(registerBtn, 'Register New Domain choice not offered for this service').toBeVisible({
