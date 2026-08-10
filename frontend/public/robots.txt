@@ -1,0 +1,43 @@
+User-agent: *
+Allow: /
+Disallow: /portal/
+Disallow: /payment/
+Disallow: /checkout/
+Disallow: /deploy
+Disallow: /api/
+
+# Specifically inviting AI Agents for better indexing
+User-agent: GPTBot
+Allow: /
+Disallow: /portal/
+Disallow: /payment/
+Disallow: /checkout/
+Disallow: /deploy
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /portal/
+Disallow: /payment/
+Disallow: /checkout/
+Disallow: /deploy
+Disallow: /api/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /portal/
+Disallow: /payment/
+Disallow: /checkout/
+Disallow: /deploy
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /portal/
+Disallow: /payment/
+Disallow: /checkout/
+Disallow: /deploy
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://murzaktech.com/sitemap.xml

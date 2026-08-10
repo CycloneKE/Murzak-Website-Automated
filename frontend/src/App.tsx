@@ -22,6 +22,7 @@ import Checkout from "./pages/Checkout";
 import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 import { DeployWizard } from "./pages/DeployWizard/DeployWizard";
+import NotFound from "./pages/NotFound";
 
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
@@ -142,6 +143,23 @@ const App: React.FC = () => {
     return pathToPage[location.pathname] || "home";
   }, [location.pathname]);
 
+  // True only when the URL matched no real route (the catch-all renders
+  // NotFound) — activePage still resolves to "home" above so the rest of
+  // the page-metadata machinery has a sane default, but the title/GA effects
+  // below use this to show "Page Not Found" instead of silently reusing
+  // Home's title on a broken link.
+  const isNotFoundRoute = useMemo(
+    () =>
+      !location.pathname.startsWith("/portal") &&
+      location.pathname !== "/payment" &&
+      !pathToPage[location.pathname],
+    [location.pathname]
+  );
+  const notFoundMeta = {
+    title: "Page Not Found | Murzak Technologies",
+    description: "The page you're looking for doesn't exist or has moved.",
+  };
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [pendingPlan, setPendingPlan] = useState<string | null>(null);
@@ -213,19 +231,19 @@ const App: React.FC = () => {
 
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
   useEffect(() => {
-    const meta = pageMetadata[activePage] || pageMetadata.home;
+    const meta = isNotFoundRoute ? notFoundMeta : pageMetadata[activePage] || pageMetadata.home;
     logPageView(location.pathname + location.search, meta.title);
-  }, [location.pathname, location.search, activePage]);
+  }, [location.pathname, location.search, activePage, isNotFoundRoute]);
 
   useEffect(() => {
-    const meta = pageMetadata[activePage] || pageMetadata.home;
+    const meta = isNotFoundRoute ? notFoundMeta : pageMetadata[activePage] || pageMetadata.home;
     document.title = meta.title;
     window.scrollTo({ top: 0, behavior: "auto" });
 
     setIsPageLoading(true);
     const timer = setTimeout(() => setIsPageLoading(false), 700);
     return () => clearTimeout(timer);
-  }, [activePage]);
+  }, [activePage, isNotFoundRoute]);
 
   // Preload the current route's hero background so the browser starts
   // fetching it immediately on navigation rather than waiting to parse the
@@ -436,7 +454,7 @@ const App: React.FC = () => {
               />
 
               {/* 404 */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound onNavigate={onNavigate} />} />
             </Routes>
           </div>
         </main>
