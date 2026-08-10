@@ -10,6 +10,14 @@ import { test, expect } from '@playwright/test';
 //
 // Registration helper, copied verbatim from frontend/e2e/checkout.spec.ts.
 // Keep identical to the source if its selectors ever change.
+//
+// Used ONLY by PRICE-01 below. PRICE-02/PRICE-03 use mockLoggedInSession()
+// instead — registerNewUser() requires a live backend (a real
+// POST /api/register round-trip), which this sandbox cannot reliably reach
+// (a pre-existing .env/registration config limitation, unrelated to this
+// feature). Everything those two tests exercise past authentication is
+// already fully route-mocked (orders, prepare-payment, invoice), so the only
+// thing standing between them and running here is the session itself.
 async function registerNewUser(page: import('@playwright/test').Page, tag: string) {
   const suffix = Math.floor(Math.random() * 100000);
   const email = `test_pricedisp_${tag}_${suffix}@example.com`;
@@ -27,6 +35,41 @@ async function registerNewUser(page: import('@playwright/test').Page, tag: strin
 
   await expect(page).toHaveURL(/\/portal/, { timeout: 15000 });
   return { email };
+}
+
+// Stubs the one thing App.tsx's boot sequence needs to treat the browser as
+// logged in: GET /api/auth/me (see App.tsx's "Single authoritative session
+// hydration" effect, which the whole app renders behind — `booting` — until
+// this resolves). App.tsx only reads `data.ok` and `data.user`; RequireAuth
+// (frontend/src/components/RequireAuth.tsx), the gate in front of
+// /checkout/:orderId, only checks that `user` is truthy. Checkout.tsx itself
+// never reads `user`, so a minimal-but-type-shaped fake is sufficient — the
+// order/pricing data driving both tests comes entirely from the
+// /api/orders/:id, prepare-payment, and billing/invoice route mocks each
+// test already sets up.
+async function mockLoggedInSession(page: import('@playwright/test').Page, tag: string) {
+  const suffix = Math.floor(Math.random() * 100000);
+  const fakeUser = {
+    id: `WA-PRICEDISP-${tag}-${suffix}`,
+    name: `PriceDisp ${tag} Tester`,
+    email: `test_pricedisp_${tag}_${suffix}@example.com`,
+    company: `PriceDisp ${tag} Co`,
+    plan: 'None',
+    accountStatus: 'Active',
+    projects: [],
+    servers: [],
+    invoices: [],
+    updates: [],
+    selectedServices: [],
+  };
+  await page.route('**/api/auth/me', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, user: fakeUser }),
+    })
+  );
+  return { user: fakeUser };
 }
 
 test.describe('PRICE-01 — domain results show monthly figure with annual disclosure', () => {
@@ -97,7 +140,7 @@ test.describe('PRICE-02 — checkout offers a billing term for monthly products 
   // GET the resulting invoice, following this spec's existing route-mock
   // conventions (see checkout.spec.ts / qa-checkout-launch.spec.ts).
   test('an eligible order waits for the customer to confirm annual before any invoice is created', async ({ page }) => {
-    await registerNewUser(page, 'term');
+    await mockLoggedInSession(page, 'term');
 
     const orderId = 'CHK-PRICE02-MOCK';
     const mockOrder = {
@@ -221,7 +264,7 @@ test.describe('PRICE-03 — a returning customer\'s add-on skips the billing-ter
   // (`order.eligibleForTermChoice && !invoice`) must never render the
   // selector, and prepare-payment must fire on its own, with zero clicks.
   test('an ineligible order never renders the selector and prepares payment automatically', async ({ page }) => {
-    await registerNewUser(page, 'addon');
+    await mockLoggedInSession(page, 'addon');
 
     const orderId = 'CHK-PRICE03-MOCK';
     const mockOrder = {
