@@ -192,14 +192,14 @@ async function sweepRenewals(deps) {
         // before the real, term-aware due-check below ever runs.
         if (!isDueForRenewal(lastPaid.invoice_date, Math.min(cfg.cycleDays, ANNUAL_CYCLE_DAYS))) continue;
 
-        // The billing term lives on the account, so the account must be
-        // loaded BEFORE the real due-check below — an annual account is not
-        // due at 30 days, and checking with the monthly cycle first would
-        // bill it 12x a year. Do NOT move this fetch back below the due-check
-        // to "avoid a network call" — that reintroduces exactly that
-        // double-charge, and with RENEWAL_SUSPEND_ENABLED=true the affected
-        // account then gets suspended a week later for not paying a renewal
-        // invoice it never should have received.
+        // The billing term no longer lives on the account at all — it's read
+        // independently below via readInvoiceBillingTerm(client, lastPaid.name),
+        // a single-document GET on the last paid invoice itself. This account
+        // fetch exists only to get what invoice creation actually needs from
+        // the account record (plan, selected_services, account_holder_name,
+        // account_status) — it has no bearing on term correctness, so its
+        // position relative to the real due-check below is no longer
+        // load-bearing the way it once was.
         const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
         const account = accRes.data?.data;
         if (!account) continue;
@@ -266,9 +266,10 @@ async function sweepRenewals(deps) {
           type: "Subscription",
           plan,
           amount,
-          // Persisted so a future term edit on the account can never change
-          // what this invoice's own renewal cycle was billed under — see the
-          // invoiceTerm fallback above (Finding 2).
+          // Persisted so this invoice carries its own historical record of
+          // the term it was billed under — a later change to the account's
+          // CURRENT term (a future paid invoice with a different term) can
+          // never retroactively alter what this one was actually billed as.
           billing_term: term,
           status: "Unpaid",
           invoice_date: today,
