@@ -2,17 +2,19 @@
  * install-missing-doctypes.js
  *
  * One-time setup: imports every DocType currently missing a dedicated
- * install script — "Checkout Order" and "Portal Update" — into the connected
- * Frappe instance via the REST API, using the same FRAPPE_BASE_URL /
- * FRAPPE_API_KEY / FRAPPE_API_SECRET credentials the app already uses
- * (server.js frappeClient()). Idempotent — safe to re-run.
+ * install script — "Checkout Order", "Portal Update", and "Capacity
+ * Request" — into the connected Frappe instance via the REST API, using the
+ * same FRAPPE_BASE_URL / FRAPPE_API_KEY / FRAPPE_API_SECRET credentials the
+ * app already uses (server.js frappeClient()). Idempotent — safe to re-run.
  *
  *   node backend/scripts/install-missing-doctypes.js
  *
  * See docs/operations-workbook.md Part 6 for what breaks (silently) while
  * each of these is missing:
- *   - Checkout Order:  ALL self-serve checkout 503s ("Checkout is not configured.")
- *   - Portal Update:   portal "Updates & support" feed + concierge chat break
+ *   - Checkout Order:    ALL self-serve checkout 503s ("Checkout is not configured.")
+ *   - Portal Update:     portal "Updates & support" feed + concierge chat break
+ *   - Capacity Request:  scale-out requests aren't recorded (still emailed, but
+ *                        with no admin-panel trace once the email is missed)
  */
 
 require("dotenv").config();
@@ -23,6 +25,7 @@ const axios = require("axios");
 const DOCTYPE_PATHS = [
   path.resolve(__dirname, "../data/doctype-checkout-order.json"),
   path.resolve(__dirname, "../data/doctype-portal-update.json"),
+  path.resolve(__dirname, "../data/doctype-capacity-request.json"),
 ];
 
 async function installOne(client, doctypePath) {
