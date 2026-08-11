@@ -38,12 +38,34 @@ async function doctypeInstalled(client, doctype) {
 }
 
 /**
- * Does a Custom Field exist on a doctype? Queries the "Custom Field" doctype
- * itself (a stock Frappe doctype, always present) rather than the target
- * doctype's data — so this never risks writing/reading real records, and
- * works even when the target doctype has zero rows.
+ * Does a field exist on a doctype, whether it's a NATIVE field (baked
+ * directly into the DocType's own definition — the case for every field on
+ * Murzak's own custom doctypes, e.g. Web Account.app_port,
+ * Portal Invoice.mpesa_checkout_request_id) or an EXTENSION added via a
+ * separate "Custom Field" record (the case for fields bolted onto a doctype
+ * after the fact, e.g. the terminal-consent fields)? Checking only "Custom
+ * Field" misses every native field and reports a false "not installed" —
+ * caught live 2026-08-11 installing this exact fixture set.
+ *
+ * Note: a Custom Field created moments ago can take a short while to appear
+ * in Frappe's cached runtime meta even though the record exists correctly —
+ * this checks the record exists, not whether the cache has caught up. If a
+ * feature still doesn't work right after this goes green, that's a cache
+ * propagation issue (needs a `bench clear-cache` / worker restart on the
+ * Frappe side), not a missing field.
  */
 async function customFieldInstalled(client, dt, fieldname) {
+  try {
+    const dtRes = await client.get(`/api/resource/DocType/${enc(dt)}`);
+    const nativeFields = (dtRes.data?.data?.fields || []).map((f) => f.fieldname);
+    if (nativeFields.includes(fieldname)) {
+      return { ok: true, detail: `native field on ${dt}` };
+    }
+  } catch {
+    // Doctype meta fetch failed — fall through to the Custom Field check;
+    // doctypeInstalled() elsewhere already reports if the doctype itself is missing.
+  }
+
   try {
     const res = await client.get(`/api/resource/Custom Field`, {
       params: {
@@ -76,11 +98,11 @@ async function getReadiness(client) {
   // signal until now. See backend/data/doctype-checkout-order.json.
   const orderDt = await doctypeInstalled(client, ORDER_DOCTYPE);
   add("doctype_checkout_order", `Doctype: ${ORDER_DOCTYPE}`, orderDt.ok, "required",
-    orderDt.detail || "self-serve checkout is completely broken without this — import backend/data/doctype-checkout-order.json");
+    orderDt.ok ? "" : (orderDt.detail || "") + " — self-serve checkout is completely broken without this — import backend/data/doctype-checkout-order.json");
 
   const updateDt = await doctypeInstalled(client, "Portal Update");
   add("doctype_portal_update", "Doctype: Portal Update", updateDt.ok, "required",
-    updateDt.detail || "portal 'Updates & support' feed and concierge chat can't read/write — import backend/data/doctype-portal-update.json");
+    updateDt.ok ? "" : (updateDt.detail || "") + " — portal 'Updates & support' feed and concierge chat can't read/write — import backend/data/doctype-portal-update.json");
 
   // M-Pesa STK-push callback matches the paying invoice via this field —
   // without it the callback logs "no invoice found" and silently never
@@ -90,7 +112,7 @@ async function getReadiness(client) {
   if (mpesaConfigured) {
     const mpesaField = await customFieldInstalled(client, "Portal Invoice", "mpesa_checkout_request_id");
     add("custom_field_mpesa", "Custom field: Portal Invoice.mpesa_checkout_request_id", mpesaField.ok, "required",
-      mpesaField.detail || "M-Pesa payments will be captured by Safaricom but never activate the service — import backend/data/custom-fields-portal-invoice-mpesa.json");
+      mpesaField.ok ? mpesaField.detail : "M-Pesa payments will be captured by Safaricom but never activate the service — import backend/data/custom-fields-portal-invoice-mpesa.json");
   }
 
   // Developer-terminal consent gate (approve + accept-disclosure) writes to
@@ -102,14 +124,14 @@ async function getReadiness(client) {
   if (terminalOn) {
     const consentField = await customFieldInstalled(client, "Web Account", "terminal_disclosure_accepted_at");
     add("custom_field_terminal_consent", "Custom field: Web Account.terminal_disclosure_accepted_at", consentField.ok, "required",
-      consentField.detail || "approve/accept-disclosure calls silently persist nothing — import backend/data/custom-fields-web-account.json");
+      consentField.ok ? consentField.detail : "approve/accept-disclosure calls silently persist nothing — import backend/data/custom-fields-web-account.json");
 
     const sessionDt = await doctypeInstalled(client, "Terminal Session");
     add("doctype_terminal_session", "Doctype: Terminal Session", sessionDt.ok, "required",
-      sessionDt.detail || "run backend/scripts/install-terminal-doctypes.js");
+      sessionDt.ok ? "" : (sessionDt.detail || "") + " — run backend/scripts/install-terminal-doctypes.js");
     const recLogDt = await doctypeInstalled(client, "Terminal Recording Access Log");
     add("doctype_terminal_recording_log", "Doctype: Terminal Recording Access Log", recLogDt.ok, "required",
-      recLogDt.detail || "run backend/scripts/install-terminal-doctypes.js");
+      recLogDt.ok ? "" : (recLogDt.detail || "") + " — run backend/scripts/install-terminal-doctypes.js");
   }
 
   // --- Notifications (Phase 0 depends on these) ---
