@@ -9,7 +9,6 @@ import {
   DomainChoice,
   formatKes,
   planForService,
-  PLAN_META,
 } from "../config/serviceCatalog";
 
 type Props = {
@@ -161,32 +160,29 @@ export default function CloudLaunchModal({
     }
   };
 
+  // Deliberately NOT the same "murzak_plan_selection_pending" key/shape
+  // PlanServicesModal/Pricing use — that flow POSTs to
+  // /api/plan/attach-selection, which creates an invoice for the whole PLAN
+  // TIER (Starter/Business base price), not for this one addon-priced
+  // resource. A logged-out visitor picking a single Cloud resource must
+  // resolve through the SAME Checkout Order flow launchLoggedIn() below
+  // uses (POST /api/orders) — otherwise their purchase intent silently
+  // turns into the wrong invoice (or none at all) once they finish signing
+  // up, and they land on the dashboard with no purchase in progress. See
+  // attachPendingCloudLaunch() in Login.tsx, which redeems this key.
   const launchLoggedOut = () => {
     if (!selected) return;
-    const plan = planForService(selected.id) || "Starter";
     const payload = {
-      plan,
-      planLabel: PLAN_META[plan].label,
-      selectedServices: [
-        {
-          serviceId: selected.id,
-          serviceName: selected.name,
-          category: selected.category,
-          tier: selected.tier,
-          domainChoice: selected.requiresDomainChoice ? domainChoice : "",
-        },
-      ],
-      monthlyTotalKes: selected.pricing.monthlyKes || 0,
-      setupTotalKes: selected.pricing.setupKes || 0,
-      domainYearlyTotalKes: 0,
-      status: "Pending",
-      selectedAt: new Date().toISOString(),
+      serviceId: selected.id,
+      planKey: planForService(selected.id) || "Starter",
       source: "CloudLaunch",
-      upgradeIntent: false,
-      upgradeMode: "",
-      repoUrl: selected.requiresRepo ? repoUrl : undefined,
+      config: {
+        domainChoice: selected.requiresDomainChoice ? domainChoice : "",
+        ...(selected.requiresRepo ? { repoUrl } : {}),
+        ...(appPort.trim() ? { appPort: Number(appPort.trim()) } : {}),
+      },
     };
-    localStorage.setItem("murzak_plan_selection_pending", JSON.stringify(payload));
+    localStorage.setItem("murzak_cloud_launch_pending", JSON.stringify(payload));
     onClose();
     onNavigate("/login");
   };
