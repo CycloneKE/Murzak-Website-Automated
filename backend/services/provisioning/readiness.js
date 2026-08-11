@@ -11,6 +11,7 @@
 
 const { JOB_DOCTYPE } = require("./constants");
 const { CAPACITY_REQUEST_DOCTYPE } = require("./scaling");
+const { ORDER_DOCTYPE } = require("../checkout/orderStore");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
 const backups = require("./backups");
@@ -36,6 +37,28 @@ async function doctypeInstalled(client, doctype) {
   }
 }
 
+/**
+ * Does a Custom Field exist on a doctype? Queries the "Custom Field" doctype
+ * itself (a stock Frappe doctype, always present) rather than the target
+ * doctype's data — so this never risks writing/reading real records, and
+ * works even when the target doctype has zero rows.
+ */
+async function customFieldInstalled(client, dt, fieldname) {
+  try {
+    const res = await client.get(`/api/resource/Custom Field`, {
+      params: {
+        filters: JSON.stringify([["dt", "=", dt], ["fieldname", "=", fieldname]]),
+        fields: JSON.stringify(["name"]),
+        limit_page_length: 1,
+      },
+    });
+    const found = (res.data?.data || []).length > 0;
+    return { ok: found, detail: found ? "" : "not installed" };
+  } catch (e) {
+    return { ok: false, detail: e.message };
+  }
+}
+
 async function getReadiness(client) {
   const runnerOn = flag("PROVISIONING_RUNNER_ENABLED");
   const bullmq = String(process.env.PROVISIONING_QUEUE || "poll").toLowerCase() === "bullmq";
@@ -47,6 +70,47 @@ async function getReadiness(client) {
   add("doctype_job", `Doctype: ${JOB_DOCTYPE}`, jobDt.ok, "required", jobDt.detail);
   const capDt = await doctypeInstalled(client, CAPACITY_REQUEST_DOCTYPE);
   add("doctype_capacity", `Doctype: ${CAPACITY_REQUEST_DOCTYPE}`, capDt.ok, "optional", capDt.detail || "needed only for scale-out records");
+  // Not provisioning-specific, but every self-serve purchase (any category,
+  // not just what this runner builds) goes through orderStore.js first —
+  // missing this doctype 503s ALL checkout, silently, with no readiness
+  // signal until now. See backend/data/doctype-checkout-order.json.
+  const orderDt = await doctypeInstalled(client, ORDER_DOCTYPE);
+  add("doctype_checkout_order", `Doctype: ${ORDER_DOCTYPE}`, orderDt.ok, "required",
+    orderDt.detail || "self-serve checkout is completely broken without this — import backend/data/doctype-checkout-order.json");
+
+  const updateDt = await doctypeInstalled(client, "Portal Update");
+  add("doctype_portal_update", "Doctype: Portal Update", updateDt.ok, "required",
+    updateDt.detail || "portal 'Updates & support' feed and concierge chat can't read/write — import backend/data/doctype-portal-update.json");
+
+  // M-Pesa STK-push callback matches the paying invoice via this field —
+  // without it the callback logs "no invoice found" and silently never
+  // activates the service, even though Safaricom confirmed the payment.
+  // Only meaningful once M-Pesa creds are actually set.
+  const mpesaConfigured = !!(process.env.MPESA_CONSUMER_KEY && process.env.MPESA_CONSUMER_SECRET);
+  if (mpesaConfigured) {
+    const mpesaField = await customFieldInstalled(client, "Portal Invoice", "mpesa_checkout_request_id");
+    add("custom_field_mpesa", "Custom field: Portal Invoice.mpesa_checkout_request_id", mpesaField.ok, "required",
+      mpesaField.detail || "M-Pesa payments will be captured by Safaricom but never activate the service — import backend/data/custom-fields-portal-invoice-mpesa.json");
+  }
+
+  // Developer-terminal consent gate (approve + accept-disclosure) writes to
+  // these Web Account custom fields. Missing them doesn't error — Frappe
+  // silently drops writes to unknown fields — so approvals appear to work
+  // but customers stay stuck at "awaiting approval" forever. Only relevant
+  // once the terminal feature itself is enabled.
+  const terminalOn = flag("TERMINAL_ENABLED");
+  if (terminalOn) {
+    const consentField = await customFieldInstalled(client, "Web Account", "terminal_disclosure_accepted_at");
+    add("custom_field_terminal_consent", "Custom field: Web Account.terminal_disclosure_accepted_at", consentField.ok, "required",
+      consentField.detail || "approve/accept-disclosure calls silently persist nothing — import backend/data/custom-fields-web-account.json");
+
+    const sessionDt = await doctypeInstalled(client, "Terminal Session");
+    add("doctype_terminal_session", "Doctype: Terminal Session", sessionDt.ok, "required",
+      sessionDt.detail || "run backend/scripts/install-terminal-doctypes.js");
+    const recLogDt = await doctypeInstalled(client, "Terminal Recording Access Log");
+    add("doctype_terminal_recording_log", "Doctype: Terminal Recording Access Log", recLogDt.ok, "required",
+      recLogDt.detail || "run backend/scripts/install-terminal-doctypes.js");
+  }
 
   // --- Notifications (Phase 0 depends on these) ---
   const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean);
