@@ -1,0 +1,40 @@
+{
+  "doctype": "DocType",
+  "name": "Checkout Order",
+  "module": "Custom",
+  "custom": 1,
+  "naming_rule": "Expression (old style)",
+  "autoname": "format:CHK-{#####}",
+  "title_field": "service_name",
+  "track_changes": 1,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "fields": [
+    { "fieldname": "section_order", "fieldtype": "Section Break", "label": "Order" },
+    { "fieldname": "web_account", "fieldtype": "Link", "label": "Web Account", "options": "Web Account", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1, "description": "Owner; scopes getOrder/cancelOrder access." },
+    { "fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nPaid\nCancelled", "default": "Draft", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1, "description": "Only Draft orders with a live reservation count toward reserved RAM." },
+    { "fieldname": "source", "fieldtype": "Data", "label": "Source", "in_standard_filter": 1, "description": "Where the order originated (e.g. \"CloudLaunch\", \"Configurator\")." },
+    { "fieldname": "column_break_order", "fieldtype": "Column Break" },
+    { "fieldname": "service_id", "fieldtype": "Data", "label": "Service ID", "in_standard_filter": 1, "description": "Catalog service id (from services/provisioning/catalog.js)." },
+    { "fieldname": "service_name", "fieldtype": "Data", "label": "Service Name", "in_list_view": 1, "description": "Snapshot of the catalog display name at order time." },
+    { "fieldname": "tier", "fieldtype": "Data", "label": "Tier", "description": "Snapshot of the catalog tier at order time." },
+    { "fieldname": "category", "fieldtype": "Data", "label": "Category", "description": "Snapshot of the catalog category at order time." },
+    { "fieldname": "plan_key", "fieldtype": "Data", "label": "Plan Key", "description": "Plan the buyer was on/selecting when the order was created." },
+
+    { "fieldname": "section_pricing", "fieldtype": "Section Break", "label": "Pricing & Footprint (snapshot at order time)" },
+    { "fieldname": "monthly_kes", "fieldtype": "Int", "label": "Monthly (KES)" },
+    { "fieldname": "setup_kes", "fieldtype": "Int", "label": "Setup (KES)", "description": "0 if the service has none." },
+    { "fieldname": "column_break_pricing", "fieldtype": "Column Break" },
+    { "fieldname": "ram_mb", "fieldtype": "Int", "label": "RAM (MB)", "in_list_view": 1, "description": "This is the amount reserved while the order is Draft and unexpired." },
+    { "fieldname": "disk_gb", "fieldtype": "Int", "label": "Disk (GB)" },
+
+    { "fieldname": "section_lifecycle", "fieldtype": "Section Break", "label": "Lifecycle" },
+    { "fieldname": "reservation_expires_at", "fieldtype": "Datetime", "label": "Reservation Expires At", "description": "RAM reservation deadline; renewed by the checkout page's heartbeat GET." },
+    { "fieldname": "invoice_doc_name", "fieldtype": "Data", "label": "Invoice Doc Name", "description": "Linked Portal Invoice `name` once one exists." },
+    { "fieldname": "column_break_lifecycle", "fieldtype": "Column Break" },
+    { "fieldname": "config_json", "fieldtype": "Long Text", "label": "Config (JSON)", "description": "JSON-serialized checkout configuration (domain choice, repo URL, etc.)." }
+  ],
+  "permissions": [
+    { "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1 }
+  ]
+}
