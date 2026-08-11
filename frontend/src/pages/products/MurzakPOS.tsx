@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
+import Breadcrumbs from '../../components/Breadcrumbs';
 import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
 
 interface Props {
@@ -34,6 +35,10 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+          <Breadcrumbs
+            onNavigate={onNavigate}
+            items={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'POS & Inventory' }]}
+          />
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
             <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">Murzak POS & Inventory</span>
           </div>
