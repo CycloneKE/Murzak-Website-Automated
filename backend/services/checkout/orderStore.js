@@ -34,6 +34,25 @@ const RESERVATION_TTL_MS = 30 * 60 * 1000;
 
 const INVOICE_DOCTYPE = "Portal Invoice";
 
+// Frappe's MySQL DATETIME column rejects a raw `Date#toISOString()` value
+// ("2026-08-11T08:01:35.546Z" — 'T' separator, milliseconds, 'Z' suffix) with
+// a 1292 "Incorrect datetime value" error, failing every createOrder() call
+// with a generic 500 — caught live 2026-08-11. Format as the naive
+// "YYYY-MM-DD HH:MM:SS" (UTC) MySQL expects instead, same convention
+// services/provisioning/runner.js's sqlTime()/parseSqlTime() already use for
+// this exact class of field.
+function mysqlDatetime(ms) {
+  return new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+}
+// Parses a naive "YYYY-MM-DD HH:MM:SS" string as UTC — without the explicit
+// "Z", Date.parse() would interpret it in the Node process's local timezone,
+// silently corrupting the comparison against Date.now() on any server not
+// running in UTC.
+function parseMysqlDatetime(s) {
+  const t = Date.parse(String(s).replace(" ", "T") + "Z");
+  return Number.isNaN(t) ? 0 : t;
+}
+
 // --- module-level promise-chain mutex --------------------------------------
 // Single Node process — same assumption services/provisioning/capacity.js's
 // gate makes. Serializes createOrder's read-reserved-then-write so two
@@ -139,7 +158,7 @@ async function reservedDraftRamMb(client, nowMs) {
     // Re-filter in JS: the mock (and a misconfigured server-side filter)
     // may return more than just Draft rows, so behavior must not depend on
     // the backend actually honoring the filters param.
-    .filter((r) => r.status === "Draft" && Date.parse(r.reservation_expires_at) > nowMs)
+    .filter((r) => r.status === "Draft" && parseMysqlDatetime(r.reservation_expires_at) > nowMs)
     .reduce((sum, r) => sum + (Number(r.ram_mb) || 0), 0);
 }
 
@@ -212,7 +231,7 @@ async function createOrder({
       disk_gb: Number(meta.diskGb) || 0,
       plan_key: planKey || "",
       config_json: JSON.stringify(config || {}),
-      reservation_expires_at: new Date(nowMs + RESERVATION_TTL_MS).toISOString(),
+      reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
       invoice_doc_name: "",
       source: source || "",
     };
@@ -233,9 +252,9 @@ async function getOrder({ client, webAccountName, orderId, nowMs, renew }) {
   let doc = await fetchOrderDoc(client, orderId);
   if (doc.web_account !== webAccountName) throw forbidden("This checkout order belongs to another account.");
 
-  if (renew && doc.status === "Draft" && Date.parse(doc.reservation_expires_at) > nowMs) {
+  if (renew && doc.status === "Draft" && parseMysqlDatetime(doc.reservation_expires_at) > nowMs) {
     const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
-      reservation_expires_at: new Date(nowMs + RESERVATION_TTL_MS).toISOString(),
+      reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
     });
     doc = updated.data?.data || doc;
   }
@@ -289,7 +308,13 @@ function toApiOrder(doc) {
     monthlyKes,
     setupKes,
     totalDueKes: monthlyKes + setupKes,
-    reservationExpiresAt: doc.reservation_expires_at,
+    // Re-emit as an unambiguous ISO 8601 UTC string — the DB stores the
+    // naive MySQL DATETIME format (no timezone marker), which every API
+    // consumer (frontend, tests) would otherwise have to know to parse as
+    // UTC specifically to avoid a local-timezone-dependent Date.parse().
+    reservationExpiresAt: doc.reservation_expires_at
+      ? new Date(parseMysqlDatetime(doc.reservation_expires_at)).toISOString()
+      : doc.reservation_expires_at,
     invoiceDocName: doc.invoice_doc_name || null,
     config,
   };
