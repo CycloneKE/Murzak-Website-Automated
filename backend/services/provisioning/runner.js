@@ -42,6 +42,13 @@ const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMP
 const batchSize = () => Math.max(1, Number(process.env.PROVISIONING_BATCH || 5));
 const pollMs = () => Math.max(5000, Number(process.env.PROVISIONING_POLL_MS || 60000));
 const concurrency = () => Math.max(1, Number(process.env.PROVISIONING_CONCURRENCY || 2));
+// A job stuck "running" longer than this had its runner die mid-build (process
+// crash/restart, or — since PROVISIONING_RUNNER_ENABLED defaults to false — the
+// single fire-and-forget processQueue() call after /api/byoa/deploy or checkout
+// never got a second chance to run). Nothing else ever re-selects a "running"
+// job (fetchClaimable only reads status="queued"), so without this it stays
+// stuck at "Provisioning Infrastructure" in the wizard forever.
+const staleRunningSec = () => Math.max(60, Number(process.env.PROVISIONING_STALE_RUNNING_SEC || 900));
 
 function isRunnerEnabled() {
   return String(process.env.PROVISIONING_RUNNER_ENABLED || "false").toLowerCase() === "true";
@@ -171,6 +178,57 @@ async function markAccountServiceActive(client, webAccount, serviceId) {
   } catch (e) {
     console.warn(`[provisioning] could not flip ${serviceId} -> Active on ${webAccount}: ${e.message}`);
   }
+}
+
+/**
+ * Requeue (or, past max attempts, escalate) any job orphaned in "running" —
+ * a runner claimed it, then died before ever writing active/needs_human/retry.
+ * Best-effort and never throws; a failure here shouldn't block the normal
+ * queued-job pass that follows.
+ */
+async function reclaimStaleRunning(client, thresholdSec = staleRunningSec()) {
+  let rows;
+  try {
+    const res = await client.get(`/api/resource/${enc(JOB_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["status", "=", "running"]]),
+        fields: JSON.stringify(["name", "attempts", "started_at", "log"]),
+        limit_page_length: 100,
+      },
+    });
+    rows = res.data?.data || [];
+  } catch (e) {
+    return { reclaimed: 0, error: e.message };
+  }
+
+  const cutoff = Date.now() - thresholdSec * 1000;
+  const stale = rows.filter((j) => !j.started_at || parseSqlTime(j.started_at) <= cutoff);
+
+  let reclaimed = 0;
+  for (const j of stale) {
+    const attempts = Number(j.attempts || 0) + 1;
+    try {
+      if (attempts >= maxAttempts()) {
+        await updateJob(client, j.name, {
+          status: "needs_human",
+          attempts,
+          error: `Runner died mid-build (stuck "running" past ${thresholdSec}s) after ${attempts} attempt(s).`,
+        });
+      } else {
+        await updateJob(client, j.name, {
+          status: "queued",
+          attempts,
+          next_run_at: null,
+          runner_id: "",
+          error: `Runner died mid-build (stuck "running" past ${thresholdSec}s) — requeued.`,
+        });
+      }
+      reclaimed++;
+    } catch {
+      // best-effort — leave it for the next pass
+    }
+  }
+  return { reclaimed, total: stale.length };
 }
 
 /** Queued jobs whose backoff (next_run_at) has elapsed. */
@@ -369,6 +427,8 @@ async function processQueue(
   client,
   { lanes = DEFAULT_LANES, max = batchSize(), runnerId = "runner", limit = concurrency() } = {}
 ) {
+  await reclaimStaleRunning(client);
+
   let jobs = [];
   try {
     jobs = await fetchClaimable(client, max);
@@ -439,6 +499,7 @@ module.exports = {
   isRunnerEnabled,
   backoffSec,
   parseSqlTime,
+  reclaimStaleRunning,
   fetchClaimable,
   fetchJobByName,
   claimJob,

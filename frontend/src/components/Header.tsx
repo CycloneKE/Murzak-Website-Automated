@@ -130,7 +130,11 @@ const Header: React.FC<HeaderProps> = ({
 
                     {item.submenu && (
                       <div className="absolute top-full left-1/2 -translate-x-1/2 pt-6 opacity-0 translate-y-2 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 group-hover/nav:pointer-events-auto transition-all duration-300">
-                        <div className="glass-panel rounded-3xl p-8 shadow-xl flex gap-12 w-[650px]">
+                        {/* Fully opaque rather than the shared .glass-panel (4% white in dark
+                            mode) — this menu floats over whatever hero image or busy content
+                            sits behind the header, so it needs real visual separation, not
+                            just a card treatment tuned for a flat page bg. */}
+                        <div className="bg-white dark:bg-murzak-ink backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-murzak-border dark:border-white/10 flex gap-12 w-[650px]">
                           {item.submenu.map(group => (
                             <div key={group.group} className="flex-1">
                               <h4 className="font-mono text-xs font-semibold tracking-wider text-sky-700 dark:text-murzak-accent mb-4 uppercase">{group.group}</h4>

@@ -16,8 +16,8 @@ interface Props {
 function stepForStatus(status: string, statusDetail: string, hasUrl: boolean) {
   if (status === 'active' && hasUrl) return 4; // done
   if (status === 'active') return 3; // built, domain/SSL still finishing
-  if (status === 'queued' || status === 'running') return statusDetail ? 1 : 0;
-  return 0;
+  if (status === 'running') return 1; // claimed by a runner, build under way
+  return 0; // queued — waiting for a runner to pick it up
 }
 
 export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {

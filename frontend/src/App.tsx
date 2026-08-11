@@ -37,6 +37,7 @@ import ForServices from "./pages/for/ForServices";
 
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
+import { useTheme } from "./context/ThemeContext";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -99,7 +100,7 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
 // browser fetches it immediately instead of discovering it only once CSS
 // parses the bg-fixed rule (which otherwise costs a visible fade-in).
 const heroImages: Partial<Record<Page, string>> = {
-  home: "/images/server-man.webp",
+  home: "/images/nairobi-skyline.webp",
   cloud: "/images/server-glow.webp",
   products: "/images/products-hero.webp",
   about: "/images/about-hero.webp",
@@ -324,6 +325,14 @@ const App: React.FC = () => {
   const isPortalRoute = location.pathname.startsWith("/portal");
   const isPaymentRoute = location.pathname === "/payment";
   const hideChrome = isPortalRoute || location.pathname === "/login" || isPaymentRoute;
+
+  // The client portal is light-mode only — dark mode there has enough
+  // unstyled surfaces that it isn't a supported experience yet.
+  const { setForceLight } = useTheme();
+  useEffect(() => {
+    setForceLight(isPortalRoute);
+    return () => setForceLight(false);
+  }, [isPortalRoute, setForceLight]);
 
   if (booting) {
     return (

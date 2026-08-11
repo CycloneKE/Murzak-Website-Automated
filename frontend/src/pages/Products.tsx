@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { ArrowRight, ShoppingCart, Briefcase, Truck, Stethoscope, Terminal, Cloud } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Section } from '../components/ui/Section';
@@ -16,6 +17,16 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
   const [domainError, setDomainError] = React.useState("");
   const [domainSubmitting, setDomainSubmitting] = React.useState(false);
   const [selectedDomain, setSelectedDomain] = React.useState<string | undefined>(undefined);
+  const location = useLocation();
+
+  // Deep-link from Murzak Cloud's "Register a domain" card: /products#domains
+  React.useEffect(() => {
+    if (location.hash === "#domains") {
+      requestAnimationFrame(() => {
+        document.getElementById("domains")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [location.hash]);
 
   const handleSelectDomain = async (domain: string, priceKes: number) => {
     setDomainError("");
@@ -101,14 +112,15 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/products-section-bg.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/products-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
         {/* Ready-Made Business Systems */}
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-12">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Ready-Made Systems</h2>
-             <p className="text-slate-500 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in 24 hours.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in 24 hours.</p>
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
              {businessSystems.map((item, idx) => (
@@ -142,7 +154,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
                 <div className="relative z-10">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/5 text-murzak-ink dark:text-slate-100 text-micro font-black uppercase mb-6">Custom Build</div>
                   <h3 className="text-3xl font-black mb-4 text-murzak-ink dark:text-slate-100">Custom Software Development</h3>
-                  <p className="text-slate-500 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
+                  <p className="text-slate-400 mb-8 max-w-sm">When off-the-shelf won't cut it. We design, build, and run bespoke systems tailored to your unique workflows.</p>
                   <Button variant="ghost" onClick={() => onNavigate('custom-software')}>Learn more</Button>
                 </div>
              </div>
@@ -154,7 +166,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
                 <div className="relative z-10">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/20 text-sky-700 dark:text-murzak-accent text-micro font-black uppercase mb-6">Infrastructure</div>
                   <h3 className="text-3xl font-black mb-4">Murzak Cloud</h3>
-                  <p className="text-slate-500 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
+                  <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-sm">Nairobi-managed website hosting, business email, and secure file storage for your team.</p>
                   <Button variant="primary" onClick={() => onNavigate('cloud')}>Explore Cloud</Button>
                 </div>
              </div>
@@ -165,7 +177,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-12">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Managed databases</h2>
-             <p className="text-slate-500 font-medium">Pick your engine. We host, back up, and keep it running.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Pick your engine. We host, back up, and keep it running.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
              {databases.map((db) => (
@@ -182,15 +194,15 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         </Section>
 
         {/* Domains */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
+        <Section id="domains" className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-8">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Register a domain</h2>
-             <p className="text-slate-500 font-medium">Search, pick your extension, and check out — billed yearly.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Search, pick your extension, and check out — billed yearly.</p>
           </div>
           <div className="max-w-xl">
             <DomainSearch selectedDomain={selectedDomain} onSelect={handleSelectDomain} />
             {domainSubmitting && (
-              <p className="mt-3 text-sm font-bold text-slate-500">Starting checkout…</p>
+              <p className="mt-3 text-sm font-bold text-slate-500 dark:text-slate-400">Starting checkout…</p>
             )}
             {domainError && (
               <p className="mt-3 text-sm font-bold text-red-500">{domainError}</p>
@@ -202,12 +214,12 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-12">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Built for your industry</h2>
-             <p className="text-slate-500 font-medium">See how our stack solves specific problems for your sector.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">See how our stack solves specific problems for your sector.</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
              {industries.map((item, idx) => (
                <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-6 rounded-2xl border border-murzak-border bg-black/5 hover:bg-black/5 transition-all text-center">
-                  <div className="text-slate-500 group-hover:text-murzak-accent transition-colors mb-4 flex justify-center">{item.icon}</div>
+                  <div className="text-slate-500 dark:text-slate-400 group-hover:text-murzak-accent transition-colors mb-4 flex justify-center">{item.icon}</div>
                   <h4 className="font-bold text-sm">{item.title}</h4>
                </div>
              ))}
