@@ -261,6 +261,16 @@ function baseCtx(client, overrides = {}) {
     ok(res.body?.invoiceDocName === "PINV-9", "invoiceDocName === PINV-9");
     ok(createAddonCalls === 1, "createAddonInvoice called once");
     ok(client.store["Checkout Order"][addonOrderId].invoice_doc_name === "PINV-9", "order doc invoice_doc_name linked");
+    // Regression (live 2026-08-11): createAddonInvoice only prices/invoices —
+    // attaching the service to the Web Account is documented as the caller's
+    // job. Without it, an existing paying customer's purchase invoiced and
+    // paid clean but the service never appeared on the account, and nothing
+    // ever got provisioned (activation only flips status on rows that
+    // already exist, it never appends).
+    ok(
+      client.store["Web Account"]["acct-1"].selected_services.some((r) => r.serviceId === "starter-web-hosting"),
+      "add-on service is attached to the Web Account at prepare-payment time, not left orphaned in the invoice only"
+    );
 
     section("prepare-payment — idempotent on second call");
     const res2 = makeRes();
