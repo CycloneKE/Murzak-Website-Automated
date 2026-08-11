@@ -12,6 +12,7 @@
 const { JOB_DOCTYPE } = require("./constants");
 const { CAPACITY_REQUEST_DOCTYPE } = require("./scaling");
 const { ORDER_DOCTYPE } = require("../checkout/orderStore");
+const { CLAIMABLE_JOB_FIELDS } = require("./runner");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
 const backups = require("./backups");
@@ -81,6 +82,33 @@ async function customFieldInstalled(client, dt, fieldname) {
   }
 }
 
+/**
+ * Does a doctype have every field in `requiredFields`? Catches drift between
+ * the fixture in backend/data/ (which the runner's code was updated against)
+ * and what's actually installed in Frappe — a missing field here makes
+ * Frappe reject fetchClaimable()'s GET outright (417), silently killing
+ * provisioning entirely, every tick, forever, with no signal but a
+ * console.error. Reproduced live 2026-08-11/12 — see CLAIMABLE_JOB_FIELDS's
+ * comment in runner.js for the full incident.
+ */
+// "name" (and a handful of other Frappe built-ins: owner, creation,
+// modified, docstatus, ...) are implicit on every document — Frappe never
+// lists them in a DocType's own `fields` child table, so checking for them
+// there always false-positives as "missing." Only compare the fields that
+// are actually meant to be declared.
+const IMPLICIT_DOC_FIELDS = new Set(["name", "owner", "creation", "modified", "modified_by", "docstatus", "idx"]);
+
+async function doctypeHasFields(client, doctype, requiredFields) {
+  try {
+    const res = await client.get(`/api/resource/DocType/${enc(doctype)}`);
+    const have = new Set((res.data?.data?.fields || []).map((f) => f.fieldname));
+    const missing = requiredFields.filter((f) => !IMPLICIT_DOC_FIELDS.has(f) && !have.has(f));
+    return { ok: missing.length === 0, missing };
+  } catch (e) {
+    return { ok: false, missing: requiredFields, detail: e.message };
+  }
+}
+
 async function getReadiness(client) {
   const runnerOn = flag("PROVISIONING_RUNNER_ENABLED");
   const bullmq = String(process.env.PROVISIONING_QUEUE || "poll").toLowerCase() === "bullmq";
@@ -90,6 +118,18 @@ async function getReadiness(client) {
   // --- Frappe doctypes ---
   const jobDt = await doctypeInstalled(client, JOB_DOCTYPE);
   add("doctype_job", `Doctype: ${JOB_DOCTYPE}`, jobDt.ok, "required", jobDt.detail);
+
+  // Doctype existing isn't enough — every field the runner's fetchClaimable()
+  // reads must also exist, or Frappe 417s the GET and provisioning silently
+  // dies entirely (see CLAIMABLE_JOB_FIELDS's comment in runner.js).
+  if (jobDt.ok) {
+    const fieldsCheck = await doctypeHasFields(client, JOB_DOCTYPE, CLAIMABLE_JOB_FIELDS);
+    add("doctype_job_fields", `Doctype: ${JOB_DOCTYPE} has all runner-required fields`, fieldsCheck.ok, "required",
+      fieldsCheck.ok ? "" :
+        `missing: ${fieldsCheck.missing.join(", ")} — provisioning silently stops entirely until these are added ` +
+        "(run backend/scripts/install-provisioning-doctype.js, it merges missing fields idempotently)");
+  }
+
   const capDt = await doctypeInstalled(client, CAPACITY_REQUEST_DOCTYPE);
   add("doctype_capacity", `Doctype: ${CAPACITY_REQUEST_DOCTYPE}`, capDt.ok, "optional", capDt.detail || "needed only for scale-out records");
   // Not provisioning-specific, but every self-serve purchase (any category,

@@ -231,25 +231,38 @@ async function reclaimStaleRunning(client, thresholdSec = staleRunningSec()) {
   return { reclaimed, total: stale.length };
 }
 
+// Every field fetchClaimable() reads off a queued job. Exported (not just
+// inlined below) so readiness.js can verify the LIVE doctype actually has
+// all of these — a field this list depends on but the installed doctype
+// lacks makes Frappe reject the whole GET with a 417, which fetchClaimable
+// has no per-field visibility into: processQueue() just fails outright,
+// EVERY tick, for EVERY job, forever, with only a console.error (no
+// admin-visible signal). Reproduced live 2026-08-11/12: "repo_url" and
+// "deployment_history" were added here when BYOA/deployment-history shipped,
+// but the production doctype was never re-synced — the runner had been
+// silently dead since the moment those fields were added, unrelated to
+// PROVISIONING_RUNNER_ENABLED (which was correctly "true" the whole time).
+const CLAIMABLE_JOB_FIELDS = [
+  "name", "web_account", "invoice", "service_id", "service_name",
+  "category", "capacity_class", "lane", "status", "attempts",
+  "ram_mb", "disk_gb", "next_run_at", "target",
+  // BYOA: the lane dispatches on repo_url — omitting it here silently
+  // downgrades an app deploy to a blank service (caught live 2026-07-16).
+  // app_port + deployment_uuid are the same bug class: the lane reads
+  // both (port at create, deployment_uuid to RESUME a timed-out build
+  // instead of re-building), so they must ride along on the claim fetch.
+  // deployment_history must ride along too, or appendDeployment() below
+  // sees an empty job.deployment_history every pass and the array never
+  // actually accumulates past one entry.
+  "repo_url", "app_port", "deployment_uuid", "deployment_history",
+];
+
 /** Queued jobs whose backoff (next_run_at) has elapsed. */
 async function fetchClaimable(client, limit) {
   const res = await client.get(`/api/resource/${enc(JOB_DOCTYPE)}`, {
     params: {
       filters: JSON.stringify([["status", "=", "queued"]]),
-      fields: JSON.stringify([
-        "name", "web_account", "invoice", "service_id", "service_name",
-        "category", "capacity_class", "lane", "status", "attempts",
-        "ram_mb", "disk_gb", "next_run_at", "target",
-        // BYOA: the lane dispatches on repo_url — omitting it here silently
-        // downgrades an app deploy to a blank service (caught live 2026-07-16).
-        // app_port + deployment_uuid are the same bug class: the lane reads
-        // both (port at create, deployment_uuid to RESUME a timed-out build
-        // instead of re-building), so they must ride along on the claim fetch.
-        // deployment_history must ride along too, or appendDeployment() below
-        // sees an empty job.deployment_history every pass and the array never
-        // actually accumulates past one entry.
-        "repo_url", "app_port", "deployment_uuid", "deployment_history",
-      ]),
+      fields: JSON.stringify(CLAIMABLE_JOB_FIELDS),
       order_by: "modified asc",
       limit_page_length: limit,
     },
@@ -500,6 +513,7 @@ module.exports = {
   backoffSec,
   parseSqlTime,
   reclaimStaleRunning,
+  CLAIMABLE_JOB_FIELDS,
   fetchClaimable,
   fetchJobByName,
   claimJob,
