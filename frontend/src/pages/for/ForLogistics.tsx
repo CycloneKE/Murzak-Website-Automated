@@ -52,8 +52,9 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/ship-map.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/ship-map.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
         {/* Multi-modal freight — sea, road, air, one system */}
         <section className="relative z-10 border-t border-murzak-border/50 py-20">

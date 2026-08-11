@@ -105,6 +105,34 @@ html.dark body { background-color: #090C10; color: #F1F5F9; }
     background: rgba(255, 255, 255, 0.10);
     border-radius: 999px;
   }
+
+  /* Section background duotone — the shared "GLOBAL BACKGROUND WRAPPER" image
+     layer (Home/Cloud/Products/About/CustomSoftware/ForLogistics) desaturated
+     and washed in the brand gradient instead of sitting under a flat tint.
+     Pair with a higher-opacity, desaturated bg-image (see each page's own
+     `filter: saturate(.5) contrast(1.05)` inline style) and .section-bg-fade
+     for the theme-correct top/bottom read-through fade. */
+  .section-bg-wash {
+    background: linear-gradient(115deg, rgba(136, 47, 253, 0.55) 0%, rgba(51, 136, 242, 0.42) 55%, rgba(9, 12, 16, 0.75) 100%);
+  }
+  html:not(.dark) .section-bg-wash {
+    background: linear-gradient(115deg, rgba(136, 47, 253, 0.5) 0%, rgba(51, 136, 242, 0.38) 55%, rgba(248, 250, 251, 0.8) 100%);
+  }
+  /* The middle band is a light tint rather than fully transparent — bare
+     section text (kickers/body copy not sitting inside its own card) still
+     needs to read against this, and a colorful wash alone isn't enough
+     contrast for the site's normal light/dark text colors. Verified via
+     pixel-sampled compositing, not just eyeballing. */
+  .section-bg-fade {
+    background: linear-gradient(180deg,
+      rgba(248, 250, 251, 0.9) 0%, rgba(248, 250, 251, 0.25) 30%,
+      rgba(248, 250, 251, 0.25) 70%, rgba(248, 250, 251, 0.9) 100%);
+  }
+  html.dark .section-bg-fade {
+    background: linear-gradient(180deg,
+      rgba(9, 12, 16, 0.9) 0%, rgba(9, 12, 16, 0.25) 30%,
+      rgba(9, 12, 16, 0.25) 70%, rgba(9, 12, 16, 0.9) 100%);
+  }
 }
 
 /* Respect prefers-reduced-motion globally. Tailwind's animate-* utilities
