@@ -71,15 +71,24 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
   });
 
   test('PostgreSQL, MongoDB, and Redis cards each deep-link to their own catalog id', async ({ page }) => {
-    await registerNewUser(page, 'others');
-
     const cases: Array<{ card: string; catalogName: string }> = [
       { card: 'PostgreSQL', catalogName: 'PostgreSQL Database' },
       { card: 'MongoDB', catalogName: 'MongoDB Database' },
       { card: 'Redis', catalogName: 'Redis Database' },
     ];
 
+    // A fresh account per iteration, not a shared one: each deep-link here
+    // only needs to prove routing/catalog-id resolution, not a live
+    // reservation, and a shared account across three uncancelled Draft
+    // orders in a row previously tripped createOrder's shared-fleet RAM
+    // reservation guard (orderStore.js's reservedDraftRamMb sums ALL
+    // accounts' live Draft orders, not just this one) — and, separately,
+    // relying on a mid-loop cancel-then-reuse of the same account/page
+    // turned out to be its own source of flakiness against a real backend.
+    // One account per card sidesteps both: no cross-iteration state to
+    // manage at all.
     for (const { card, catalogName } of cases) {
+      await registerNewUser(page, `others_${card.toLowerCase()}`);
       await page.goto('/products');
       const dbSection = page.locator('section', { hasText: 'Managed databases' });
       await expect(dbSection.getByText(card, { exact: true })).toBeVisible();
@@ -94,20 +103,6 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
       await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(catalogName)).toBeVisible();
-
-      // Cancel before the next iteration: createOrder's shared-fleet RAM
-      // reservation guard (orderStore.js's reservedDraftRamMb) sums ALL
-      // accounts' live Draft orders, not just this one — three uncancelled
-      // Draft orders in a row (this loop never pays or cancels any of them)
-      // eventually trips a real 409 CAPACITY refusal on the next order, since
-      // the pool is shared across the whole CI run's other tests too. Each
-      // deep-link here only needs to prove routing/catalog-id resolution, not
-      // a live reservation, so releasing it immediately keeps this test from
-      // starving capacity for whatever runs after it.
-      const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
-      if (orderId) {
-        await page.request.post(`/api/orders/${orderId}/cancel`);
-      }
     }
   });
 });

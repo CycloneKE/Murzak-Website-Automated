@@ -53,11 +53,24 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    // 3. Auto-attach should redirect straight to payment.
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
+    // 3. Auto-attach lands on the unified checkout page for the new draft
+    // order — NOT a direct /payment/:invoiceId redirect, which predates the
+    // unified-checkout migration this flow now goes through. This is also
+    // this account's first purchase of a monthly-billed service, so it's
+    // eligible for the annual-prepay term selector (checkoutBillingTerm.js's
+    // isEligibleForTermChoice), which defers invoice creation until
+    // confirmed — unlike /pricing?configure=… registrations (see the second
+    // test below), which still bill synchronously at registration.
+    await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
+    await expect(page.getByText('Billing', { exact: true })).toBeVisible({ timeout: 10000 });
 
-    const invoiceMatch = page.url().match(/\/payment\/([^/]+)/);
-    const invoiceId = invoiceMatch ? invoiceMatch[1] : '';
+    const prepareResponsePromise = page.waitForResponse(
+      (r) => r.url().includes('/prepare-payment') && r.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+    const prepareResponse = await prepareResponsePromise;
+    const prepareData = await prepareResponse.json().catch(() => ({}));
+    const invoiceId = prepareData?.invoiceDocName || '';
     expect(invoiceId).toBeTruthy();
 
     await page.evaluate(async (invId) => {
