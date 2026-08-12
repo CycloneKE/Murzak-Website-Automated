@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
-import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
+import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
 
 interface CheckoutProps {
   onSuccess: (user?: any) => void;
@@ -439,8 +439,21 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               </p>
             ) : null}
           </div>
-          <span className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter whitespace-nowrap">
-            {formatKes(order.monthlyKes)}{period}
+          <span className="text-right whitespace-nowrap">
+            {period === "/yr" ? (
+              <>
+                <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
+                  {formatKes(monthlyEquivalentKes(order.monthlyKes))}/mo
+                </span>
+                <span className="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  billed annually at {formatKes(order.monthlyKes)}
+                </span>
+              </>
+            ) : (
+              <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
+                {formatKes(order.monthlyKes)}{period}
+              </span>
+            )}
           </span>
         </div>
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">

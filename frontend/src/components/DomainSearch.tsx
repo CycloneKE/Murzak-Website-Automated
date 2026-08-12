@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Search, Loader2, Check, CircleSlash } from "lucide-react";
 import { checkDomain, normalizeLabel, type DomainResult } from "../services/domains";
-import { formatKes } from "../config/serviceCatalog";
+import { formatKes, monthlyEquivalentKes } from "../config/serviceCatalog";
 
 interface Props {
   /** Currently chosen domain (full, e.g. "acme.co.ke"), if any. */
@@ -84,8 +84,13 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
                 <div className="shrink-0 flex items-center gap-3">
                   {r.available ? (
                     <>
-                      <span className="text-label font-black text-slate-600 dark:text-slate-400">
-                        {formatKes(r.priceKes)}/yr
+                      <span className="text-right leading-tight">
+                        <span className="block text-label font-black text-murzak-ink dark:text-slate-100">
+                          {formatKes(monthlyEquivalentKes(r.priceKes))}/mo
+                        </span>
+                        <span className="block text-micro font-bold text-slate-600 dark:text-slate-400">
+                          billed annually at {formatKes(r.priceKes)}
+                        </span>
                       </span>
                       <button
                         type="button"
