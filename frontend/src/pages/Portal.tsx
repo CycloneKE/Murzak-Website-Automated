@@ -3084,8 +3084,8 @@ const renderCloudSystemsGrid = () => null;
                 <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
                   <Shield className="w-5 h-5 text-murzak-accent shrink-0" />
                   <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Full Frappe Administrator</h4>
-                    <p className="text-xs text-slate-500">Create custom doctypes, server scripts, and UI tweaks.</p>
+                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Full Platform Administrator</h4>
+                    <p className="text-xs text-slate-500">Create custom data models, server scripts, and UI tweaks.</p>
                   </div>
                 </div>
               </div>
