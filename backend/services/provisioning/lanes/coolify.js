@@ -413,6 +413,41 @@ async function provisionApp(job, opts) {
  * @returns {Promise<{externalRef:string, access:object, log:string}>}
  * @throws on any API failure (the runner converts a throw into retry/escalate).
  */
+const serviceStartPollMs = () => Math.max(2000, Number(process.env.COOLIFY_SERVICE_START_POLL_MS || 5000));
+const serviceStartTimeoutMs = () =>
+  Math.max(30000, Number(process.env.COOLIFY_SERVICE_START_TIMEOUT_MS || 120000));
+
+/**
+ * POST /api/v1/services only REGISTERS the compose stack — it does not start
+ * it (confirmed live, 2026-08-12: the created container sat "Exited" with
+ * "No such container" in the logs until a manual Deploy). This triggers the
+ * start action and polls the service's own status field ("<state>:<health>",
+ * e.g. "running:healthy") to a terminal state before the job is ever reported
+ * active, mirroring the BYOA path's deployAndWait — a job must never be
+ * marked active on resource creation alone.
+ */
+async function ensureServiceRunning(client, uuid, { sleep } = {}) {
+  const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/start`);
+
+  const deadline = Date.now() + serviceStartTimeoutMs();
+  let lastStatus = "";
+  while (Date.now() < deadline) {
+    await wait(serviceStartPollMs());
+    const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
+    const d = res.data?.data || res.data || {};
+    lastStatus = String(d.status || "");
+    const state = lastStatus.split(":")[0];
+    if (state === "running") return lastStatus;
+    if (state === "exited") {
+      throw permanentError(`coolify: service failed to start (status=${lastStatus})`, { status: lastStatus });
+    }
+  }
+  throw new Error(
+    `coolify: service still not running after ${Math.round(serviceStartTimeoutMs() / 1000)}s (status=${lastStatus})`
+  );
+}
+
 async function provision(job, opts) {
   // BYOA jobs (repo_url attached at enqueue) build from the customer's git
   // repo as an application; everything else stays the generic service path.
@@ -424,11 +459,14 @@ async function provision(job, opts) {
 
   // 1. Idempotency Check: does it already exist?
   // If the runner crashed after creation but before Frappe update, we must recover.
+  // Recovery goes through the SAME ensureServiceRunning as a fresh create — a
+  // job found "existing" but never started must not be reported active either.
   try {
     const listRes = await client.get("/api/v1/services");
     const existing = (listRes.data?.data || []).find((s) => s.name === name);
     if (existing) {
       const uuid = existing.uuid || existing.id || name;
+      const status = await ensureServiceRunning(client, uuid);
       return {
         externalRef: String(uuid),
         access: {
@@ -438,10 +476,11 @@ async function provision(job, opts) {
           manageUrl: c.baseUrl.replace(/\/+$/, ""),
           uuid: String(uuid),
         },
-        log: `coolify: recovered existing service "${name}" (uuid=${uuid}) on ${opts?.target?.id || "box-1"}`,
+        log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) on ${opts?.target?.id || "box-1"}`,
       };
     }
   } catch (e) {
+    if (e.permanent) throw e;
     // Ignore list errors and try to create; if it fails on POST we'll catch it there.
     console.warn(`[coolify] idempotency GET failed for ${name}: ${e.message}`);
   }
@@ -465,6 +504,16 @@ async function provision(job, opts) {
   // here — honors directly via mem_limit/cpus/pids_limit/cap_drop/
   // security_opt. Verified end-to-end: this exact shape returns 201 and the
   // service is created (smoke-tested then deleted: diag-test-delete-me-3).
+  //
+  // NO host port publish. A first live start attempt (job PRV-USER-26-02-14-
+  // 0002-00015, 2026-08-12) with `ports: [{target:80, published:80}]` failed
+  // with "failed to bind host port 0.0.0.0:80/tcp: address already in use" —
+  // Coolify's own proxy already owns 80/443 on the shared box. Every tenant
+  // publishing the same host port was never going to work on a multi-tenant
+  // instance; Coolify's proxy discovers containers over the internal Docker
+  // network and routes by attached domain (see finalizeApp's domains PATCH
+  // for the BYOA path), so the container just needs to expose the port, not
+  // bind it on the host.
   const composeYaml =
     `services:\n` +
     `  app:\n` +
@@ -477,9 +526,8 @@ async function provision(job, opts) {
     `      - ALL\n` +
     `    security_opt:\n` +
     `      - no-new-privileges:true\n` +
-    `    ports:\n` +
-    `      - target: 80\n` +
-    `        published: 80\n`;
+    `    expose:\n` +
+    `      - "80"\n`;
 
   const payload = {
     project_uuid: c.project,
@@ -493,6 +541,10 @@ async function provision(job, opts) {
   const data = res.data?.data || res.data || {};
   const uuid = data.uuid || data.id || name;
 
+  // Creation only registers the compose stack (see ensureServiceRunning) — it
+  // must actually be running before this job is ever reported active.
+  const status = await ensureServiceRunning(client, uuid);
+
   return {
     externalRef: String(uuid),
     access: {
@@ -505,7 +557,7 @@ async function provision(job, opts) {
     // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
     // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
     // catalog figure only, not an enforced container bound on this lane.
-    log: `coolify: created service "${name}" (uuid=${uuid}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
 }
 
