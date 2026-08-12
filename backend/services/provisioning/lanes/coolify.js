@@ -461,6 +461,29 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
   );
 }
 
+/**
+ * Attach the customer-facing hostname to a generic (non-BYOA) service —
+ * the exact gap that left every Website Hosting order stuck on "URL
+ * pending" forever: this lane created and started the container fine, but
+ * never called attachDomain, so access.url was never set and the portal's
+ * url_pending branch had nothing to ever resolve into. Best-effort by
+ * design (mirrors finalizeApp's BYOA domains PATCH) — a rejected PATCH must
+ * not fail the whole job; degrade to no link, same as an unconfigured
+ * APP_DOMAIN_BASE, never a fabricated URL.
+ */
+async function attachServiceUrl(client, uuid, job, name) {
+  const slug = appDomain.slugWithSuffix(name, job.name);
+  const fqdn = appDomain.fqdnFor(slug);
+  if (!fqdn) return "";
+  try {
+    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, { domains: fqdn });
+  } catch (e) {
+    console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
+    return "";
+  }
+  return fqdn;
+}
+
 async function provision(job, opts) {
   // BYOA jobs (repo_url attached at enqueue) build from the customer's git
   // repo as an application; everything else stays the generic service path.
@@ -480,16 +503,18 @@ async function provision(job, opts) {
     if (existing) {
       const uuid = existing.uuid || existing.id || name;
       const status = await ensureServiceRunning(client, uuid);
+      const url = await attachServiceUrl(client, uuid, job, name);
       return {
         externalRef: String(uuid),
         access: {
           lane: "coolify",
           target: opts?.target?.id || "box-1",
           resource: name,
+          url,
           manageUrl: c.baseUrl.replace(/\/+$/, ""),
           uuid: String(uuid),
         },
-        log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) on ${opts?.target?.id || "box-1"}`,
+        log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}`,
       };
     }
   } catch (e) {
@@ -570,6 +595,7 @@ async function provision(job, opts) {
   // Creation only registers the compose stack (see ensureServiceRunning) — it
   // must actually be running before this job is ever reported active.
   const status = await ensureServiceRunning(client, uuid);
+  const url = await attachServiceUrl(client, uuid, job, name);
 
   return {
     externalRef: String(uuid),
@@ -577,13 +603,14 @@ async function provision(job, opts) {
       lane: "coolify",
       target: opts?.target?.id || "box-1",
       resource: name,
+      url,
       manageUrl: c.baseUrl.replace(/\/+$/, ""),
       uuid: String(uuid),
     },
     // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
     // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
     // catalog figure only, not an enforced container bound on this lane.
-    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
 }
 
