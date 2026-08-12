@@ -16,11 +16,21 @@ export const setupApiInterceptor = () => {
     try {
       const response = await originalFetch(...args);
 
-      // Intercept 502 Bad Gateway and 503 Service Unavailable
+      // Intercept 502 Bad Gateway and 503 Service Unavailable — but only the
+      // real-outage kind. A JSON body means the app itself produced this
+      // response with a specific, actionable reason (e.g. orderStore.js's
+      // "Checkout is not configured." when a required doctype hasn't been
+      // set up yet) — that's a normal error the caller already surfaces
+      // inline, not a platform outage. Only a non-JSON response (typically
+      // an HTML/plain-text page from the reverse proxy when the app process
+      // itself is unreachable) should trigger the full-page takeover.
       if (response.status === 502 || response.status === 503) {
-        window.dispatchEvent(new CustomEvent('api-gateway-error', {
-          detail: { status: response.status }
-        }));
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          window.dispatchEvent(new CustomEvent('api-gateway-error', {
+            detail: { status: response.status }
+          }));
+        }
       }
 
       if (response.status === 401) {

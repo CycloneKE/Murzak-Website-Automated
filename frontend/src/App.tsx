@@ -18,10 +18,12 @@ import SLA from "./pages/SLA";
 import Login from "./pages/Login";
 import Portal from "./pages/Portal";
 import Payment from "./pages/Payment";
+import ThankYou from "./pages/ThankYou";
 import Checkout from "./pages/Checkout";
 import SalesModal from './components/SalesModal';
 import RequireAuth from "./components/RequireAuth";
 import { DeployWizard } from "./pages/DeployWizard/DeployWizard";
+import NotFound from "./pages/NotFound";
 
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
@@ -33,36 +35,9 @@ import ForHealthcare from "./pages/for/ForHealthcare";
 import ForLogistics from "./pages/for/ForLogistics";
 import ForServices from "./pages/for/ForServices";
 
-import { Page, User } from "./types";
+import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
-
-// ---- Map Page keys -> URL paths ----
-const pageToPath: Record<Page, string> = {
-  home: "/",
-  services: "/services",
-  cloud: "/cloud",
-  pricing: "/pricing",
-  solutions: "/solutions",
-  products: "/products",
-  about: "/about",
-  contact: "/contact",
-  "test-request": "/test-request",
-  privacy: "/privacy",
-  terms: "/terms",
-  sla: "/sla",
-  login: "/login",
-  portal: "/portal",
-  payment: "/payment",
-  pos: "/products/pos",
-  erp: "/products/erp",
-  crm: "/products/crm",
-  "custom-software": "/products/custom",
-  "for-retail": "/for/retail",
-  "for-clinics": "/for/clinics",
-  "for-logistics": "/for/logistics",
-  "for-services": "/for/services",
-  deploy: "/deploy",
-};
+import { useTheme } from "./context/ThemeContext";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -81,6 +56,7 @@ const pathToPage: Record<string, Page> = {
   "/login": "login",
   "/portal": "portal",   // base (nested handled below)
   "/payment": "payment",
+  "/thank-you": "thank-you",
   "/products/pos": "pos",
   "/products/erp": "erp",
   "/products/crm": "crm",
@@ -108,6 +84,7 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   login: { title: "Client Login | Murzak Technologies Secure Portal", description: "Access your cloud clusters and software project dashboards." },
   portal: { title: "Client Portal | Murzak Technologies Dashboard", description: "Managed Murzak Cloud and Software project status." },
   payment: { title: "Secure Checkout | Murzak Technologies Payment Gateway", description: "Process your subscription or setup fees securely." },
+  "thank-you": { title: "Payment Received | Murzak Technologies", description: "Your payment was received — taking you to your portal." },
   pos: { title: "Murzak POS & Inventory | Cloud Point of Sale Kenya", description: "Fast, multi-branch POS with M-Pesa integration." },
   erp: { title: "Murzak ERP | Business Management System Kenya", description: "Accounting, Inventory, and HR configured for Kenya." },
   crm: { title: "Murzak CRM & Helpdesk | Customer Management", description: "Track every lead and ticket seamlessly." },
@@ -123,7 +100,7 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
 // browser fetches it immediately instead of discovering it only once CSS
 // parses the bg-fixed rule (which otherwise costs a visible fade-in).
 const heroImages: Partial<Record<Page, string>> = {
-  home: "/images/server-man.webp",
+  home: "/images/nairobi-skyline.webp",
   cloud: "/images/server-glow.webp",
   products: "/images/products-hero.webp",
   about: "/images/about-hero.webp",
@@ -138,9 +115,36 @@ const App: React.FC = () => {
   // Derive activePage from URL (handle nested portal routes)
   const activePage: Page = useMemo(() => {
     if (location.pathname.startsWith("/portal")) return "portal";
-    if (location.pathname === "/payment") return "payment";
+    // /payment/:invoiceDocName and /checkout/:orderId|new carry a dynamic
+    // segment pathToPage can't match exactly — without this they silently
+    // fell back to "home"'s title/description on the actual checkout pages.
+    // No distinct "checkout" Page key exists, so it shares payment's.
+    if (location.pathname === "/payment" || location.pathname.startsWith("/payment/")) return "payment";
+    if (location.pathname.startsWith("/checkout/")) return "payment";
     return pathToPage[location.pathname] || "home";
   }, [location.pathname]);
+
+  // Route path prefixes that carry a dynamic segment (:invoiceDocName,
+  // :orderId, or the nested /portal/* sub-routes) — pathToPage only has
+  // exact-match entries, so these need their own check below or they'd
+  // wrongly count as unmatched.
+  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/"];
+
+  // True only when the URL matched no real route (the catch-all renders
+  // NotFound) — activePage still resolves to "home" above so the rest of
+  // the page-metadata machinery has a sane default, but the title/GA effects
+  // below use this to show "Page Not Found" instead of silently reusing
+  // Home's title on a broken link.
+  const isNotFoundRoute = useMemo(() => {
+    const p = location.pathname;
+    if (DYNAMIC_ROUTE_PREFIXES.some((prefix) => p.startsWith(prefix))) return false;
+    if (p === "/payment") return false;
+    return !pathToPage[p];
+  }, [location.pathname]);
+  const notFoundMeta = {
+    title: "Page Not Found | Murzak Technologies",
+    description: "The page you're looking for doesn't exist or has moved.",
+  };
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
@@ -213,19 +217,26 @@ const App: React.FC = () => {
 
   // GA4 page_view on every route change (no-op unless Firebase Analytics is configured).
   useEffect(() => {
-    const meta = pageMetadata[activePage] || pageMetadata.home;
+    const meta = isNotFoundRoute ? notFoundMeta : pageMetadata[activePage] || pageMetadata.home;
     logPageView(location.pathname + location.search, meta.title);
-  }, [location.pathname, location.search, activePage]);
+  }, [location.pathname, location.search, activePage, isNotFoundRoute]);
 
   useEffect(() => {
-    const meta = pageMetadata[activePage] || pageMetadata.home;
+    const meta = isNotFoundRoute ? notFoundMeta : pageMetadata[activePage] || pageMetadata.home;
     document.title = meta.title;
+    // pageMetadata already carries a per-page description (written when the
+    // title map was authored) — it was just never applied to the actual tag,
+    // so every route showed index.html's static, homepage-only description
+    // in search results. Update the same tag in place rather than adding a
+    // new one, since index.html's is the one crawlers see before hydration.
+    const descTag = document.querySelector('meta[name="description"]');
+    if (descTag) descTag.setAttribute("content", meta.description);
     window.scrollTo({ top: 0, behavior: "auto" });
 
     setIsPageLoading(true);
     const timer = setTimeout(() => setIsPageLoading(false), 700);
     return () => clearTimeout(timer);
-  }, [activePage]);
+  }, [activePage, isNotFoundRoute]);
 
   // Preload the current route's hero background so the browser starts
   // fetching it immediately on navigation rather than waiting to parse the
@@ -304,12 +315,24 @@ const App: React.FC = () => {
     } else if (user) {
       setUser({ ...user, accountStatus: "Provisioning" as const });
     }
-    navigate("/portal/overview");
+    // Routes through /thank-you (a real, stable URL) rather than straight to
+    // the portal — ThankYou.tsx auto-continues there itself, but this gives
+    // conversion-tracking pixels an actual page to fire against, which the
+    // previous direct navigate() never provided.
+    navigate("/thank-you");
   };
 
   const isPortalRoute = location.pathname.startsWith("/portal");
   const isPaymentRoute = location.pathname === "/payment";
   const hideChrome = isPortalRoute || location.pathname === "/login" || isPaymentRoute;
+
+  // The client portal is light-mode only — dark mode there has enough
+  // unstyled surfaces that it isn't a supported experience yet.
+  const { setForceLight } = useTheme();
+  useEffect(() => {
+    setForceLight(isPortalRoute);
+    return () => setForceLight(false);
+  }, [isPortalRoute, setForceLight]);
 
   if (booting) {
     return (
@@ -418,6 +441,15 @@ const App: React.FC = () => {
               />
 
               <Route
+                path="/thank-you"
+                element={
+                  <RequireAuth user={user}>
+                    <ThankYou onNavigate={onNavigate} />
+                  </RequireAuth>
+                }
+              />
+
+              <Route
                 path="/checkout/new"
                 element={
                   <RequireAuth user={user}>
@@ -436,7 +468,7 @@ const App: React.FC = () => {
               />
 
               {/* 404 */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound onNavigate={onNavigate} />} />
             </Routes>
           </div>
         </main>

@@ -238,6 +238,15 @@ app.use(
 );
 
 // ---- Rate limiters ----
+// The E2E suite runs ~115 tests against one long-lived backend process from a
+// single CI-runner IP, and most specs register/log in a fresh account — that
+// alone blows through these per-IP budgets (e.g. authLimiter's 20/15min) well
+// before the suite finishes, causing unrelated tests to fail on 429s instead
+// of the responses they're actually asserting on. Skip the broad IP limiters
+// in that mode; the per-account loginThrottle below (which AUTH-02 exercises
+// directly) is unaffected since it isn't one of these.
+const skipInE2E = () => process.env.E2E_TEST === "true";
+
 // Tight limiter for auth/credential endpoints to blunt brute force.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -245,6 +254,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many attempts. Please try again later." },
+  skip: skipInE2E,
 });
 // Broad limiter for the rest of the API surface.
 const apiLimiter = rateLimit({
@@ -252,6 +262,7 @@ const apiLimiter = rateLimit({
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInE2E,
 });
 app.use("/api/", apiLimiter);
 
@@ -262,6 +273,7 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Murzaker is resting. Please try again later (Rate limit exceeded)." },
+  skip: skipInE2E,
 });
 app.use("/api/ai", aiLimiter);
 
@@ -274,6 +286,7 @@ const publicFormLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many submissions from this device. Please try again later." },
+  skip: skipInE2E,
 });
 
 // Domain availability is a lookup users hit repeatedly while searching, so it
@@ -285,6 +298,7 @@ const domainCheckLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many domain lookups. Please slow down and try again shortly." },
+  skip: skipInE2E,
 });
 
 // Front-end error reporting — no auth (must work for logged-out visitors and
@@ -297,6 +311,7 @@ const clientLogLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many reports." },
+  skip: skipInE2E,
 });
 app.post("/api/client-log", clientLogLimiter, (req, res) => {
   const body = req.body || {};
@@ -457,6 +472,14 @@ function frappeClient() {
 
     return {
       get: async (url, config) => {
+        // Invoice PDF rendering — callers pass responseType: "arraybuffer" and
+        // wrap the response in Buffer.from(), so the mock must return actual
+        // bytes rather than falling through to the { data: [] } default below
+        // (which Buffer.from() rejects with a cryptic type error).
+        if (url.includes('/api/method/frappe.utils.print_format.download_pdf')) {
+          const fakePdf = Buffer.from(`%PDF-1.4\n% mock invoice PDF for ${config?.params?.name || 'unknown'}\n`);
+          return { data: fakePdf.buffer.slice(fakePdf.byteOffset, fakePdf.byteOffset + fakePdf.byteLength) };
+        }
         // Detect doctype from URL: /api/resource/Provisioning%20Job/PRV-00001 or /api/resource/Provisioning%20Job
         const resourceMatch = url.match(/\/api\/resource\/([^/?]+)(?:\/([^/?]+))?/);
         if (resourceMatch) {

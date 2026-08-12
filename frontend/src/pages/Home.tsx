@@ -9,6 +9,8 @@ import { Page } from '../types';
 import Faq, { type FaqItem } from '../components/Faq';
 import { PLAN_META, formatKes, serviceMonthlyKes } from '../config/serviceCatalog';
 import { Button } from '../components/ui/Button';
+import { useInView } from '../hooks/useInView';
+import { useCountUp } from '../hooks/useCountUp';
 
 interface HomeProps {
   onNavigate: (page: Page) => void;
@@ -88,6 +90,79 @@ function ConfigPeek() {
   );
 }
 
+/* Scroll-reveal wrapper — invisible until it crosses the viewport threshold,
+   then plays the existing fade-in-up keyframe once. Delay is per-instance so
+   callers can stagger items in a grid without each needing its own timer. */
+interface RevealProps {
+  children: React.ReactNode;
+  className?: string;
+  delayMs?: number;
+}
+const Reveal: React.FC<RevealProps> = ({ children, className = '', delayMs = 0 }) => {
+  const [ref, inView] = useInView<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      className={`${className} ${inView ? 'opacity-100 animate-fade-in-up' : 'opacity-0'}`}
+      style={inView && delayMs ? { animationDelay: `${delayMs}ms` } : undefined}
+    >
+      {children}
+    </div>
+  );
+};
+
+/* Trust-strip stat — the one genuinely numeric value (99.9%) counts up on
+   reveal; the rest ("< 1 day", "24/7", "KES") just render as-is, since
+   forcing a tick animation onto non-numeric text would be a gimmick rather
+   than a real count. */
+interface AnimatedStatProps {
+  big: string;
+  label: string;
+  start: boolean;
+}
+const AnimatedStat: React.FC<AnimatedStatProps> = ({ big, label, start }) => {
+  const match = big.match(/^(\d+(?:\.\d+)?)(%?)$/);
+  const target = match ? parseFloat(match[1]) : 0;
+  const suffix = match ? match[2] : '';
+  const count = useCountUp(target, start && !!match);
+  return (
+    <div className="text-center">
+      <div className="text-lg font-black text-murzak-accent tabular-nums">
+        {match ? `${count.toFixed(match[1].includes('.') ? 1 : 0)}${suffix}` : big}
+      </div>
+      <div className="font-mono text-micro uppercase text-slate-400">{label}</div>
+    </div>
+  );
+};
+
+function TrustStrip() {
+  const [ref, inView] = useInView<HTMLElement>();
+  return (
+    <section ref={ref} className={`relative z-10 glass-dark ${inView ? 'opacity-100 animate-fade-in-up' : 'opacity-0'}`}>
+      <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
+        <p className="font-mono text-micro uppercase text-slate-400 max-w-xs text-center lg:text-left">
+          Trusted by teams who'd rather be doing their actual job
+        </p>
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
+          {['Retail & POS', 'Logistics', 'Clinics', 'Manufacturing', 'Professional services'].map((t) => (
+            <span key={t} className="font-black uppercase tracking-tight text-white/50 text-sm">{t}</span>
+          ))}
+        </div>
+        <div className="flex gap-5 sm:gap-8">
+          {[
+            { big: '99.9%', label: 'Uptime' },
+            { big: '< 1 day', label: 'Go-live' },
+            { big: '24/7', label: 'Monitoring' },
+            { big: 'KES', label: 'Billing' },
+          ].map((s) => (
+            <AnimatedStat key={s.label} big={s.big} label={s.label} start={inView} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Page ---------- */
 const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const scrollTo = (id: string) =>
@@ -135,7 +210,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     <main className="text-white overflow-x-hidden">
       {/* 01 · HERO */}
       <section className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-man.webp')" }} />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/nairobi-skyline.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
         {/* ambient */}
@@ -184,41 +259,23 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-30" style={{ backgroundImage: "url('/images/home-section-bg.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-ink/80" />
-        <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-50" style={{ backgroundImage: "url('/images/home-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        {/* This section is unconditionally dark (no theme toggle here — see the
+            fix note further down), so the fade uses the ink value directly
+            rather than the theme-conditional .section-bg-fade class. */}
+        <div
+          className="absolute inset-0 z-0"
+          style={{ background: "linear-gradient(180deg, rgba(9,12,16,0.9) 0%, rgba(9,12,16,0.25) 30%, rgba(9,12,16,0.25) 70%, rgba(9,12,16,0.9) 100%)" }}
+        />
 
 
       {/* 02 · TRUST STRIP + STATS (merged — one compact band instead of two) */}
-      <section className="relative z-10 glass-dark">
-        <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col lg:flex-row items-center justify-between gap-8">
-          <p className="font-mono text-micro uppercase text-slate-400 max-w-xs text-center lg:text-left">
-            Trusted by teams who'd rather be doing their actual job
-          </p>
-          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3">
-            {['Retail & POS', 'Logistics', 'Clinics', 'Manufacturing', 'Professional services'].map((t) => (
-              <span key={t} className="font-black uppercase tracking-tight text-white/50 text-sm">{t}</span>
-            ))}
-          </div>
-          <div className="flex gap-5 sm:gap-8">
-            {[
-              { big: '99.9%', label: 'Uptime' },
-              { big: '< 1 day', label: 'Go-live' },
-              { big: '24/7', label: 'Monitoring' },
-              { big: 'KES', label: 'Billing' },
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <div className="text-lg font-black text-murzak-accent">{s.big}</div>
-                <div className="font-mono text-micro uppercase text-slate-400">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TrustStrip />
 
       {/* 03 · EMPATHY */}
       <section className="relative z-10 py-24 lg:py-36">
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
+        <Reveal className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-4xl lg:text-6xl font-[900] tracking-tight leading-[1.05]">
             You didn't start your business<br className="hidden sm:block" /> to babysit servers.
           </h2>
@@ -232,34 +289,35 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-400">
             A day of downtime during month-end can cost more than a year of hosting.
           </p>
-        </div>
+        </Reveal>
       </section>
 
       {/* 04 · WHAT WE DO (bento) */}
       <section id="what-we-do" className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-14">
+          <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">What we do</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">
               Three ways we keep your business running.
             </h2>
-          </div>
+          </Reveal>
 
           <div className="grid lg:grid-cols-2 gap-5">
-            {pillars.map((p) => (
-              <button
-                key={p.title}
-                onClick={() => onNavigate(p.page)}
-                className={`group text-left rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] ${p.span}`}
-              >
-                <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
-                <p className="font-mono text-micro uppercase text-slate-400 mb-2">{p.tag}</p>
-                <h3 className="text-2xl font-black text-white mb-3">{p.title}</h3>
-                <p className="text-slate-400 font-medium leading-relaxed mb-6 max-w-md">{p.desc}</p>
-                <span className="inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">
-                  {p.cta} <ArrowUpRight size={15} />
-                </span>
-              </button>
+            {pillars.map((p, i) => (
+              <Reveal key={p.title} delayMs={i * 80} className={p.span}>
+                <button
+                  onClick={() => onNavigate(p.page)}
+                  className="group text-left w-full h-full rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] hover:-translate-y-1"
+                >
+                  <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
+                  <p className="font-mono text-micro uppercase text-slate-400 mb-2">{p.tag}</p>
+                  <h3 className="text-2xl font-black text-white mb-3">{p.title}</h3>
+                  <p className="text-slate-400 font-medium leading-relaxed mb-6 max-w-md">{p.desc}</p>
+                  <span className="inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent group-hover:gap-3 transition-all">
+                    {p.cta} <ArrowUpRight size={15} />
+                  </span>
+                </button>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -268,7 +326,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 05 · CONFIGURATOR TEASER */}
       <section className="relative z-10 py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
-          <div>
+          <Reveal>
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No hidden pricing</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight leading-tight">
               See the price before<br /> you talk to anyone.
@@ -279,34 +337,34 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <Button className="mt-8" onClick={() => onNavigate('pricing')}>
               Build my plan <ArrowRight size={18} />
             </Button>
-          </div>
-          <div className="relative">
+          </Reveal>
+          <Reveal delayMs={120} className="relative">
             <div className="absolute -inset-6 rounded-[2.5rem] bg-brand-gradient opacity-10 blur-2xl" />
             <div className="relative"><ConfigPeek /></div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
       {/* 05b · HOW IT WORKS */}
       <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-14">
+          <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How it works</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">From "we need this" to live — in four steps.</h2>
-          </div>
+          </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
               { n: '01', icon: <MessageSquare size={20} />, t: 'Tell us what you need', s: 'Build a plan in the configurator, or just describe the problem. No jargon required.' },
               { n: '02', icon: <Settings size={20} />, t: 'We set it up & migrate', s: 'We provision the server, install and tune your apps, move your data and lock down security.' },
               { n: '03', icon: <Rocket size={20} />, t: 'Go live', s: 'Most websites and standard apps are live the same day. ERP with migration takes a few days.' },
               { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support — for as long as you’re with us.' },
-            ].map((step) => (
-              <div key={step.n} className="relative rounded-3xl glass-dark p-7 lg:p-8">
+            ].map((step, i) => (
+              <Reveal key={step.n} delayMs={i * 80} className="relative rounded-3xl glass-dark p-7 lg:p-8 transition-transform hover:-translate-y-1">
                 <span className="absolute top-6 right-6 font-mono text-label font-black text-white/15">{step.n}</span>
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{step.icon}</div>
                 <h3 className="text-lg font-black text-white mb-2">{step.t}</h3>
                 <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{step.s}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -315,14 +373,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 06 · PRODUCTS */}
       <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-14">
+          <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Products</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Buy what's ready. Build what isn't.</h2>
-          </div>
+          </Reveal>
 
           <div className="grid lg:grid-cols-2 gap-5">
             {/* ready-made */}
-            <div className="rounded-3xl glass-dark p-8 lg:p-10">
+            <Reveal className="rounded-3xl glass-dark p-8 lg:p-10">
               <p className="font-mono text-micro uppercase text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
@@ -343,10 +401,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Browse products <ArrowUpRight size={15} />
               </button>
-            </div>
+            </Reveal>
 
             {/* bespoke — spec-editor styling */}
-            <div className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
+            <Reveal delayMs={80} className="rounded-3xl border border-white/10 bg-[#0a0f24] p-8 lg:p-10 font-mono">
               <p className="text-micro uppercase text-slate-400 mb-5">// bespoke build</p>
               <div className="space-y-2 text-[13px] leading-relaxed">
                 <p className="text-slate-500">01 <span className="text-slate-300">problem</span> <span className="text-murzak-accent">"dispatch is run on WhatsApp"</span></p>
@@ -360,7 +418,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Start a build <ArrowUpRight size={15} />
               </button>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -368,21 +426,21 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 07 · LOCAL EDGE */}
       <section className="relative z-10 py-20 lg:py-28">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-14">
+          <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why Murzak</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Built for how Kenya actually does business.</h2>
-          </div>
+          </Reveal>
           <div className="grid sm:grid-cols-3 gap-5">
             {[
               { icon: <Smartphone size={22} />, t: 'Pay by M-Pesa', s: 'STK push straight to your phone. No card needed.' },
               { icon: <ShieldCheck size={22} />, t: 'Billed in shillings', s: 'What you see is what you pay. No forex games.' },
               { icon: <Headphones size={22} />, t: 'Support in your time zone', s: 'Real people in Nairobi, answering the same day.' },
-            ].map((c) => (
-              <div key={c.t} className="rounded-3xl glass-dark p-8">
+            ].map((c, i) => (
+              <Reveal key={c.t} delayMs={i * 80} className="rounded-3xl glass-dark p-8 transition-transform hover:-translate-y-1">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
                 <h3 className="text-xl font-black text-white mb-2">{c.t}</h3>
                 <p className="text-slate-400 font-medium leading-relaxed">{c.s}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -391,13 +449,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 07b · WHY SWITCH (comparison) */}
       <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-14">
+          <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Why businesses switch</p>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">The usual way vs. the Murzak way.</h2>
-          </div>
+          </Reveal>
           <div className="grid lg:grid-cols-2 gap-5">
             {/* the usual way */}
-            <div className="rounded-3xl glass-dark p-8 lg:p-10">
+            <Reveal className="rounded-3xl glass-dark p-8 lg:p-10">
               <p className="font-mono text-micro uppercase text-slate-400 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
@@ -412,9 +470,9 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Reveal>
             {/* the murzak way */}
-            <div className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
+            <Reveal delayMs={80} className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
               <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-brand-gradient opacity-20" />
               <p className="font-mono text-micro uppercase text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
@@ -430,7 +488,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   </li>
                 ))}
               </ul>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -438,7 +496,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 07c · PRICING PREVIEW */}
       <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
+          <Reveal className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-14">
             <div className="max-w-2xl">
               <p className="font-mono text-micro uppercase text-murzak-accent mb-4">Plans at a glance</p>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Start free. Scale when you’re ready.</h2>
@@ -449,39 +507,40 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             >
               See full pricing <ArrowUpRight size={15} />
             </button>
-          </div>
+          </Reveal>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {Object.values(PLAN_META).map((m) => (
-              <button
-                key={m.code}
-                onClick={() => onNavigate('pricing')}
-                className={`text-left rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
-                  m.featured
-                    ? 'border-murzak-accent/40 bg-murzak-accent/[0.06]'
-                    : 'glass-dark hover:border-white/20'
-                }`}
-              >
-                {m.featured && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-murzak-accent/15 text-murzak-accent px-2.5 py-1 font-mono text-micro uppercase mb-4">
-                    <Star size={10} /> Most popular
-                  </span>
-                )}
-                <h3 className="text-lg font-black text-white">{m.label}</h3>
-                <p className="font-mono text-micro uppercase text-murzak-accent mb-4">{m.bestFor}</p>
-                <div className="flex items-baseline gap-1.5 mb-4">
-                  {m.startingKes != null && m.startingKes > 0 && (
-                    <span className="font-mono text-micro uppercase text-slate-400">from</span>
+            {Object.values(PLAN_META).map((m, i) => (
+              <Reveal key={m.code} delayMs={i * 80}>
+                <button
+                  onClick={() => onNavigate('pricing')}
+                  className={`text-left w-full h-full rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
+                    m.featured
+                      ? 'border-murzak-accent/40 bg-murzak-accent/[0.06]'
+                      : 'glass-dark hover:border-white/20'
+                  }`}
+                >
+                  {m.featured && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-murzak-accent/15 text-murzak-accent px-2.5 py-1 font-mono text-micro uppercase mb-4">
+                      <Star size={10} /> Most popular
+                    </span>
                   )}
-                  <span className="text-2xl font-[900] text-white tracking-tight">
-                    {m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes)}
+                  <h3 className="text-lg font-black text-white">{m.label}</h3>
+                  <p className="font-mono text-micro uppercase text-murzak-accent mb-4">{m.bestFor}</p>
+                  <div className="flex items-baseline gap-1.5 mb-4">
+                    {m.startingKes != null && m.startingKes > 0 && (
+                      <span className="font-mono text-micro uppercase text-slate-400">from</span>
+                    )}
+                    <span className="text-2xl font-[900] text-white tracking-tight">
+                      {m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes)}
+                    </span>
+                    <span className="font-mono text-micro uppercase text-slate-400">{m.period}</span>
+                  </div>
+                  <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
+                  <span className="mt-5 inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent">
+                    {m.cta} <ArrowRight size={13} />
                   </span>
-                  <span className="font-mono text-micro uppercase text-slate-400">{m.period}</span>
-                </div>
-                <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{m.blurb}</p>
-                <span className="mt-5 inline-flex items-center gap-2 font-black text-micro uppercase text-murzak-accent">
-                  {m.cta} <ArrowRight size={13} />
-                </span>
-              </button>
+                </button>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -507,13 +566,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           Faq's existing dark-mode styling on, without touching the shared
           component or its behavior anywhere else it's used. */}
       <section className="relative z-10 py-20 lg:py-28 border-t border-white/5 dark">
-        <Faq items={faqItems} />
+        <Reveal><Faq items={faqItems} /></Reveal>
       </section>
 
       {/* 10 · FINAL CTA */}
       <section className="relative z-10 py-24 lg:py-36 overflow-hidden">
         <div className="absolute inset-0 -z-10 opacity-[0.05]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '28px 28px' }} />
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
+        <Reveal className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-5xl font-[900] tracking-tight text-white">Let's get your business set up properly.</h2>
           <p className="mt-5 text-lg text-white/85 font-medium">
             Build a plan in two minutes, or talk to someone who'll actually pick up.
@@ -529,7 +588,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p className="mt-6 font-mono text-label uppercase tracking-widest text-white/70">
             Start in a day · No card · Pay by M-Pesa
           </p>
-        </div>
+        </Reveal>
       </section>
       </div>
     </main>

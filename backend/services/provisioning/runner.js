@@ -42,6 +42,13 @@ const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMP
 const batchSize = () => Math.max(1, Number(process.env.PROVISIONING_BATCH || 5));
 const pollMs = () => Math.max(5000, Number(process.env.PROVISIONING_POLL_MS || 60000));
 const concurrency = () => Math.max(1, Number(process.env.PROVISIONING_CONCURRENCY || 2));
+// A job stuck "running" longer than this had its runner die mid-build (process
+// crash/restart, or — since PROVISIONING_RUNNER_ENABLED defaults to false — the
+// single fire-and-forget processQueue() call after /api/byoa/deploy or checkout
+// never got a second chance to run). Nothing else ever re-selects a "running"
+// job (fetchClaimable only reads status="queued"), so without this it stays
+// stuck at "Provisioning Infrastructure" in the wizard forever.
+const staleRunningSec = () => Math.max(60, Number(process.env.PROVISIONING_STALE_RUNNING_SEC || 900));
 
 function isRunnerEnabled() {
   return String(process.env.PROVISIONING_RUNNER_ENABLED || "false").toLowerCase() === "true";
@@ -173,25 +180,89 @@ async function markAccountServiceActive(client, webAccount, serviceId) {
   }
 }
 
+/**
+ * Requeue (or, past max attempts, escalate) any job orphaned in "running" —
+ * a runner claimed it, then died before ever writing active/needs_human/retry.
+ * Best-effort and never throws; a failure here shouldn't block the normal
+ * queued-job pass that follows.
+ */
+async function reclaimStaleRunning(client, thresholdSec = staleRunningSec()) {
+  let rows;
+  try {
+    const res = await client.get(`/api/resource/${enc(JOB_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["status", "=", "running"]]),
+        fields: JSON.stringify(["name", "attempts", "started_at", "log"]),
+        limit_page_length: 100,
+      },
+    });
+    rows = res.data?.data || [];
+  } catch (e) {
+    return { reclaimed: 0, error: e.message };
+  }
+
+  const cutoff = Date.now() - thresholdSec * 1000;
+  const stale = rows.filter((j) => !j.started_at || parseSqlTime(j.started_at) <= cutoff);
+
+  let reclaimed = 0;
+  for (const j of stale) {
+    const attempts = Number(j.attempts || 0) + 1;
+    try {
+      if (attempts >= maxAttempts()) {
+        await updateJob(client, j.name, {
+          status: "needs_human",
+          attempts,
+          error: `Runner died mid-build (stuck "running" past ${thresholdSec}s) after ${attempts} attempt(s).`,
+        });
+      } else {
+        await updateJob(client, j.name, {
+          status: "queued",
+          attempts,
+          next_run_at: null,
+          runner_id: "",
+          error: `Runner died mid-build (stuck "running" past ${thresholdSec}s) — requeued.`,
+        });
+      }
+      reclaimed++;
+    } catch {
+      // best-effort — leave it for the next pass
+    }
+  }
+  return { reclaimed, total: stale.length };
+}
+
+// Every field fetchClaimable() reads off a queued job. Exported (not just
+// inlined below) so readiness.js can verify the LIVE doctype actually has
+// all of these — a field this list depends on but the installed doctype
+// lacks makes Frappe reject the whole GET with a 417, which fetchClaimable
+// has no per-field visibility into: processQueue() just fails outright,
+// EVERY tick, for EVERY job, forever, with only a console.error (no
+// admin-visible signal). Reproduced live 2026-08-11/12: "repo_url" and
+// "deployment_history" were added here when BYOA/deployment-history shipped,
+// but the production doctype was never re-synced — the runner had been
+// silently dead since the moment those fields were added, unrelated to
+// PROVISIONING_RUNNER_ENABLED (which was correctly "true" the whole time).
+const CLAIMABLE_JOB_FIELDS = [
+  "name", "web_account", "invoice", "service_id", "service_name",
+  "category", "capacity_class", "lane", "status", "attempts",
+  "ram_mb", "disk_gb", "next_run_at", "target",
+  // BYOA: the lane dispatches on repo_url — omitting it here silently
+  // downgrades an app deploy to a blank service (caught live 2026-07-16).
+  // app_port + deployment_uuid are the same bug class: the lane reads
+  // both (port at create, deployment_uuid to RESUME a timed-out build
+  // instead of re-building), so they must ride along on the claim fetch.
+  // deployment_history must ride along too, or appendDeployment() below
+  // sees an empty job.deployment_history every pass and the array never
+  // actually accumulates past one entry.
+  "repo_url", "app_port", "deployment_uuid", "deployment_history",
+];
+
 /** Queued jobs whose backoff (next_run_at) has elapsed. */
 async function fetchClaimable(client, limit) {
   const res = await client.get(`/api/resource/${enc(JOB_DOCTYPE)}`, {
     params: {
       filters: JSON.stringify([["status", "=", "queued"]]),
-      fields: JSON.stringify([
-        "name", "web_account", "invoice", "service_id", "service_name",
-        "category", "capacity_class", "lane", "status", "attempts",
-        "ram_mb", "disk_gb", "next_run_at", "target",
-        // BYOA: the lane dispatches on repo_url — omitting it here silently
-        // downgrades an app deploy to a blank service (caught live 2026-07-16).
-        // app_port + deployment_uuid are the same bug class: the lane reads
-        // both (port at create, deployment_uuid to RESUME a timed-out build
-        // instead of re-building), so they must ride along on the claim fetch.
-        // deployment_history must ride along too, or appendDeployment() below
-        // sees an empty job.deployment_history every pass and the array never
-        // actually accumulates past one entry.
-        "repo_url", "app_port", "deployment_uuid", "deployment_history",
-      ]),
+      fields: JSON.stringify(CLAIMABLE_JOB_FIELDS),
       order_by: "modified asc",
       limit_page_length: limit,
     },
@@ -369,6 +440,8 @@ async function processQueue(
   client,
   { lanes = DEFAULT_LANES, max = batchSize(), runnerId = "runner", limit = concurrency() } = {}
 ) {
+  await reclaimStaleRunning(client);
+
   let jobs = [];
   try {
     jobs = await fetchClaimable(client, max);
@@ -439,6 +512,8 @@ module.exports = {
   isRunnerEnabled,
   backoffSec,
   parseSqlTime,
+  reclaimStaleRunning,
+  CLAIMABLE_JOB_FIELDS,
   fetchClaimable,
   fetchJobByName,
   claimJob,

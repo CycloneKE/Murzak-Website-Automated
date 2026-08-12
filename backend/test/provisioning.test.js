@@ -133,6 +133,26 @@ const okLane = {
   const r5 = await runner.processQueue(s, { lanes: { coolify: okLane } });
   ok(r5.processed === 0 && PJ(s).J5.status === "queued", "future backoff -> not claimed");
 
+  section("runner: reclaims jobs orphaned in \"running\" (runner died mid-build)");
+  const staleTs = new Date(Date.now() - 3600e3).toISOString().slice(0, 19).replace("T", " ");
+  const freshTs = new Date().toISOString().slice(0, 19).replace("T", " ");
+  s = makeStore([
+    { name: "J6", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "running", attempts: 0, ram_mb: 768, started_at: staleTs, runner_id: "dead-runner" },
+    { name: "J7", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "running", attempts: 0, ram_mb: 768, started_at: freshTs, runner_id: "live-runner" },
+  ]);
+  const reclaimResult = await runner.reclaimStaleRunning(s, 900);
+  ok(reclaimResult.reclaimed === 1 && reclaimResult.total === 1, "only the stale job is reclaimed, not the fresh one");
+  ok(PJ(s).J6.status === "queued" && PJ(s).J6.attempts === 1 && !PJ(s).J6.runner_id, "stale job -> requeued, attempt burned, runner_id cleared");
+  ok(PJ(s).J7.status === "running", "recently-claimed job left alone");
+
+  s = makeStore([{ name: "J8", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "running", attempts: 2, ram_mb: 768, started_at: staleTs, runner_id: "dead-runner" }]);
+  await runner.reclaimStaleRunning(s, 900);
+  ok(PJ(s).J8.status === "needs_human" && PJ(s).J8.attempts === 3, "stale job past max attempts -> needs_human, not an infinite requeue loop");
+
+  s = makeStore([{ name: "J9", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 768 }]);
+  await runner.processQueue(s, { lanes: { coolify: okLane } });
+  ok(PJ(s).J9.status === "active", "processQueue reclaim pass doesn't disturb a normal queued job");
+
   section("multi-target placement + premium cap");
   process.env.PROVISIONING_TARGETS = JSON.stringify([{ id: "box-2", sellableRamMb: 12800 }]);
   s = makeStore([

@@ -1,6 +1,38 @@
 import React from 'react';
 
-export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
+export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'thank-you' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
+
+// Single source of truth for Page key -> URL path, shared by App.tsx's router
+// wiring and anything (e.g. Breadcrumbs) that needs to turn a Page key into a
+// real URL rather than naively assuming the key IS the path (it usually
+// isn't — "home" -> "/", "custom-software" -> "/products/custom", etc).
+export const pageToPath: Record<Page, string> = {
+  home: "/",
+  services: "/services",
+  cloud: "/cloud",
+  pricing: "/pricing",
+  solutions: "/solutions",
+  products: "/products",
+  about: "/about",
+  contact: "/contact",
+  "test-request": "/test-request",
+  privacy: "/privacy",
+  terms: "/terms",
+  sla: "/sla",
+  login: "/login",
+  portal: "/portal",
+  payment: "/payment",
+  "thank-you": "/thank-you",
+  pos: "/products/pos",
+  erp: "/products/erp",
+  crm: "/products/crm",
+  "custom-software": "/products/custom",
+  "for-retail": "/for/retail",
+  "for-clinics": "/for/clinics",
+  "for-logistics": "/for/logistics",
+  "for-services": "/for/services",
+  deploy: "/deploy",
+};
 
 export type AccountStatus = 'Pending' | 'Provisioning' | 'Active' | 'Suspended' | 'Evaluating';
 
@@ -84,5 +116,6 @@ export type SelectedServiceView = {
   domainChoice?: string;
   status: ServiceStatus;
   isAddon: boolean;
+  /** Looked up from the service catalog by serviceId — matches ServiceHealth's looseness. */
   capacityClass?: string;
 };

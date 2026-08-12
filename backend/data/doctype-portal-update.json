@@ -1,0 +1,27 @@
+{
+  "doctype": "DocType",
+  "name": "Portal Update",
+  "module": "Custom",
+  "custom": 1,
+  "naming_rule": "Autoincrement",
+  "autoname": "autoincrement",
+  "title_field": "content",
+  "track_changes": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "fields": [
+    { "fieldname": "web_account", "fieldtype": "Link", "label": "Web Account", "options": "Web Account", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1 },
+    { "fieldname": "type", "fieldtype": "Select", "label": "Type", "options": "technical\nalert\nmilestone", "default": "milestone", "in_list_view": 1, "in_standard_filter": 1 },
+    { "fieldname": "column_break_1", "fieldtype": "Column Break" },
+    { "fieldname": "engineer", "fieldtype": "Data", "label": "Engineer", "default": "Murzak Tech" },
+    { "fieldname": "acknowledged", "fieldtype": "Check", "label": "Acknowledged", "default": "0" },
+    { "fieldname": "is_chat", "fieldtype": "Check", "label": "Is Chat", "default": "0", "description": "Distinguishes a concierge-chat message from a project/status update in the same feed." },
+    { "fieldname": "created_at", "fieldtype": "Datetime", "label": "Created At", "description": "Server-stamped; distinct from Frappe's own `creation` so the API can order/display a consistent value regardless of doctype metadata settings." },
+
+    { "fieldname": "section_content", "fieldtype": "Section Break", "label": "Content" },
+    { "fieldname": "content", "fieldtype": "Text", "label": "Content", "reqd": 1 }
+  ],
+  "permissions": [
+    { "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1 }
+  ]
+}

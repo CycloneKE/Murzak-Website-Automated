@@ -211,6 +211,8 @@ Open http://localhost:3000. The Vite dev server proxies `/api/*` to the backend.
 ## 10. Where to read next
 
 - **Operators / staff:** `docs/operations-manual.md` (the human runbook).
+- **Every product's full playbook + incident response:**
+  `docs/operations-workbook.md`.
 - **Turning on automation:** `docs/provisioning-go-live.md`.
 - **Provisioning internals:** `backend/services/provisioning/README.md`.
 - **Strategy/architecture:** `docs/provisioning-automation-plan.md`.
