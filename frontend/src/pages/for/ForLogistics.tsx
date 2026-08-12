@@ -3,6 +3,7 @@ import { ArrowRight, Truck, MapPin, Package, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
 import SalesModal from '../../components/SalesModal';
+import Breadcrumbs from '../../components/Breadcrumbs';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -21,6 +22,7 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
       <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
+          <Breadcrumbs onNavigate={onNavigate} className="justify-center" items={[{ label: 'Home', page: 'home' }, { label: 'For Logistics & Distribution' }]} />
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
             <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Logistics & Distribution</span>
           </div>
@@ -50,8 +52,9 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/ship-map.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/ship-map.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
         {/* Multi-modal freight — sea, road, air, one system */}
         <section className="relative z-10 border-t border-murzak-border/50 py-20">

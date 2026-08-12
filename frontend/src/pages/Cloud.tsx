@@ -24,12 +24,13 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       setLaunchOpen(true);
     }
   }, [searchParams]);
-  const whatYouCanHost: { icon: React.ReactNode; t: string; s: string; page?: Page }[] = [
+  const whatYouCanHost: { icon: React.ReactNode; t: string; s: string; page?: Page; path?: string }[] = [
     { icon: <Globe size={20} />, t: 'Websites & online stores', s: 'WordPress, custom sites, light e-commerce — fast and SSL-secured.' },
     { icon: <Mail size={20} />, t: 'Business email', s: 'Professional mail on your domain, with spam filtering and admin controls.' },
     { icon: <Database size={20} />, t: 'Databases', s: 'Managed MySQL/Postgres for your apps, tuned and backed up.' },
     { icon: <HardDrive size={20} />, t: 'File storage', s: 'A private cloud drive for your team — share without the chaos.' },
     { icon: <Github size={20} />, t: 'Your own app', s: 'Connect a GitHub repo and we build, deploy and keep it running.', page: 'deploy' },
+    { icon: <Globe size={20} />, t: 'A domain name', s: 'Search, register and point a domain at anything you host with us — billed yearly.', path: '/products#domains' },
   ];
 
   const managed = [
@@ -96,9 +97,9 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/cloud-section-bg.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
-        <div className="absolute inset-0 z-0 bg-murzak-accent/5 mix-blend-color" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/cloud-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
 
       {/* What you can host */}
@@ -110,18 +111,19 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
           </div>
           <div className="grid sm:grid-cols-2 gap-5">
             {whatYouCanHost.map((c) => {
-              const Tag = c.page ? 'button' : 'div';
+              const isLink = Boolean(c.page || c.path);
+              const Tag = isLink ? 'button' : 'div';
               return (
                 <Tag
                   key={c.t}
-                  onClick={c.page ? () => onNavigate(c.page as Page) : undefined}
-                  className={`flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08] ${c.page ? 'text-left w-full group hover:border-murzak-accent/40 dark:hover:border-murzak-accent/40' : ''}`}
+                  onClick={isLink ? () => onNavigate(c.path || (c.page as Page)) : undefined}
+                  className={`flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08] ${isLink ? 'text-left w-full group hover:border-murzak-accent/40 dark:hover:border-murzak-accent/40' : ''}`}
                 >
                   <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{c.icon}</span>
                   <div className="flex-1">
                     <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5 flex items-center gap-2">
                       {c.t}
-                      {c.page && <ArrowUpRight size={15} className="text-murzak-accent opacity-0 group-hover:opacity-100 transition-opacity" />}
+                      {isLink && <ArrowUpRight size={15} className="text-murzak-accent opacity-0 group-hover:opacity-100 transition-opacity" />}
                     </h3>
                     <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
                   </div>
@@ -137,7 +139,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <div className="grid lg:grid-cols-12 gap-10 items-center mb-12">
             <div className="lg:col-span-7">
-              <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Fully managed</p>
+              <p className="inline-block font-mono text-micro uppercase text-sky-800 dark:text-murzak-accent mb-3 px-2.5 py-1 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-sm">Fully managed</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
               <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
                 Real engineers watching real infrastructure — not a support queue that routes you overseas.

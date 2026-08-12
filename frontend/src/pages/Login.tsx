@@ -126,13 +126,23 @@ interface LoginProps {
 
   // If a pending cloud-launch selection carries a repo URL (App Hosting),
   // prefill the signup form's repo field so the visitor doesn't retype it.
+  // Checks both pending-selection shapes — the plan configurator's and
+  // CloudLaunchModal's single-resource one (config.repoUrl).
   useEffect(() => {
     try {
-      const pendingRaw = localStorage.getItem("murzak_plan_selection_pending");
-      if (!pendingRaw) return;
-      const pending = JSON.parse(pendingRaw);
-      if (pending?.repoUrl) {
-        setFormData((prev) => (prev.sourceCode ? prev : { ...prev, sourceCode: pending.repoUrl }));
+      const planPendingRaw = localStorage.getItem("murzak_plan_selection_pending");
+      if (planPendingRaw) {
+        const pending = JSON.parse(planPendingRaw);
+        if (pending?.repoUrl) {
+          setFormData((prev) => (prev.sourceCode ? prev : { ...prev, sourceCode: pending.repoUrl }));
+        }
+      }
+      const cloudPendingRaw = localStorage.getItem("murzak_cloud_launch_pending");
+      if (cloudPendingRaw) {
+        const pending = JSON.parse(cloudPendingRaw);
+        if (pending?.config?.repoUrl) {
+          setFormData((prev) => (prev.sourceCode ? prev : { ...prev, sourceCode: pending.config.repoUrl }));
+        }
       }
     } catch (e) {
       console.warn("Repo URL prefill failed", e);
@@ -164,6 +174,48 @@ interface LoginProps {
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   };
+
+// Redeems a CloudLaunchModal single-resource pending selection (Murzak
+// Cloud "Launch a resource" while logged out) into the SAME Checkout Order
+// this modal uses when already logged in (POST /api/orders) — not the
+// plan-configurator's /api/plan/attach-selection, which prices a whole plan
+// tier, not this one addon-priced resource. Returns the new order's id (for
+// /checkout/:orderId), or null if there was nothing pending.
+const attachPendingCloudLaunch = async (): Promise<string | null> => {
+  const pendingRaw = localStorage.getItem("murzak_cloud_launch_pending");
+  if (!pendingRaw) return null;
+
+  let pending: { serviceId?: string; planKey?: string; source?: string; config?: any };
+  try {
+    pending = JSON.parse(pendingRaw);
+  } catch {
+    localStorage.removeItem("murzak_cloud_launch_pending");
+    return null;
+  }
+  if (!pending?.serviceId) {
+    localStorage.removeItem("murzak_cloud_launch_pending");
+    return null;
+  }
+
+  const res = await fetch("/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      serviceId: pending.serviceId,
+      planKey: pending.planKey || "Starter",
+      source: pending.source || "CloudLaunch",
+      config: pending.config || {},
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  localStorage.removeItem("murzak_cloud_launch_pending");
+
+  if (!res.ok) {
+    throw new Error(data?.error || "Failed to start checkout for your selected resource.");
+  }
+  return data?.order?.id || null;
+};
 
 const attachPendingSelection = async (currentUser?: User, opts?: { skipRepoPut?: boolean }) => {
   const pendingRaw = localStorage.getItem("murzak_plan_selection_pending");
@@ -274,6 +326,20 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
 
       try {
+        const cloudLaunchOrderId = await attachPendingCloudLaunch();
+        if (cloudLaunchOrderId) {
+          onLogin(data.user, `/checkout/${cloudLaunchOrderId}`);
+          return;
+        }
+      } catch (e: any) {
+        const msg = e?.message || "Unable to start checkout for your selected resource.";
+        console.warn("Attach pending cloud launch failed:", msg);
+        navigate("/portal/overview", { state: { attachError: msg } });
+        onLogin(data.user, "/portal/overview");
+        return;
+      }
+
+      try {
         const generatedInvoiceId = await attachPendingSelection(data.user);
         if (generatedInvoiceId) {
           onLogin(data.user, `/payment/${generatedInvoiceId}`);
@@ -325,6 +391,21 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!res.ok) throw new Error(data?.error || "Signup failed");
 
     try {
+      const cloudLaunchOrderId = await attachPendingCloudLaunch();
+      if (cloudLaunchOrderId) {
+        onLogin(data.user, `/checkout/${cloudLaunchOrderId}`);
+        return;
+      }
+    } catch (e: any) {
+      const msg = e?.message || "Unable to start checkout for your selected resource.";
+      sessionStorage.setItem("murzak_pending_attach_error", msg);
+      console.warn("Attach pending cloud launch failed:", msg);
+      navigate("/portal/overview");
+      onLogin(data.user, "/portal/overview");
+      return;
+    }
+
+    try {
       // /api/register just persisted the form's sourceCode — fresher than pending.repoUrl.
       const generatedInvoiceId = await attachPendingSelection(data.user, { skipRepoPut: true });
       if (generatedInvoiceId) {
@@ -368,6 +449,20 @@ const handleGoogle = async () => {
     if (!res.ok) throw new Error(data?.error || "Google sign-in failed");
 
     // Mirror the password-login success path.
+    try {
+      const cloudLaunchOrderId = await attachPendingCloudLaunch();
+      if (cloudLaunchOrderId) {
+        onLogin(data.user, `/checkout/${cloudLaunchOrderId}`);
+        return;
+      }
+    } catch (e: any) {
+      const msg = e?.message || "Unable to start checkout for your selected resource.";
+      console.warn("Attach pending cloud launch failed:", msg);
+      navigate("/portal/overview", { state: { attachError: msg } });
+      onLogin(data.user, "/portal/overview");
+      return;
+    }
+
     try {
       const generatedInvoiceId = await attachPendingSelection(data.user);
       if (generatedInvoiceId) {

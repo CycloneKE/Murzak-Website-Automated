@@ -26,13 +26,36 @@
 //    always checked (regardless of renew): once it's Paid, the order flips to
 //    "Paid" and its RAM stops counting toward the reservation total for good.
 
-const { getServiceMeta } = require("../provisioning/catalog");
+const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
 const { thresholdMb } = require("../provisioning/capacity");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
 
 const INVOICE_DOCTYPE = "Portal Invoice";
+// Mirrors server.js's PORTAL_INVOICE_SERVICES_FIELD — kept local (not
+// required from server.js) for the same require-cycle reason as
+// DOMAIN_PRODUCT_TLDS below.
+const INVOICE_SERVICES_FIELD = "selected_services";
+
+// Frappe's MySQL DATETIME column rejects a raw `Date#toISOString()` value
+// ("2026-08-11T08:01:35.546Z" — 'T' separator, milliseconds, 'Z' suffix) with
+// a 1292 "Incorrect datetime value" error, failing every createOrder() call
+// with a generic 500 — caught live 2026-08-11. Format as the naive
+// "YYYY-MM-DD HH:MM:SS" (UTC) MySQL expects instead, same convention
+// services/provisioning/runner.js's sqlTime()/parseSqlTime() already use for
+// this exact class of field.
+function mysqlDatetime(ms) {
+  return new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+}
+// Parses a naive "YYYY-MM-DD HH:MM:SS" string as UTC — without the explicit
+// "Z", Date.parse() would interpret it in the Node process's local timezone,
+// silently corrupting the comparison against Date.now() on any server not
+// running in UTC.
+function parseMysqlDatetime(s) {
+  const t = Date.parse(String(s).replace(" ", "T") + "Z");
+  return Number.isNaN(t) ? 0 : t;
+}
 
 // --- module-level promise-chain mutex --------------------------------------
 // Single Node process — same assumption services/provisioning/capacity.js's
@@ -139,7 +162,7 @@ async function reservedDraftRamMb(client, nowMs) {
     // Re-filter in JS: the mock (and a misconfigured server-side filter)
     // may return more than just Draft rows, so behavior must not depend on
     // the backend actually honoring the filters param.
-    .filter((r) => r.status === "Draft" && Date.parse(r.reservation_expires_at) > nowMs)
+    .filter((r) => r.status === "Draft" && parseMysqlDatetime(r.reservation_expires_at) > nowMs)
     .reduce((sum, r) => sum + (Number(r.ram_mb) || 0), 0);
 }
 
@@ -212,7 +235,7 @@ async function createOrder({
       disk_gb: Number(meta.diskGb) || 0,
       plan_key: planKey || "",
       config_json: JSON.stringify(config || {}),
-      reservation_expires_at: new Date(nowMs + RESERVATION_TTL_MS).toISOString(),
+      reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
       invoice_doc_name: "",
       source: source || "",
     };
@@ -233,9 +256,9 @@ async function getOrder({ client, webAccountName, orderId, nowMs, renew }) {
   let doc = await fetchOrderDoc(client, orderId);
   if (doc.web_account !== webAccountName) throw forbidden("This checkout order belongs to another account.");
 
-  if (renew && doc.status === "Draft" && Date.parse(doc.reservation_expires_at) > nowMs) {
+  if (renew && doc.status === "Draft" && parseMysqlDatetime(doc.reservation_expires_at) > nowMs) {
     const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
-      reservation_expires_at: new Date(nowMs + RESERVATION_TTL_MS).toISOString(),
+      reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
     });
     doc = updated.data?.data || doc;
   }
@@ -253,12 +276,58 @@ async function getOrder({ client, webAccountName, orderId, nowMs, renew }) {
   return toApiOrder(doc);
 }
 
-/** Cancel a Draft order, scoped to its owner. Releases the reservation. */
+/**
+ * Cancel a Draft order, scoped to its owner. Releases the reservation.
+ *
+ * Also cleans up the order's linked invoice, if any — without this, a
+ * cancelled order's invoice was left "Unpaid" with its service line still
+ * "Awaiting Payment", and ordersRoutes.js's prepare-payment step reuses ANY
+ * open Unpaid invoice for the account (by design, so retries don't pile up
+ * duplicate invoices). The next, UNRELATED purchase would silently merge
+ * onto that orphaned invoice — the customer sees "Due now: <new item's
+ * price>" on the checkout page while the invoice (and what they're actually
+ * charged) totals the new item PLUS the one they thought they'd cancelled.
+ * Reproduced live 2026-08-11: a cancelled PostgreSQL order (KES 2,000) left
+ * its invoice open; the next Website Hosting order (KES 1,200) reused it,
+ * charging KES 3,200 while the UI showed KES 1,200.
+ */
 async function cancelOrder({ client, webAccountName, orderId }) {
   const doc = await fetchOrderDoc(client, orderId);
   if (doc.web_account !== webAccountName) throw forbidden("This checkout order belongs to another account.");
 
   await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, { status: "Cancelled" });
+
+  if (doc.invoice_doc_name) {
+    try {
+      const invoice = await fetchInvoice(client, doc.invoice_doc_name);
+      if (invoice && String(invoice.status || "").toLowerCase() === "unpaid") {
+        const rows = Array.isArray(invoice[INVOICE_SERVICES_FIELD]) ? invoice[INVOICE_SERVICES_FIELD] : [];
+        const remaining = rows.filter((r) => String(r?.service_id || "").trim() !== doc.service_id);
+        if (remaining.length === rows.length) {
+          // This order's service_id wasn't on the invoice at all (shouldn't
+          // happen, but don't touch an invoice we can't account for).
+        } else if (remaining.length === 0) {
+          await client.put(`/api/resource/${INVOICE_DOCTYPE}/${encodeURIComponent(doc.invoice_doc_name)}`, {
+            status: "Deleted",
+          });
+        } else {
+          // "amount" is a stored field, not derived live from the child
+          // table — trimming the line items alone leaves it stale (still
+          // billing for the item that was just removed). Recompute from the
+          // catalog, the same way the invoice's amount is computed at
+          // creation time.
+          await client.put(`/api/resource/${INVOICE_DOCTYPE}/${encodeURIComponent(doc.invoice_doc_name)}`, {
+            [INVOICE_SERVICES_FIELD]: remaining,
+            amount: sumSelectedServicesMonthlyKes(remaining),
+          });
+        }
+      }
+    } catch (e) {
+      // Best-effort — the order is already cancelled either way; don't fail
+      // the customer-facing cancel action over invoice cleanup.
+    }
+  }
+
   return { ok: true };
 }
 
@@ -289,7 +358,13 @@ function toApiOrder(doc) {
     monthlyKes,
     setupKes,
     totalDueKes: monthlyKes + setupKes,
-    reservationExpiresAt: doc.reservation_expires_at,
+    // Re-emit as an unambiguous ISO 8601 UTC string — the DB stores the
+    // naive MySQL DATETIME format (no timezone marker), which every API
+    // consumer (frontend, tests) would otherwise have to know to parse as
+    // UTC specifically to avoid a local-timezone-dependent Date.parse().
+    reservationExpiresAt: doc.reservation_expires_at
+      ? new Date(parseMysqlDatetime(doc.reservation_expires_at)).toISOString()
+      : doc.reservation_expires_at,
     invoiceDocName: doc.invoice_doc_name || null,
     config,
   };

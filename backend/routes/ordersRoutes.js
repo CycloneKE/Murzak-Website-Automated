@@ -253,6 +253,22 @@ module.exports = function (ctx) {
           },
         });
         invoiceDocName = result.invoiceDocName;
+
+        // createAddonInvoice deliberately only prices/invoices — attaching the
+        // service to the Web Account is documented as "the caller's
+        // responsibility" (see its module comment). Without this, the
+        // customer pays, the invoice shows Paid, but the service never
+        // appears on their account and nothing gets provisioned:
+        // activateServicesForInvoiceLocked only flips the STATUS of rows
+        // that already exist, it never appends a new one. Reproduced live
+        // 2026-08-11 — an existing paying customer's Website Hosting
+        // purchase paid clean but silently never activated. Mirrors the
+        // first-purchase branch below, which already does this at the same
+        // point in the flow.
+        const acctForAddon = await fetchWebAccount(client, webAccountName);
+        const existingForAddon = normalizeSelectedServices(asArray(acctForAddon?.[WEB_ACCOUNT_SERVICES_FIELD]));
+        const mergedForAddon = mergeServicesById(existingForAddon, [serviceRow]);
+        await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(mergedForAddon));
       } else {
         // First purchase: apply the order's plan and bill it, then attach
         // the order's service to the account.

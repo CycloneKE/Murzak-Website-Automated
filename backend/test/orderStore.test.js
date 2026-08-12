@@ -24,11 +24,13 @@ async function throws(fn, code, msg) {
 const {
   createOrder, getOrder, cancelOrder, linkInvoice, reservedDraftRamMb, RESERVATION_TTL_MS,
 } = require("../services/checkout/orderStore");
+const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
 
 function makeClient({ invoices = {} } = {}) {
   const docs = {}; let seq = 0;
   return {
     docs,
+    invoices,
     get: async (url, opts) => {
       if (url.includes("/Portal Invoice/")) {
         const name = decodeURIComponent(url.split("/").pop());
@@ -41,7 +43,16 @@ function makeClient({ invoices = {} } = {}) {
       return { data: { data: docs[name] } };
     },
     post: async (url, body) => { const name = `CHK-${++seq}`; docs[name] = { name, ...body }; return { data: { data: docs[name] } }; },
-    put: async (url, body) => { const name = decodeURIComponent(url.split("/").pop()); Object.assign(docs[name], body); return { data: { data: docs[name] } }; },
+    put: async (url, body) => {
+      const name = decodeURIComponent(url.split("/").pop());
+      if (url.includes("/Portal Invoice/")) {
+        if (!invoices[name]) invoices[name] = { name };
+        Object.assign(invoices[name], body);
+        return { data: { data: invoices[name] } };
+      }
+      Object.assign(docs[name], body);
+      return { data: { data: docs[name] } };
+    },
   };
 }
 
@@ -157,6 +168,59 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
     await cancelOrder({ client, webAccountName: "a", orderId: o.id });
     ok((await reservedDraftRamMb(client, T0)) === 0, "cancelled order stops counting");
+  }
+
+  section("cancelOrder cleans up its linked invoice (regression: live 2026-08-11 bug — cancelling left an Unpaid invoice that the NEXT unrelated order silently reused/merged into, charging for both)");
+  {
+    // Sole line item on its invoice -> the whole invoice should be voided,
+    // not left "Unpaid" for the next purchase to pick up.
+    const client = makeClient({
+      invoices: { "INV-1": { name: "INV-1", status: "Unpaid", selected_services: [{ service_id: "starter-web-hosting" }] } },
+    });
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-1" });
+    await cancelOrder({ client, webAccountName: "a", orderId: o.id });
+    ok(client.invoices["INV-1"].status === "Deleted", "sole-line-item invoice is voided on cancel");
+
+    // Shared invoice with another (still-live) service -> only THIS order's
+    // line is removed; the invoice stays Unpaid for the other item.
+    const client2 = makeClient({
+      invoices: {
+        "INV-2": {
+          name: "INV-2", status: "Unpaid",
+          selected_services: [{ service_id: "starter-web-hosting" }, { service_id: "starter-storage" }],
+        },
+      },
+    });
+    const o2 = await createOrder({ client: client2, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client: client2, orderId: o2.id, invoiceDocName: "INV-2" });
+    await cancelOrder({ client: client2, webAccountName: "a", orderId: o2.id });
+    ok(client2.invoices["INV-2"].status === "Unpaid", "shared invoice stays Unpaid when another line item remains");
+    ok(
+      client2.invoices["INV-2"].selected_services.length === 1 &&
+      client2.invoices["INV-2"].selected_services[0].service_id === "starter-storage",
+      "only the cancelled order's own line item is removed"
+    );
+    ok(
+      client2.invoices["INV-2"].amount === sumSelectedServicesMonthlyKes([{ service_id: "starter-storage" }]) &&
+      client2.invoices["INV-2"].amount !== sumSelectedServicesMonthlyKes(
+        [{ service_id: "starter-web-hosting" }, { service_id: "starter-storage" }]
+      ),
+      "invoice amount is recomputed for the remaining line items, not left stale (the other half of the same bug)"
+    );
+
+    // Invoice already Paid -> never touched by a cancel (nothing to clean up,
+    // and voiding a paid invoice would be a real billing bug).
+    const client3 = makeClient({
+      invoices: { "INV-3": { name: "INV-3", status: "Paid", selected_services: [{ service_id: "starter-web-hosting" }] } },
+    });
+    const o3 = await createOrder({ client: client3, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client: client3, orderId: o3.id, invoiceDocName: "INV-3" });
+    await cancelOrder({ client: client3, webAccountName: "a", orderId: o3.id });
+    ok(
+      client3.invoices["INV-3"].status === "Paid" && client3.invoices["INV-3"].selected_services.length === 1,
+      "a Paid invoice is never modified by cancelling its (already-fulfilled) order"
+    );
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

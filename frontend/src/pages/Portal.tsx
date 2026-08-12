@@ -40,8 +40,6 @@ import {
   Receipt,
   Database,
   FileText,
-  Sun,
-  Moon
 } from "lucide-react";
 
 
@@ -77,7 +75,6 @@ import { ScalingSettings } from "../components/portal/ScalingSettings";
 import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import EmptyState from "../components/portal/EmptyState";
 import DeveloperTerminalPanel from "../components/portal/DeveloperTerminalPanel";
-import { useTheme } from "../context/ThemeContext";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../config/serviceCatalog";
 import { type SelectedServiceView, type ServiceStatus } from "../types";
 
@@ -131,8 +128,6 @@ function classifyActivity(u: { content: string; type?: string }): "payment" | "s
 const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdate }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { effective: effectiveTheme, toggle: toggleTheme } = useTheme();
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSystemsNavOpen, setIsSystemsNavOpen] = useState(false);
   const [provisionProgress, setProvisionProgress] = useState(0);
@@ -2730,14 +2725,6 @@ const renderCloudSystemsGrid = () => null;
           })}
         </nav>
           <div className="mt-auto px-4 sm:px-6 pb-10 pt-4 border-t border-slate-100 dark:border-murzak-border flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className="shrink-0 p-3 sm:p-3.5 rounded-2xl text-slate-500 border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] hover:text-murzak-accent transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
-              aria-label={effectiveTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              title={effectiveTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {effectiveTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
             <button
               onClick={onLogout}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3.5 rounded-2xl

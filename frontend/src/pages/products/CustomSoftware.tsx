@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Section } from '../../components/ui/Section';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
+import Breadcrumbs from '../../components/Breadcrumbs';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -35,6 +36,11 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/custom-software-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
+          <Breadcrumbs
+            onNavigate={onNavigate}
+            variant="onDark"
+            items={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'Custom Software' }]}
+          />
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-6">
             <span className="text-micro font-black uppercase text-murzak-accent">Custom Software Development</span>
           </div>
@@ -58,8 +64,9 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
           section below the hero, instead of a different image per section. */}
       <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-20" style={{ backgroundImage: "url('/images/customsoftware-section-bg.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-murzak-base/90 dark:bg-murzak-ink/90" />
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/customsoftware-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
         {/* The Process */}
         <Section className="relative z-10 border-t border-murzak-border/50">

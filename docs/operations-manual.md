@@ -4,7 +4,13 @@ This is the staff handbook for **running** the platform day to day: what the
 system does, what customers experience, and — most importantly — **what a human
 needs to do, and when.** It assumes no coding knowledge.
 
+For a **per-product, per-workflow playbook** (every product line's full
+lifecycle, cross-cutting workflows, and an incident playbook), see
+`docs/operations-workbook.md` — this doc stays the general-shape handbook,
+that one is the "what do I do for THIS specific product/situation" reference.
+
 For deep technical/automation setup, see the companion docs:
+- `docs/operations-workbook.md` — per-product playbooks + incident response.
 - `docs/provisioning-go-live.md` — turning automation on, env var by env var.
 - `docs/provisioning-automation-plan.md` — the architecture/strategy.
 - `backend/services/provisioning/README.md` — the provisioning internals + runbook.
