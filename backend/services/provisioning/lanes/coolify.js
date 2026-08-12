@@ -426,8 +426,25 @@ const serviceStartTimeoutMs = () =>
  * active, mirroring the BYOA path's deployAndWait — a job must never be
  * marked active on resource creation alone.
  */
+async function serviceStatus(client, uuid) {
+  const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
+  const d = res.data?.data || res.data || {};
+  return String(d.status || "");
+}
+
 async function ensureServiceRunning(client, uuid, { sleep } = {}) {
   const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  // NEVER call /start unconditionally — hit live, 2026-08-12: the
+  // idempotency-recovery path called it on job PRV-USER-26-02-14-0002-00015's
+  // resource, which was ALREADY running fine. Coolify restarted it, a poll
+  // caught the transient "exited" mid-restart, and that got reported as a
+  // PERMANENT failure — needlessly bounced a healthy container and killed a
+  // job that had nothing wrong with it (confirmed still "Running (unknown)"
+  // seconds later). Only trigger start when the resource isn't already up.
+  const initial = await serviceStatus(client, uuid);
+  if (initial.split(":")[0] === "running") return initial;
+
   await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/start`);
 
   // Require TWO consecutive "running" reads, not one. A single sample isn't
