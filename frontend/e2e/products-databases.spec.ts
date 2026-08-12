@@ -67,15 +67,22 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
   });
 
   test('PostgreSQL, MongoDB, and Redis cards each deep-link to their own catalog id', async ({ page }) => {
-    await registerNewUser(page, 'others');
-
     const cases: Array<{ card: string; catalogName: string }> = [
       { card: 'PostgreSQL', catalogName: 'PostgreSQL Database' },
       { card: 'MongoDB', catalogName: 'MongoDB Database' },
       { card: 'Redis', catalogName: 'Redis Database' },
     ];
 
+    // A fresh account per iteration sidesteps any per-account state a reused
+    // account/page could carry between iterations. That alone is not
+    // enough, though: createOrder's shared-fleet RAM reservation guard
+    // (orderStore.js's reservedDraftRamMb) sums Draft orders across EVERY
+    // account, not just this test's own, so three fresh-but-uncancelled
+    // Draft orders in a row still starve capacity for whatever else is
+    // running in the same CI suite. Cancel each order before the next
+    // iteration too.
     for (const { card, catalogName } of cases) {
+      await registerNewUser(page, `others_${card.toLowerCase()}`);
       await page.goto('/products');
       const dbSection = page.locator('section', { hasText: 'Managed databases' });
       await expect(dbSection.getByText(card, { exact: true })).toBeVisible();
@@ -90,6 +97,11 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
       await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(catalogName)).toBeVisible();
+
+      const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+      if (orderId) {
+        await page.request.post(`/api/orders/${orderId}/cancel`);
+      }
     }
   });
 });

@@ -51,13 +51,22 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByPlaceholder('sam@company.co.ke').fill(testEmail);
     await page.getByPlaceholder('••••••••').fill(testPassword);
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
+
+    // Auto-attach lands on the unified checkout page (/checkout/CHK-…) for
+    // the new draft order and auto-fires prepare-payment immediately — NOT
+    // a direct /payment/:invoiceId redirect, which predates the unified-
+    // checkout migration this flow now goes through. Register the response
+    // listener before the click that triggers navigation, since
+    // prepare-payment fires as soon as the checkout page mounts.
+    const prepareResponsePromise = page.waitForResponse(
+      (r) => r.url().includes('/prepare-payment') && r.request().method() === 'POST'
+    );
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    // 3. Auto-attach should redirect straight to payment.
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
-
-    const invoiceMatch = page.url().match(/\/payment\/([^/]+)/);
-    const invoiceId = invoiceMatch ? invoiceMatch[1] : '';
+    await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
+    const prepareResponse = await prepareResponsePromise;
+    const prepareData = await prepareResponse.json().catch(() => ({}));
+    const invoiceId = prepareData?.invoiceDocName || '';
     expect(invoiceId).toBeTruthy();
 
     await page.evaluate(async (invId) => {

@@ -68,10 +68,14 @@ test.describe('PRODDOM-01 — domain search selects and launches checkout', () =
     await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
     await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
     // Domain-registration orders are yearly-billed (Task 3's isYearlyBilled(),
-    // wired into Checkout.tsx by Task 4) — confirm "/yr" is shown and "/mo"
-    // is not, proving the period branch actually took the yearly path.
-    await expect(page.getByText('/yr', { exact: false })).toBeVisible();
-    await expect(page.getByText('/mo', { exact: false })).not.toBeVisible();
+    // wired into Checkout.tsx by Task 4) — but the headline figure is
+    // deliberately a MONTHLY-EQUIVALENT price with "/mo", not a bare "/yr"
+    // figure (Checkout.tsx: the isYearlyBilled branch renders
+    // monthlyEquivalentKes(order.monthlyKes) + "/mo", plus a "billed
+    // annually at <real yearly price>" disclosure — there is no literal
+    // "/yr" string anywhere in this design). The disclosure text is the
+    // actual, correct signal that the period branch took the yearly path.
+    await expect(page.getByText(/billed annually at/i)).toBeVisible({ timeout: 10000 });
   });
 
   test('logged-out visitor is redirected to login instead of failing silently', async ({ page }) => {
