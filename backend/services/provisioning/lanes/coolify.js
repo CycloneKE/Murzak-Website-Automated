@@ -430,17 +430,30 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
   const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
   await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/start`);
 
+  // Require TWO consecutive "running" reads, not one. A single sample isn't
+  // enough — a crash-looping container (restart: unless-stopped) can be
+  // caught mid-cycle between "restarting" and a fresh "running" the instant
+  // it respawns; one lucky poll otherwise reports the job active while the
+  // container keeps dying (hit live, 2026-08-12: cap_drop:ALL crash-looped
+  // nginx and a single-read version of this check still marked the job
+  // "active" during one of its brief up-flickers).
   const deadline = Date.now() + serviceStartTimeoutMs();
   let lastStatus = "";
+  let consecutiveRunning = 0;
   while (Date.now() < deadline) {
     await wait(serviceStartPollMs());
     const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
     const d = res.data?.data || res.data || {};
     lastStatus = String(d.status || "");
     const state = lastStatus.split(":")[0];
-    if (state === "running") return lastStatus;
-    if (state === "exited") {
-      throw permanentError(`coolify: service failed to start (status=${lastStatus})`, { status: lastStatus });
+    if (state === "running") {
+      consecutiveRunning += 1;
+      if (consecutiveRunning >= 2) return lastStatus;
+    } else {
+      consecutiveRunning = 0;
+      if (state === "exited") {
+        throw permanentError(`coolify: service failed to start (status=${lastStatus})`, { status: lastStatus });
+      }
     }
   }
   throw new Error(
@@ -514,6 +527,15 @@ async function provision(job, opts) {
   // network and routes by attached domain (see finalizeApp's domains PATCH
   // for the BYOA path), so the container just needs to expose the port, not
   // bind it on the host.
+  //
+  // cap_add CHOWN/SETUID/SETGID: a second live attempt (same job, still
+  // 2026-08-12) with bare `cap_drop: ALL` crash-looped —
+  // nginx:alpine's entrypoint runs as root to `chown` its cache dirs then
+  // drops to the "nginx" user via setuid()/setgid(), and with every
+  // capability dropped that chown() itself failed ("Operation not
+  // permitted"), so the container never got past startup. Adding back just
+  // these three keeps everything else (NET_ADMIN, SYS_ADMIN, etc.) dropped —
+  // still far tighter than the container's default capability set.
   const composeYaml =
     `services:\n` +
     `  app:\n` +
@@ -524,6 +546,10 @@ async function provision(job, opts) {
     `    pids_limit: ${limits.pidsLimit}\n` +
     `    cap_drop:\n` +
     `      - ALL\n` +
+    `    cap_add:\n` +
+    `      - CHOWN\n` +
+    `      - SETUID\n` +
+    `      - SETGID\n` +
     `    security_opt:\n` +
     `      - no-new-privileges:true\n` +
     `    expose:\n` +
