@@ -77,16 +77,19 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       { card: 'Redis', catalogName: 'Redis Database' },
     ];
 
-    // A fresh account per iteration, not a shared one: each deep-link here
-    // only needs to prove routing/catalog-id resolution, not a live
-    // reservation, and a shared account across three uncancelled Draft
-    // orders in a row previously tripped createOrder's shared-fleet RAM
-    // reservation guard (orderStore.js's reservedDraftRamMb sums ALL
-    // accounts' live Draft orders, not just this one) — and, separately,
-    // relying on a mid-loop cancel-then-reuse of the same account/page
-    // turned out to be its own source of flakiness against a real backend.
-    // One account per card sidesteps both: no cross-iteration state to
-    // manage at all.
+    // A fresh account per iteration, not a shared one: sidesteps any
+    // per-account state (e.g. the account's own already-open-order check)
+    // that a reused account/page could otherwise carry between iterations.
+    //
+    // That alone is NOT enough, though — confirmed by re-running this in CI:
+    // createOrder's shared-fleet RAM reservation guard
+    // (orderStore.js's reservedDraftRamMb) sums Draft orders across EVERY
+    // account, not just this test's own, so three fresh-but-uncancelled
+    // Draft orders in a row still starve capacity exactly like three
+    // uncancelled orders on one shared account did. Cancel each order
+    // before the next iteration (both dimensions together — fresh account
+    // AND explicit cancellation — proved necessary; either alone still
+    // flaked in a live CI run).
     for (const { card, catalogName } of cases) {
       await registerNewUser(page, `others_${card.toLowerCase()}`);
       await page.goto('/products');
@@ -103,6 +106,11 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
       await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(catalogName)).toBeVisible();
+
+      const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+      if (orderId) {
+        await page.request.post(`/api/orders/${orderId}/cancel`);
+      }
     }
   });
 });
