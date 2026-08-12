@@ -394,12 +394,20 @@ async function provisionApp(job, opts) {
     // Deployment is triggered + awaited explicitly in finalizeApp — a job is
     // only ever reported active once Coolify says the build FINISHED.
     instant_deploy: false,
+    // CONFIRMED live against Coolify 4.1.2 (2026-08-12): unlike the services
+    // endpoint (which rejects ALL limit fields), /api/v1/applications/public
+    // DOES accept limits_memory and limits_cpus — but 422s on exactly four
+    // others: limits_pids, cap_drop, security_opt, storage_opt ("This field
+    // is not allowed."). Sending them made every BYOA job fail before the
+    // repo was ever cloned. Verified: dropping just those four returns 201.
+    //
+    // So pids/cap-drop/no-new-privileges/disk are NOT enforceable on this
+    // lane at create time. That is a real hardening gap for git-built
+    // customer apps versus the compose-based service lane — deliberately
+    // left visible here rather than silently dropped; see the P5.0 note on
+    // provision() for what the service lane manages to enforce.
     limits_memory: `${limits.ramMb}M`,
     limits_cpus: String(limits.cpus),
-    limits_pids: limits.pidsLimit,
-    cap_drop: ["ALL"],
-    security_opt: ["no-new-privileges:true"],
-    ...(limits.diskGb > 0 ? { storage_opt: { size: `${limits.diskGb}G` } } : {}),
   };
 
   const res = await client.post("/api/v1/applications/public", payload);
