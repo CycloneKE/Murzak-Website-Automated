@@ -454,28 +454,39 @@ async function provision(job, opts) {
   // today, and is a hard prerequisite for the Phase 5 shell (a jailed shell
   // is only as safe as the container it execs into).
   //
-  // ⚠️ COOLIFY FIELD NAMES UNVERIFIED beyond limits_memory (the one field this
-  // lane already exercised). limits_cpus/limits_pids mirror Coolify's
-  // documented resource-limit columns, but cap-drop / no-new-privileges likely
-  // are NOT settable via this high-level service API and may need a
-  // docker-compose security_opt/cap_drop block on the Coolify resource, or a
-  // post-create `docker update` — EXCEPT cap-drop and no-new-privileges are
-  // create-time only and CANNOT be backfilled onto a running container via
-  // `docker update` (they require recreation). Unknown fields are harmless
-  // (Coolify ignores them); verify against the live instance from the VPS
-  // (docker inspect the created container) before relying on any of these.
+  // CONFIRMED live against Coolify 4.1.2 (2026-08-12): POST /api/v1/services
+  // does NOT accept limits_memory/limits_cpus/limits_pids/cap_drop/
+  // security_opt/storage_opt as top-level fields at all ("This field is not
+  // allowed.") — it 422s on every one of them. The endpoint only accepts a
+  // predefined one-click `type`, or a custom `docker_compose_raw` (base64-
+  // encoded compose YAML; plain-text 422s with "should be base64 encoded").
+  // All resource bounds must instead live INSIDE the compose service
+  // definition, which plain (non-swarm) `docker compose` — what Coolify runs
+  // here — honors directly via mem_limit/cpus/pids_limit/cap_drop/
+  // security_opt. Verified end-to-end: this exact shape returns 201 and the
+  // service is created (smoke-tested then deleted: diag-test-delete-me-3).
+  const composeYaml =
+    `services:\n` +
+    `  app:\n` +
+    `    image: ${job.docker_image || "nginx:alpine"}\n` +
+    `    restart: unless-stopped\n` +
+    `    mem_limit: ${limits.ramMb}m\n` +
+    `    cpus: ${limits.cpus}\n` +
+    `    pids_limit: ${limits.pidsLimit}\n` +
+    `    cap_drop:\n` +
+    `      - ALL\n` +
+    `    security_opt:\n` +
+    `      - no-new-privileges:true\n` +
+    `    ports:\n` +
+    `      - target: 80\n` +
+    `        published: 80\n`;
+
   const payload = {
     project_uuid: c.project,
     server_uuid: c.server,
     environment_name: c.env,
     name,
-    limits_memory: `${limits.ramMb}M`,
-    limits_cpus: String(limits.cpus),
-    limits_pids: limits.pidsLimit,
-    // Best-effort hardening flags (see caveat above).
-    cap_drop: ["ALL"],
-    security_opt: ["no-new-privileges:true"],
-    ...(limits.diskGb > 0 ? { storage_opt: { size: `${limits.diskGb}G` } } : {}),
+    docker_compose_raw: Buffer.from(composeYaml).toString("base64"),
   };
 
   const res = await client.post("/api/v1/services", payload);
@@ -491,7 +502,10 @@ async function provision(job, opts) {
       manageUrl: c.baseUrl.replace(/\/+$/, ""),
       uuid: String(uuid),
     },
-    log: `coolify: created service "${name}" (uuid=${uuid}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit}${limits.diskGb ? ` disk=${limits.diskGb}G` : ""} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
+    // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
+    // catalog figure only, not an enforced container bound on this lane.
+    log: `coolify: created service "${name}" (uuid=${uuid}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
 }
 
