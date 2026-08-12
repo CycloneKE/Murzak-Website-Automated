@@ -118,7 +118,11 @@ ${verifyUrl}
 }
 
 function portalUrl() {
-  return (process.env.APP_BASE_URL || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
+  const base = process.env.APP_BASE_URL;
+  if (!base && process.env.NODE_ENV === "production") {
+    console.error("APP_BASE_URL is not set in production — trial/lifecycle emails will link to the wrong domain.");
+  }
+  return (base || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
 }
 
 // ---- Trial lifecycle (started / ending soon / expired) ----
