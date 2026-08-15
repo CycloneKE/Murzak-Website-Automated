@@ -133,6 +133,78 @@ function buildCustomerDomainPayload({
 }
 
 /**
+ * Statuses that mean a human still has to do something. Registration is
+ * manual (the registrar's API terms blocked automating it), so "pending" is
+ * not a transient state the system clears on its own — it is a work queue.
+ */
+const DOMAIN_ACTIONABLE_STATUSES = Object.freeze(["pending"]);
+
+/**
+ * Which status changes staff may make, and why the ones that are refused are
+ * refused. Pure so the state machine is readable in one place instead of
+ * inferred from a route handler's if-chain.
+ *
+ *   pending   -> active | failed | cancelled   (the fulfilment decision)
+ *   failed    -> pending | active | cancelled  (retry after fixing something)
+ *   active    -> expired | cancelled           (lapsed, or given up)
+ *   expired   -> active | cancelled            (renewed)
+ *   cancelled -> nothing                       (terminal)
+ */
+const DOMAIN_STATUS_TRANSITIONS = Object.freeze({
+  pending: ["active", "failed", "cancelled"],
+  failed: ["pending", "active", "cancelled"],
+  active: ["expired", "cancelled"],
+  expired: ["active", "cancelled"],
+  cancelled: [],
+});
+
+function canTransitionDomainStatus(from, to) {
+  const f = normalizeStatus(from);
+  const t = String(to || "").trim().toLowerCase();
+  if (!DOMAIN_STATUSES.includes(t)) {
+    return { ok: false, reason: `"${to}" is not a domain status.` };
+  }
+  if (f === t) return { ok: false, reason: `This domain is already ${t}.` };
+  const allowed = DOMAIN_STATUS_TRANSITIONS[f] || [];
+  if (!allowed.includes(t)) {
+    const article = /^[aeiou]/.test(f) ? "An" : "A";
+    return {
+      ok: false,
+      reason: allowed.length
+        ? `${article} ${f} domain can only become ${allowed.join(" or ")}.`
+        : `${article} ${f} domain is final and cannot change.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * The status to push back onto the intake record a domain came from.
+ *
+ * The intakes are what the customer's hosting dashboard still reads, so
+ * fulfilling a domain without syncing them leaves the customer staring at
+ * "pending" forever while staff see it as done. Returns null when there is no
+ * sensible intake equivalent, in which case the intake is left alone rather
+ * than written with a value its Select may not accept.
+ */
+function intakeStatusForDomainStatus(domainStatus) {
+  switch (normalizeStatus(domainStatus)) {
+    case "active":
+      return "active";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+    case "pending":
+      return "pending";
+    // "expired" has no intake equivalent — the intake described a one-off
+    // request that completed, not the domain's ongoing life.
+    default:
+      return null;
+  }
+}
+
+/**
  * Can this domain be pointed at this service right now?
  *
  * The authorization boundary for attach, kept pure so every rule is visible
@@ -209,6 +281,43 @@ async function listCustomerDomains(client, webAccount) {
     },
   });
   return (res.data?.data || []).map(mapCustomerDomainRow);
+}
+
+/**
+ * Every account's domains, for the staff fulfilment queue. Carries
+ * web_account (the per-account list deliberately does not) so staff can see
+ * whose domain they are working on.
+ */
+async function listAllCustomerDomains(client, { status } = {}) {
+  const filters = [];
+  const wanted = String(status || "").trim().toLowerCase();
+  if (wanted && DOMAIN_STATUSES.includes(wanted)) filters.push(["status", "=", wanted]);
+
+  const res = await client.get(`/api/resource/${encodeURIComponent(CUSTOMER_DOMAIN_DOCTYPE)}`, {
+    params: {
+      ...(filters.length ? { filters: JSON.stringify(filters) } : {}),
+      fields: JSON.stringify([...LIST_FIELDS, "web_account"]),
+      // Oldest first: the queue should surface whoever has been waiting
+      // longest, not whoever asked most recently.
+      order_by: "creation asc",
+      limit_page_length: 500,
+    },
+  });
+  return (res.data?.data || []).map((row) => ({
+    ...mapCustomerDomainRow(row),
+    webAccount: row.web_account,
+  }));
+}
+
+/** Count domains by status, for the queue's badge and filter chips. */
+function summarizeByStatus(domains) {
+  const out = {};
+  for (const s of DOMAIN_STATUSES) out[s] = 0;
+  for (const d of Array.isArray(domains) ? domains : []) {
+    const s = normalizeStatus(d?.status);
+    out[s] = (out[s] || 0) + 1;
+  }
+  return out;
 }
 
 /**
@@ -293,22 +402,28 @@ async function updateCustomerDomain(client, domainId, patch) {
 
 module.exports = {
   CUSTOMER_DOMAIN_DOCTYPE,
+  DOMAIN_ACTIONABLE_STATUSES,
   DOMAIN_KINDS,
   DOMAIN_KIND_VALUES,
   DOMAIN_STATUSES,
+  DOMAIN_STATUS_TRANSITIONS,
   INTAKE_DOCTYPE_KINDS,
   LIST_FIELDS,
   buildCustomerDomainPayload,
   canAttachDomain,
+  canTransitionDomainStatus,
   domainKindForIntake,
   ensureCustomerDomain,
   findCustomerDomainByName,
   getOwnedCustomerDomain,
+  intakeStatusForDomainStatus,
   isValidDomainName,
+  listAllCustomerDomains,
   listCustomerDomains,
   mapCustomerDomainRow,
   normalizeDomainName,
   normalizeStatus,
   setDomainAttachment,
+  summarizeByStatus,
   updateCustomerDomain,
 };

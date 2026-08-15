@@ -20,8 +20,11 @@ const {
   DOMAIN_KINDS,
   buildCustomerDomainPayload,
   canAttachDomain,
+  canTransitionDomainStatus,
   domainKindForIntake,
   getOwnedCustomerDomain,
+  intakeStatusForDomainStatus,
+  summarizeByStatus,
   isValidDomainName,
   mapCustomerDomainRow,
   normalizeDomainName,
@@ -251,6 +254,57 @@ const {
   let propagated = false;
   try { await getOwnedCustomerDomain(brokenClient, "ACC-1", "CD-1"); } catch { propagated = true; }
   ok(propagated, "a real Frappe fault still propagates — only 404 is swallowed");
+
+  section("canTransitionDomainStatus — the fulfilment state machine");
+  const can = (f, t) => canTransitionDomainStatus(f, t).ok;
+  ok(can("pending", "active"), "pending -> active (the fulfilment decision)");
+  ok(can("pending", "failed"), "pending -> failed");
+  ok(can("pending", "cancelled"), "pending -> cancelled");
+  ok(can("failed", "pending"), "failed -> pending (retry after fixing something)");
+  ok(can("failed", "active"), "failed -> active");
+  ok(can("active", "expired"), "active -> expired");
+  ok(can("active", "cancelled"), "active -> cancelled");
+  ok(can("expired", "active"), "expired -> active (renewed)");
+  ok(!can("active", "pending"), "active -> pending is refused: fulfilment does not un-happen");
+  ok(!can("active", "failed"), "active -> failed is refused: it already worked");
+  ok(!can("cancelled", "active"), "cancelled is terminal");
+  ok(!can("cancelled", "pending"), "…in every direction");
+  ok(!can("pending", "pending"), "a no-op transition is refused rather than writing nothing");
+  ok(!can("pending", "banana"), "an unknown target status is refused");
+  ok(!can("pending", ""), "an empty target status is refused");
+  ok(
+    /final/.test(canTransitionDomainStatus("cancelled", "active").reason),
+    "a terminal state explains itself"
+  );
+  ok(
+    /can only become/.test(canTransitionDomainStatus("active", "pending").reason),
+    "a refused transition names what IS allowed"
+  );
+  ok(can("PENDING", "Active"), "case-insensitive on both sides");
+
+  section("intakeStatusForDomainStatus — keeping the customer's view in sync");
+  ok(intakeStatusForDomainStatus("active") === "active", "active syncs");
+  ok(intakeStatusForDomainStatus("failed") === "failed", "failed syncs");
+  ok(intakeStatusForDomainStatus("cancelled") === "cancelled", "cancelled syncs");
+  ok(
+    intakeStatusForDomainStatus("expired") === null,
+    "expired does NOT sync — the intake described a one-off request, not the domain's ongoing life"
+  );
+
+  section("summarizeByStatus");
+  const summary = summarizeByStatus([
+    { status: "pending" }, { status: "pending" }, { status: "active" }, { status: "weird" },
+  ]);
+  ok(summary.active === 1, "counts active");
+  ok(summary.cancelled === 0, "reports zero for statuses with no rows rather than omitting them");
+  ok(
+    summary.pending === 3,
+    "an unrecognized status folds into pending (2 real + 1 junk) — an unreadable row " +
+      "inflates the work queue rather than vanishing from it, which is the safe direction"
+  );
+  ok(Object.keys(summary).length === 5, "no bucket is invented for the junk status");
+  ok(summarizeByStatus([]).pending === 0, "empty list");
+  ok(summarizeByStatus(undefined).pending === 0, "undefined list does not throw");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) {

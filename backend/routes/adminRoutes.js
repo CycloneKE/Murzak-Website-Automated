@@ -7,6 +7,7 @@ const terminalConstants = require('../services/terminal/constants');
 const accessControlLib = require('../services/terminal/accessControl');
 const s3ClientLib = require('../services/terminal/s3Client');
 const supportUnread = require('../services/supportUnread');
+const customerDomains = require('../services/customerDomains');
 
 module.exports = function(ctx) {
   const {
@@ -87,6 +88,108 @@ router.get("/api/admin/threads/unread-count", requireAuth, requireAdmin, async (
     return res.status(500).json({
       error: "Failed to fetch unread count."
     });
+  }
+});
+
+// --- DOMAIN FULFILMENT QUEUE ---
+// Registering a domain is a manual job (the registrar's API terms blocked
+// automating it), so "pending" is a work queue, not a transient state. Before
+// this, that queue existed only as rows in three intake doctypes with no
+// cross-account view — staff had to already know a request had been made.
+
+router.get("/api/admin/domains", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    // Unfiltered so the summary counts every status; the caller filters the
+    // list client-side from the same payload.
+    const all = await customerDomains.listAllCustomerDomains(client);
+    const status = String(req.query?.status || "").trim().toLowerCase();
+    const filtered = status ? all.filter((d) => d.status === status) : all;
+    return res.json({
+      ok: true,
+      domains: filtered,
+      summary: customerDomains.summarizeByStatus(all),
+      actionableCount: all.filter((d) =>
+        customerDomains.DOMAIN_ACTIONABLE_STATUSES.includes(d.status)
+      ).length,
+    });
+  } catch (err) {
+    console.error("ADMIN DOMAINS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load domains." });
+  }
+});
+
+router.get("/api/admin/domains/actionable-count", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const all = await customerDomains.listAllCustomerDomains(client);
+    return res.json({
+      ok: true,
+      count: all.filter((d) => customerDomains.DOMAIN_ACTIONABLE_STATUSES.includes(d.status)).length,
+    });
+  } catch (err) {
+    console.error("ADMIN DOMAIN COUNT ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to fetch domain count." });
+  }
+});
+
+/**
+ * Record the outcome of a manual fulfilment.
+ *
+ * Also pushes the result back onto the intake record the domain came from —
+ * that is what the customer's hosting dashboard still reads, so skipping it
+ * would leave the customer on "pending" forever while staff see it as done.
+ * The intake sync is best-effort: the domain is the authority, and a stale
+ * intake must not fail the staff action.
+ */
+router.post("/api/admin/domains/:id/status", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const { id } = req.params;
+    const { status, registrar, expiresOn, notes } = req.body || {};
+
+    const current = await client
+      .get(`/api/resource/${encodeURIComponent(customerDomains.CUSTOMER_DOMAIN_DOCTYPE)}/${encodeURIComponent(id)}`)
+      .catch((e) => {
+        if (e.response?.status === 404) return null;
+        throw e;
+      });
+    const row = current?.data?.data;
+    if (!row) return res.status(404).json({ error: "Domain not found." });
+
+    const verdict = customerDomains.canTransitionDomainStatus(row.status, status);
+    if (!verdict.ok) return res.status(400).json({ error: verdict.reason });
+
+    const nextStatus = String(status).trim().toLowerCase();
+    const patch = { status: nextStatus };
+    if (registrar !== undefined) patch.registrar = String(registrar || "").trim();
+    if (expiresOn !== undefined) patch.expires_on = expiresOn || null;
+    if (notes !== undefined) patch.notes = String(notes || "").trim();
+    // A domain that is live has a working certificate or is about to; either
+    // way "none" stops being true the moment it resolves.
+    if (nextStatus === "active" && String(row.ssl_status || "none") === "none") {
+      patch.ssl_status = "pending";
+    }
+    await customerDomains.updateCustomerDomain(client, id, patch);
+
+    let intakeSynced = false;
+    const intakeStatus = customerDomains.intakeStatusForDomainStatus(nextStatus);
+    if (row.source_doctype && row.source_name && intakeStatus) {
+      try {
+        await client.put(
+          `/api/resource/${encodeURIComponent(row.source_doctype)}/${encodeURIComponent(row.source_name)}`,
+          { status: intakeStatus }
+        );
+        intakeSynced = true;
+      } catch (e) {
+        console.warn("DOMAIN INTAKE SYNC WARN:", e.response?.data || e.message);
+      }
+    }
+
+    return res.json({ ok: true, status: nextStatus, intakeSynced });
+  } catch (err) {
+    console.error("ADMIN DOMAIN STATUS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to update domain." });
   }
 });
 

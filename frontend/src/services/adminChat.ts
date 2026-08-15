@@ -90,6 +90,60 @@ export async function adminReply(threadId: string, message: string, attachments?
   return data;
 }
 
+// --- DOMAIN FULFILMENT QUEUE ---
+
+export type DomainStatus = "pending" | "active" | "failed" | "expired" | "cancelled";
+
+export type AdminDomain = {
+  id: string;
+  webAccount: string;
+  domainName: string;
+  kind: "registered" | "external" | "murzak_subdomain";
+  status: DomainStatus;
+  registrar: string;
+  sslStatus: "none" | "pending" | "active";
+  expiresOn: string | null;
+  attachedToService: string | null;
+  sourceDoctype: string;
+  sourceName: string;
+  notes: string;
+  createdAt?: string;
+};
+
+export type AdminDomainsResponse = {
+  domains: AdminDomain[];
+  summary: Record<DomainStatus, number>;
+  actionableCount: number;
+};
+
+export async function adminListDomains(): Promise<AdminDomainsResponse> {
+  const res = await fetch("/api/admin/domains", { credentials: "include" });
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data?.error || "Failed to load domains.");
+  return {
+    domains: data?.domains || [],
+    summary: data?.summary || {},
+    actionableCount: Number(data?.actionableCount || 0),
+  };
+}
+
+/** Record the outcome of a manual fulfilment; also syncs the source intake. */
+export async function adminSetDomainStatus(
+  domainId: string,
+  status: DomainStatus,
+  extra?: { registrar?: string; expiresOn?: string | null; notes?: string }
+): Promise<{ status: DomainStatus; intakeSynced: boolean }> {
+  const res = await fetch(`/api/admin/domains/${encodeURIComponent(domainId)}/status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ status, ...(extra || {}) }),
+  });
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data?.error || "Failed to update domain.");
+  return { status: data.status, intakeSynced: !!data.intakeSynced };
+}
+
 export async function adminApproveTerminalAccess(webAccount: string): Promise<{ approvedAt: string; approvedBy: string }> {
   const res = await fetch(`/api/admin/web-accounts/${encodeURIComponent(webAccount)}/terminal-access/approve`, {
     method: "POST",

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Inbox, Server, ExternalLink, Terminal, Ticket } from "lucide-react";
+import { Globe, Inbox, Server, ExternalLink, Terminal, Ticket } from "lucide-react";
 import AdminInbox from "./AdminInbox";
 import AdminProvisioning from "./AdminProvisioning";
+import AdminDomains from "./AdminDomains";
 import { getInfraLinks, InfraLinks } from "../../services/adminProvisioning";
 
-type AdminView = "inbox" | "provisioning";
+type AdminView = "inbox" | "domains" | "provisioning";
 
 /**
  * Redirects for staff troubleshooting — Hostinger's own hPanel (built-in
@@ -54,6 +55,7 @@ type AdminTabsProps = {
 const AdminTabs: React.FC<AdminTabsProps> = ({ onUnreadChange }) => {
   const [view, setView] = useState<AdminView>("inbox");
   const [unread, setUnread] = useState(0);
+  const [domainsPending, setDomainsPending] = useState(0);
 
   const handleUnreadChange = React.useCallback(
     (count: number) => {
@@ -87,12 +89,16 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ onUnreadChange }) => {
       <InfraAccessBar />
       <div className="mb-6 flex items-center gap-2">
         {tab("inbox", "Inbox", <Inbox className="w-4 h-4" />, unread)}
+        {tab("domains", "Domains", <Globe className="w-4 h-4" />, domainsPending)}
         {tab("provisioning", "Provisioning", <Server className="w-4 h-4" />)}
       </div>
-      {/* Kept mounted so its 4s poll keeps the badge live while staff work in
-          the Provisioning tab — the whole point of the badge. */}
+      {/* Inbox and Domains stay mounted so their polls keep both badges live
+          while staff work in another tab — the whole point of the badges. */}
       <div className={view === "inbox" ? "" : "hidden"}>
         <AdminInbox onUnreadChange={handleUnreadChange} />
+      </div>
+      <div className={view === "domains" ? "" : "hidden"}>
+        <AdminDomains onActionableChange={setDomainsPending} />
       </div>
       {view === "provisioning" && <AdminProvisioning />}
     </div>
