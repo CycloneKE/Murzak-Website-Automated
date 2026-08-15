@@ -369,15 +369,24 @@ async function provisionApp(job, opts) {
   // Idempotency: recover an application created on a previous crashed attempt.
   // The recovery path goes through the SAME finalizeApp as a fresh create —
   // before this, recovery returned success without ever checking a deployment.
+  // ONLY the list call is wrapped — see the matching note in provision(). The
+  // previous version also wrapped finalizeApp, so a recovery whose deploy
+  // failed (even PERMANENTLY) was swallowed and fell through to creating a
+  // second application for the same job.
+  let existing;
   try {
     const listRes = await client.get("/api/v1/applications");
-    const existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
-    if (existing) {
-      const uuid = existing.uuid || existing.id || name;
-      return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: true });
-    }
+    existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
   } catch (e) {
-    console.warn(`[coolify] app idempotency GET failed for ${name}: ${e.message}`);
+    // An unreadable list is not evidence of absence — retryable, never create.
+    throw new Error(
+      `coolify: could not list applications to check for an existing "${name}" — refusing to create blind (${e.message})`
+    );
+  }
+
+  if (existing) {
+    const uuid = existing.uuid || existing.id || name;
+    return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: true });
   }
 
   const payload = {
@@ -522,30 +531,49 @@ async function provision(job, opts) {
   // If the runner crashed after creation but before Frappe update, we must recover.
   // Recovery goes through the SAME ensureServiceRunning as a fresh create — a
   // job found "existing" but never started must not be reported active either.
+  // ONLY the list call is wrapped. Everything after "existing found" must
+  // propagate: the previous version wrapped the recovery block too, so a
+  // retryable timeout inside ensureServiceRunning (a slow-starting container)
+  // was swallowed and execution fell straight through to the create below —
+  // manufacturing yet another duplicate on every retry.
+  let existing;
   try {
     const listRes = await client.get("/api/v1/services");
-    const existing = (listRes.data?.data || []).find((s) => s.name === name);
-    if (existing) {
-      const uuid = existing.uuid || existing.id || name;
-      const status = await ensureServiceRunning(client, uuid);
-      const url = await attachServiceUrl(client, uuid, job, name);
-      return {
-        externalRef: String(uuid),
-        access: {
-          lane: "coolify",
-          target: opts?.target?.id || "box-1",
-          resource: name,
-          url,
-          manageUrl: c.baseUrl.replace(/\/+$/, ""),
-          uuid: String(uuid),
-        },
-        log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}`,
-      };
-    }
+    // Accept BOTH envelope shapes. Coolify answers some list endpoints with a
+    // bare array rather than {data:[...]}; without the `|| listRes.data`
+    // fallback this expression silently became [], .find() returned undefined,
+    // and the check concluded "doesn't exist" — so every runner retry POSTed
+    // another container. That is exactly what produced 12 redundant running
+    // services on the live box (audited 2026-08-15: four copies each of two
+    // web-hosting tenants, three each of three more). provisionApp's matching
+    // check has always carried this fallback, which is why APPLICATIONS had
+    // zero duplicates while services multiplied. Never narrow this again.
+    existing = (listRes.data?.data || listRes.data || []).find?.((s) => s.name === name);
   } catch (e) {
-    if (e.permanent) throw e;
-    // Ignore list errors and try to create; if it fails on POST we'll catch it there.
-    console.warn(`[coolify] idempotency GET failed for ${name}: ${e.message}`);
+    // A list we cannot read is NOT evidence of absence. Creating here is how a
+    // transient Coolify blip turns into a permanent orphan; throw retryable so
+    // the runner backs off and re-checks instead.
+    throw new Error(
+      `coolify: could not list services to check for an existing "${name}" — refusing to create blind (${e.message})`
+    );
+  }
+
+  if (existing) {
+    const uuid = existing.uuid || existing.id || name;
+    const status = await ensureServiceRunning(client, uuid);
+    const url = await attachServiceUrl(client, uuid, job, name);
+    return {
+      externalRef: String(uuid),
+      access: {
+        lane: "coolify",
+        target: opts?.target?.id || "box-1",
+        resource: name,
+        url,
+        manageUrl: c.baseUrl.replace(/\/+$/, ""),
+        uuid: String(uuid),
+      },
+      log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}`,
+    };
   }
 
   const limits = resourceLimits(job);
