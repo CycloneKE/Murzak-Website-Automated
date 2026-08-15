@@ -233,6 +233,48 @@ function intakeStatusForDomainStatus(domainStatus, sourceDoctype) {
 }
 
 /**
+ * Read an intake's own status back into ours — the direction the backfill
+ * needs, and NOT simply the inverse of INTAKE_STATUS_MAPS, because the intake
+ * vocabularies carry distinctions we don't.
+ *
+ * "purchased" is the interesting one: we bought the name but have not pointed
+ * it anywhere, so it stays pending — there is still work to do, and the
+ * fulfilment queue should keep showing it. Anything unrecognised also lands on
+ * pending, which surfaces the row for a human rather than hiding it.
+ */
+const INTAKE_TO_DOMAIN_STATUS = Object.freeze({
+  "Hosting Domain Purchase Request": {
+    connected: "active",
+    rejected: "failed",
+    purchased: "pending",
+    quoted: "pending",
+    awaiting_payment: "pending",
+    pending: "pending",
+  },
+  "Hosting External Domain Connection": {
+    connected: "active",
+    failed: "failed",
+    verifying: "pending",
+    awaiting_dns_update: "pending",
+    pending: "pending",
+  },
+  "Hosting Murzak Subdomain": {
+    active: "active",
+    rejected: "failed",
+    // Suspended is a temporary hold, not a failure and not a cancellation;
+    // pending keeps it visible as something to look at.
+    suspended: "pending",
+    pending: "pending",
+  },
+});
+
+function domainStatusForIntakeStatus(intakeStatus, sourceDoctype) {
+  const map = INTAKE_TO_DOMAIN_STATUS[sourceDoctype];
+  if (!map) return "pending";
+  return map[String(intakeStatus || "").trim().toLowerCase()] || "pending";
+}
+
+/**
  * Can this domain be pointed at this service right now?
  *
  * The authorization boundary for attach, kept pure so every rule is visible
@@ -437,6 +479,8 @@ module.exports = {
   DOMAIN_STATUS_TRANSITIONS,
   INTAKE_DOCTYPE_KINDS,
   INTAKE_STATUS_MAPS,
+  INTAKE_TO_DOMAIN_STATUS,
+  domainStatusForIntakeStatus,
   LIST_FIELDS,
   buildCustomerDomainPayload,
   canAttachDomain,

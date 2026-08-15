@@ -317,6 +317,33 @@ const {
     );
   }
 
+  section("domainStatusForIntakeStatus — reading an intake's own word back");
+  const dsi = require("../services/customerDomains").domainStatusForIntakeStatus;
+  ok(dsi("connected", PR) === "active", "a connected purchase request IS a live domain");
+  ok(dsi("connected", EX) === "active", "so is a connected external domain");
+  ok(dsi("active", MS) === "active", "an active subdomain is live");
+  ok(
+    dsi("purchased", PR) === "pending",
+    "'purchased' stays pending — we own the name but have not pointed it anywhere, so there is still work to do"
+  );
+  ok(dsi("quoted", PR) === "pending", "quoted is pending");
+  ok(dsi("awaiting_payment", PR) === "pending", "awaiting_payment is pending");
+  ok(dsi("awaiting_dns_update", EX) === "pending", "awaiting DNS is pending");
+  ok(dsi("verifying", EX) === "pending", "verifying is pending");
+  ok(dsi("rejected", PR) === "failed", "rejected is failed");
+  ok(dsi("failed", EX) === "failed", "failed is failed");
+  ok(
+    dsi("suspended", MS) === "pending",
+    "suspended is a temporary hold, not a failure — pending keeps it visible"
+  );
+  ok(dsi("something-new", PR) === "pending", "an unrecognized intake status surfaces as pending, never hidden");
+  ok(dsi("connected", "Unknown Doctype") === "pending", "an unknown doctype defaults to pending");
+  ok(dsi(undefined, PR) === "pending", "a missing status defaults to pending");
+  ok(
+    dsi("connected", PR) === "active" && intakeStatusForDomainStatus("active", PR) === "connected",
+    "the two directions agree on the one mapping that matters most (connected <-> active)"
+  );
+
   section("summarizeByStatus");
   const summary = summarizeByStatus([
     { status: "pending" }, { status: "pending" }, { status: "active" }, { status: "weird" },

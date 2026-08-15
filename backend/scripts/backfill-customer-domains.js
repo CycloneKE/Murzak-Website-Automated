@@ -39,27 +39,31 @@ function frappeClient() {
 
 /**
  * Each source: which doctype, which field holds the hostname, and the extra
- * columns worth carrying across. `status` is deliberately NOT copied — the
- * intake vocabularies differ from the Customer Domain one, and a domain whose
- * registration is still being fulfilled is "pending" by definition.
+ * columns worth carrying across.
+ *
+ * `status` IS copied, translated through domainStatusForIntakeStatus — the
+ * intake vocabularies differ from ours, but they are also the only record of
+ * whether a domain actually got connected. An earlier version defaulted
+ * everything to "pending", which made live domains read as pending and
+ * unattached on the customer's Domains tab.
  */
 const SOURCES = [
   {
     doctype: "Hosting Domain Purchase Request",
     hostField: "full_domain",
-    extraFields: ["notes"],
+    extraFields: ["notes", "status", "service_id"],
     kind: customerDomains.DOMAIN_KINDS.REGISTERED,
   },
   {
     doctype: "Hosting External Domain Connection",
     hostField: "domain_name",
-    extraFields: ["registrar", "verification_notes"],
+    extraFields: ["registrar", "verification_notes", "status", "service_id"],
     kind: customerDomains.DOMAIN_KINDS.EXTERNAL,
   },
   {
     doctype: "Hosting Murzak Subdomain",
     hostField: "full_subdomain",
-    extraFields: ["notes"],
+    extraFields: ["notes", "status", "service_id"],
     kind: customerDomains.DOMAIN_KINDS.MURZAK_SUBDOMAIN,
   },
 ];
@@ -85,7 +89,7 @@ async function readAll(client, source) {
 
 (async () => {
   const client = frappeClient();
-  const totals = { created: 0, existing: 0, skipped: 0, failed: 0 };
+  const totals = { created: 0, existing: 0, reconciled: 0, skipped: 0, failed: 0 };
 
   for (const source of SOURCES) {
     let rows;
@@ -107,16 +111,28 @@ async function readAll(client, source) {
         console.warn(`    skip ${row.name}: account=${webAccount || "?"} host=${JSON.stringify(host)}`);
         continue;
       }
+      // The intake already knows whether this domain got connected and which
+      // service it was requested for. Blanket-defaulting to pending/unattached
+      // (the first version of this) left live domains reading as "pending, not
+      // attached to anything" — visibly wrong on the customer's Domains tab.
+      const derivedStatus = customerDomains.domainStatusForIntakeStatus(row.status, source.doctype);
+      const serviceId = row.service_id || "";
+      const clean = customerDomains.normalizeDomainName(host);
+
       if (DRY_RUN) {
-        console.log(`    would ensure ${customerDomains.normalizeDomainName(host)} (${source.kind}) for ${webAccount}`);
+        console.log(
+          `    would ensure ${clean} (${source.kind}) for ${webAccount} ` +
+            `— status ${row.status || "?"} -> ${derivedStatus}, attach ${serviceId || "(none)"}`
+        );
         continue;
       }
       try {
-        const { created } = await customerDomains.ensureCustomerDomain(client, {
+        const { domain, created } = await customerDomains.ensureCustomerDomain(client, {
           webAccount,
           domainName: host,
           kind: source.kind,
-          status: "pending",
+          status: derivedStatus,
+          attachedToService: serviceId,
           registrar: row.registrar,
           sourceDoctype: source.doctype,
           sourceName: row.name,
@@ -124,9 +140,24 @@ async function readAll(client, source) {
         });
         if (created) {
           totals.created++;
-          console.log(`    + ${customerDomains.normalizeDomainName(host)} (${source.kind}) -> ${webAccount}`);
-        } else {
-          totals.existing++;
+          console.log(`    + ${clean} (${source.kind}) ${derivedStatus} -> ${webAccount}`);
+          continue;
+        }
+
+        // Already present. Reconcile it, but ONLY while it still looks
+        // untouched — pending and unattached is the state this script leaves
+        // behind, so anything else means a human has since made a decision
+        // and re-running must not drag it back.
+        totals.existing++;
+        const untouched = domain && domain.status === "pending" && !domain.attachedToService;
+        const wants = derivedStatus !== "pending" || serviceId;
+        if (untouched && wants) {
+          const patch = {};
+          if (derivedStatus !== domain.status) patch.status = derivedStatus;
+          if (serviceId) patch.attached_to_service = serviceId;
+          await customerDomains.updateCustomerDomain(client, domain.id, patch);
+          totals.reconciled++;
+          console.log(`    ~ ${clean}: ${JSON.stringify(patch)}`);
         }
       } catch (e) {
         totals.failed++;
@@ -181,7 +212,7 @@ async function readAll(client, source) {
 
   console.log(
     `\n${DRY_RUN ? "[dry run] " : ""}domains: created=${totals.created} already-present=${totals.existing} ` +
-      `skipped=${totals.skipped} failed=${totals.failed}`
+      `reconciled=${totals.reconciled} skipped=${totals.skipped} failed=${totals.failed}`
   );
   console.log(
     `${DRY_RUN ? "[dry run] " : ""}sites:   linked=${linkTotals.linked} already-linked=${linkTotals.already} ` +
