@@ -26,6 +26,11 @@ const DOCTYPE_PATHS = [
   path.resolve(__dirname, "../data/doctype-checkout-order.json"),
   path.resolve(__dirname, "../data/doctype-portal-update.json"),
   path.resolve(__dirname, "../data/doctype-capacity-request.json"),
+  // Support threads. This doctype was hand-created in Frappe and had no
+  // fixture, so field drift went undetected; it is captured here so the
+  // add-missing-fields path can install admin_last_read_at (and anything
+  // else the code expects) without a manual bench edit.
+  path.resolve(__dirname, "../data/doctype-portal-users-requests.json"),
 ];
 
 async function installOne(client, doctypePath) {

@@ -17,7 +17,10 @@ export type ThreadSummary = {
   company_name?: string;
   status?: string;
   last_message_at?: string;
+  admin_last_read_at?: string;
   modified?: string;
+  /** Server-computed: this thread is waiting on staff and has unread messages. */
+  unread?: boolean;
   // Present on the single-thread GET (unprojected Frappe doc); absent from
   // the list endpoint's projected fields. Optional here so both call sites
   // type-check.
@@ -38,6 +41,26 @@ export async function adminListThreads(): Promise<ThreadSummary[]> {
   const data = await safeJson(res);
   if (!res.ok) throw new Error(data?.error || "Failed to load threads.");
   return data?.data || [];
+}
+
+/** Count of threads waiting on staff with messages nobody has read yet. */
+export async function adminUnreadCount(): Promise<number> {
+  const res = await fetch("/api/admin/threads/unread-count", { credentials: "include" });
+  const data = await safeJson(res);
+  if (!res.ok) throw new Error(data?.error || "Failed to fetch unread count.");
+  return Number(data?.count || 0);
+}
+
+/** Stamps admin_last_read_at so this thread stops counting toward the badge. */
+export async function adminMarkRead(threadId: string): Promise<void> {
+  const res = await fetch(`/api/admin/threads/${encodeURIComponent(threadId)}/mark-read`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await safeJson(res);
+    throw new Error(data?.error || "Failed to mark thread read.");
+  }
 }
 
 export async function adminGetThread(id: string): Promise<ThreadDoc> {

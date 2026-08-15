@@ -46,10 +46,24 @@ const InfraAccessBar: React.FC = () => {
  * Inbox and the Provisioning control panel. Used wherever the portal renders the
  * admin experience.
  */
-const AdminTabs: React.FC = () => {
-  const [view, setView] = useState<AdminView>("inbox");
+type AdminTabsProps = {
+  /** Bubbles the inbox unread count up so the portal sidebar badge matches. */
+  onUnreadChange?: (count: number) => void;
+};
 
-  const tab = (id: AdminView, label: string, icon: React.ReactNode) => (
+const AdminTabs: React.FC<AdminTabsProps> = ({ onUnreadChange }) => {
+  const [view, setView] = useState<AdminView>("inbox");
+  const [unread, setUnread] = useState(0);
+
+  const handleUnreadChange = React.useCallback(
+    (count: number) => {
+      setUnread(count);
+      onUnreadChange?.(count);
+    },
+    [onUnreadChange]
+  );
+
+  const tab = (id: AdminView, label: string, icon: React.ReactNode, badge?: number) => (
     <button
       type="button"
       onClick={() => setView(id)}
@@ -60,6 +74,11 @@ const AdminTabs: React.FC = () => {
       }`}
     >
       {icon} {label}
+      {!!badge && (
+        <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </button>
   );
 
@@ -67,10 +86,15 @@ const AdminTabs: React.FC = () => {
     <div className="w-full">
       <InfraAccessBar />
       <div className="mb-6 flex items-center gap-2">
-        {tab("inbox", "Inbox", <Inbox className="w-4 h-4" />)}
+        {tab("inbox", "Inbox", <Inbox className="w-4 h-4" />, unread)}
         {tab("provisioning", "Provisioning", <Server className="w-4 h-4" />)}
       </div>
-      {view === "inbox" ? <AdminInbox /> : <AdminProvisioning />}
+      {/* Kept mounted so its 4s poll keeps the badge live while staff work in
+          the Provisioning tab — the whole point of the badge. */}
+      <div className={view === "inbox" ? "" : "hidden"}>
+        <AdminInbox onUnreadChange={handleUnreadChange} />
+      </div>
+      {view === "provisioning" && <AdminProvisioning />}
     </div>
   );
 };

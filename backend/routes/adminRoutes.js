@@ -6,6 +6,7 @@ const express = require('express');
 const terminalConstants = require('../services/terminal/constants');
 const accessControlLib = require('../services/terminal/accessControl');
 const s3ClientLib = require('../services/terminal/s3Client');
+const supportUnread = require('../services/supportUnread');
 
 module.exports = function(ctx) {
   const {
@@ -24,24 +25,83 @@ module.exports = function(ctx) {
 
   const router = express.Router();
 
+// The projection MUST carry every field the inbox renders. It previously
+// fetched only name/email/full_name/status while the UI displayed
+// company_name and last_message_at, so every row showed "—" and a blank
+// timestamp and the inbox looked dead even when it held threads.
+const THREAD_LIST_FIELDS = [
+  "name",
+  "email",
+  "full_name",
+  "company_name",
+  "subject",
+  "status",
+  "last_message_at",
+  "admin_last_read_at",
+  "modified"
+];
+
 router.get("/api/admin/threads", requireAuth, requireAdmin, async (req, res) => {
   try {
     const client = frappeClient();
     const resp = await client.get("/api/resource/Portal Users Requests", {
       params: {
-        fields: JSON.stringify(["name", "email", "full_name", "status"]),
-        order_by: "modified desc",
+        fields: JSON.stringify(THREAD_LIST_FIELDS),
+        order_by: "last_message_at desc",
         limit_page_length: 100
       }
     });
+    const rows = resp.data?.data || [];
     return res.json({
       ok: true,
-      data: resp.data?.data || []
+      data: rows.map(r => ({ ...r, unread: supportUnread.isUnreadForAdmin(r) })),
+      unreadCount: supportUnread.countAdminUnread(rows)
     });
   } catch (err) {
     console.error("ADMIN THREADS ERROR:", err.response?.data || err.message);
     return res.status(500).json({
       error: "Failed to load threads."
+    });
+  }
+});
+
+// Unread support badge for staff — the mirror of the customer's
+// /api/portal/requests/unread-count. Its absence is why an admin never learned
+// a customer was waiting unless they happened to open the inbox.
+router.get("/api/admin/threads/unread-count", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const resp = await client.get("/api/resource/Portal Users Requests", {
+      params: {
+        fields: JSON.stringify(["name", "status", "last_message_at", "admin_last_read_at"]),
+        order_by: "last_message_at desc",
+        limit_page_length: 200
+      }
+    });
+    return res.json({
+      ok: true,
+      count: supportUnread.countAdminUnread(resp.data?.data)
+    });
+  } catch (err) {
+    console.error("ADMIN UNREAD COUNT ERROR:", err.response?.data || err.message);
+    return res.status(500).json({
+      error: "Failed to fetch unread count."
+    });
+  }
+});
+
+router.post("/api/admin/threads/:id/mark-read", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const client = frappeClient();
+    const { id } = req.params;
+    await client.put(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`, {
+      admin_last_read_at: mysqlDatetimeUTC()
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("ADMIN MARK READ ERROR:", err.response?.data || err.message);
+    return res.status(500).json({
+      error: "Failed to mark read."
     });
   }
 });
