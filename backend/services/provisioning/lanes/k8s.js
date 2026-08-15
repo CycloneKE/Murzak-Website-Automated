@@ -17,8 +17,14 @@ const appDomain = require('../appDomain');
 const { resourceLimits } = require('./coolify');
 
 function isConfigured(opts) {
-  // Configured if we have KUBECONFIG_BASE64 or are running in cluster/have local config
-  return !!process.env.KUBECONFIG_BASE64 || process.env.NODE_ENV !== 'production';
+  // Require a REAL, explicitly-provided kubeconfig. This lane has no cluster
+  // behind it — the "or non-production NODE_ENV" fallback this used to have
+  // graded the lane configured everywhere except prod with zero actual k8s
+  // access, so readiness/enqueue could route a job here only to have
+  // getKubeConfig()'s loadFromDefault() either find nothing or (worse) find
+  // some unrelated local ~/.kube/config and act on it. Quarantined: only a
+  // real KUBECONFIG_BASE64 makes this lane usable anywhere, prod or not.
+  return !!process.env.KUBECONFIG_BASE64;
 }
 
 function configError(opts) {
@@ -47,17 +53,29 @@ function resourceName(job) {
     .slice(0, 48);
 }
 
-/** Get image name. If repo_url is provided, it simulates the hybrid Coolify-registry build. */
+/**
+ * Get the image name to deploy. Refuses rather than fabricates: the hybrid
+ * "build the repo via Coolify, push to our private registry" pipeline this
+ * used to describe was never implemented — there is no registry and no
+ * build step, so a repo_url job used to get a plausible-looking image URL
+ * pointing at a container image that was never built. provision() would
+ * then deploy a Deployment spec against that fake image (ImagePullBackOff
+ * at best; silently resolving to an unrelated public image at worst, if
+ * that registry hostname ever becomes real by accident). Only a job that
+ * already names a real, pre-built image (job.docker_image, or the
+ * documented nginx:alpine placeholder) is servable by this lane today.
+ */
 async function getContainerImage(job) {
   if (job.repo_url) {
-    // HYBRID PIPELINE:
-    // Here we would normally call Coolify's API to build the Git repo and push to our private registry.
-    // For now, since infrastructure isn't set up, we simulate the resulting image URL.
-    return `registry.murzaktech.com/${job.web_account}/${resourceName(job)}:latest`;
+    throw new Error(
+      `k8s lane: no build pipeline exists for repo_url jobs (${job.web_account}/${job.service_id}) — ` +
+        `refusing to fabricate a registry image URL. Provision this one manually, or set job.docker_image ` +
+        `to a real, already-built image.`
+    );
   }
-  
+
   // Default fallback image if no repo provided (e.g. static site placeholder or specific service image)
-  return job.docker_image || 'nginx:alpine'; 
+  return job.docker_image || 'nginx:alpine';
 }
 
 /**
@@ -332,4 +350,5 @@ module.exports = {
   attachDomain,
   getUsage,
   resourceName,
+  getContainerImage,
 };

@@ -421,6 +421,52 @@ const okLane = {
     ok(seenRepo === "https://github.com/cust/app#main" && PJ(s).JB.status === "active", "runner passes repo_url through the projected fetch to the lane");
   }
 
+  // ------------------------------------------------------------------
+  // P0 workflow safety: buildJobPayload is the one choke point every job
+  // creation passes through. A leading-space service_id reached production
+  // and silently broke the portal's activity lookup (string equality never
+  // matched the trimmed id used everywhere else); a malformed repo_url on
+  // the account would have been carried straight into a job (and then
+  // straight into a real git clone attempt) with no format check.
+  // ------------------------------------------------------------------
+  section("buildJobPayload: input validation choke point");
+  {
+    const withSpace = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: " starter-web-hosting " });
+    ok(withSpace.service_id === "starter-web-hosting", "leading/trailing whitespace on service_id is trimmed");
+    ok(withSpace.job_key === "INV-1::starter-web-hosting", "job_key is built from the TRIMMED id, not the raw one");
+    ok(withSpace.category === "Website Hosting", "trimmed id resolves real catalog meta (category populated)");
+
+    const unknown = svc.buildJobPayload({ webAccount: "WA", invoice: "INV-1", serviceId: "totally-not-a-real-sku" });
+    ok(unknown.status === "needs_human", "unrecognized service_id is flagged for a human, not silently enqueued");
+    ok(/not in the catalog/i.test(unknown.error || ""), "error names the reason (catalog drift), not a generic failure");
+    ok(unknown.lane === "manual", "unknown service still gets a safe lane (manual), never a real build lane");
+
+    const badRepo = svc.buildJobPayload({
+      webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "not-a-url-at-all",
+    });
+    ok(badRepo.status === "needs_human", "malformed repo_url on the account -> needs_human, not carried into the job");
+    ok(!badRepo.repo_url, "malformed repo_url is never written onto the job payload");
+    ok(/valid https\/git@/i.test(badRepo.error || ""), "error explains the format problem, distinct from the missing-repo message");
+
+    const goodRepo = svc.buildJobPayload({
+      webAccount: "WA", invoice: "INV-1", serviceId: "starter-app-hosting", repoUrl: "  https://github.com/x/y#dev  ",
+    });
+    ok(goodRepo.status === "queued" && goodRepo.repo_url === "https://github.com/x/y#dev", "a valid (whitespace-padded) repo_url is trimmed and accepted");
+
+    // Enqueue-level: the trim happens upstream in normalizeServiceInputs too,
+    // so every consumer inside the loop (capacity gate, BYOA repo detection)
+    // sees the same trimmed id buildJobPayload used — not just the final payload.
+    s = makeStore([]);
+    s.docs["Web Account"]["WA3"] = { name: "WA3", source_code: "https://github.com/cust/app" };
+    const eqSpace = await svc.enqueueProvisioningForInvoice({
+      client: s, webAccount: "WA3", invoiceDocName: "INV-11", serviceIds: [" starter-app-hosting "],
+    });
+    ok(
+      eqSpace.created.length === 1 && eqSpace.created[0].service_id === "starter-app-hosting" && eqSpace.created[0].repo_url === "https://github.com/cust/app",
+      "enqueue trims a whitespace-padded service_id upstream so BYOA repo detection still fires"
+    );
+  }
+
   section("BYOA build-wait: deployment classification + log tail");
   {
     ok(coolify.classifyDeploymentStatus("finished") === "success", "finished -> success");

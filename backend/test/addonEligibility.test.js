@@ -11,8 +11,14 @@ function ok(cond, msg) {
 }
 function section(name) { console.log(`\n# ${name}`); }
 
-const { isAddonEligible, accountHasNonDomainPaidService } = require("../services/addonEligibility");
+const {
+  isAddonEligible,
+  accountHasNonDomainPaidService,
+  isDomainRegistrationServiceId,
+  invoiceRowsIncludeNonDomainService,
+} = require("../services/addonEligibility");
 const { getServiceMeta } = require("../services/provisioning/catalog");
+const { excludeDomainRegistrations } = require("../services/renewalService");
 
 (async () => {
   section("volume-class services are plan-agnostic");
@@ -221,6 +227,84 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
       service: { tier: "Light", capacityClass: "volume", monthlyKes: 1200, category: "Website Hosting" },
     }).ok === true,
     "omitting hasNonDomainPaidHistory defaults to fail-open (unchanged pre-existing behavior)"
+  );
+
+  // ------------------------------------------------------------------
+  // FIX ROUND 3 — accountHasNonDomainPaidService: unknown catalog ids fail
+  // OPEN (defect b). These 4 ids exist in server.js's SERVICE_ID_TO_PLAN but
+  // are (at time of writing) absent from the generated catalog snapshot —
+  // an Active row for any of them must still count as real paid history,
+  // not be silently dropped just because the catalog drifted.
+  // ------------------------------------------------------------------
+  const ORPHAN_CATALOG_IDS = ["biz-erp-bring-your-own", "starter-erp-light", "biz-email-large"];
+
+  section("accountHasNonDomainPaidService: unknown catalog ids fail OPEN (defect b)");
+  for (const id of ORPHAN_CATALOG_IDS) {
+    ok(
+      accountHasNonDomainPaidService([{ serviceId: id, status: "Active" }]) === true,
+      `an Active row for orphan id "${id}" (missing from the snapshot) still counts as real paid history`
+    );
+  }
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "totally-made-up-future-sku", status: "Active" }]) === true,
+    "any unrecognized id, not just today's known orphans, fails open when Active"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "biz-erp-bring-your-own", status: "Awaiting Payment" }]) === false,
+    "an unknown id still respects the paid-status gate — fail-open only applies once it's actually paid"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ serviceId: "", status: "Active" }]) === false,
+    "a blank serviceId is never evidence, even with a paid status (the hole the polarity fix would otherwise open)"
+  );
+  ok(
+    accountHasNonDomainPaidService([{ status: "Active" }]) === false,
+    "a row with no serviceId key at all is likewise not evidence"
+  );
+
+  section("accountHasNonDomainPaidService / renewalService.excludeDomainRegistrations: polarity parity");
+  for (const id of ORPHAN_CATALOG_IDS) {
+    const asHistory = accountHasNonDomainPaidService([{ serviceId: id, status: "Active" }]);
+    const keptByRenewal = excludeDomainRegistrations([{ serviceId: id }]).length === 1;
+    ok(
+      asHistory === true && keptByRenewal === true,
+      `"${id}": eligibility gate and renewal sweep agree it is NOT a domain (both fail open on unknown ids the same way)`
+    );
+  }
+
+  section("isDomainRegistrationServiceId");
+  for (const id of Object.keys({
+    "domain-coke": 1, "domain-com": 1, "domain-ke": 1, "domain-org": 1,
+    "domain-net": 1, "domain-africa": 1, "domain-io": 1,
+  })) {
+    ok(isDomainRegistrationServiceId(id) === true, `${id} is recognized as a Domain Registration`);
+  }
+  for (const id of ["starter-web-hosting", "biz-pos-inventory", "db-mysql"]) {
+    ok(isDomainRegistrationServiceId(id) === false, `${id} is NOT a Domain Registration`);
+  }
+  for (const bad of ["", null, undefined, "nope", "   "]) {
+    ok(isDomainRegistrationServiceId(bad) === false, `isDomainRegistrationServiceId(${JSON.stringify(bad)}) is false`);
+  }
+
+  section("invoiceRowsIncludeNonDomainService");
+  ok(
+    invoiceRowsIncludeNonDomainService([{ service_id: "domain-com" }, { service_id: "domain-net" }]) === false,
+    "an invoice with only domain lines has no non-domain evidence"
+  );
+  ok(
+    invoiceRowsIncludeNonDomainService([{ service_id: "domain-com" }, { service_id: "starter-web-hosting" }]) === true,
+    "an invoice with at least one real hosting line counts"
+  );
+  ok(
+    invoiceRowsIncludeNonDomainService([{ service_id: "biz-erp-bring-your-own" }]) === true,
+    "an unknown id on a paid invoice line still fails open (same polarity as the account-row check)"
+  );
+  ok(invoiceRowsIncludeNonDomainService([]) === false, "empty rows -> false");
+  ok(invoiceRowsIncludeNonDomainService(undefined) === false, "undefined rows -> false");
+  ok(invoiceRowsIncludeNonDomainService([{}]) === false, "a row with no id -> false");
+  ok(
+    invoiceRowsIncludeNonDomainService([{ serviceId: "starter-storage" }]) === true,
+    "camelCase serviceId fallback is honored (not just snake_case service_id)"
   );
 
   console.log(`\n${passed} passed, ${failed} failed`);

@@ -17,6 +17,7 @@
 
 const { getServiceMeta, laneFor, CAPACITY } = require("./catalog");
 const { JOB_DOCTYPE } = require("./constants");
+const { isValidRepoUrl } = require("../../utils/repoUrl");
 
 function isEnabled() {
   // On by default; set PROVISIONING_ENABLED=false to pause without touching payments.
@@ -44,8 +45,8 @@ function normalizeServiceInputs(serviceIds) {
   return (Array.isArray(serviceIds) ? serviceIds : [])
     .map((s) =>
       typeof s === "string"
-        ? { serviceId: s, domainChoice: "" }
-        : { serviceId: s?.serviceId, domainChoice: s?.domainChoice || "" }
+        ? { serviceId: s.trim(), domainChoice: "" }
+        : { serviceId: String(s?.serviceId || "").trim(), domainChoice: s?.domainChoice || "" }
     )
     .filter((s) => s.serviceId);
 }
@@ -89,36 +90,58 @@ async function getReservedRamMb(client) {
   }
 }
 
+// The one choke point every job creation passes through — validates
+// service_id and repo_url before either is ever written to the doctype or
+// baked into job_key. A leading-space service_id reached production and
+// silently broke the portal's activity lookup (string equality against the
+// trimmed id everywhere else never matched); an unrecognized service_id
+// used to fall through to lane "manual" with an empty category/ram/disk
+// instead of a clearly-flagged job a human would notice.
 function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
-  const meta = getServiceMeta(serviceId);
+  const trimmedServiceId = String(serviceId || "").trim();
+  const meta = getServiceMeta(trimmedServiceId);
   const lane = laneFor(meta);
   const port = Number(appPort);
+  const trimmedRepoUrl = String(repoUrl || "").trim();
   // BYOA: a service that deploys the customer's own repo carries it on the
-  // job; with no repo on file the job is born needs_human (never a fake build).
+  // job; with no repo on file, or a malformed one, the job is born
+  // needs_human (never a fake build against a bad URL).
   const byoa = meta?.requiresRepo
-    ? repoUrl
+    ? trimmedRepoUrl && isValidRepoUrl(trimmedRepoUrl)
       ? {
-          repo_url: String(repoUrl).trim(),
+          repo_url: trimmedRepoUrl,
           // Port the app listens on — the coolify lane exposes this on the
           // container (falls back to COOLIFY_DEFAULT_APP_PORT / 3000 when 0).
           ...(Number.isInteger(port) && port > 0 && port <= 65535 ? { app_port: port } : {}),
         }
       : {
           status: "needs_human",
-          error:
-            "BYOA service but no repository URL on the account — ask the customer for their Git repo (My Account → Project repository).",
+          error: trimmedRepoUrl
+            ? `BYOA service but the repository URL on the account ("${trimmedRepoUrl}") isn't a valid https/git@ URL — ask the customer to fix it (My Account → Project repository).`
+            : "BYOA service but no repository URL on the account — ask the customer for their Git repo (My Account → Project repository).",
         }
+    : {};
+  // Unrecognized service_id (catalog drift, a bad request that slipped past
+  // upstream checks) — flag for a human instead of silently enqueuing a
+  // manual-lane job with no name/category/footprint. BYOA's own needs_human
+  // above takes priority when both apply (meta is null there too, so `byoa`
+  // is always {} in that branch — no conflict).
+  const unknownService = !meta
+    ? {
+        status: "needs_human",
+        error: `Unrecognized service id "${trimmedServiceId}" — not in the catalog snapshot. A human must provision this manually.`,
+      }
     : {};
   return {
     web_account: webAccount,
     invoice,
-    service_id: serviceId,
+    service_id: trimmedServiceId,
     // Unique key (enforced by a unique index on the doctype) so concurrent
     // enqueues for the same (invoice, service) can't create duplicate jobs even
     // if the findExistingJob check-then-insert races — the second insert is
     // rejected and treated as "already queued".
-    job_key: `${invoice}::${serviceId}`,
-    service_name: meta?.name || serviceId,
+    job_key: `${invoice}::${trimmedServiceId}`,
+    service_name: meta?.name || trimmedServiceId,
     category: meta?.category || "",
     capacity_class: meta?.capacityClass || "",
     lane,
@@ -128,6 +151,7 @@ function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
     disk_gb: meta?.diskGb || 0,
     target: "box-1",
     backup_status: "pending",
+    ...unknownService,
     ...byoa,
   };
 }

@@ -6,7 +6,11 @@
 // gates are preserved exactly.
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
-const { isAddonEligible, accountHasNonDomainPaidService } = require("./addonEligibility");
+const {
+  isAddonEligible,
+  accountHasNonDomainPaidService,
+  invoiceRowsIncludeNonDomainService,
+} = require("./addonEligibility");
 const { assertOrderWithinCapacity } = require("./orderCapacity");
 
 // Web Account child-table field names, used only to read the tenant's
@@ -18,7 +22,98 @@ const WEB_ACCOUNT_SERVICES_FIELD = "selected_services";
 const CHILD_SERVICE_ID_FIELD = "service_id";
 const CHILD_STATUS_FIELD = "status";
 
+// Portal Invoice types that represent REAL money paid for something — used
+// by the FIX ROUND 3 invoice-line fallback below. Deliberately excludes
+// "Trial Verification": TRIAL_SANDBOX_SERVICE_ID defaults to
+// test-erpnext-demo (category "ERP Hosting"), and a paid KES-1 trial
+// verification is not evidence the customer owns real infrastructure.
+const PAID_BILLING_INVOICE_TYPES = ["Subscription", "Add-on"];
+// How many of the account's most-recent Paid invoices to scan before giving
+// up. Running out of budget is NOT evidence of absence — see
+// accountHasPaidNonDomainInvoiceLine's null return.
+const PAID_INVOICE_SCAN_LIMIT = 12;
+
 const asArray = (v) => (Array.isArray(v) ? v : []);
+
+/**
+ * FIX ROUND 3, second signal: does this account have a PAID invoice
+ * (Subscription or Add-on, never Trial Verification) carrying a non-domain
+ * service line? Independent of both `hasPaidSubscriptionForPlan` (order-
+ * routing — must never be repurposed, see addonEligibility.js's module
+ * docblock) and of the Web Account's `selected_services` statuses (which a
+ * lossy client-input round-trip, or a service id that later drifted out of
+ * the catalog snapshot, can silently misrepresent).
+ *
+ * Scans the account's most recent Paid invoices, newest first, stopping at
+ * the first non-domain line. Only fetches invoice line items — never
+ * touches or trusts the invoice's OWN service-row status, since add-on
+ * lines are written "Awaiting Payment" and never flipped; it's the invoice
+ * being Paid that is the fact of record.
+ *
+ * @returns {Promise<boolean|null>} true = found real paid infra; false =
+ *   scanned every paid invoice and found none; null = COULD NOT DETERMINE
+ *   (scan budget exhausted, or a Frappe call failed) — the caller MUST
+ *   treat null as fail-open, never as false.
+ */
+async function accountHasPaidNonDomainInvoiceLine({
+  client,
+  webAccountName,
+  invoiceServicesField = "selected_services",
+  childServiceIdField = CHILD_SERVICE_ID_FIELD,
+  scanLimit = PAID_INVOICE_SCAN_LIMIT,
+}) {
+  let names;
+  try {
+    const listRes = await client.get("/api/resource/Portal Invoice", {
+      params: {
+        filters: JSON.stringify([
+          ["web_account", "=", webAccountName],
+          ["status", "=", "Paid"],
+          ["type", "in", PAID_BILLING_INVOICE_TYPES],
+        ]),
+        fields: JSON.stringify(["name"]),
+        order_by: "creation desc",
+        limit_page_length: scanLimit,
+      },
+    });
+    names = asArray(listRes.data?.data).map((r) => r?.name).filter(Boolean);
+  } catch (e) {
+    console.warn(`[addon-gate] paid-invoice list scan failed for ${webAccountName}: ${e.message}`);
+    return null;
+  }
+
+  for (const name of names) {
+    try {
+      const docRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(name)}`);
+      const rows = asArray(docRes.data?.data?.[invoiceServicesField]);
+      if (invoiceRowsIncludeNonDomainService(rows, childServiceIdField)) return true;
+    } catch (e) {
+      console.warn(`[addon-gate] paid-invoice line fetch failed for ${webAccountName}/${name}: ${e.message}`);
+      return null;
+    }
+  }
+
+  // Exhausted the scan budget without a hit — undetermined, not "no history".
+  if (names.length >= scanLimit) return null;
+  return false;
+}
+
+/**
+ * The single "does this account own real (non-domain) infrastructure?"
+ * answer the add-on gate needs. Union of the free account-row check and the
+ * paid-invoice fallback; fails OPEN on any undetermined result.
+ *
+ * @returns {Promise<boolean>}
+ */
+async function resolveNonDomainPaidHistory({ client, webAccountName, accountServiceRows, ...rest }) {
+  if (accountHasNonDomainPaidService(accountServiceRows)) return true; // free — no query
+  const fromInvoices = await accountHasPaidNonDomainInvoiceLine({ client, webAccountName, ...rest });
+  if (fromInvoices === null) {
+    console.warn(`[addon-gate] could not verify paid non-domain history for ${webAccountName} — failing open`);
+    return true;
+  }
+  return fromInvoices;
+}
 
 /**
  * Creates or merges an unpaid Add-on Portal Invoice. Throws err.statusCode
@@ -62,17 +157,34 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
   }
 
   // Does this account own any actually-paid NON-domain service already?
-  // Read from the Web Account's own existing service history (not from
-  // `hasPaidSubscriptionForPlan`'s Subscription-invoice-existence check
-  // above, which order-routing in ordersRoutes.js also depends on and must
-  // NOT be repurposed here — see addonEligibility.js's module docblock,
-  // "Fix round 2", for the full reasoning and why a prior attempt at this
-  // fix broke repeat domain purchases by conflating the two checks).
+  // First check is free (reuses the Web Account record already fetched
+  // above); the paid-invoice fallback below only ever runs if that comes up
+  // empty AND a non-domain add-on is actually in this order — see
+  // resolveNonDomainPaidHistory / accountHasPaidNonDomainInvoiceLine above,
+  // and addonEligibility.js's module docblock ("Fix round 2" / "Fix round
+  // 3") for why neither signal may be conflated with
+  // `hasPaidSubscriptionForPlan`'s Subscription-invoice-existence check.
   const existingServiceRows = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD]).map((r) => ({
     serviceId: r?.[CHILD_SERVICE_ID_FIELD],
     status: r?.[CHILD_STATUS_FIELD],
   }));
-  const hasNonDomainPaidHistory = accountHasNonDomainPaidService(existingServiceRows);
+  // Resolved at most once, and only if actually needed — a domain-only
+  // account buying another domain must keep its exact current Frappe call
+  // count (FIX ROUND 2 Requirement 2), and a real hosting customer never
+  // triggers the fallback at all (Requirement 3).
+  let cachedNonDomainHistory;
+  const nonDomainPaidHistory = async () => {
+    if (cachedNonDomainHistory === undefined) {
+      cachedNonDomainHistory = await resolveNonDomainPaidHistory({
+        client,
+        webAccountName,
+        accountServiceRows: existingServiceRows,
+        invoiceServicesField: PORTAL_INVOICE_SERVICES_FIELD,
+        childServiceIdField: CHILD_SERVICE_ID_FIELD,
+      });
+    }
+    return cachedNonDomainHistory;
+  };
 
   // Every add-on must be a real, priced catalog service — no fabricated
   // pricing for something not in the catalog snapshot. Also enforce
@@ -86,6 +198,11 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
       err.statusCode = 400;
       throw err;
     }
+    // A domain add-on never needs the history flag (isAddonEligible
+    // short-circuits on category before reading it) — pass true explicitly
+    // so buying a domain never triggers the paid-invoice scan.
+    const hasNonDomainPaidHistory =
+      meta.category === "Domain Registration" ? true : await nonDomainPaidHistory();
     const elig = isAddonEligible({ planKey, service: meta, hasNonDomainPaidHistory });
     if (!elig.ok) {
       const err = new Error(elig.error);
@@ -205,4 +322,10 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
   return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes };
 }
 
-module.exports = { createAddonInvoice };
+module.exports = {
+  createAddonInvoice,
+  resolveNonDomainPaidHistory,
+  accountHasPaidNonDomainInvoiceLine,
+  PAID_BILLING_INVOICE_TYPES,
+  PAID_INVOICE_SCAN_LIMIT,
+};

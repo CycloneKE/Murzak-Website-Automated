@@ -91,6 +91,7 @@ const { assertOrderWithinCapacity } = require("./services/orderCapacity");
 const { capturedAmountMatches } = require("./services/paypalService");
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
+const { PAID_SERVICE_STATUSES } = require("./services/addonEligibility");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
 // KES-1 trial-verification flow.
@@ -686,6 +687,14 @@ function computeProratedCreditKes(latestPaidInv) {
   }
 }
 
+// INTENTIONALLY LOSSY — sanitizes CLIENT-SUPPLIED selections down to only
+// "Active" | "Awaiting Payment". Do NOT use this to round-trip rows read
+// back OUT of the Web Account (fetch -> normalize -> PUT the whole array):
+// it silently demotes "Setting up"/"Suspended" to "Awaiting Payment",
+// destroying both provisioning state (runner.js's markAccountServiceActive
+// only flips rows that are exactly "Setting up") and add-on eligibility
+// (addonEligibility.js's PAID_SERVICE_STATUSES). For that, use
+// ordersRoutes.js's status-preserving normalizeExistingAccountServiceRows.
 function normalizeSelectedServices(input) {
   const arr = Array.isArray(input) ? input : [];
   return arr
@@ -1519,15 +1528,21 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
     return { ok: true, updated: true, invoice: { ...open, amount, plan: planKey } };
   }
 
-  // ✅ If latest subscription invoice is PAID, update its service rows (do NOT create a new invoice)
-  const latest = await findLatestPaidSubscriptionInvoice(client, webAccountName, planKey);
-  if (latest?.name && String(latest.status || "").toLowerCase() === "paid") {
-    await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(latest.name)}`, {
-      // keep status paid + amount unchanged; just refresh rows snapshot
-      [PORTAL_INVOICE_SERVICES_FIELD]: invoiceRows,
-    });
-    return { ok: true, updated: true, invoice: { ...latest, plan: planKey } };
-  }
+  // A PAID Subscription invoice is a historical billing record — it must
+  // NEVER be rewritten to reflect a later, un-paid-for selection. This used
+  // to refresh a Paid invoice's own service rows here "to keep the snapshot
+  // in sync"; nothing else in the codebase reads those rows for display
+  // (checked: findLatestPaidSubscriptionInvoice's only other caller,
+  // billingRoutes.js, only checks invoice existence/status, never its
+  // rows), but the add-on eligibility gate's paid-invoice-line scan
+  // (addonInvoiceService.js's accountHasPaidNonDomainInvoiceLine) DOES read
+  // them — so silently swapping a paid domain invoice's lines for whatever
+  // the customer most recently selected let a domain-only account
+  // self-attest real paid infrastructure with nothing actually billed for
+  // it (same class of bug as the attach-selection status fix above). If the
+  // customer needs billing for a genuinely new selection under an
+  // already-paid plan, fall through to create a fresh invoice for it —
+  // never mutate the old one.
 
   // Otherwise create a new one
   const created = await client.post("/api/resource/Portal Invoice", {
@@ -1870,16 +1885,39 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
     const serviceSummary = formatSelectedServices(incomingSelectedServices);
     const count = incomingSelectedServices.length;
 
+    // FIX ROUND 3 (self-attestation bypass): `planIsPaid` is true whenever
+    // hasPaidSubscriptionForPlan finds ANY paid Subscription invoice under
+    // this plan — including one that was actually a domain registration
+    // (see addonEligibility.js's module docblock). Blindly writing "Active"
+    // whenever planIsPaid let a domain-only account POST an arbitrary
+    // plan-included service here and self-attest it Active with nothing
+    // ever paid for it, bypassing the add-on eligibility gate entirely.
+    // Fix: an EXISTING row that's already in a paid status keeps that
+    // status (a customer can't lose standing just by re-POSTing their
+    // current selection); a genuinely NEW row always starts "Selected"
+    // regardless of planIsPaid. This does not strand a real paying
+    // customer — the Subscription invoice created below (for
+    // Starter/Business) lists every row in `nextRows`, and paying it flips
+    // matching Web Account rows to Active via
+    // activateServicesForInvoiceLocked, exactly like any other purchase.
+    const existingStatusByServiceId = new Map(
+      existingRows.map((r) => [String(r?.service_id || "").trim(), String(r?.status || "").trim()])
+    );
     // Convert incoming selection to child rows
     const incomingRows = incomingSelectedServices
-      .map((s) => ({
-        service_id: String(s.serviceId || "").trim(),
-        domain_choice: s.domainChoice || "",
-        status: planIsPaid ? "Active" : "Selected",
-        service_name: s.serviceName || "",
-        category: s.category || "",
-        tier: s.tier || "",
-      }))
+      .map((s) => {
+        const service_id = String(s.serviceId || "").trim();
+        const existingStatus = existingStatusByServiceId.get(service_id);
+        const status = PAID_SERVICE_STATUSES.has(existingStatus) ? existingStatus : "Selected";
+        return {
+          service_id,
+          domain_choice: s.domainChoice || "",
+          status,
+          service_name: s.serviceName || "",
+          category: s.category || "",
+          tier: s.tier || "",
+        };
+      })
       .filter((r) => r.service_id);
 
     // If plan mismatch and not upgrade flow → block (same as today)
@@ -3695,6 +3733,29 @@ const server = app.listen(PORT, () => {
     setTimeout(run, 120000).unref();
     setInterval(run, everyMs).unref();
     console.log(`[terminal-retention] sweep scheduled every ${Math.round(everyMs / 60000)}m`);
+  }
+
+  // Abandoned checkout-order sweep: flips a Draft order to Paid if its
+  // invoice was paid through a channel that never revisited the checkout
+  // page (M-Pesa/PayPal webhook), and expires long-stale reservations that
+  // never got an invoice at all — record hygiene, not a capacity concern
+  // (reservedDraftRamMb already stops counting an expired reservation the
+  // moment "now" passes it). Off only if explicitly disabled.
+  if (process.env.CHECKOUT_ORDER_SWEEP_ENABLED !== "false") {
+    const { reconcileDraftOrders } = require("./services/checkout/orderStore");
+    const everyMs = Math.max(300000, Number(process.env.CHECKOUT_ORDER_SWEEP_INTERVAL_MS || 60 * 60 * 1000));
+    const staleGraceMs = Math.max(0, Number(process.env.CHECKOUT_ORDER_STALE_GRACE_MS || 24 * 60 * 60 * 1000));
+    const run = () =>
+      reconcileDraftOrders({ client: frappeClient(), nowMs: Date.now(), staleGraceMs })
+        .then((s) => {
+          if (s.flippedPaid > 0 || s.expired > 0 || s.errors > 0) {
+            console.log(`[checkout-sweep] checked=${s.checked} flippedPaid=${s.flippedPaid} expired=${s.expired} errors=${s.errors}`);
+          }
+        })
+        .catch((e) => console.warn("[checkout-sweep] error:", e.message));
+    setTimeout(run, 150000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[checkout-sweep] scheduled every ${Math.round(everyMs / 60000)}m (stale grace ${Math.round(staleGraceMs / 3600000)}h)`);
   }
 });
 

@@ -11,8 +11,7 @@
  * tier-matches-plan rule, since those need to match the density the
  * customer's plan is already provisioned for.
  *
- * FIX ROUND 2 — add-on gate bypass via domain-only purchase (see
- * .superpowers/sdd/final-review-fix-report.md "Fix round 2"): a domain
+ * FIX ROUND 2 — add-on gate bypass via domain-only purchase. A domain
  * registration (KES 1,200-4,500/yr) is billed as a `type: "Subscription"`
  * invoice on a brand-new account's FIRST purchase (ordersRoutes.js first-
  * purchase branch), which sets the Web Account's plan to "Starter" and,
@@ -20,14 +19,38 @@
  * — with no distinction from a customer who paid for real hosting. Without
  * `hasNonDomainPaidHistory`, that alone was enough to unlock this gate for
  * ANY volume/premium add-on (real infrastructure), not just more domains.
- * `hasNonDomainPaidHistory` (computed by the caller via
- * `accountHasNonDomainPaidService`, below, from the Web Account's OWN
- * existing service history — not from the Subscription-invoice-existence
- * check, which stays untouched for order-routing) closes that hole while
- * deliberately exempting the add-on BEING PURCHASED when it is itself a
- * domain registration: buying a second/third domain is not the hole (no
+ * `hasNonDomainPaidHistory` (computed by the caller — see
+ * addonInvoiceService.js's `resolveNonDomainPaidHistory` — from the Web
+ * Account's OWN existing service history and its PAID invoice line items,
+ * never from the Subscription-invoice-existence check, which stays
+ * untouched for order-routing) closes that hole while deliberately
+ * exempting the add-on BEING PURCHASED when it is itself a domain
+ * registration: buying a second/third domain is not the hole (no
  * capacity/infrastructure risk, manually fulfilled either way like the
- * first one) and must keep working exactly as before.
+ * first one) and must keep working exactly as before. See ordersRoutes.js's
+ * comment above the `hasPaidPlan` branch and commit 6bb2a86 for why
+ * `hasPaidSubscriptionForPlan` itself must never be repurposed to mean
+ * "owns real infrastructure" — a prior attempt at that broke repeat domain
+ * purchases.
+ *
+ * FIX ROUND 3 — the round-2 signal (`accountHasNonDomainPaidService` below,
+ * fed from Web Account `selected_services` rows) turned out to silently
+ * block real, paying customers in three ways: (a) a plan-only account with
+ * no service rows yet (or rows not yet in a paid status) has nothing to
+ * check against; (b) `getServiceMeta(id)` returns null for any id that
+ * later drifted out of the catalog snapshot — an Active row for one of
+ * those was treated as "no paid history" instead of "unknown, presume
+ * paid" (see `isDomainRegistrationServiceId` below for the polarity fix);
+ * (c) `ordersRoutes.js` used to round-trip stored rows through the
+ * CLIENT-INPUT normalizer `normalizeSelectedServices`, which collapses any
+ * status other than "Active" to "Awaiting Payment" — silently demoting
+ * "Setting up"/"Suspended" rows and permanently revoking their paid
+ * standing (fixed in ordersRoutes.js via `normalizeExistingAccountServiceRows`).
+ * The fix: OR in a second, independent signal — do any of the account's
+ * PAID invoices carry a non-domain line item? — computed lazily (only when
+ * the cheap account-row check comes up empty AND a non-domain add-on is
+ * actually being purchased) so the common paths cost zero extra queries.
+ * See addonInvoiceService.js's `resolveNonDomainPaidHistory`.
  */
 
 const { getServiceMeta } = require("./provisioning/catalog");
@@ -51,6 +74,27 @@ function isPaidPlan(planKey) {
 }
 
 /**
+ * Is this a KNOWN Domain Registration catalog item?
+ *
+ * POLARITY (read before changing): this asks the POSITIVE question — "can I
+ * prove this IS a domain" — not "can I prove this is NOT a domain". An id
+ * missing from the catalog snapshot (stale/renamed/drifted — see
+ * catalogSnapshot.test.js) is therefore treated as NOT a domain, i.e. as
+ * real (unidentified) infrastructure. That is the safe direction for a gate
+ * whose only job is spotting a domain-only account: every real Domain
+ * Registration SKU is present in the snapshot (7 of them, all `domain-*`),
+ * so an unknown id can never actually BE the bypass this gate defends
+ * against — it can only ever be a mis-cataloged real product. Same
+ * direction as renewalService.js's `excludeDomainRegistrations`; keep the
+ * two in sync (see the polarity-parity test in addonEligibility.test.js).
+ */
+function isDomainRegistrationServiceId(serviceId) {
+  const id = String(serviceId || "").trim();
+  if (!id) return false;
+  return getServiceMeta(id)?.category === "Domain Registration";
+}
+
+/**
  * Does this account's OWN existing service history include at least one
  * PAID service that is NOT a Domain Registration? This is the "owns real
  * hosting infrastructure" check the add-on gate needs, distinct from (and
@@ -65,10 +109,27 @@ function isPaidPlan(planKey) {
  */
 function accountHasNonDomainPaidService(existingServiceRows) {
   return (Array.isArray(existingServiceRows) ? existingServiceRows : []).some((r) => {
-    const status = String(r?.status || "").trim();
-    if (!PAID_SERVICE_STATUSES.has(status)) return false;
-    const meta = r?.serviceId ? getServiceMeta(String(r.serviceId)) : null;
-    return !!meta && meta.category !== "Domain Registration";
+    const id = String(r?.serviceId || "").trim();
+    if (!id) return false; // a row with no id is no evidence either way
+    if (!PAID_SERVICE_STATUSES.has(String(r?.status || "").trim())) return false;
+    return !isDomainRegistrationServiceId(id);
+  });
+}
+
+/**
+ * Do any of these Portal Invoice child-table rows (raw Frappe shape) carry a
+ * non-domain service? Pure predicate — the caller (addonInvoiceService.js)
+ * owns the Frappe query and the paid/unpaid filtering; this just answers the
+ * category question so it stays unit-testable without a mock client.
+ *
+ * @param {Array<object>} invoiceRows
+ * @param {string} [childServiceIdField="service_id"]
+ * @returns {boolean}
+ */
+function invoiceRowsIncludeNonDomainService(invoiceRows, childServiceIdField = "service_id") {
+  return (Array.isArray(invoiceRows) ? invoiceRows : []).some((r) => {
+    const id = String(r?.[childServiceIdField] || r?.serviceId || "").trim();
+    return !!id && !isDomainRegistrationServiceId(id);
   });
 }
 
@@ -114,4 +175,10 @@ function isAddonEligible({ planKey, service, hasNonDomainPaidHistory = true }) {
   return { ok: false, error: `Service tier not allowed for add-ons under ${planKey}.` };
 }
 
-module.exports = { isAddonEligible, accountHasNonDomainPaidService };
+module.exports = {
+  isAddonEligible,
+  accountHasNonDomainPaidService,
+  isDomainRegistrationServiceId,
+  invoiceRowsIncludeNonDomainService,
+  PAID_SERVICE_STATUSES,
+};

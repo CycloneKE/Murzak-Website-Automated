@@ -140,6 +140,31 @@ router.post("/api/admin/web-accounts/:webAccount/terminal-access/approve", requi
   }
 });
 
+// --- RESOURCE ADMIN ACCESS: staff approval ---
+// Stamps the Web Account fields requireResourceAdmin (routes/portalRoutes.js)
+// checks before letting a customer edit their own environment variables or
+// read runtime logs. Separate from terminal access on purpose: this grants
+// configuration control, that one grants a shell — an account can hold either
+// without the other. Frappe's document version history is the audit trail.
+router.post("/api/admin/web-accounts/:webAccount/resource-admin/approve", requireAuth, requireAdmin, async (req, res) => {
+  const { webAccount } = req.params;
+  if (!webAccount) return res.status(400).json({ error: "Missing webAccount." });
+  const approvedBy = String(req.session?.user?.email || "").trim();
+  if (!approvedBy) return res.status(401).json({ error: "No session account." });
+  try {
+    const client = frappeClient();
+    const approvedAt = mysqlDatetimeUTC();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`, {
+      resource_admin_approved_at: approvedAt,
+      resource_admin_approved_by: approvedBy,
+    });
+    return res.json({ ok: true, approvedAt, approvedBy });
+  } catch (err) {
+    console.error("RESOURCE ADMIN APPROVE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to approve advanced controls." });
+  }
+});
+
 // ---- Infrastructure quick-links (admin) ----
 // Redirects for staff troubleshooting: Hostinger's own hPanel (which has a
 // built-in browser SSH terminal — we don't run our own shell broker onto the
@@ -345,6 +370,27 @@ router.get("/api/admin/provisioning/queue", requireAuth, requireAdmin, async (re
     console.error("ADMIN QUEUE HEALTH ERROR:", err.message);
     return res.status(500).json({
       error: "Failed to read queue health."
+    });
+  }
+});
+
+// Orphan reconciliation: live Coolify applications/services with no owning
+// Provisioning Job external_ref. SURFACE ONLY — never deletes anything;
+// staff act on this from the Coolify UI/CLI themselves. See
+// services/provisioning/orphans.js for why (the exact bug class this
+// catches: a pre-fix run left a real Coolify service no job ever tracked).
+router.get("/api/admin/provisioning/orphans", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { findOrphanedCoolifyResources } = require("../services/provisioning/orphans");
+    const result = await findOrphanedCoolifyResources(frappeClient());
+    return res.json({
+      ok: true,
+      ...result
+    });
+  } catch (err) {
+    console.error("ADMIN ORPHANS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({
+      error: "Failed to check for orphaned resources."
     });
   }
 });

@@ -47,6 +47,57 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
     ok(meta?.ramMb === 0 && meta?.diskGb === 0, `${id} has zero server footprint`);
   }
 
+  section("invariant: no SERVICE_ID_TO_PLAN id is a Domain Registration");
+  // addonEligibility.js's isDomainRegistrationServiceId deliberately fails
+  // OPEN on any id missing from the snapshot (an unknown id is treated as
+  // NOT a domain, i.e. as real infrastructure) — see its module comment.
+  // That's only safe because every id a customer can get for free via a
+  // paid PLAN (server.js's SERVICE_ID_TO_PLAN) is, and must stay, a
+  // non-domain product. If a domain-like SKU is ever added under a plan,
+  // an account could earn "real paid history" from a domain alone again.
+  //
+  // Duplicated literally rather than required from server.js — server.js
+  // calls app.listen() at module scope, so requiring it in a unit test
+  // would start a real HTTP server. Keep this list in sync with
+  // server.js's SERVICE_ID_TO_PLAN keys by hand.
+  const SERVICE_ID_TO_PLAN_IDS = [
+    "test-web-hosting-demo", "test-erpnext-demo", "test-crm-demo", "test-staging-demo",
+    "starter-web-hosting", "starter-email", "starter-storage", "starter-hrpay",
+    "starter-erp-light", "starter-db-light",
+    "biz-erp-configured", "biz-erp-bring-your-own", "biz-web-hosting", "biz-crm-helpdesk",
+    "biz-accounting", "biz-db-medium", "biz-email-large", "biz-pos-inventory",
+    "biz-webapps", "biz-docs",
+    "ent-erp-large", "ent-db-large", "ent-ecom-large", "ent-bi",
+    "ent-pos-multibranch", "ent-mail", "ent-cctv", "ent-backup-server",
+  ];
+  const knownIds = [];
+  const missingIds = [];
+  for (const id of SERVICE_ID_TO_PLAN_IDS) {
+    const meta = getServiceMeta(id);
+    if (!meta) { missingIds.push(id); continue; }
+    knownIds.push(id);
+    ok(meta.category !== "Domain Registration", `${id} (a plan-included product) is not a Domain Registration`);
+  }
+  if (missingIds.length) {
+    // Non-fatal by design: this is catalog drift, not a code bug — the
+    // eligibility gate's fail-open polarity exists precisely so this class
+    // of drift degrades safely instead of blocking real customers. Fix by
+    // regenerating the snapshot or updating SERVICE_ID_TO_PLAN, not by
+    // hardening this assertion.
+    console.warn(
+      `  WARN: ${missingIds.length} SERVICE_ID_TO_PLAN id(s) missing from the catalog snapshot: ${missingIds.join(", ")}`
+    );
+  }
+
+  section("invariant: every Domain Registration item in the snapshot uses the domain- prefix");
+  const snapshot = require("../data/serviceCatalogSnapshot.json");
+  const items = snapshot?.items || snapshot;
+  for (const [id, meta] of Object.entries(items || {})) {
+    if (meta?.category === "Domain Registration") {
+      ok(id.startsWith("domain-"), `domain SKU "${id}" uses the expected "domain-" prefix`);
+    }
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

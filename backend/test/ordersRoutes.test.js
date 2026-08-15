@@ -324,6 +324,190 @@ function baseCtx(client, overrides = {}) {
     ok(createdInvoice?.status === "Unpaid", "created invoice is Unpaid");
   }
 
+  // ------------------------------------------------------------------
+  // FIX ROUND 3 (defect c): prepare-payment used to round-trip the Web
+  // Account's EXISTING selected_services rows through the client-input
+  // normalizer (normalizeSelectedServices), which collapses any status
+  // other than "Active" to "Awaiting Payment" — silently demoting a row
+  // that was "Setting up" (mid-provisioning) or "Suspended" (lapsed
+  // renewal) every time the customer bought anything else. Both branches
+  // (add-on and first-purchase) now use the status-preserving
+  // normalizeExistingAccountServiceRows instead. These fail before that fix.
+  // ------------------------------------------------------------------
+
+  section("prepare-payment — add-on branch preserves 'Setting up' on an unrelated existing row");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-3": {
+          name: "acct-3",
+          plan: "Business",
+          selected_services: [{ service_id: "biz-pos-inventory", status: "Setting up" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-30" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-3" }, body: { serviceId: "starter-storage" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-3" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const rows = client.store["Web Account"]["acct-3"].selected_services || [];
+    const existing = rows.find((r) => r.serviceId === "biz-pos-inventory");
+    ok(!!existing, "the pre-existing row survives the write");
+    ok(existing?.status === "Setting up", `pre-existing row keeps status "Setting up" (got "${existing?.status}")`);
+
+    const fresh = rows.find((r) => r.serviceId === "starter-storage");
+    ok(fresh?.status === "Awaiting Payment", "the newly-purchased row is still 'Awaiting Payment' as expected");
+  }
+
+  section("prepare-payment — add-on branch preserves 'Suspended' on an unrelated existing row");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-4": {
+          name: "acct-4",
+          plan: "Starter",
+          selected_services: [{ service_id: "starter-web-hosting", status: "Suspended" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-31" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-4" }, body: { serviceId: "starter-storage" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-4" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const rows = client.store["Web Account"]["acct-4"].selected_services || [];
+    const existing = rows.find((r) => r.serviceId === "starter-web-hosting");
+    ok(existing?.status === "Suspended", `pre-existing row keeps status "Suspended" (got "${existing?.status}")`);
+  }
+
+  section("prepare-payment — add-on branch does not disturb an Active row (regression guard)");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-5": {
+          name: "acct-5",
+          plan: "Starter",
+          selected_services: [{ service_id: "starter-web-hosting", status: "Active" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-32" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-5" }, body: { serviceId: "starter-storage" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+    await prepHandler({ session: { webAccount: "acct-5" }, params: { id: orderId } }, makeRes());
+
+    const rows = client.store["Web Account"]["acct-5"].selected_services || [];
+    const existing = rows.find((r) => r.serviceId === "starter-web-hosting");
+    ok(existing?.status === "Active", "an already-Active row stays Active — behavior must not change");
+  }
+
+  section("prepare-payment — first-purchase branch preserves 'Setting up' on an unrelated existing row");
+  {
+    // Reachable in practice via a plan-change/edge-case path where an
+    // account has existing services but hasPaidSubscriptionForPlan is
+    // false for the NEW planKey being applied — exercises the same
+    // round-trip at line ~258 (the first-purchase branch), not just the
+    // add-on branch's line ~217.
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-6": {
+          name: "acct-6",
+          plan: "Starter",
+          selected_services: [{ service_id: "starter-web-hosting", status: "Setting up" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-6" }, body: { serviceId: "starter-storage", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-6" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const rows = client.store["Web Account"]["acct-6"].selected_services || [];
+    const existing = rows.find((r) => r.serviceId === "starter-web-hosting");
+    ok(!!existing, "the pre-existing row survives the first-purchase-branch write");
+    ok(existing?.status === "Setting up", `pre-existing row keeps status "Setting up" (got "${existing?.status}")`);
+  }
+
+  section("prepare-payment — first-purchase branch preserves 'Suspended' on an unrelated existing row");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-7": {
+          name: "acct-7",
+          plan: "Starter",
+          selected_services: [{ service_id: "starter-web-hosting", status: "Suspended" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await createHandler(
+      { session: { webAccount: "acct-7" }, body: { serviceId: "starter-storage", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+    await prepHandler({ session: { webAccount: "acct-7" }, params: { id: orderId } }, makeRes());
+
+    const rows = client.store["Web Account"]["acct-7"].selected_services || [];
+    const existing = rows.find((r) => r.serviceId === "starter-web-hosting");
+    ok(existing?.status === "Suspended", `pre-existing row keeps status "Suspended" (got "${existing?.status}")`);
+  }
+
   section("applyPlanAndCreateInvoice mock — faithfully skips on empty services (no invoice)");
   {
     // Direct unit check on the shared mock itself: prove it mirrors the real

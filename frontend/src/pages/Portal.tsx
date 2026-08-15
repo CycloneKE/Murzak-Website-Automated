@@ -75,6 +75,7 @@ import { ScalingSettings } from "../components/portal/ScalingSettings";
 import SecurityOverviewCard from "../components/portal/SecurityOverviewCard";
 import EmptyState from "../components/portal/EmptyState";
 import DeveloperTerminalPanel from "../components/portal/DeveloperTerminalPanel";
+import ResourceAdminPanel from "../components/portal/cloud/ResourceAdminPanel";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../config/serviceCatalog";
 import { type SelectedServiceView, type ServiceStatus } from "../types";
 
@@ -233,6 +234,9 @@ const Portal: React.FC<PortalProps> = ({ user, onLogout, onNavigate, onUserUpdat
   const [scalingServiceId, setScalingServiceId] = useState<string | null>(null);
 
   const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
+  // Set by ResourceAdminPanel once every gate passes — the "fully managed, no
+  // console to babysit" promise below is only true while it's false.
+  const [resourceAdminActive, setResourceAdminActive] = useState(false);
   const [requestingDeveloper, setRequestingDeveloper] = useState(false);
   const [developerUpsellError, setDeveloperUpsellError] = useState("");
 
@@ -2103,9 +2107,19 @@ const renderCloudSystemsGrid = () => null;
             <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
               <Shield className="w-5 h-5 text-murzak-accent shrink-0 mt-0.5" />
               <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
-                This is a fully <span className="font-black text-murzak-ink dark:text-slate-100">managed</span> service — our Nairobi team
-                runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
-                Message support and we’ll take care of it.
+                {resourceAdminActive ? (
+                  <>
+                    You have <span className="font-black text-murzak-ink dark:text-slate-100">advanced controls</span> on this
+                    service — our Nairobi team still runs, secures and backs up the platform underneath it, but the
+                    configuration you change below is yours. Need a hand? Message support any time.
+                  </>
+                ) : (
+                  <>
+                    This is a fully <span className="font-black text-murzak-ink dark:text-slate-100">managed</span> service — our Nairobi team
+                    runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
+                    Message support and we’ll take care of it.
+                  </>
+                )}
               </p>
             </div>
 
@@ -2292,6 +2306,14 @@ const renderCloudSystemsGrid = () => null;
                 </div>
               </div>
             )}
+
+            <ResourceAdminPanel
+              serviceId={cloudServiceId}
+              serviceName={svc?.name || cloudServiceId}
+              isActive={isActive}
+              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+              onAdminActiveChange={setResourceAdminActive}
+            />
 
             <DeveloperTerminalPanel
               serviceId={cloudServiceId}
@@ -2946,6 +2968,11 @@ const renderCloudSystemsGrid = () => null;
 
               <p className="mt-3 text-sm font-black text-murzak-ink dark:text-slate-100">
                 You are about to delete a paid service: {deleteTarget.name}
+              </p>
+
+              <p className="mt-2 text-label font-medium text-slate-600 dark:text-slate-400">
+                This shuts down and destroys the service itself, not just its listing here — its
+                container, configuration and any data inside it are removed and cannot be restored.
               </p>
 
               <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-400">

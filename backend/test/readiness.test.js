@@ -96,6 +96,65 @@ function makeClient(doctypeFieldnames) {
     ok(!fieldsCheck, "field-drift check doesn't run (and doesn't false-report) when the doctype is missing entirely");
   }
 
+  // ------------------------------------------------------------------
+  // FIX ROUND 3 (P0 workflow safety): runner_enabled used to grade
+  // "optional" unconditionally, so `ready: true` was achievable with the
+  // runner off and NO deliberate opt-out — reclaimStaleRunning() never
+  // sweeps, backoff retries never fire, gated jobs are never re-examined,
+  // yet readiness looked fine. PROVISIONING_PHASE=notify-only is now the
+  // only way to keep the runner off without failing readiness.
+  // ------------------------------------------------------------------
+  function withEnv(vars, fn) {
+    const prev = {};
+    for (const k of Object.keys(vars)) prev[k] = process.env[k];
+    Object.assign(process.env, vars);
+    return Promise.resolve(fn()).finally(() => {
+      for (const k of Object.keys(vars)) {
+        if (prev[k] === undefined) delete process.env[k];
+        else process.env[k] = prev[k];
+      }
+    });
+  }
+
+  // Baseline that satisfies every OTHER required check, so toggling only
+  // PROVISIONING_PHASE below isolates runner_enabled's effect on r.ready.
+  const READY_BASELINE_ENV = {
+    ADMIN_EMAILS: "ops@example.com",
+    SMTP_HOST: "smtp.example.com",
+    SMTP_USER: "u",
+    SMTP_PASS: "p",
+    PROVISIONING_ENABLED: "true",
+  };
+
+  section("runner_enabled: runner off, no PROVISIONING_PHASE opt-out — required and fails");
+  await withEnv({ ...READY_BASELINE_ENV, PROVISIONING_RUNNER_ENABLED: "false", PROVISIONING_PHASE: "" }, async () => {
+    const client = makeClient(CLAIMABLE_JOB_FIELDS);
+    const r = await getReadiness(client);
+    const check = r.checks.find((c) => c.key === "runner_enabled");
+    ok(check.level === "required", "runner_enabled is required by default (no silent notify-only)");
+    ok(check.ok === false, "fails when the runner is off and no phase is declared");
+    ok(check.detail.includes("PROVISIONING_PHASE=notify-only"), "detail names the opt-out");
+    ok(r.ready === false, "overall readiness is false — provisioning being silently dead now blocks ready:true");
+  });
+
+  section("runner_enabled: runner off, PROVISIONING_PHASE=notify-only — deliberate opt-out passes");
+  await withEnv({ ...READY_BASELINE_ENV, PROVISIONING_RUNNER_ENABLED: "false", PROVISIONING_PHASE: "notify-only" }, async () => {
+    const client = makeClient(CLAIMABLE_JOB_FIELDS);
+    const r = await getReadiness(client);
+    const check = r.checks.find((c) => c.key === "runner_enabled");
+    ok(check.level === "optional", "regrades to optional once notify-only is explicitly declared");
+    ok(check.ok === true, "passes — this is a deliberate declaration, not a default");
+    ok(r.ready === true, "overall readiness is true — same infra, only the declaration changed");
+  });
+
+  section("runner_enabled: runner on — passes regardless of PROVISIONING_PHASE");
+  await withEnv({ PROVISIONING_RUNNER_ENABLED: "true", PROVISIONING_PHASE: "" }, async () => {
+    const client = makeClient(CLAIMABLE_JOB_FIELDS);
+    const r = await getReadiness(client);
+    const check = r.checks.find((c) => c.key === "runner_enabled");
+    ok(check.ok === true, "passes when the runner is actually on");
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

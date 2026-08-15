@@ -669,6 +669,28 @@ async function resourceAction(externalRef, action, opts) {
   return res.data;
 }
 
+/**
+ * Raw list of live resources — admin orphan-reconciliation only (never used
+ * by provision()/provisionApp(), which do their own idempotency list-and-match
+ * inline). Same envelope shape as that idempotency check: `res.data.data`,
+ * items carry `uuid` (fallback `id`) and `name`.
+ */
+async function listApplications(opts) {
+  const client = http(opts);
+  const res = await client.get("/api/v1/applications");
+  return (res.data?.data || res.data || [])
+    .map((a) => ({ uuid: String(a.uuid || a.id || "").trim(), name: a.name || "" }))
+    .filter((a) => a.uuid);
+}
+
+async function listServices(opts) {
+  const client = http(opts);
+  const res = await client.get("/api/v1/services");
+  return (res.data?.data || res.data || [])
+    .map((s) => ({ uuid: String(s.uuid || s.id || "").trim(), name: s.name || "" }))
+    .filter((s) => s.uuid);
+}
+
 function restart(externalRef, opts) {
   return resourceAction(externalRef, "restart", opts);
 }
@@ -724,6 +746,104 @@ async function attachDomain(externalRef, domain, opts) {
   return res.data;
 }
 
+/* ------------------------------------------------------------------------ *
+ * RESOURCE ADMIN — environment variables, runtime logs, teardown.
+ *
+ * These back the customer-facing resource-admin panel (approved accounts only,
+ * see services/resourceAdminEligibility.js). Unlike the action routes above,
+ * these paths ARE documented for Coolify v4 in both the applications and the
+ * services namespace — except getLogs, which exists ONLY for applications.
+ *
+ * ⚠️ Still unexercised against this instance: the Coolify API is IP-allowlisted
+ * to the VPS, so none of this can be verified from a dev machine (a probe from
+ * anywhere else returns 403 "You are not allowed to access the API"). Run
+ * scripts/coolify-smoke.js ON THE BOX before putting these behind a customer
+ * button — every recent lane bug came from skipping exactly that step.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Environment variables for an already-provisioned resource.
+ *
+ * NOTE: `value` is a customer SECRET. Nothing in this lane logs it, and
+ * callers must not either — audit trails record the key name and the action,
+ * never the value. Coolify echoes `is_shown_once` for write-only secrets; the
+ * route layer is responsible for honouring it before sending anything to a
+ * browser.
+ */
+async function listEnvs(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`);
+  const rows = res.data?.data || res.data || [];
+  return (Array.isArray(rows) ? rows : []).map((e) => ({
+    uuid: String(e.uuid || e.id || "").trim(),
+    key: e.key || "",
+    value: e.value ?? null,
+    isBuildTime: !!(e.is_buildtime ?? e.is_build_time),
+    isLiteral: !!e.is_literal,
+    isMultiline: !!e.is_multiline,
+    isShownOnce: !!e.is_shown_once,
+  }));
+}
+
+async function createEnv(externalRef, { key, value, isBuildTime = false, isLiteral = false }, opts) {
+  const client = http(opts);
+  const res = await client.post(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`,
+    { key, value, is_buildtime: !!isBuildTime, is_literal: !!isLiteral }
+  );
+  return res.data;
+}
+
+// Coolify v4 updates an env by PATCHing the collection with the key, not by
+// addressing the env uuid in the path (the uuid form is DELETE-only).
+async function updateEnv(externalRef, { key, value, isBuildTime = false, isLiteral = false }, opts) {
+  const client = http(opts);
+  const res = await client.patch(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`,
+    { key, value, is_buildtime: !!isBuildTime, is_literal: !!isLiteral }
+  );
+  return res.data;
+}
+
+async function deleteEnv(externalRef, envUuid, opts) {
+  const client = http(opts);
+  const res = await client.delete(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs/${encodeURIComponent(envUuid)}`
+  );
+  return res.data;
+}
+
+/**
+ * Runtime container logs. APPLICATIONS ONLY — Coolify v4 exposes no equivalent
+ * for composed services, so this throws permanently rather than returning an
+ * empty string a caller might render as "your service logged nothing."
+ */
+async function getLogs(externalRef, { lines = 200 } = {}, opts) {
+  if (opts?.kind !== "application") {
+    throw permanentError("coolify: runtime logs are only available for application-kind resources");
+  }
+  const n = clamp(Number(lines) || 200, 1, 1000);
+  const client = http(opts);
+  const res = await client.get(
+    `/api/v1/applications/${encodeURIComponent(externalRef)}/logs?lines=${n}`
+  );
+  const d = res.data?.data || res.data || {};
+  return { logs: typeof d.logs === "string" ? d.logs : "" };
+}
+
+/**
+ * Destroy the resource. Irreversible, and the ONLY thing in this codebase that
+ * deletes live infrastructure — orphans.js deliberately only *reports*. The
+ * caller must treat a throw as a hard abort and leave its own records intact:
+ * dropping the owning record after a failed teardown is precisely how an
+ * unreconcilable orphan is created.
+ */
+async function destroy(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.delete(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`);
+  return res.data;
+}
+
 module.exports = {
   lane: "coolify",
   isConfigured,
@@ -734,6 +854,8 @@ module.exports = {
   restart,
   stop,
   start,
+  listApplications,
+  listServices,
   getUsage,
   attachDomain,
   resourceName,
@@ -748,4 +870,11 @@ module.exports = {
   normalizeDeployment,
   getDeployment,
   redeploy,
+  // Resource admin (env vars / runtime logs / teardown).
+  listEnvs,
+  createEnv,
+  updateEnv,
+  deleteEnv,
+  getLogs,
+  destroy,
 };

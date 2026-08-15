@@ -184,8 +184,20 @@ async function getReadiness(client) {
   add("provisioning_enabled", "Provisioning enabled (PROVISIONING_ENABLED)", flag("PROVISIONING_ENABLED", "true"), "required");
 
   // --- Runner / dispatcher ---
-  add("runner_enabled", "Runner enabled (PROVISIONING_RUNNER_ENABLED)", runnerOn, "optional",
-    runnerOn ? "" : "Phase 0 (notify-only) works without this");
+  // With the runner off, reclaimStaleRunning() never sweeps stuck jobs,
+  // backoff retries never fire, and gated jobs are never re-examined —
+  // provisioning is entirely dead, yet this used to grade "optional" so
+  // `ready` stayed true. PROVISIONING_PHASE=notify-only is the one way to
+  // keep the runner off without failing readiness — it must be set on
+  // purpose, not just inherited from PROVISIONING_RUNNER_ENABLED's default.
+  const notifyOnlyPhase = String(process.env.PROVISIONING_PHASE || "").toLowerCase() === "notify-only";
+  add("runner_enabled", "Runner enabled (PROVISIONING_RUNNER_ENABLED)", runnerOn || notifyOnlyPhase,
+    notifyOnlyPhase ? "optional" : "required",
+    runnerOn ? "" : notifyOnlyPhase
+      ? "Phase 0 (notify-only) — deliberately declared via PROVISIONING_PHASE=notify-only"
+      : "runner is off and PROVISIONING_PHASE=notify-only isn't set — provisioning is silently dead " +
+        "(no stale-job sweep, no retry backoff); set PROVISIONING_RUNNER_ENABLED=true, or set " +
+        "PROVISIONING_PHASE=notify-only to declare this on purpose");
 
   let dispatcherMode = "off";
   try { dispatcherMode = (await queue.health()).mode; } catch { /* ignore */ }
