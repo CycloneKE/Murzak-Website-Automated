@@ -2869,6 +2869,7 @@ async function fetchHostingSite(client, webAccountName) {
         "name",
         "site_type",
         "primary_host",
+        "customer_domain",
         "status",
         "plan_name",
         "tier",
@@ -2891,6 +2892,7 @@ async function fetchHostingSite(client, webAccountName) {
     id: row.name,
     siteType: row.site_type,
     primaryHost: row.primary_host,
+    customerDomainId: row.customer_domain || null,
     status: String(row.status || "").toLowerCase(),
     planName: row.plan_name || "",
     tier: row.tier || "",
@@ -3165,6 +3167,7 @@ async function findExistingHostingSiteByHost(client, webAccountName, primaryHost
       fields: JSON.stringify([
         "name",
         "primary_host",
+        "customer_domain",
         "status",
         "site_type",
       ]),
@@ -3182,11 +3185,29 @@ async function ensurePendingHostingSiteForRequest(client, {
   primaryHost,
   serviceTier,
   planName,
+  // The Customer Domain this site serves. primary_host stays as a
+  // denormalized copy so existing reads and provisioning are undisturbed, but
+  // this link is what actually ties a site to a domain the account owns.
+  customerDomainId = "",
   notes = "",
 }) {
   const existing = await findExistingHostingSiteByHost(client, webAccountName, primaryHost);
-  if (existing) return existing;
-  
+  if (existing) {
+    // Backfill the link on sites created before domains were account-owned,
+    // so an existing customer's site picks it up on their next request
+    // instead of staying orphaned forever.
+    if (customerDomainId && !existing.customer_domain) {
+      try {
+        await client.put(`/api/resource/Hosting Site/${encodeURIComponent(existing.name)}`, {
+          customer_domain: customerDomainId,
+        });
+      } catch (e) {
+        console.warn("HOSTING SITE DOMAIN LINK WARN:", e.response?.data || e.message);
+      }
+    }
+    return existing;
+  }
+
   const resolvedStorageLimitMb = getHostingStorageAllocationMb({
     tier: serviceTier || "",
     planName: planName || "",
@@ -3197,6 +3218,7 @@ async function ensurePendingHostingSiteForRequest(client, {
     service_id: HOSTING_SERVICE_ID,
     site_type: siteType,
     primary_host: primaryHost,
+    customer_domain: customerDomainId || "",
     status: "pending",
     plan_name: planName || "Website Hosting",
     tier: serviceTier || "Starter",

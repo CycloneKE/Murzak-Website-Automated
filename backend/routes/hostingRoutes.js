@@ -21,6 +21,7 @@ module.exports = function(ctx) {
     fetchHostingSite,
     fetchHostingSubdomains,
     fetchHostingSupportRequests,
+    fetchSelectedServicesForUser,
     frappeClient,
     fsp,
     getActiveHostingServiceForUser,
@@ -41,12 +42,14 @@ module.exports = function(ctx) {
    */
   async function recordCustomerDomain(client, webAccountName, opts) {
     try {
-      await customerDomains.ensureCustomerDomain(client, {
+      const { domain } = await customerDomains.ensureCustomerDomain(client, {
         webAccount: webAccountName,
         ...opts,
       });
+      return domain?.id || "";
     } catch (e) {
       console.error("CUSTOMER DOMAIN RECORD ERROR:", e.response?.data || e.message);
+      return "";
     }
   }
 
@@ -60,6 +63,64 @@ module.exports = function(ctx) {
     } catch (err) {
       console.error("LIST CUSTOMER DOMAINS ERROR:", err.response?.data || err.message);
       return res.status(500).json({ error: "Failed to load domains." });
+    }
+  });
+
+  /**
+   * Point a domain the account owns at a service the account owns.
+   *
+   * This is the replacement for the purchase-time domainChoice: which domain
+   * serves which service is now a decision the customer can revisit, not one
+   * frozen at checkout. Attaching is a move, not an add — a domain resolves to
+   * one place, so this overwrites any previous attachment.
+   */
+  router.post("/api/portal/domains/:id/attach", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = req.session?.webAccount || req.session?.user?.id;
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const serviceId = String(req.body?.serviceId || "").trim();
+      const client = frappeClient();
+
+      const domain = await customerDomains.getOwnedCustomerDomain(client, webAccountName, req.params.id);
+      if (!domain) return res.status(404).json({ error: "Domain not found." });
+
+      const ownedServices = await fetchSelectedServicesForUser(client, webAccountName);
+      const verdict = customerDomains.canAttachDomain({ domain, serviceId, ownedServices });
+      if (!verdict.ok) return res.status(400).json({ error: verdict.reason });
+
+      await customerDomains.setDomainAttachment(client, domain.id, serviceId);
+      return res.json({
+        ok: true,
+        domain: { ...domain, attachedToService: serviceId },
+      });
+    } catch (err) {
+      console.error("ATTACH DOMAIN ERROR:", err.response?.data || err.message);
+      return res.status(500).json({ error: "Failed to attach domain." });
+    }
+  });
+
+  /**
+   * Stop pointing a domain at anything. The account keeps it — owned and
+   * unattached is a legitimate state, and the whole reason domains stopped
+   * being a property of a service.
+   */
+  router.post("/api/portal/domains/:id/detach", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = req.session?.webAccount || req.session?.user?.id;
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const client = frappeClient();
+
+      const domain = await customerDomains.getOwnedCustomerDomain(client, webAccountName, req.params.id);
+      if (!domain) return res.status(404).json({ error: "Domain not found." });
+      if (!domain.attachedToService) {
+        return res.status(400).json({ error: "This domain is not attached to anything." });
+      }
+
+      await customerDomains.setDomainAttachment(client, domain.id, null);
+      return res.json({ ok: true, domain: { ...domain, attachedToService: null } });
+    } catch (err) {
+      console.error("DETACH DOMAIN ERROR:", err.response?.data || err.message);
+      return res.status(500).json({ error: "Failed to detach domain." });
     }
   });
 
@@ -181,16 +242,8 @@ router.post("/api/hosting/domain-purchase-requests", requireAuth, async (req, re
       notes: String(notes || "").trim(),
       is_primary: 1
     });
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "domain",
-      primaryHost: fullDomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for domain purchase request: ${fullDomain}`
-    });
-    await recordCustomerDomain(client, webAccountName, {
+    // Domain first, so the site can be linked to it as it is created.
+    const customerDomainId = await recordCustomerDomain(client, webAccountName, {
       domainName: fullDomain,
       kind: customerDomains.DOMAIN_KINDS.REGISTERED,
       status: "pending",
@@ -198,6 +251,16 @@ router.post("/api/hosting/domain-purchase-requests", requireAuth, async (req, re
       sourceName: created.data?.data?.name,
       attachedToService: HOSTING_SERVICE_ID,
       notes: String(notes || "").trim(),
+    });
+    await ensurePendingHostingSiteForRequest(client, {
+      webAccountName,
+      siteType: "domain",
+      primaryHost: fullDomain,
+      customerDomainId,
+      serviceTier: svc.tier || "Medium",
+      planName: svc.serviceName || "Website Hosting",
+      storageLimitMb: 1024,
+      notes: `Pending hosting site created for domain purchase request: ${fullDomain}`
     });
     return res.json({
       ok: true,
@@ -243,16 +306,7 @@ router.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
       notes: String(notes || "").trim(),
       is_primary: 1
     });
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "murzak_subdomain",
-      primaryHost: fullSubdomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for Murzak subdomain request: ${fullSubdomain}`
-    });
-    await recordCustomerDomain(client, webAccountName, {
+    const customerDomainId = await recordCustomerDomain(client, webAccountName, {
       domainName: fullSubdomain,
       kind: customerDomains.DOMAIN_KINDS.MURZAK_SUBDOMAIN,
       status: "pending",
@@ -260,6 +314,16 @@ router.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
       sourceName: created.data?.data?.name,
       attachedToService: HOSTING_SERVICE_ID,
       notes: String(notes || "").trim(),
+    });
+    await ensurePendingHostingSiteForRequest(client, {
+      webAccountName,
+      siteType: "murzak_subdomain",
+      primaryHost: fullSubdomain,
+      customerDomainId,
+      serviceTier: svc.tier || "Medium",
+      planName: svc.serviceName || "Website Hosting",
+      storageLimitMb: 1024,
+      notes: `Pending hosting site created for Murzak subdomain request: ${fullSubdomain}`
     });
     return res.json({
       ok: true,
@@ -307,16 +371,7 @@ router.post("/api/hosting/external-domains", requireAuth, async (req, res) => {
       verification_notes: String(notes || "").trim(),
       is_primary: 1
     });
-    await ensurePendingHostingSiteForRequest(client, {
-      webAccountName,
-      siteType: "external_domain",
-      primaryHost: cleanDomain,
-      serviceTier: svc.tier || "Medium",
-      planName: svc.serviceName || "Website Hosting",
-      storageLimitMb: 1024,
-      notes: `Pending hosting site created for external domain connection: ${cleanDomain}`
-    });
-    await recordCustomerDomain(client, webAccountName, {
+    const customerDomainId = await recordCustomerDomain(client, webAccountName, {
       domainName: cleanDomain,
       kind: customerDomains.DOMAIN_KINDS.EXTERNAL,
       status: "pending",
@@ -325,6 +380,16 @@ router.post("/api/hosting/external-domains", requireAuth, async (req, res) => {
       sourceName: created.data?.data?.name,
       attachedToService: HOSTING_SERVICE_ID,
       notes: String(notes || "").trim(),
+    });
+    await ensurePendingHostingSiteForRequest(client, {
+      webAccountName,
+      siteType: "external_domain",
+      primaryHost: cleanDomain,
+      customerDomainId,
+      serviceTier: svc.tier || "Medium",
+      planName: svc.serviceName || "Website Hosting",
+      storageLimitMb: 1024,
+      notes: `Pending hosting site created for external domain connection: ${cleanDomain}`
     });
     return res.json({
       ok: true,

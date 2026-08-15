@@ -35,6 +35,10 @@ const DOCTYPE_PATHS = [
   // intake doctypes' half-shaped ideas of one; see services/customerDomains.js
   // and scripts/backfill-customer-domains.js.
   path.resolve(__dirname, "../data/doctype-customer-domain.json"),
+  // Hosting Site already exists in every deployed site; this fixture is here
+  // to add its customer_domain link (the merge path only ever APPENDS missing
+  // fields, so the doctype's real shape is left alone).
+  path.resolve(__dirname, "../data/doctype-hosting-site.json"),
 ];
 
 async function installOne(client, doctypePath) {

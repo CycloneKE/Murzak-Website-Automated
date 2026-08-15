@@ -19,7 +19,9 @@ function section(name) { console.log(`\n# ${name}`); }
 const {
   DOMAIN_KINDS,
   buildCustomerDomainPayload,
+  canAttachDomain,
   domainKindForIntake,
+  getOwnedCustomerDomain,
   isValidDomainName,
   mapCustomerDomainRow,
   normalizeDomainName,
@@ -156,6 +158,99 @@ const {
   ok(second.created === false, "does NOT create when the account already holds that name");
   ok(second.domain.id === "CD-9", "returns the record it already had");
   ok(existingClient.calls.post === 0, "no write at all — replaying the backfill is safe");
+
+  section("canAttachDomain — the authorization boundary for attach");
+  const owned = [
+    { serviceId: "biz-web-hosting", status: "Active" },
+    { serviceId: "starter-app-hosting", status: "Awaiting Payment" },
+  ];
+  const freeDomain = { id: "CD-1", status: "active", attachedToService: null };
+
+  ok(canAttachDomain({ domain: freeDomain, serviceId: "biz-web-hosting", ownedServices: owned }).ok === true,
+     "an owned, active service accepts an unattached domain");
+  ok(
+    canAttachDomain({ domain: freeDomain, serviceId: "biz-web-hosting", ownedServices: owned }).reason === undefined,
+    "a successful verdict carries no reason"
+  );
+
+  const notMine = canAttachDomain({ domain: freeDomain, serviceId: "someone-elses-service", ownedServices: owned });
+  ok(notMine.ok === false, "a service the account does not own is refused");
+  ok(
+    /not on your account/.test(notMine.reason),
+    "…and the message does not reveal whether that service id exists at all"
+  );
+
+  ok(canAttachDomain({ domain: freeDomain, serviceId: "starter-app-hosting", ownedServices: owned }).ok === false,
+     "an owned but not-yet-active service is refused");
+  ok(canAttachDomain({ domain: freeDomain, serviceId: "", ownedServices: owned }).ok === false,
+     "no service id is refused");
+  ok(canAttachDomain({ domain: null, serviceId: "biz-web-hosting", ownedServices: owned }).ok === false,
+     "a missing domain is refused");
+  ok(canAttachDomain({ domain: freeDomain, serviceId: "biz-web-hosting", ownedServices: [] }).ok === false,
+     "an account with no services can attach nothing");
+  ok(canAttachDomain({ domain: freeDomain, serviceId: "biz-web-hosting", ownedServices: undefined }).ok === false,
+     "undefined service list is refused, not crashed on");
+
+  ok(
+    canAttachDomain({
+      domain: { ...freeDomain, status: "expired" }, serviceId: "biz-web-hosting", ownedServices: owned,
+    }).ok === false,
+    "an expired domain cannot be attached"
+  );
+  ok(
+    canAttachDomain({
+      domain: { ...freeDomain, status: "cancelled" }, serviceId: "biz-web-hosting", ownedServices: owned,
+    }).ok === false,
+    "a cancelled domain cannot be attached"
+  );
+  ok(
+    canAttachDomain({
+      domain: { ...freeDomain, status: "pending" }, serviceId: "biz-web-hosting", ownedServices: owned,
+    }).ok === true,
+    "a PENDING domain CAN be attached — you point it before it finishes resolving"
+  );
+  ok(
+    canAttachDomain({
+      domain: { ...freeDomain, attachedToService: "biz-web-hosting" },
+      serviceId: "biz-web-hosting", ownedServices: owned,
+    }).ok === false,
+    "re-attaching to where it already points is refused as a no-op"
+  );
+  ok(
+    canAttachDomain({
+      domain: { ...freeDomain, attachedToService: "other-service" },
+      serviceId: "biz-web-hosting", ownedServices: owned,
+    }).ok === true,
+    "MOVING an already-attached domain to a different owned service is allowed"
+  );
+
+  section("getOwnedCustomerDomain — no cross-account reads");
+  const docClient = (doc) => ({ async get() { return { data: { data: doc } }; } });
+  ok(
+    (await getOwnedCustomerDomain(docClient({ name: "CD-1", web_account: "ACC-1", domain_name: "x.co.ke" }), "ACC-1", "CD-1"))?.id === "CD-1",
+    "returns the domain to the account that owns it"
+  );
+  ok(
+    (await getOwnedCustomerDomain(docClient({ name: "CD-1", web_account: "ACC-2", domain_name: "x.co.ke" }), "ACC-1", "CD-1")) === null,
+    "returns null for another account's domain — an id guess leaks nothing"
+  );
+  ok(
+    (await getOwnedCustomerDomain(docClient(null), "ACC-1", "CD-1")) === null,
+    "returns null when the doc does not exist"
+  );
+  ok(
+    (await getOwnedCustomerDomain(docClient({}), "ACC-1", "")) === null,
+    "returns null for an empty id without hitting Frappe"
+  );
+  const notFoundClient = { async get() { const e = new Error("Not Found"); e.response = { status: 404 }; throw e; } };
+  ok(
+    (await getOwnedCustomerDomain(notFoundClient, "ACC-1", "GUESSED-ID")) === null,
+    "a Frappe 404 is 'not found', not an error — letting it propagate turned a guessed id into a 500"
+  );
+  const brokenClient = { async get() { const e = new Error("boom"); e.response = { status: 500 }; throw e; } };
+  let propagated = false;
+  try { await getOwnedCustomerDomain(brokenClient, "ACC-1", "CD-1"); } catch { propagated = true; }
+  ok(propagated, "a real Frappe fault still propagates — only 404 is swallowed");
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) {

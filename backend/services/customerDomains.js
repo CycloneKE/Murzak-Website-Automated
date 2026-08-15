@@ -132,6 +132,36 @@ function buildCustomerDomainPayload({
   };
 }
 
+/**
+ * Can this domain be pointed at this service right now?
+ *
+ * The authorization boundary for attach, kept pure so every rule is visible
+ * and testable in one place rather than scattered through a route handler.
+ * `ownedServices` is the account's own selected_services rows.
+ */
+function canAttachDomain({ domain, serviceId, ownedServices }) {
+  if (!domain) return { ok: false, reason: "Domain not found." };
+  const id = String(serviceId || "").trim();
+  if (!id) return { ok: false, reason: "A service is required." };
+
+  const svc = (Array.isArray(ownedServices) ? ownedServices : []).find(
+    (s) => String(s?.serviceId || "").trim() === id
+  );
+  // Not owning the service is indistinguishable from it not existing, on
+  // purpose: this endpoint must not confirm which service ids are real.
+  if (!svc) return { ok: false, reason: "That service is not on your account." };
+  if (String(svc.status || "").trim() !== "Active") {
+    return { ok: false, reason: "That service is not active yet." };
+  }
+  if (domain.status === "cancelled" || domain.status === "expired") {
+    return { ok: false, reason: `This domain is ${domain.status} and cannot be attached.` };
+  }
+  if (domain.attachedToService === id) {
+    return { ok: false, reason: "This domain is already pointed at that service." };
+  }
+  return { ok: true };
+}
+
 /** Frappe row → the shape the portal API returns. Pure — no IO. */
 function mapCustomerDomainRow(row) {
   return {
@@ -179,6 +209,31 @@ async function listCustomerDomains(client, webAccount) {
     },
   });
   return (res.data?.data || []).map(mapCustomerDomainRow);
+}
+
+/**
+ * Fetch one domain, but only if this account owns it.
+ *
+ * Ownership is checked here rather than trusted from the caller so no route
+ * can accidentally expose another account's domain by id.
+ */
+async function getOwnedCustomerDomain(client, webAccount, domainId) {
+  if (!domainId) return null;
+  let res;
+  try {
+    res = await client.get(
+      `/api/resource/${encodeURIComponent(CUSTOMER_DOMAIN_DOCTYPE)}/${encodeURIComponent(domainId)}`
+    );
+  } catch (e) {
+    // Frappe 404s an unknown name. That is "not found", not a server fault —
+    // letting it propagate turned a guessed id into a 500.
+    if (e.response?.status === 404) return null;
+    throw e;
+  }
+  const row = res.data?.data;
+  if (!row) return null;
+  if (String(row.web_account || "").trim() !== String(webAccount || "").trim()) return null;
+  return mapCustomerDomainRow(row);
 }
 
 async function findCustomerDomainByName(client, webAccount, domainName) {
@@ -244,9 +299,11 @@ module.exports = {
   INTAKE_DOCTYPE_KINDS,
   LIST_FIELDS,
   buildCustomerDomainPayload,
+  canAttachDomain,
   domainKindForIntake,
   ensureCustomerDomain,
   findCustomerDomainByName,
+  getOwnedCustomerDomain,
   isValidDomainName,
   listCustomerDomains,
   mapCustomerDomainRow,
