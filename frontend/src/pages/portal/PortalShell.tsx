@@ -29,6 +29,7 @@ import { ScalingSettings } from "../../components/portal/ScalingSettings";
 import { usePortal } from "./PortalContext";
 import OverviewTab from "./tabs/OverviewTab";
 import CloudTab from "./tabs/CloudTab";
+import DomainsTab from "./tabs/DomainsTab";
 import BillingTab from "./tabs/BillingTab";
 import ProfileTab from "./tabs/ProfileTab";
 
@@ -313,6 +314,7 @@ const PortalShell: React.FC = () => {
             <Route index element={<Navigate to="overview" replace />} />
             <Route path="overview" element={<OverviewTab />} />
             <Route path="cloud" element={<CloudTab />} />
+            <Route path="domains" element={<DomainsTab />} />
             <Route path="billing" element={<BillingTab />} />
             <Route path="profile" element={<ProfileTab />} />
             <Route

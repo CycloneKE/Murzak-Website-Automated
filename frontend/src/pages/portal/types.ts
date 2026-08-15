@@ -1,11 +1,12 @@
 import { User, Page } from "../../types";
 
 /** Top-level portal destinations. "admin" is staff-only (gated on user.is_admin). */
-export type Tab = "overview" | "cloud" | "billing" | "profile" | "admin";
+export type Tab = "overview" | "cloud" | "domains" | "billing" | "profile" | "admin";
 
 export const isTab = (v: string | undefined): v is Tab =>
   v === "overview" ||
   v === "cloud" ||
+  v === "domains" ||
   v === "billing" ||
   v === "profile" ||
   v === "admin";

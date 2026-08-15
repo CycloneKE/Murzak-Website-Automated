@@ -12,6 +12,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   CreditCard,
+  Globe,
   Headphones,
   LayoutDashboard,
   Plus,
@@ -36,6 +37,8 @@ import {
   DeploymentEntry,
 } from "../../services/serviceActivity";
 import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
+import { attachDomainToService, detachDomain, fetchCustomerDomains } from "../../services/hostingPortal";
+import { type CustomerDomain } from "../../types/hosting";
 import { allowedAddonTiers, normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 
@@ -145,6 +148,58 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   };
 
   const [scalingServiceId, setScalingServiceId] = useState<string | null>(null);
+
+  // --- Domains ---
+  // The account's domains, independent of any service. Loaded once for the
+  // portal rather than per-tab so the sidebar count and the tab agree.
+  const [domains, setDomains] = useState<CustomerDomain[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(true);
+  const [domainsError, setDomainsError] = useState("");
+  const [domainBusyId, setDomainBusyId] = useState<string>("");
+  const [domainNotice, setDomainNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const refreshDomains = React.useCallback(async () => {
+    setDomainsError("");
+    try {
+      setDomains(await fetchCustomerDomains());
+    } catch (e: any) {
+      setDomainsError(e?.message || "Failed to load your domains.");
+    } finally {
+      setDomainsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDomains();
+  }, [refreshDomains]);
+
+  const attachDomain = async (domainId: string, serviceId: string) => {
+    setDomainBusyId(domainId);
+    setDomainNotice(null);
+    try {
+      await attachDomainToService(domainId, serviceId);
+      await refreshDomains();
+      setDomainNotice({ type: "success", text: "Domain pointed at your service. DNS can take a little while to update everywhere." });
+    } catch (e: any) {
+      setDomainNotice({ type: "error", text: e?.message || "Failed to attach this domain." });
+    } finally {
+      setDomainBusyId("");
+    }
+  };
+
+  const detachCustomerDomain = async (domainId: string) => {
+    setDomainBusyId(domainId);
+    setDomainNotice(null);
+    try {
+      await detachDomain(domainId);
+      await refreshDomains();
+      setDomainNotice({ type: "success", text: "Domain detached. You still own it — attach it somewhere whenever you like." });
+    } catch (e: any) {
+      setDomainNotice({ type: "error", text: e?.message || "Failed to detach this domain." });
+    } finally {
+      setDomainBusyId("");
+    }
+  };
 
   const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
   // Set by ResourceAdminPanel once every gate passes — the "fully managed, no
@@ -521,6 +576,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const allMenuItems: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: "cloud", label: "My Systems", icon: <Server className="w-5 h-5" /> },
+    { id: "domains", label: "Domains", icon: <Globe className="w-5 h-5" /> },
     { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
     { id: "profile", label: "My Account", icon: <UserIcon className="w-5 h-5" /> },
     // Staff only. Carries the support badge so an unanswered customer is
@@ -1173,6 +1229,15 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     activeLogServiceId,
     activeTab,
     addonCandidates,
+    attachDomain,
+    detachCustomerDomain,
+    domainBusyId,
+    domainNotice,
+    domains,
+    domainsError,
+    domainsLoading,
+    refreshDomains,
+    setDomainNotice,
     addonsDisabledReason,
     addonsOpen,
     addonsSourceTab,
