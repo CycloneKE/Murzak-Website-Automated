@@ -7,6 +7,7 @@ export type Tab =
   | "domains"
   | "databases"
   | "storage"
+  | "deployments"
   | "billing"
   | "support"
   | "profile"
@@ -18,6 +19,7 @@ export const isTab = (v: string | undefined): v is Tab =>
   v === "domains" ||
   v === "databases" ||
   v === "storage" ||
+  v === "deployments" ||
   v === "support" ||
   v === "billing" ||
   v === "profile" ||

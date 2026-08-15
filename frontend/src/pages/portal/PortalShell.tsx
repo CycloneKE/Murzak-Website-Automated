@@ -33,6 +33,7 @@ import CloudTab from "./tabs/CloudTab";
 import DomainsTab from "./tabs/DomainsTab";
 import ResourceListTab from "./tabs/ResourceListTab";
 import SupportTab from "./tabs/SupportTab";
+import DeploymentsTab from "./tabs/DeploymentsTab";
 import BillingTab from "./tabs/BillingTab";
 import ProfileTab from "./tabs/ProfileTab";
 
@@ -345,6 +346,7 @@ const PortalShell: React.FC = () => {
               }
             />
             <Route path="support" element={<SupportTab />} />
+            <Route path="deployments" element={<DeploymentsTab />} />
             <Route path="billing" element={<BillingTab />} />
             <Route path="profile" element={<ProfileTab />} />
             <Route
