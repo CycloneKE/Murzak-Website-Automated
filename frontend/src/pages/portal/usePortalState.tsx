@@ -18,6 +18,7 @@ import {
   Headphones,
   LayoutDashboard,
   Plus,
+  Rocket,
   Server,
   ShieldCheck,
   Terminal,
@@ -681,6 +682,17 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     () => selectedServices.filter((s) => s.category === "Storage"),
     [selectedServices]
   );
+  // Anything that could plausibly have build history: an app deployed from a
+  // repo. The Deployments tab confirms per service; this only decides whether
+  // the nav entry is worth showing at all.
+  const deployableServices = useMemo(
+    () =>
+      selectedServices.filter(
+        (s) => s.category === "App Hosting" || s.category === "Apps"
+      ),
+    [selectedServices]
+  );
+
   /** Everything that isn't broken out into its own section. */
   const computeServices = useMemo(
     () => selectedServices.filter((s) => s.category !== "Database Hosting" && s.category !== "Storage"),
@@ -696,6 +708,10 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       : []),
     ...(storageServices.length
       ? [{ id: "storage" as Tab, label: "Storage", icon: <HardDrive className="w-5 h-5" /> }]
+      : []),
+    // Only git-sourced apps deploy; a managed-ERP-only account never sees this.
+    ...(deployableServices.length
+      ? [{ id: "deployments" as Tab, label: "Deployments", icon: <Rocket className="w-5 h-5" /> }]
       : []),
     { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
     { id: "support", label: "Support", icon: <Headphones className="w-5 h-5" />, badge: unreadChatCount },
@@ -1239,6 +1255,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     addonCandidates,
     computeServices,
     databaseServices,
+    deployableServices,
     storageServices,
     attachDomain,
     detachCustomerDomain,
