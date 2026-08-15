@@ -26,10 +26,13 @@ import ConciergeWidget from "../../components/ConciergeWidget";
 import LogConsole from "../../components/portal/LogConsole";
 import OnboardingWizard from "../../components/portal/OnboardingWizard";
 import { ScalingSettings } from "../../components/portal/ScalingSettings";
+import { Database as DatabaseIcon, HardDrive } from "lucide-react";
 import { usePortal } from "./PortalContext";
 import OverviewTab from "./tabs/OverviewTab";
 import CloudTab from "./tabs/CloudTab";
 import DomainsTab from "./tabs/DomainsTab";
+import ResourceListTab from "./tabs/ResourceListTab";
+import SupportTab from "./tabs/SupportTab";
 import BillingTab from "./tabs/BillingTab";
 import ProfileTab from "./tabs/ProfileTab";
 
@@ -49,7 +52,7 @@ const PortalShell: React.FC = () => {
     planAttachBannerTone, requestingDeveloper, scalingServiceId, selectedServices,
     setActiveLogServiceId, setAddonsOpen, setAdminUnread, setDeleteConfirmText, setDeleteTarget,
     setDeveloperUpsellSvc, setIsCommandPaletteOpen, setIsContactOpen, setIsSidebarOpen,
-    setIsSystemsNavOpen, setScalingServiceId, setStopConfirmService, setUpgradePromptOpen,
+    setIsSystemsNavOpen, setScalingServiceId, databaseServices, storageServices, setStopConfirmService, setUpgradePromptOpen,
     showOnboarding, stopConfirmService, trialActive, trialEndStr, trialExpired,
     trialVerifyInvoice, upgradePromptOpen, user,
   } = usePortal();
@@ -315,6 +318,33 @@ const PortalShell: React.FC = () => {
             <Route path="overview" element={<OverviewTab />} />
             <Route path="cloud" element={<CloudTab />} />
             <Route path="domains" element={<DomainsTab />} />
+            <Route
+              path="databases"
+              element={
+                <ResourceListTab
+                  title="Databases"
+                  subtitle="Managed database instances on your account."
+                  services={databaseServices}
+                  icon={<DatabaseIcon className="w-6 h-6" />}
+                  emptyTitle="No databases yet"
+                  emptyDescription="Add a managed MySQL, PostgreSQL, MongoDB or Redis instance — we run it, back it up and keep it patched."
+                />
+              }
+            />
+            <Route
+              path="storage"
+              element={
+                <ResourceListTab
+                  title="Storage"
+                  subtitle="File storage and drives on your account."
+                  services={storageServices}
+                  icon={<HardDrive className="w-6 h-6" />}
+                  emptyTitle="No storage yet"
+                  emptyDescription="Add a private cloud drive for files and team sharing, with access controls and backups."
+                />
+              }
+            />
+            <Route path="support" element={<SupportTab />} />
             <Route path="billing" element={<BillingTab />} />
             <Route path="profile" element={<ProfileTab />} />
             <Route

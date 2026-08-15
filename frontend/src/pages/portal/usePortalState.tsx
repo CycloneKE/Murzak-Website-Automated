@@ -12,7 +12,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   Activity,
   CreditCard,
+  Database,
   Globe,
+  HardDrive,
   Headphones,
   LayoutDashboard,
   Plus,
@@ -573,18 +575,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
 
 
-  const allMenuItems: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: "cloud", label: "My Systems", icon: <Server className="w-5 h-5" /> },
-    { id: "domains", label: "Domains", icon: <Globe className="w-5 h-5" /> },
-    { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
-    { id: "profile", label: "My Account", icon: <UserIcon className="w-5 h-5" /> },
-    // Staff only. Carries the support badge so an unanswered customer is
-    // visible from anywhere in the portal, not just inside the inbox.
-    ...(isAdmin
-      ? [{ id: "admin" as Tab, label: "Admin", icon: <ShieldCheck className="w-5 h-5" />, badge: adminUnread }]
-      : []),
-  ];
 
   const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing") => {
     setAddonsError("");
@@ -677,6 +667,45 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       };
     });
   }, [user, catalogLookup, addonServiceIds]);
+
+  // Resource-type navigation. Databases and Storage are the same services the
+  // Resources tab lists, split out by catalog category so an account with four
+  // databases can find them without scrolling a mixed list — and they appear
+  // ONLY when the account actually holds that type, so nobody navigates into a
+  // permanently empty section.
+  const databaseServices = useMemo(
+    () => selectedServices.filter((s) => s.category === "Database Hosting"),
+    [selectedServices]
+  );
+  const storageServices = useMemo(
+    () => selectedServices.filter((s) => s.category === "Storage"),
+    [selectedServices]
+  );
+  /** Everything that isn't broken out into its own section. */
+  const computeServices = useMemo(
+    () => selectedServices.filter((s) => s.category !== "Database Hosting" && s.category !== "Storage"),
+    [selectedServices]
+  );
+
+  const allMenuItems: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: "cloud", label: "Resources", icon: <Server className="w-5 h-5" /> },
+    { id: "domains", label: "Domains", icon: <Globe className="w-5 h-5" /> },
+    ...(databaseServices.length
+      ? [{ id: "databases" as Tab, label: "Databases", icon: <Database className="w-5 h-5" /> }]
+      : []),
+    ...(storageServices.length
+      ? [{ id: "storage" as Tab, label: "Storage", icon: <HardDrive className="w-5 h-5" /> }]
+      : []),
+    { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
+    { id: "support", label: "Support", icon: <Headphones className="w-5 h-5" />, badge: unreadChatCount },
+    { id: "profile", label: "Settings", icon: <UserIcon className="w-5 h-5" /> },
+    // Staff only. Carries the support badge so an unanswered customer is
+    // visible from anywhere in the portal, not just inside the inbox.
+    ...(isAdmin
+      ? [{ id: "admin" as Tab, label: "Admin", icon: <ShieldCheck className="w-5 h-5" />, badge: adminUnread }]
+      : []),
+  ];
 
   // Real usage metrics (Phase 3) for the Overview ResourceUtilizationCard —
   // the account-level card shows usage for the first Active service, since
@@ -1208,6 +1237,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     activeLogServiceId,
     activeTab,
     addonCandidates,
+    computeServices,
+    databaseServices,
+    storageServices,
     attachDomain,
     detachCustomerDomain,
     domainBusyId,
