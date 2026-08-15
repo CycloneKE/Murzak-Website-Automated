@@ -16,14 +16,14 @@ function capMb() {
   if (Number.isFinite(env) && env > 0) return env;
   const snap = Number(CAPACITY?.selfServeOrderRamCapMb);
   if (Number.isFinite(snap) && snap > 0) return snap;
-  return 6144; // 6 GB
+  return 3200; // 3.2 GB — matches the real KVM 2, not the box this used to assume
 }
 function capDiskGb() {
   const env = Number(process.env.SELF_SERVE_ORDER_DISK_CAP_GB);
   if (Number.isFinite(env) && env > 0) return env;
   const snap = Number(CAPACITY?.selfServeOrderDiskCapGb);
   if (Number.isFinite(snap) && snap > 0) return snap;
-  return 80; // 80 GB
+  return 40; // 40 GB
 }
 
 // Sum the real RAM/disk footprint of a selection. Unknown ids contribute 0

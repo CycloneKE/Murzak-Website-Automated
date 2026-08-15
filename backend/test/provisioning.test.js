@@ -105,7 +105,7 @@ const okLane = {
   // Same rule generalizes to any other genuinely zero-footprint "volume" product.
   ok(catalog.laneFor(catalog.getServiceMeta("addon-priority-support")) === "manual", "zero-footprint addon -> manual lane, not a fake coolify build");
   ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "real-footprint volume product still routes to coolify (no regression)");
-  ok(capacity.thresholdMb() === 10880, "RAM threshold = 10880MB (85% of 12800)");
+  ok(capacity.thresholdMb() === 5440, "RAM threshold = 5440MB (85% of 6400)");
 
   section("runner state machine");
   let s = makeStore([{ name: "J1", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 768 }]);
@@ -198,20 +198,22 @@ const okLane = {
     const savedPids = process.env.COOLIFY_PIDS_LIMIT;
     delete process.env.COOLIFY_PIDS_LIMIT;
 
-    // 768MB volume service on a 4-vCPU / 12800MB box → ~0.24 raw, floored to 0.25.
+    // 768MB volume service on a 2-vCPU / 6400MB box → ~0.24 raw, floored to 0.25.
     const l = coolify.resourceLimits({ ram_mb: 768, disk_gb: 10 });
     ok(l.ramMb === 768, "resourceLimits: memory passes through job.ram_mb");
     ok(l.cpus === 0.25, "resourceLimits: small service floored to MIN_CPUS (0.25)");
     ok(l.pidsLimit === 512, "resourceLimits: default pids limit 512 (fork-bomb bound)");
     ok(l.diskGb === 10, "resourceLimits: disk passes through job.disk_gb");
 
-    // A large service gets proportionally more CPU: 6144MB → 6144/12800*4 ≈ 1.92.
+    // A large service gets proportionally more CPU: 6144MB → 6144/6400*2 ≈ 1.92
+    // (same numeric result as the old 12800MB/4vCPU box — both RAM and vCPU
+    // halved together, so this proportion happens to be scale-invariant here).
     const big = coolify.resourceLimits({ ram_mb: 6144, disk_gb: 80 });
     ok(big.cpus === 1.92, "resourceLimits: cpu scales with RAM share of the box");
 
     // A single service can never be entitled to more than the whole box.
     const huge = coolify.resourceLimits({ ram_mb: 999999 });
-    ok(huge.cpus === 4, "resourceLimits: cpu ceiled at the box vcpu count");
+    ok(huge.cpus === 2, "resourceLimits: cpu ceiled at the box vcpu count");
 
     // Missing footprint → safe floor, no disk key.
     const bare = coolify.resourceLimits({});

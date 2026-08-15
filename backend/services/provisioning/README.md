@@ -85,7 +85,7 @@ fetch queued (backoff-aware) → capacity recheck (premium) → dispatch by lane
 
 ## Phase 2 — scale-out + backups (built)
 
-- **Multi-target placement** (`targets.js`): box-1 (the KVM 4) is always present;
+- **Multi-target placement** (`targets.js`): box-1 (the KVM 2) is always present;
   extra boxes are declared in `PROVISIONING_TARGETS` (JSON, each with its own
   Coolify creds / bench command). Premium tenants are placed on the first box
   with RAM headroom; the chosen box is recorded on the job (`target`).

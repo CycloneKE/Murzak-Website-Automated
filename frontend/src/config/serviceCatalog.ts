@@ -26,32 +26,38 @@ export type DomainChoice =
 
 /**
  * Capacity class — drives both economics and provisioning:
- *  - "volume":   light, shared slices of the KVM 4. High density, high aggregate margin.
+ *  - "volume":   light, shared slices of the KVM 2. High density, high aggregate margin.
  *  - "premium":  managed Frappe-class apps (Murzak ERP/POS/CRM). Low density (~2–4GB RAM each),
- *                so only a handful fit. Priced high.
+ *                so only one or two fit on this box. Priced high.
  *  - "scalable": high-availability, horizontally scalable workloads via Kubernetes.
- *  - "dedicated":too large for the shared KVM 4 — provisioning a separate/bigger server.
+ *  - "dedicated":too large for the shared KVM 2 — provisioning a separate/bigger server.
  *                Always quote-based ("custom"), never self-serve.
  */
 export type CapacityClass = "volume" | "premium" | "scalable" | "dedicated";
 
 /**
  * Real budget of the production box: ONE upstream KVM node sourced wholesale
- * (4 vCPU / 16 GB RAM / 200 GB NVMe / 16 TB bandwidth).
- * `sellable*` = what's left after OS + control plane + backups overhead.
+ * (2 vCPU / 8 GB RAM / 100 GB NVMe / 8 TB bandwidth — confirmed against
+ * hPanel 2026-08-15; an earlier "KVM 4" figure here was wrong on every axis
+ * by exactly 2x and went uncaught until an infra audit compared it against
+ * the actual server).
+ * `sellable*` = what's left after OS + control plane + backups overhead
+ * (kept at the same ~78%/80% fraction of the box the original sizing used).
  * Used for internal capacity tracking so we don't oversell beyond the hardware.
  * NOTE: white-label — never surface the upstream provider name to customers.
  */
 export const SERVER_CAPACITY = {
   plan: "Murzak Cloud — Standard Node",
-  totalRamMb: 16384,
-  totalDiskGb: 200,
-  vcpu: 4,
-  bandwidthTb: 16,
-  // ~3.5GB RAM and ~40GB disk reserved for OS/panel/proxy/backups
-  sellableRamMb: 12800,
-  sellableDiskGb: 160,
+  totalRamMb: 8192,
+  totalDiskGb: 100,
+  vcpu: 2,
+  bandwidthTb: 8,
+  // ~1.8GB RAM and ~20GB disk reserved for OS/panel/proxy/backups
+  sellableRamMb: 6400,
+  sellableDiskGb: 80,
   // Approx wholesale cost to cover (KES/mo) — used to sanity-check margin.
+  // NOT re-verified against the KVM 2's actual price during this resize —
+  // confirm with Hostinger billing before trusting margin math against this.
   wholesaleKesPerMonth: 3000,
 } as const;
 
@@ -1144,8 +1150,15 @@ export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]>
 // =====================================================================
 
 // A single self-serve tenant shouldn't eat more than ~half the sellable box.
-export const SELF_SERVE_ORDER_RAM_CAP_MB = 6144; // 6 GB
-export const SELF_SERVE_ORDER_DISK_CAP_GB = 80; // 80 GB
+// NOTE: on the real KVM 2 (see SERVER_CAPACITY), this halves what it was
+// calibrated for on the previously-assumed KVM 4. biz-erp-configured and
+// biz-db-medium (4096MB each) now individually exceed this cap alone —
+// they can no longer be self-served as a single line item on this box.
+// That's a pricing/product call (shrink their footprint, make them
+// quote-only like the ent-* dedicated tier, or upgrade the box), not
+// something this file should decide silently.
+export const SELF_SERVE_ORDER_RAM_CAP_MB = 3200; // 3.2 GB
+export const SELF_SERVE_ORDER_DISK_CAP_GB = 40; // 40 GB
 
 export function serviceFootprint(svc: ServiceItem): { ramMb: number; diskGb: number } {
   return { ramMb: svc.resources?.ramMb ?? 0, diskGb: svc.resources?.diskGb ?? 0 };

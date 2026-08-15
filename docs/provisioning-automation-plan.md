@@ -1,6 +1,6 @@
 # Hosting Provisioning Automation — Implementation Plan
 
-**Goal:** when a customer pays, their hosting/service is created automatically (no manual setup), within the limits of the single Hostinger KVM 4 — and the system refuses to oversell the box.
+**Goal:** when a customer pays, their hosting/service is created automatically (no manual setup), within the limits of the single Hostinger KVM 2 — and the system refuses to oversell the box.
 
 **Owner:** Murzak engineering · **Status:** proposed · **Last updated:** 2026-06-14
 
@@ -53,7 +53,7 @@ Paid invoice ──> activateServicesForInvoice()
 
 | Concern | Choice | Why |
 |---|---|---|
-| Web / app / static / DB | **Coolify** (self-hosted on the KVM 4) | Free OSS, clean REST API + deploy webhooks, Docker-native (matches the stack), per-container memory limits for isolation |
+| Web / app / static / DB | **Coolify** (self-hosted on the KVM 2) | Free OSS, clean REST API + deploy webhooks, Docker-native (matches the stack), per-container memory limits for isolation |
 | Business systems (ERPNext/POS/CRM) | **Frappe `bench new-site`** scripts | Purpose-built multi-tenant ERP; DNS-based multitenancy; same Frappe we already run |
 | Baseline box config & playbooks | **Ansible** | Idempotent, version-controlled box + per-site provisioning |
 | Domains / DNS / 2nd-box scaling | **Hostinger API / Terraform provider** | Official; automates DNS records and spinning up KVM #2 when RAM caps out |
@@ -95,7 +95,7 @@ Add a lightweight **capacity ledger** (a single Frappe doc or computed view): `r
 - **Outcome:** zero customer-visible delay regression, full audit trail, and you learn the real product mix before automating the wrong lane.
 
 ### Phase 1 — Two scripted lanes (week 2–6)
-- Stand up **Coolify** on the KVM 4 (or a small slice) behind the firewall; create an API token.
+- Stand up **Coolify** on the KVM 2 (or a small slice) behind the firewall; create an API token.
 - Build a **job runner** (`backend/services/provisioning/`):
   - `runner.js` — polls `Provisioning Job` where `status=queued`, claims one, sets `running`, dispatches by lane, writes back `active`/`failed`, retries up to N with backoff, escalates to `needs_human` after N.
   - `lanes/coolify.js` — create app/site/db via Coolify API, set memory/CPU limits, attach domain, trigger SSL.
@@ -130,8 +130,12 @@ Add a lightweight **capacity ledger** (a single Frappe doc or computed view): `r
 - **Backups off-box** (B2/Spaces), with periodic tested restores. Hostinger's free weekly backup is a *secondary* layer only.
 
 ## 8. Capacity reality (build the gate around RAM)
-- 16 GB RAM is the ceiling. Light WordPress/static/email tenants are cheap (50–150 MB) — host dozens. **ERPNext tenants eat 1–2 GB each → ~4–8 active before KVM #2.**
-- The gate keys on **RAM**, not disk/bandwidth (200 GB / 16 TB are rarely the first constraint).
+- 8 GB RAM is the ceiling (corrected 2026-08-15 — this section originally said
+  16 GB, off by 2x against the real Hostinger KVM 2; see the live-infra audit).
+  Light WordPress/static/email tenants are cheap (50–150 MB) — host dozens.
+  **The current catalog's ERPNext tiers are 2–4 GB each → only 1–2 active before
+  KVM #2**, not the 4–8 this section originally estimated at 1–2 GB/tenant.
+- The gate keys on **RAM**, not disk/bandwidth (100 GB / 8 TB are rarely the first constraint).
 
 ## 9. Testing & rollout
 - Unit-test `enqueueProvisioning` + capacity gate (gated vs allowed).
@@ -142,7 +146,7 @@ Add a lightweight **capacity ledger** (a single Frappe doc or computed view): `r
 ## 10. Risks & mitigations
 | Risk | Mitigation |
 |---|---|
-| Oversubscribing one KVM 4 | RAM capacity gate + auto-trigger KVM #2 |
+| Oversubscribing one KVM 2 | RAM capacity gate + auto-trigger KVM #2 |
 | Tenant breach blast-radius | Containers, per-tenant creds, no shell, WAF |
 | Disk failure wipes data + backup | Off-box backups, tested restores |
 | Automation outpaces support | Sell Priority Support / Managed Care tiers (already in catalog) |

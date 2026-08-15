@@ -64,7 +64,7 @@ PROVISIONING_BOX1_MAX_PREMIUM=6                                  # cap ERP tenan
 
 5. **More boxes** — add each new server to the placement pool:
    ```
-   PROVISIONING_TARGETS=[{"id":"box-2","sellableRamMb":12800,"status":"active",
+   PROVISIONING_TARGETS=[{"id":"box-2","sellableRamMb":6400,"status":"active",
      "coolify":{"baseUrl":"…","token":"…","projectUuid":"…","serverUuid":"…"},
      "benchCmd":"/opt/murzak/provision-box2.sh","maxPremiumTenants":6}]
    ```

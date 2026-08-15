@@ -19,12 +19,12 @@ const axios = require("axios");
 const { CAPACITY } = require("../catalog");
 const appDomain = require("../appDomain");
 
-// Server-wide budget (from the generated catalog snapshot: KVM 4 = 4 vCPU /
-// 12.8GB sellable). Used to derive a proportional CPU quota per container.
+// Server-wide budget (from the generated catalog snapshot: KVM 2 = 2 vCPU /
+// 6.4GB sellable). Used to derive a proportional CPU quota per container.
 // Fallbacks match the box we sell today so this never divides by zero if the
 // snapshot is missing a field.
-const BOX_VCPU = Number(CAPACITY?.vcpu) > 0 ? Number(CAPACITY.vcpu) : 4;
-const BOX_SELLABLE_RAM_MB = Number(CAPACITY?.sellableRamMb) > 0 ? Number(CAPACITY.sellableRamMb) : 12800;
+const BOX_VCPU = Number(CAPACITY?.vcpu) > 0 ? Number(CAPACITY.vcpu) : 2;
+const BOX_SELLABLE_RAM_MB = Number(CAPACITY?.sellableRamMb) > 0 ? Number(CAPACITY.sellableRamMb) : 6400;
 
 const DEFAULT_RAM_MB = 256;
 const MIN_CPUS = 0.25; // never starve a container below a quarter-core

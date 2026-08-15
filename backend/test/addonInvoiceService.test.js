@@ -267,16 +267,21 @@ const deps = {
     // Mirrors a row that started "Setting up" and got silently collapsed to
     // "Awaiting Payment" by the pre-fix ordersRoutes.js round-trip — the
     // account's OWN paid invoice still proves it was real.
+    // biz-accounting (demoted+paid) + biz-webapps (new purchase) = 3072MB/40GB —
+    // both Medium-tier (the only tier Business plan is eligible for), and the
+    // smallest such pair that still fits the real KVM 2's 3200MB/40GB self-serve
+    // cap. biz-pos-inventory (2048MB) used before this resize, but paired with
+    // ANY other Medium-tier premium item it now exceeds the cap alone.
     const client = makeClient({
       account: {
         plan: "Business",
-        selected_services: [{ service_id: "biz-pos-inventory", status: "Awaiting Payment" }],
+        selected_services: [{ service_id: "biz-accounting", status: "Awaiting Payment" }],
       },
-      paidInvoices: [{ name: "PINV-SUB-1", services: [{ service_id: "biz-pos-inventory" }] }],
+      paidInvoices: [{ name: "PINV-SUB-1", services: [{ service_id: "biz-accounting" }] }],
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "biz-crm-helpdesk" }],
+      services: [{ serviceId: "biz-webapps" }],
     });
     ok(!!res.invoiceDocName, "a demoted row is rescued by the invoice signal, not permanently blocked");
   }
@@ -374,13 +379,18 @@ const deps = {
 
   section("FIX ROUND 3 — the fallback runs AT MOST ONCE per order, even with multiple services");
   {
+    // biz-accounting + biz-webapps = 3072MB/40GB — both Medium-tier, the
+    // smallest pair that fits the real KVM 2's 3200MB/40GB self-serve cap
+    // (biz-crm-helpdesk in the original pairing pushed this to 3584MB, over
+    // the cap after the resize — swapped, not weakened: still two premium,
+    // non-volume services in one order, still needs the P-fallback for both).
     const client = makeClient({
       account: { plan: "Business", selected_services: [] },
       paidInvoices: [{ name: "PINV-1", services: [{ service_id: "biz-pos-inventory" }] }],
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "biz-accounting" }, { serviceId: "biz-crm-helpdesk" }],
+      services: [{ serviceId: "biz-accounting" }, { serviceId: "biz-webapps" }],
     });
     ok(!!res.invoiceDocName, "multi-service order with a rescuable history succeeds");
     ok(client.listCalls.length === 1, "the paid-invoice list scan ran exactly once for the whole order, not once per service");
