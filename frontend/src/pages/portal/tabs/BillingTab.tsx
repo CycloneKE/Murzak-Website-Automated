@@ -19,7 +19,6 @@ const BillingTab: React.FC = () => {
     onRequestDelete,
     onTabClick,
     openAddonsModal,
-    planLimit,
     selectedServices,
     setDeletingId,
     setDeveloperUpsellSvc,
@@ -85,8 +84,8 @@ const BillingTab: React.FC = () => {
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">Monthly Burn</p>
                 <p className="text-3xl font-black text-murzak-accent tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
                 <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
-                  <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Slots used</span>
-                  <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{planLimit >= 999 ? includedSelectedCount : `${includedSelectedCount}/${planLimit}`}</span>
+                  <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Services</span>
+                  <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{includedSelectedCount}</span>
                 </div>
               </div>
             </div>

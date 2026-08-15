@@ -99,6 +99,31 @@ chooses to point both at the same account): `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUC
 question from this session: no S3-compatible destination is configured yet anywhere** — this job
 cannot be deployed until that exists.
 
+### Second source: the Frappe site's own database
+
+While designing this, checked whether the Frappe site (`api.pos.murzaktech.tech` — the actual
+business database: every Web Account, Provisioning Job, Portal Invoice) had any backup at all.
+**It does not.** `bench doctor` reported the site's scheduler itself as disabled/inactive, and
+`sites/api.pos.murzaktech.tech/private/backups/` is empty — meaning Frappe's own default backup
+behavior, which normally runs once the scheduler is on, has never fired. This is a more urgent gap
+than the Coolify metadata backup above: it's the real customer/business data, not orchestration
+metadata.
+
+Two-part fix:
+1. **Enable the Frappe scheduler** (`bench --site api.pos.murzaktech.tech scheduler enable` +
+   `scheduler resume`) — a safe, reversible, one-line operational toggle, not a code change. Do this
+   independent of and before the rest of this implementation, the same way Sentinel got re-synced
+   earlier this session. Verify a manual `bench --site api.pos.murzaktech.tech backup` actually
+   produces files before relying on the scheduler to repeat it automatically.
+2. **`coolify-backup.sh` also tars and pushes `sites/api.pos.murzaktech.tech/{private,public}/backups/`**
+   as a second source alongside `/data/coolify` — not a new job, one more path through the same
+   script/upload/status-report mechanism already designed above.
+
+(`murzak_custom`'s `hooks.py` has a `scheduler_events` block referencing
+`murzak_custom.tasks.{all,daily,hourly,weekly,monthly}` — entirely commented out, and unverified
+whether those functions even exist. Out of scope for this spec; worth a separate look before anyone
+assumes those hooks do something.)
+
 ### The status-report endpoint
 
 `POST /api/admin/platform-health/backup-status` — deliberately NOT behind `requireAuth`/`requireAdmin`

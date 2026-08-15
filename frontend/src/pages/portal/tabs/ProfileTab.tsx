@@ -6,7 +6,6 @@ import { usePortal } from "../PortalContext";
 const ProfileTab: React.FC = () => {
   const {
     goToUpgrade,
-    remainingSlots,
     repoDraft,
     repoMsg,
     repoSaving,
@@ -142,10 +141,6 @@ const ProfileTab: React.FC = () => {
                 </span>
               </div>
               
-              <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
-                <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Available Slots</span>
-                <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{remainingSlots}</span>
-              </div>
             </div>
           </div>
 

@@ -36,10 +36,10 @@ import {
   ProvisioningActivityEntry,
   DeploymentEntry,
 } from "../../services/serviceActivity";
-import { PLAN_LIMITS, SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
+import { SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
 import { attachDomainToService, detachDomain, fetchCustomerDomains } from "../../services/hostingPortal";
 import { type CustomerDomain } from "../../types/hosting";
-import { allowedAddonTiers, normalizePlanToCode } from "./helpers";
+import { normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 
 export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: PortalProps) {
@@ -596,7 +596,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   // Services (derived)
   // --------------------------
   const planCode: PlanCode = useMemo(() => normalizePlanToCode(user.plan), [user.plan]);
-  const planLimit = PLAN_LIMITS[planCode] ?? 0;
 
   const catalogLookup = useMemo(() => {
     const all = [
@@ -747,46 +746,24 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const totalSelectedCount = selectedServices.length;
 
-  const overflowAddonCount = useMemo(() => {
-    if (planLimit >= 999) return 0;
-    return Math.max(totalSelectedCount - planLimit, 0);
-  }, [totalSelectedCount, planLimit]);  
+  // Was: anything beyond the plan's service allowance counted as an "add-on".
+  // Plans no longer cap anything, so the only add-ons are the ones the backend
+  // actually tags as such.
 
-  const addonCount = useMemo(() => {
-    // Prefer exact backend-tagged add-ons.
-    // If backend tagging is missing, fall back to overflow.
-    return Math.max(explicitAddonCount, overflowAddonCount);
-  }, [explicitAddonCount, overflowAddonCount]);
+  const addonCount = explicitAddonCount;
 
   const includedSelectedCountRaw = useMemo(() => {
     return selectedServices.filter((s) => !s.isAddon).length;
   }, [selectedServices]);
 
-  const includedSelectedCount = useMemo(() => {
-    if (planLimit >= 999) {
-      return totalSelectedCount - explicitAddonCount;
-    }
+  // Everything that isn't a tagged add-on. No longer clamped to a plan
+  // allowance, so the number shown is simply what the account has.
+  const includedSelectedCount = useMemo(
+    () => totalSelectedCount - explicitAddonCount,
+    [totalSelectedCount, explicitAddonCount]
+  );
 
-    // If explicit addon tagging exists, use it.
-    if (explicitAddonCount > 0) {
-      const included = totalSelectedCount - explicitAddonCount;
-      return Math.min(included, planLimit);
-    }
 
-    // Fallback: if backend tagging is missing, cap visible included slots at plan limit
-    return Math.min(totalSelectedCount, planLimit);
-  }, [planLimit, totalSelectedCount, explicitAddonCount]);  
-
-  const remainingSlots = useMemo(() => {
-    if (planLimit >= 999) return 999;
-
-    // based on visible included count
-    return Math.max(planLimit - includedSelectedCount, 0);
-  }, [planLimit, includedSelectedCount]);
-
-  const hasReachedPlanLimit = useMemo(() => {
-    return planLimit < 999 && includedSelectedCount >= planLimit;
-  }, [planLimit, includedSelectedCount]);  
 
   const onRequestDelete = (
     s: SelectedServiceView,
@@ -874,9 +851,11 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     return ids;
   }, [localInvoices, planCode]);
 
+  // Add-ons are no longer filtered by the plan's allowed tiers — a plan is a
+  // support tier, not a catalogue. Anything with real add-on pricing is
+  // offerable; quote-only ("custom") items are excluded by the pricing filter
+  // below, and deprecated ids must never reach a new purchase surface.
   const addonCandidates = useMemo(() => {
-    const tiers = new Set(allowedAddonTiers(planCode));
-    if (tiers.size === 0) return [];
 
     const all = [
       ...(SERVICE_CATALOG.Test || []),
@@ -887,7 +866,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
     // filter by tier rule + must have addon pricing
     return all
-      .filter((s) => tiers.has(s.tier))
+      .filter((s) => !s.deprecated)
       .filter((s) => (s?.pricing?.model || "").toLowerCase() === "addon" && Number(s?.pricing?.monthlyKes || 0) > 0)
       .sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
   }, [planCode]);
@@ -1296,11 +1275,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     performServiceAction,
     planAttachBanner,
     planAttachBannerTone,
-    planLimit,
     provisionProgress,
     redeployNote,
     redeploying,
-    remainingSlots,
     repoDraft,
     repoMsg,
     repoSaving,

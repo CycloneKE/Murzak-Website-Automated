@@ -18,7 +18,6 @@ module.exports = function(ctx) {
     applyPlanAndCreateInvoice,
     archiver,
     asArray,
-    assertWithinPlanLimit,
     axios,
     buildUserPayload,
     computeProratedCreditKes,
@@ -316,7 +315,6 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
     if (!Array.isArray(selectedServices)) return res.status(400).json({
       error: "selectedServices must be an array."
     });
-    assertWithinPlanLimit(plan, selectedServices);
     const client = frappeClient();
 
     // Read parent doc so we can update its child table safely

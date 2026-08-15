@@ -829,32 +829,13 @@ async function upsertPortalInvoice({ client, webAccountName, type, planKey, amou
   return create.data?.data?.name || null;
 }
 
-function assertWithinPlanLimit(planKey, selectedServices = []) {
-  const list = Array.isArray(selectedServices) ? selectedServices : [];
-  const limitRaw = PLAN_LIMITS[planKey];
-
-  // Unknown plan or None => treat as 0 allowed
-  const limit =
-    typeof limitRaw === "number"
-      ? limitRaw
-      : 0;
-
-  // Enterprise "unlimited-ish"
-  if (limit >= 999) return;
-
-  if (list.length > limit) {
-    const err = new Error(`Plan limit exceeded: ${planKey} allows ${limit} services.`);
-    err.statusCode = 400;
-    throw err;
-  }
-}
-
-function allowedAddonTiersForPlan(planKey) {
-  if (planKey === "Starter") return ["Light"];
-  if (planKey === "Business") return ["Medium"];
-  if (planKey === "Enterprise") return ["Light", "Medium", "Large", "Enterprise"];
-  return [];
-}
+// Plan tiers no longer cap how many services an account may hold — a plan is a
+// support/SLA tier, not a licence to buy. The real cap is physical and is
+// enforced by assertOrderWithinCapacity / orderCapacity.js against the box's
+// RAM and disk, which is the only limit that was ever true.
+//
+// (assertWithinPlanLimit and allowedAddonTiersForPlan lived here. The tier
+// helper was already dead — defined and exported, never called.)
 
 function formatSelectedServices(services = []) {
   const names = (services || [])
@@ -916,7 +897,6 @@ const INVOICE_SERVICES_JSON_FIELD = "services_json";
 const INVOICE_SERVICES_COUNT_FIELD = "services_count";
 
 // plan limits (mirror frontend)
-const PLAN_LIMITS = { Test: 1, Starter: 2, Business: 5, Enterprise: 999 };
 
 // Helper: normalize/guard arrays
 const asArray = (v) => (Array.isArray(v) ? v : []);
@@ -1376,8 +1356,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "No plan selected. Please choose a plan first." });
     }
 
-    const planLimit = PLAN_LIMITS[planKey] ?? 0;
-
     const existingRows = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
     const existingIds = new Set(existingRows.map((r) => r?.[CHILD_SERVICE_ID_FIELD]).filter(Boolean));
 
@@ -1396,15 +1374,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
       return res.json({ ok: true, message: "No new services to add." });
     }
 
-    // Enforce limit (hard lock)
-    try {
-      assertWithinPlanLimit(planKey, new Array(existingRows.length + incoming.length).fill({}));
-    } catch (e) {
-      return res.status(400).json({
-        error: `Plan limit exceeded. ${planKey} allows ${planLimit} services. You currently have ${existingRows.length}.`,
-      });
-    }
-
     const planPaid = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 
     const newRows = incoming.map((s) =>
@@ -1418,9 +1387,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
     );
 
     const merged = [...existingRows, ...newRows];
-
-    // Hard lock at the point of write
-    assertWithinPlanLimit(planKey, merged);
 
     await updateWebAccountServices(client, webAccountName, merged);
 
@@ -1879,8 +1845,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       return SERVICE_ID_TO_PLAN[sid] === planKey;
     }).length;
 
-    const planLimit = PLAN_LIMITS[planKey] ?? 0;
-    const remainingSlots = planLimit >= 999 ? 999 : Math.max(planLimit - includedCountExisting, 0);
 
     const planIsPaid =
       planKey === "Test" || planKey === "Enterprise"
@@ -1955,28 +1919,11 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
         }
         nextRows = incomingRows; // overwrite
 
-        try {
-          assertWithinPlanLimit(planKey, nextRows);
-        } catch (e) {
-          const attempted = incomingRows.length;
-          return res.status(400).json({
-            error: `Plan limit exceeded. ${planKey} allows ${planLimit} services.`,
-            code: "PLAN_LIMIT_EXCEEDED",
-            planKey,
-            planLimit,
-            remainingSlots,
-            attemptedToAdd: attempted,
-            message: remainingSlots <= 0
-              ? `You have no remaining slots on ${planKey}. Remove a service or upgrade your plan.`
-              : `You can only add ${remainingSlots} more service${remainingSlots === 1 ? "" : "s"} on ${planKey}.`,
-          });
-        }
         
       } else {
         // Paid old plan → obey retain/replace
         if (upgradeMode === "replace") {
           nextRows = incomingRows;
-          assertWithinPlanLimit(planKey, nextRows);
 
         } else if (upgradeMode === "retain") {
           // merge (your old behavior)
@@ -1988,12 +1935,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
             map.set(row.service_id, { ...map.get(row.service_id), ...row });
           }
           nextRows = Array.from(map.values());
-
-        const includedOnly = nextRows.filter((r) => {
-          const sid = String(r.service_id || "").trim();
-          return SERVICE_ID_TO_PLAN[sid] === planKey;
-        });
-        assertWithinPlanLimit(planKey, includedOnly);          
 
         } else {
           return res.status(409).json({
@@ -2012,22 +1953,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       }
       nextRows = Array.from(map.values());
 
-        try {
-          assertWithinPlanLimit(planKey, nextRows);
-        } catch (e) {
-          const attempted = incomingRows.length;
-          return res.status(400).json({
-            error: `Plan limit exceeded. ${planKey} allows ${planLimit} services.`,
-            code: "PLAN_LIMIT_EXCEEDED",
-            planKey,
-            planLimit,
-            remainingSlots,
-            attemptedToAdd: attempted,
-            message: remainingSlots <= 0
-              ? `You have no remaining slots on ${planKey}. Remove a service or upgrade your plan.`
-              : `You can only add ${remainingSlots} more service${remainingSlots === 1 ? "" : "s"} on ${planKey}.`,
-          });
-        }
     }
 
     // Update Web Account
@@ -2471,7 +2396,6 @@ app.post("/api/plan/select-with-services", (req, res) => {
     if (!planKey) return res.status(400).json({ error: "Invalid planName" });
 
     const norm = normalizeSelectedServices(selectedServices);
-    assertWithinPlanLimit(planKey, norm);
     assertOrderWithinCapacity(norm);
 
     req.session.pendingPlan = planKey;
@@ -3464,8 +3388,6 @@ const routeContext = {
   findOpenInvoice,
   computeInvoiceAmount,
   upsertPortalInvoice,
-  assertWithinPlanLimit,
-  allowedAddonTiersForPlan,
   formatSelectedServices,
   PLAN_PRICING,
   PLAN_NAME_TO_KEY,
@@ -3483,7 +3405,6 @@ const routeContext = {
   PORTAL_INVOICE_SERVICES_FIELD,
   INVOICE_SERVICES_JSON_FIELD,
   INVOICE_SERVICES_COUNT_FIELD,
-  PLAN_LIMITS,
   asArray,
   DOMAIN_TLD_PRICES,
   normalizeDomainLabel,

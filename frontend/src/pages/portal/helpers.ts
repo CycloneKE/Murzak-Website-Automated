@@ -10,13 +10,10 @@ export function normalizePlanToCode(plan: string | undefined | null): PlanCode {
   return "Starter";
 }
 
-export function allowedAddonTiers(plan: PlanCode): Array<string> {
-  if (plan === "Starter") return ["Light"];
-  if (plan === "Business") return ["Medium"];
-  if (plan === "Enterprise") return ["Light", "Medium", "Large", "Enterprise"];
-  if (plan === "Test") return []; // no addons on trial
-  return [];
-}
+// allowedAddonTiers lived here: it restricted which service tiers a plan could
+// add on ("Starter may only add Light"). Plans are support tiers now, not
+// catalogues, so nothing gates the catalogue by plan — see PLAN_SLA in
+// config/serviceCatalog.ts.
 
 // Maps a backend ProjectUpdate onto the Activity Hub's icon/color category.
 // The backend's own classification (milestone/technical/alert) is the base
