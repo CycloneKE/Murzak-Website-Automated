@@ -17,7 +17,7 @@ export type ThreadSummary = {
   company_name?: string;
   status?: string;
   last_message_at?: string;
-  admin_last_read_at?: string;
+  last_admin_seen_at?: string;
   modified?: string;
   /** Server-computed: this thread is waiting on staff and has unread messages. */
   unread?: boolean;
@@ -51,7 +51,7 @@ export async function adminUnreadCount(): Promise<number> {
   return Number(data?.count || 0);
 }
 
-/** Stamps admin_last_read_at so this thread stops counting toward the badge. */
+/** Stamps last_admin_seen_at so this thread stops counting toward the badge. */
 export async function adminMarkRead(threadId: string): Promise<void> {
   const res = await fetch(`/api/admin/threads/${encodeURIComponent(threadId)}/mark-read`, {
     method: "POST",

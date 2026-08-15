@@ -135,11 +135,59 @@ async function readAll(client, source) {
     }
   }
 
+  // --- Link existing Hosting Sites to the domain they serve ---
+  // ensurePendingHostingSiteForRequest only sets customer_domain when a
+  // request touches the site, so sites created before domains were
+  // account-owned would stay orphaned indefinitely. Their primary_host is the
+  // same hostname, so they can be matched here once.
+  console.log("\n- Hosting Site: linking to owned domains");
+  const linkTotals = { linked: 0, already: 0, unmatched: 0, failed: 0 };
+  try {
+    const sites = await client.get("/api/resource/Hosting Site", {
+      params: {
+        fields: JSON.stringify(["name", "web_account", "primary_host", "customer_domain"]),
+        limit_page_length: 500,
+      },
+    });
+    for (const site of sites.data?.data || []) {
+      if (site.customer_domain) { linkTotals.already++; continue; }
+      const host = customerDomains.normalizeDomainName(site.primary_host);
+      if (!site.web_account || !host) { linkTotals.unmatched++; continue; }
+
+      if (DRY_RUN) {
+        console.log(`    would link site ${site.name} (${host}) -> the ${host} domain for ${site.web_account}`);
+        continue;
+      }
+      try {
+        const domain = await customerDomains.findCustomerDomainByName(client, site.web_account, host);
+        if (!domain) {
+          linkTotals.unmatched++;
+          console.warn(`    ? ${site.name}: no owned domain matches ${host}`);
+          continue;
+        }
+        await client.put(`/api/resource/Hosting Site/${encodeURIComponent(site.name)}`, {
+          customer_domain: domain.id,
+        });
+        linkTotals.linked++;
+        console.log(`    ~ ${site.name} (${host}) -> ${domain.id}`);
+      } catch (e) {
+        linkTotals.failed++;
+        console.error(`    ! ${site.name}: ${e.response?.data?.exception || e.message}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`  Hosting Site unreadable (${e.response?.status || e.message}) — skipping link pass.`);
+  }
+
   console.log(
-    `\n${DRY_RUN ? "[dry run] " : ""}created=${totals.created} already-present=${totals.existing} ` +
+    `\n${DRY_RUN ? "[dry run] " : ""}domains: created=${totals.created} already-present=${totals.existing} ` +
       `skipped=${totals.skipped} failed=${totals.failed}`
   );
-  if (totals.failed > 0) process.exit(1);
+  console.log(
+    `${DRY_RUN ? "[dry run] " : ""}sites:   linked=${linkTotals.linked} already-linked=${linkTotals.already} ` +
+      `unmatched=${linkTotals.unmatched} failed=${linkTotals.failed}`
+  );
+  if (totals.failed > 0 || linkTotals.failed > 0) process.exit(1);
 })().catch((e) => {
   console.error("BACKFILL FAILED:", e.response?.data || e.message);
   process.exit(1);

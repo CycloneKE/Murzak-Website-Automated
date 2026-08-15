@@ -40,13 +40,20 @@ function normalizeStatus(status) {
   return String(status || "").trim().toLowerCase();
 }
 
-/** A thread staff still owe a reply on, with something they haven't read. */
+/**
+ * A thread staff still owe a reply on, with something they haven't read.
+ *
+ * Reads `last_admin_seen_at`, which the doctype already carried and nothing
+ * ever wrote to — the staff-read stamp was designed and then never wired up.
+ * Using it rather than adding a second field avoids two columns that mean the
+ * same thing.
+ */
 function isUnreadForAdmin(thread) {
   const pending = ADMIN_PENDING_STATUSES.some(
     (s) => normalizeStatus(s) === normalizeStatus(thread?.status)
   );
   if (!pending) return false;
-  return hasUnread(thread?.last_message_at, thread?.admin_last_read_at);
+  return hasUnread(thread?.last_message_at, thread?.last_admin_seen_at);
 }
 
 /** A thread awaiting the customer, with a staff reply they haven't read. */

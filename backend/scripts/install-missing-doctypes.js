@@ -26,10 +26,10 @@ const DOCTYPE_PATHS = [
   path.resolve(__dirname, "../data/doctype-checkout-order.json"),
   path.resolve(__dirname, "../data/doctype-portal-update.json"),
   path.resolve(__dirname, "../data/doctype-capacity-request.json"),
-  // Support threads. This doctype was hand-created in Frappe and had no
-  // fixture, so field drift went undetected; it is captured here so the
-  // add-missing-fields path can install admin_last_read_at (and anything
-  // else the code expects) without a manual bench edit.
+  // Support threads. Hand-created in Frappe with no fixture, so field drift
+  // went undetected: the admin inbox rendered company_name and queried it,
+  // but the field did not exist — which 417'd the whole inbox. Captured here
+  // so the add-missing-fields path installs it without a manual bench edit.
   path.resolve(__dirname, "../data/doctype-portal-users-requests.json"),
   // The account's canonical record of a domain it owns. Replaces the three
   // intake doctypes' half-shaped ideas of one; see services/customerDomains.js

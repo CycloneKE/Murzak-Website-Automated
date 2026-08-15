@@ -282,14 +282,40 @@ const {
   );
   ok(can("PENDING", "Active"), "case-insensitive on both sides");
 
-  section("intakeStatusForDomainStatus — keeping the customer's view in sync");
-  ok(intakeStatusForDomainStatus("active") === "active", "active syncs");
-  ok(intakeStatusForDomainStatus("failed") === "failed", "failed syncs");
-  ok(intakeStatusForDomainStatus("cancelled") === "cancelled", "cancelled syncs");
+  section("intakeStatusForDomainStatus — each intake has its OWN vocabulary");
+  const PR = "Hosting Domain Purchase Request";
+  const EX = "Hosting External Domain Connection";
+  const MS = "Hosting Murzak Subdomain";
+  // Verified against the live doctypes:
+  //   PR: pending|quoted|awaiting_payment|purchased|connected|rejected
+  //   EX: pending|awaiting_dns_update|verifying|connected|failed
+  //   MS: pending|active|rejected|suspended
+  ok(intakeStatusForDomainStatus("active", PR) === "connected", "a purchase request goes to 'connected', NOT 'active'");
+  ok(intakeStatusForDomainStatus("active", EX) === "connected", "an external connection goes to 'connected'");
+  ok(intakeStatusForDomainStatus("active", MS) === "active", "a subdomain really does use 'active'");
+  ok(intakeStatusForDomainStatus("failed", PR) === "rejected", "a purchase request has no 'failed' — it is 'rejected'");
+  ok(intakeStatusForDomainStatus("failed", EX) === "failed", "an external connection does have 'failed'");
+  ok(intakeStatusForDomainStatus("failed", MS) === "rejected", "a subdomain has no 'failed' — it is 'rejected'");
+  ok(intakeStatusForDomainStatus("cancelled", PR) === "rejected", "no intake has 'cancelled'; it maps to the nearest real value");
+  ok(intakeStatusForDomainStatus("pending", PR) === "pending", "pending is the one word they all share");
   ok(
-    intakeStatusForDomainStatus("expired") === null,
-    "expired does NOT sync — the intake described a one-off request, not the domain's ongoing life"
+    intakeStatusForDomainStatus("expired", PR) === null,
+    "expired does NOT sync — no intake vocabulary expresses it, and writing it would put a value in the Select that it cannot display"
   );
+  ok(
+    intakeStatusForDomainStatus("active", "Some Other Doctype") === null,
+    "an unknown source doctype syncs nothing rather than guessing"
+  );
+  ok(
+    intakeStatusForDomainStatus("active", undefined) === null,
+    "a missing source doctype syncs nothing"
+  );
+  for (const [dt, map] of Object.entries(require("../services/customerDomains").INTAKE_STATUS_MAPS)) {
+    ok(
+      Object.values(map).every((v) => typeof v === "string" && v.length > 0),
+      `${dt}: every mapped value is a real status string`
+    );
+  }
 
   section("summarizeByStatus");
   const summary = summarizeByStatus([

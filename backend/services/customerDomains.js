@@ -179,29 +179,57 @@ function canTransitionDomainStatus(from, to) {
 }
 
 /**
+ * The intakes' Select vocabularies, as they actually exist in Frappe.
+ *
+ * All three are different, and NONE of them uses the Customer Domain words.
+ * A purchase request goes to "connected", not "active"; an external
+ * connection fails to "failed" but a subdomain fails to "rejected"; none has
+ * "cancelled" at all. Writing our own vocabulary across them — which is what
+ * the first version of this did, and which the mock happily accepted because
+ * it stores any string — would have quietly filled production with statuses
+ * the doctype's own Select cannot display.
+ */
+const INTAKE_STATUS_MAPS = Object.freeze({
+  // pending | quoted | awaiting_payment | purchased | connected | rejected
+  "Hosting Domain Purchase Request": {
+    pending: "pending",
+    active: "connected",
+    failed: "rejected",
+    cancelled: "rejected",
+  },
+  // pending | awaiting_dns_update | verifying | connected | failed
+  "Hosting External Domain Connection": {
+    pending: "pending",
+    active: "connected",
+    failed: "failed",
+    cancelled: "failed",
+  },
+  // pending | active | rejected | suspended
+  "Hosting Murzak Subdomain": {
+    pending: "pending",
+    active: "active",
+    failed: "rejected",
+    cancelled: "rejected",
+  },
+});
+
+/**
  * The status to push back onto the intake record a domain came from.
  *
  * The intakes are what the customer's hosting dashboard still reads, so
  * fulfilling a domain without syncing them leaves the customer staring at
- * "pending" forever while staff see it as done. Returns null when there is no
- * sensible intake equivalent, in which case the intake is left alone rather
- * than written with a value its Select may not accept.
+ * "pending" forever while staff see it as done.
+ *
+ * Returns null when there is no safe equivalent — an unknown source doctype,
+ * or "expired", which no intake vocabulary expresses because an intake
+ * described a one-off request that completed, not the domain's ongoing life.
+ * A null means leave the intake alone rather than write a value its Select
+ * cannot hold.
  */
-function intakeStatusForDomainStatus(domainStatus) {
-  switch (normalizeStatus(domainStatus)) {
-    case "active":
-      return "active";
-    case "failed":
-      return "failed";
-    case "cancelled":
-      return "cancelled";
-    case "pending":
-      return "pending";
-    // "expired" has no intake equivalent — the intake described a one-off
-    // request that completed, not the domain's ongoing life.
-    default:
-      return null;
-  }
+function intakeStatusForDomainStatus(domainStatus, sourceDoctype) {
+  const map = INTAKE_STATUS_MAPS[sourceDoctype];
+  if (!map) return null;
+  return map[normalizeStatus(domainStatus)] || null;
 }
 
 /**
@@ -408,6 +436,7 @@ module.exports = {
   DOMAIN_STATUSES,
   DOMAIN_STATUS_TRANSITIONS,
   INTAKE_DOCTYPE_KINDS,
+  INTAKE_STATUS_MAPS,
   LIST_FIELDS,
   buildCustomerDomainPayload,
   canAttachDomain,

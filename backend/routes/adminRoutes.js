@@ -38,7 +38,7 @@ const THREAD_LIST_FIELDS = [
   "subject",
   "status",
   "last_message_at",
-  "admin_last_read_at",
+  "last_admin_seen_at",
   "modified"
 ];
 
@@ -74,7 +74,7 @@ router.get("/api/admin/threads/unread-count", requireAuth, requireAdmin, async (
     const client = frappeClient();
     const resp = await client.get("/api/resource/Portal Users Requests", {
       params: {
-        fields: JSON.stringify(["name", "status", "last_message_at", "admin_last_read_at"]),
+        fields: JSON.stringify(["name", "status", "last_message_at", "last_admin_seen_at"]),
         order_by: "last_message_at desc",
         limit_page_length: 200
       }
@@ -173,7 +173,7 @@ router.post("/api/admin/domains/:id/status", requireAuth, requireAdmin, async (r
     await customerDomains.updateCustomerDomain(client, id, patch);
 
     let intakeSynced = false;
-    const intakeStatus = customerDomains.intakeStatusForDomainStatus(nextStatus);
+    const intakeStatus = customerDomains.intakeStatusForDomainStatus(nextStatus, row.source_doctype);
     if (row.source_doctype && row.source_name && intakeStatus) {
       try {
         await client.put(
@@ -198,7 +198,7 @@ router.post("/api/admin/threads/:id/mark-read", requireAuth, requireAdmin, async
     const client = frappeClient();
     const { id } = req.params;
     await client.put(`/api/resource/Portal Users Requests/${encodeURIComponent(id)}`, {
-      admin_last_read_at: mysqlDatetimeUTC()
+      last_admin_seen_at: mysqlDatetimeUTC()
     });
     return res.json({ ok: true });
   } catch (err) {

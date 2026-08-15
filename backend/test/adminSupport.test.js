@@ -66,7 +66,7 @@ const {
     isUnreadForAdmin({
       status: "Waiting on Admin",
       last_message_at: "2026-08-15 10:00:00",
-      admin_last_read_at: "2026-08-15 11:00:00",
+      last_admin_seen_at: "2026-08-15 11:00:00",
     }) === false,
     "already read by staff -> not counted"
   );
@@ -101,8 +101,8 @@ const {
   section("counts");
   const rows = [
     { status: "New", last_message_at: "2026-08-15 10:00:00" },
-    { status: "Waiting on Admin", last_message_at: "2026-08-15 10:00:00", admin_last_read_at: "2026-08-15 12:00:00" },
-    { status: "Waiting on Admin", last_message_at: "2026-08-15 13:00:00", admin_last_read_at: "2026-08-15 12:00:00" },
+    { status: "Waiting on Admin", last_message_at: "2026-08-15 10:00:00", last_admin_seen_at: "2026-08-15 12:00:00" },
+    { status: "Waiting on Admin", last_message_at: "2026-08-15 13:00:00", last_admin_seen_at: "2026-08-15 12:00:00" },
     { status: "Waiting on User", last_message_at: "2026-08-15 13:00:00" },
     { status: "Resolved", last_message_at: "2026-08-15 13:00:00" },
   ];
