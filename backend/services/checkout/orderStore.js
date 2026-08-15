@@ -422,6 +422,7 @@ function toApiOrder(doc) {
 }
 
 module.exports = {
+  DOMAIN_PRODUCT_TLDS,
   ORDER_DOCTYPE,
   RESERVATION_TTL_MS,
   createOrder,

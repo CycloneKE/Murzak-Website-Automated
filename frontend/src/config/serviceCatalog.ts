@@ -194,11 +194,52 @@ export const PLAN_META: Record<PlanCode, PlanMeta> = {
   },
 };
 
-export const PLAN_LIMITS: Record<PlanCode, number> = {
-  Test: 1,
-  Starter: 3,
-  Business: 5,
-  Enterprise: 999,
+/**
+ * What a plan actually buys you now: a response time and a level of care.
+ *
+ * Plans used to cap how many services an account could hold (PLAN_LIMITS,
+ * removed) and which tiers it could add (allowedAddonTiers, removed). Neither
+ * was ever a real constraint — the box's RAM and disk are, and those are
+ * enforced by exceedsSelfServeCap / orderCapacity.js. Worse, the frontend and
+ * backend copies of the limits had drifted apart (Starter was 3 here and 2 on
+ * the server), so the number a customer saw was not the one that would refuse
+ * them.
+ *
+ * Every product is now buyable standalone at its own price. What differs by
+ * plan is how fast we answer and how much we hold.
+ */
+export type SlaTier = {
+  firstResponse: string;
+  backupRetention: string;
+  namedContact: boolean;
+  channels: string[];
+};
+
+export const PLAN_SLA: Record<PlanCode, SlaTier> = {
+  Test: {
+    firstResponse: "Best effort",
+    backupRetention: "None",
+    namedContact: false,
+    channels: ["Email"],
+  },
+  Starter: {
+    firstResponse: "1 business day",
+    backupRetention: "7 days",
+    namedContact: false,
+    channels: ["Email", "Portal"],
+  },
+  Business: {
+    firstResponse: "4 business hours",
+    backupRetention: "30 days",
+    namedContact: false,
+    channels: ["Email", "Portal", "WhatsApp"],
+  },
+  Enterprise: {
+    firstResponse: "1 hour, 24/7",
+    backupRetention: "90 days + DR",
+    namedContact: true,
+    channels: ["Email", "Portal", "WhatsApp", "Phone"],
+  },
 };
 
 // =====================================================================

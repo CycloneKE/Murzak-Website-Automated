@@ -3,6 +3,7 @@ import { AlertCircle, MessageSquare, RefreshCw, Search, Send } from "lucide-reac
 import {
   adminGetThread,
   adminListThreads,
+  adminMarkRead,
   adminReply,
   adminApproveTerminalAccess,
   ChatMessage,
@@ -48,9 +49,33 @@ function labelFromThread(t: ThreadSummary) {
   return name || email || t.name;
 }
 
+/** Threads staff still owe a reply on — mirrors ADMIN_PENDING_STATUSES server-side. */
+function isPending(t: ThreadSummary) {
+  const s = (t.status || "").toLowerCase();
+  return s === "new" || s === "waiting on admin";
+}
+
+/**
+ * Unread first, then still-pending, then newest. Without this the inbox is
+ * ordered purely by recency and a thread that has been waiting for days sinks
+ * below chatter that needs no reply.
+ */
+function inboxOrder(a: ThreadSummary, b: ThreadSummary) {
+  const rank = (t: ThreadSummary) => (t.unread ? 0 : isPending(t) ? 1 : 2);
+  const byRank = rank(a) - rank(b);
+  if (byRank !== 0) return byRank;
+  const stamp = (t: ThreadSummary) => t.last_message_at || t.modified || "";
+  return stamp(b).localeCompare(stamp(a));
+}
+
 const POLL_MS = 4000;
 
-const AdminInbox: React.FC = () => {
+type AdminInboxProps = {
+  /** Lets the shell (AdminTabs → Portal sidebar) mirror the badge count. */
+  onUnreadChange?: (count: number) => void;
+};
+
+const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [threadDoc, setThreadDoc] = useState<ThreadDoc | null>(null);
@@ -85,13 +110,21 @@ const AdminInbox: React.FC = () => {
 
   const filteredThreads = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return threads;
-    return threads.filter((t) => {
-      const hay = `${t.name} ${t.email || ""} ${t.full_name || ""} ${t.company_name || ""} ${t.status || ""}`
-        .toLowerCase();
-      return hay.includes(q);
-    });
+    const base = !q
+      ? threads
+      : threads.filter((t) => {
+          const hay = `${t.name} ${t.email || ""} ${t.full_name || ""} ${t.company_name || ""} ${t.status || ""}`
+            .toLowerCase();
+          return hay.includes(q);
+        });
+    return [...base].sort(inboxOrder);
   }, [threads, query]);
+
+  const unreadCount = useMemo(() => threads.filter((t) => t.unread).length, [threads]);
+
+  useEffect(() => {
+    onUnreadChange?.(unreadCount);
+  }, [unreadCount, onUnreadChange]);
 
   const loadThreads = async () => {
     setLoadingThreads(true);
@@ -99,8 +132,12 @@ const AdminInbox: React.FC = () => {
     try {
       const data = await adminListThreads();
       setThreads(data);
-      // auto-select first thread if none selected
-      if (!selectedId && data?.[0]?.name) setSelectedId(data[0].name);
+      // auto-select first thread if none selected — after the same ordering the
+      // list renders, so it lands on the thread that actually needs attention.
+      if (!selectedId) {
+        const first = [...data].sort(inboxOrder)[0];
+        if (first?.name) setSelectedId(first.name);
+      }
     } catch (e: any) {
       setError(e?.message || "Failed to load threads.");
     } finally {
@@ -117,6 +154,12 @@ const AdminInbox: React.FC = () => {
       const doc = await adminGetThread(id);
       setThreadDoc(doc);
       scrollToBottom();
+
+      // Opening a thread IS reading it — stamp it so the badge clears. Done
+      // optimistically in local state too so the dot disappears immediately
+      // rather than waiting for the next poll.
+      await adminMarkRead(id).catch(() => {});
+      setThreads((prev) => prev.map((t) => (t.name === id ? { ...t, unread: false } : t)));
     } catch (e: any) {
       setError(e?.message || "Failed to load thread.");
     } finally {
@@ -248,7 +291,11 @@ const AdminInbox: React.FC = () => {
                   Threads
                 </p>
                 <p className="text-sm font-black text-murzak-ink dark:text-slate-100">
-                  {loadingThreads ? "Loading..." : `${threads.length} total`}
+                  {loadingThreads
+                    ? "Loading..."
+                    : unreadCount > 0
+                      ? `${unreadCount} unread · ${threads.length} total`
+                      : `${threads.length} total`}
                 </p>
               </div>
               <button
@@ -295,8 +342,14 @@ const AdminInbox: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
-                          {labelFromThread(t)}
+                        <p className="flex items-center gap-2 text-sm font-black text-murzak-ink dark:text-slate-100">
+                          {t.unread && (
+                            <span
+                              className="w-2 h-2 shrink-0 rounded-full bg-red-500"
+                              aria-label="Unread"
+                            />
+                          )}
+                          <span className="truncate">{labelFromThread(t)}</span>
                         </p>
                         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
                           {(t.company_name || "—")} • {(t.email || "—")}
