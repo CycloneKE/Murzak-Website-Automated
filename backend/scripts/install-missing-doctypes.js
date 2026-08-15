@@ -31,6 +31,10 @@ const DOCTYPE_PATHS = [
   // add-missing-fields path can install admin_last_read_at (and anything
   // else the code expects) without a manual bench edit.
   path.resolve(__dirname, "../data/doctype-portal-users-requests.json"),
+  // The account's canonical record of a domain it owns. Replaces the three
+  // intake doctypes' half-shaped ideas of one; see services/customerDomains.js
+  // and scripts/backfill-customer-domains.js.
+  path.resolve(__dirname, "../data/doctype-customer-domain.json"),
 ];
 
 async function installOne(client, doctypePath) {

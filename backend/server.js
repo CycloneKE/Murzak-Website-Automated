@@ -438,19 +438,27 @@ function frappeClient() {
           name: 'dev-user@example.com', account_holder_name: 'Admin User',
           work_email: 'dev-user@example.com', plan: 'Business',
           password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
-          account_status: 'Active', 
-          selected_services: JSON.stringify([{
-            serviceId: "test-erpnext-demo", name: "Premium ERP", planId: "business", status: "Active"
-          }])
+          account_status: 'Active',
+          // Child-table rows, matching what fetchSelectedServicesForUser reads
+          // (service_id/service_name/tier/status). This was previously a
+          // JSON.stringify'd array of {serviceId}, which Array.isArray rejects
+          // — so every mock account read as owning NO services and the whole
+          // hosting lane 404'd locally. biz-web-hosting is seeded so the
+          // domain/subdomain flows are exercisable at all; no domain_choice,
+          // since Customer Domain replaced that purchase-time gate.
+          selected_services: [
+            { service_id: "test-erpnext-demo", service_name: "Premium ERP", tier: "Medium", status: "Active" },
+            { service_id: "biz-web-hosting", service_name: "Website Hosting (Business)", tier: "Medium", status: "Active" }
+          ]
         },
         {
           name: 'CLIENT_ACCOUNT', account_holder_name: 'Normal Client',
           work_email: 'client@example.com', plan: 'Business',
           password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
-          account_status: 'Active', 
-          selected_services: JSON.stringify([{
-            serviceId: "volume-web", name: "Client Site", planId: "business", status: "Active"
-          }])
+          account_status: 'Active',
+          selected_services: [
+            { service_id: "volume-web", service_name: "Client Site", tier: "Light", status: "Active" }
+          ]
         }
       ];
       console.log('[mock-frappe] in-memory store initialised');
@@ -3127,94 +3135,6 @@ async function ensureUserOwnsHostingService(client, webAccountName) {
   return svc;
 }
 
-async function fetchHostingDomains(client, webAccountName) {
-  const res = await client.get("/api/resource/Hosting Domain", {
-    params: {
-      filters: JSON.stringify([
-        ["web_account", "=", webAccountName],
-        ["service_id", "=", HOSTING_SERVICE_ID],
-      ]),
-      fields: JSON.stringify([
-        "name",
-        "domain_name",
-        "status",
-        "is_primary",
-        "source",
-        "provider",
-        "ssl_status",
-        "creation",
-      ]),
-      limit_page_length: 100,
-      order_by: "creation desc",
-    },
-  });
-
-  return (res.data?.data || []).map((row) => ({
-    id: row.name,
-    domainName: row.domain_name,
-    status: row.status,
-    isPrimary: !!row.is_primary,
-    source: row.source,
-    provider: row.provider ? toCustomerProvider(row.provider) : null,
-    sslStatus: row.ssl_status || "none",
-    createdAt: row.creation,
-  }));
-}
-
-async function fetchHostingDomainRequests(client, webAccountName) {
-  const res = await client.get("/api/resource/Hosting Domain Request", {
-    params: {
-      filters: JSON.stringify([
-        ["web_account", "=", webAccountName],
-        ["service_id", "=", HOSTING_SERVICE_ID],
-      ]),
-      fields: JSON.stringify([
-        "name",
-        "requested_name",
-        "requested_tld",
-        "full_domain",
-        "request_type",
-        "is_included",
-        "requires_payment",
-        "status",
-        "notes",
-        "creation",
-      ]),
-      limit_page_length: 100,
-      order_by: "creation desc",
-    },
-  });
-
-  return (res.data?.data || []).map((row) => ({
-    id: row.name,
-    requestedName: row.requested_name,
-    requestedTld: row.requested_tld,
-    fullDomain: row.full_domain,
-    requestType: row.request_type,
-    isIncluded: !!row.is_included,
-    requiresPayment: !!row.requires_payment,
-    status: row.status,
-    notes: row.notes || "",
-    createdAt: row.creation,
-  }));
-}
-
-function computeIncludedDomainEntitlement(domains, domainRequests) {
-  const includedDomainSlots = 1;
-
-  const usedIncludedDomainSlots =
-    [...domains, ...domainRequests].filter((item) => item.source === "included" || item.isIncluded).length > 0
-      ? 1
-      : 0;
-
-  return {
-    includedDomainSlots,
-    usedIncludedDomainSlots,
-    canRequestIncludedDomain: usedIncludedDomainSlots < includedDomainSlots,
-  };
-}
-
-
 async function createHostingActivityLog(client, {
   webAccountName,
   hostingSiteName,
@@ -3587,9 +3507,6 @@ const routeContext = {
   recalculateHostingStorageUsage,
   getHostingStorageAllocationMb,
   ensureUserOwnsHostingService,
-  fetchHostingDomains,
-  fetchHostingDomainRequests,
-  computeIncludedDomainEntitlement,
   createHostingActivityLog,
   findExistingHostingSiteByHost,
   ensurePendingHostingSiteForRequest,

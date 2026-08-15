@@ -1,5 +1,6 @@
 
 const express = require('express');
+const customerDomains = require('../services/customerDomains');
 
 module.exports = function(ctx) {
   const { 
@@ -7,7 +8,6 @@ module.exports = function(ctx) {
     buildHostingAbsolutePath,
     buildHostingRelativePath,
     buildHostingUploadDir,
-    computeIncludedDomainEntitlement,
     ensureHostingSiteStorageAllocation,
     ensurePendingHostingSiteForRequest,
     ensureSafeFileName,
@@ -15,8 +15,6 @@ module.exports = function(ctx) {
     fetchHostingActivity,
     fetchHostingDeployments,
     fetchHostingDomainPurchaseRequests,
-    fetchHostingDomainRequests,
-    fetchHostingDomains,
     fetchHostingExternalDomains,
     fetchHostingFiles,
     fetchHostingMurzakSubdomains,
@@ -33,6 +31,37 @@ module.exports = function(ctx) {
   } = ctx;
 
   const router = express.Router();
+
+  /**
+   * Mirror an accepted intake into the account's Customer Domain record.
+   *
+   * Best-effort on purpose: the intake record is what staff fulfil, so a
+   * failure to write the ownership row must not reject the customer's
+   * request. The backfill script reconciles anything that slips through.
+   */
+  async function recordCustomerDomain(client, webAccountName, opts) {
+    try {
+      await customerDomains.ensureCustomerDomain(client, {
+        webAccount: webAccountName,
+        ...opts,
+      });
+    } catch (e) {
+      console.error("CUSTOMER DOMAIN RECORD ERROR:", e.response?.data || e.message);
+    }
+  }
+
+  /** Every domain the account owns, whatever service (if any) it points at. */
+  router.get("/api/portal/domains", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = req.session?.webAccount || req.session?.user?.id;
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const client = frappeClient();
+      return res.json({ ok: true, domains: await customerDomains.listCustomerDomains(client, webAccountName) });
+    } catch (err) {
+      console.error("LIST CUSTOMER DOMAINS ERROR:", err.response?.data || err.message);
+      return res.status(500).json({ error: "Failed to load domains." });
+    }
+  });
 
 router.get("/api/hosting/dashboard", requireAuth, async (req, res) => {
   try {
@@ -135,11 +164,11 @@ router.post("/api/hosting/domain-purchase-requests", requireAuth, async (req, re
     });
     const client = frappeClient();
     const svc = await getActiveHostingServiceForUser(client, webAccountName);
-    if (String(svc.domainChoice || "").trim() !== "Register New Domain") {
-      return res.status(400).json({
-        error: "Your hosting service is not configured for Register New Domain."
-      });
-    }
+    // The old gate here rejected the request unless the service had been
+    // configured for "Register New Domain" at purchase time — which is why a
+    // customer could never register a second domain, or one for a service
+    // they set up differently. Domains are account-owned now; owning the
+    // hosting service is the only thing that has to be true.
     const created = await client.post("/api/resource/Hosting Domain Purchase Request", {
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
@@ -160,6 +189,15 @@ router.post("/api/hosting/domain-purchase-requests", requireAuth, async (req, re
       planName: svc.serviceName || "Website Hosting",
       storageLimitMb: 1024,
       notes: `Pending hosting site created for domain purchase request: ${fullDomain}`
+    });
+    await recordCustomerDomain(client, webAccountName, {
+      domainName: fullDomain,
+      kind: customerDomains.DOMAIN_KINDS.REGISTERED,
+      status: "pending",
+      sourceDoctype: "Hosting Domain Purchase Request",
+      sourceName: created.data?.data?.name,
+      attachedToService: HOSTING_SERVICE_ID,
+      notes: String(notes || "").trim(),
     });
     return res.json({
       ok: true,
@@ -192,11 +230,8 @@ router.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
     const fullSubdomain = `${cleanLabel}.murzaktech.com`;
     const client = frappeClient();
     const svc = await getActiveHostingServiceForUser(client, webAccountName);
-    if (String(svc.domainChoice || "").trim() !== "Use Murzak Subdomain") {
-      return res.status(400).json({
-        error: "Your hosting service is not configured for Use Murzak Subdomain."
-      });
-    }
+    // Purchase-time domainChoice gate removed — see the note on the domain
+    // purchase route above.
     const created = await client.post("/api/resource/Hosting Murzak Subdomain", {
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
@@ -216,6 +251,15 @@ router.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
       planName: svc.serviceName || "Website Hosting",
       storageLimitMb: 1024,
       notes: `Pending hosting site created for Murzak subdomain request: ${fullSubdomain}`
+    });
+    await recordCustomerDomain(client, webAccountName, {
+      domainName: fullSubdomain,
+      kind: customerDomains.DOMAIN_KINDS.MURZAK_SUBDOMAIN,
+      status: "pending",
+      sourceDoctype: "Hosting Murzak Subdomain",
+      sourceName: created.data?.data?.name,
+      attachedToService: HOSTING_SERVICE_ID,
+      notes: String(notes || "").trim(),
     });
     return res.json({
       ok: true,
@@ -240,17 +284,20 @@ router.post("/api/hosting/external-domains", requireAuth, async (req, res) => {
       registrar,
       notes
     } = req.body || {};
-    const cleanDomain = String(domainName || "").trim().toLowerCase();
+    // Normalize before storing: a customer pasting "https://Shop.Example.com/"
+    // previously landed in the intake record verbatim, so staff fulfilled
+    // against a URL rather than a hostname.
+    const cleanDomain = customerDomains.normalizeDomainName(domainName);
     if (!cleanDomain) return res.status(400).json({
       error: "Domain name is required."
     });
+    if (!customerDomains.isValidDomainName(cleanDomain)) return res.status(400).json({
+      error: "That does not look like a valid domain name."
+    });
     const client = frappeClient();
     const svc = await getActiveHostingServiceForUser(client, webAccountName);
-    if (String(svc.domainChoice || "").trim() !== "Bring My Domain") {
-      return res.status(400).json({
-        error: "Your hosting service is not configured for Bring My Domain."
-      });
-    }
+    // Purchase-time domainChoice gate removed — see the note on the domain
+    // purchase route above.
     const created = await client.post("/api/resource/Hosting External Domain Connection", {
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
@@ -268,6 +315,16 @@ router.post("/api/hosting/external-domains", requireAuth, async (req, res) => {
       planName: svc.serviceName || "Website Hosting",
       storageLimitMb: 1024,
       notes: `Pending hosting site created for external domain connection: ${cleanDomain}`
+    });
+    await recordCustomerDomain(client, webAccountName, {
+      domainName: cleanDomain,
+      kind: customerDomains.DOMAIN_KINDS.EXTERNAL,
+      status: "pending",
+      registrar: String(registrar || "").trim(),
+      sourceDoctype: "Hosting External Domain Connection",
+      sourceName: created.data?.data?.name,
+      attachedToService: HOSTING_SERVICE_ID,
+      notes: String(notes || "").trim(),
     });
     return res.json({
       ok: true,
@@ -339,108 +396,6 @@ router.post("/api/hosting/subdomains", requireAuth, async (req, res) => {
     console.error("HOSTING SUBDOMAIN ERROR:", err.response?.data || err.message);
     return res.status(err.statusCode || 500).json({
       error: err.message || "Failed to create subdomain request."
-    });
-  }
-});
-
-router.post("/api/hosting/domains/request", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({
-      error: "Not authenticated."
-    });
-    const {
-      requestedName,
-      requestedTld,
-      requestType,
-      notes
-    } = req.body || {};
-    const cleanName = String(requestedName || "").trim().toLowerCase();
-    const cleanTld = String(requestedTld || "").trim().toLowerCase();
-    const cleanType = String(requestType || "register").trim();
-    if (!cleanName) return res.status(400).json({
-      error: "Domain name is required."
-    });
-    if (!cleanTld.startsWith(".")) return res.status(400).json({
-      error: "Invalid domain extension."
-    });
-    const client = frappeClient();
-    await ensureUserOwnsHostingService(client, webAccountName);
-    const domains = await fetchHostingDomains(client, webAccountName);
-    const domainRequests = await fetchHostingDomainRequests(client, webAccountName);
-    const entitlement = computeIncludedDomainEntitlement(domains, domainRequests);
-    const fullDomain = `${cleanName}${cleanTld}`;
-    const isIncluded = entitlement.canRequestIncludedDomain;
-    const requiresPayment = !isIncluded;
-    const created = await client.post("/api/resource/Hosting Domain Request", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      requested_name: cleanName,
-      requested_tld: cleanTld,
-      full_domain: fullDomain,
-      request_type: cleanType,
-      is_included: isIncluded ? 1 : 0,
-      requires_payment: requiresPayment ? 1 : 0,
-      status: requiresPayment ? "awaiting_payment" : "pending",
-      notes: String(notes || "").trim()
-    });
-    return res.json({
-      ok: true,
-      request: created.data?.data || null,
-      message: isIncluded ? "Included domain request submitted." : "Additional domain request submitted. Payment may be required before activation."
-    });
-  } catch (err) {
-    console.error("DOMAIN REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to submit domain request."
-    });
-  }
-});
-
-router.post("/api/hosting/subdomains/request", requireAuth, async (req, res) => {
-  try {
-    const webAccountName = req.session?.webAccount || req.session?.user?.id;
-    if (!webAccountName) return res.status(401).json({
-      error: "Not authenticated."
-    });
-    const {
-      parentDomain,
-      subdomainPrefix,
-      targetType,
-      targetValue
-    } = req.body || {};
-    const cleanParent = String(parentDomain || "").trim().toLowerCase();
-    const cleanPrefix = String(subdomainPrefix || "").trim().toLowerCase();
-    const cleanTargetType = String(targetType || "folder").trim().toLowerCase();
-    const cleanTargetValue = String(targetValue || "").trim();
-    if (!cleanParent) return res.status(400).json({
-      error: "Parent domain is required."
-    });
-    if (!cleanPrefix) return res.status(400).json({
-      error: "Subdomain prefix is required."
-    });
-    const client = frappeClient();
-    await ensureUserOwnsHostingService(client, webAccountName);
-    const fullSubdomain = `${cleanPrefix}.${cleanParent}`;
-    const created = await client.post("/api/resource/Hosting Subdomain", {
-      web_account: webAccountName,
-      service_id: HOSTING_SERVICE_ID,
-      parent_domain: cleanParent,
-      subdomain_prefix: cleanPrefix,
-      full_subdomain: fullSubdomain,
-      target_type: cleanTargetType,
-      target_value: cleanTargetValue,
-      status: "pending"
-    });
-    return res.json({
-      ok: true,
-      subdomain: created.data?.data || null,
-      message: "Subdomain request submitted."
-    });
-  } catch (err) {
-    console.error("SUBDOMAIN REQUEST ERROR:", err.response?.data || err.message);
-    return res.status(err.statusCode || 500).json({
-      error: err.message || "Failed to submit subdomain request."
     });
   }
 });
