@@ -4,6 +4,7 @@ const { runProvisioningForInvoice } = require("./provisioning/provisioningServic
 const { getServiceMeta } = require("./provisioning/catalog");
 const { STATUS_SETTING_UP, STATUS_ACTIVE } = require("./provisioning/constants");
 const { sendTrialStartedEmail } = require("../utils/mailer");
+const { fulfilPurchasedDomains } = require("./domainPurchaseFulfilment");
 
 // Managed SaaS (premium: ERPNext/POS/CRM…) is configured by the team, so on
 // payment it lands in "Setting up" until provisioning completes; light volume
@@ -244,6 +245,24 @@ async function activateServicesForInvoiceLocked({
       account_status: "Active",
     }
   );
+
+  // A paid domain purchase becomes a real fulfilment record and an owned
+  // domain. Without this the domain someone paid for reached neither the
+  // staff queue nor their Domains tab — it existed only as a string on an
+  // invoice row. Best-effort for the same reason provisioning is: the invoice
+  // is already Paid and must not be rolled back by a Frappe hiccup.
+  try {
+    const fulfilment = await fulfilPurchasedDomains(client, webAccountName, invoiceServicesWithDomain);
+    if (fulfilment.considered) {
+      console.log(
+        `[domain-purchase] invoice ${invoiceDocName}: ${fulfilment.requests} request(s), ` +
+          `${fulfilment.domains} domain(s), ${fulfilment.skipped} already queued` +
+          (fulfilment.errors.length ? ` — errors: ${fulfilment.errors.join("; ")}` : "")
+      );
+    }
+  } catch (e) {
+    console.error(`[domain-purchase] invoice ${invoiceDocName} fulfilment failed:`, e.message);
+  }
 
   // Provisioning (Phase 0): record a queued job per newly-active service and
   // notify staff. Best-effort — runProvisioningForInvoice never throws, so a

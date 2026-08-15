@@ -379,6 +379,25 @@ async function listAllCustomerDomains(client, { status } = {}) {
   }));
 }
 
+/**
+ * Split a purchased domain into the (name, tld) pair the Hosting Domain
+ * Purchase Request doctype stores. Pure.
+ *
+ * The TLD comes from the product the customer was CHARGED for, not from
+ * parsing the string: ".co.ke" is two labels and a naive first-dot split
+ * cannot tell it from a subdomain. Checkout has already asserted that the
+ * domain ends with this product's TLD (assertDomainConfigMatchesService), so
+ * the two agree by construction.
+ */
+function splitPurchasedDomain(domainName, tld) {
+  const domain = normalizeDomainName(domainName);
+  const suffix = String(tld || "").trim().toLowerCase();
+  if (!domain || !suffix || !domain.endsWith(suffix)) return null;
+  const label = domain.slice(0, domain.length - suffix.length);
+  if (!label) return null;
+  return { requestedName: label, requestedTld: suffix, fullDomain: domain };
+}
+
 /** Count domains by status, for the queue's badge and filter chips. */
 function summarizeByStatus(domains) {
   const out = {};
@@ -497,6 +516,7 @@ module.exports = {
   normalizeDomainName,
   normalizeStatus,
   setDomainAttachment,
+  splitPurchasedDomain,
   summarizeByStatus,
   updateCustomerDomain,
 };
