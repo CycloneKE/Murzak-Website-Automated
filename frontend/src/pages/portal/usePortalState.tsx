@@ -40,10 +40,10 @@ import {
   DeploymentEntry,
 } from "../../services/serviceActivity";
 import { SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
-import { attachDomainToService, detachDomain, fetchCustomerDomains } from "../../services/hostingPortal";
-import { type CustomerDomain } from "../../types/hosting";
 import { normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
+import { useCustomerDomains } from "./state/useCustomerDomains";
+import { useUploads } from "./state/useUploads";
 
 export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: PortalProps) {
   const navigate = useNavigate();
@@ -70,11 +70,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const [planAttachBanner, setPlanAttachBanner] = useState<string>("");
   const [planAttachBannerTone, setPlanAttachBannerTone] = useState<"error" | "success">("error");
 
-  // Upload UI
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState<string>("");
-  const [uploadedFiles, setUploadedFiles] = useState<{ name: string; url: string }[]>([]);
-  const [uploadsLoaded, setUploadsLoaded] = useState(false);
 
   // BYOA project repository (Web Account.source_code) — shown + editable on
   // My Account so the repo App Hosting deploys from is never write-only.
@@ -152,57 +147,17 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const [scalingServiceId, setScalingServiceId] = useState<string | null>(null);
 
-  // --- Domains ---
-  // The account's domains, independent of any service. Loaded once for the
-  // portal rather than per-tab so the sidebar count and the tab agree.
-  const [domains, setDomains] = useState<CustomerDomain[]>([]);
-  const [domainsLoading, setDomainsLoading] = useState(true);
-  const [domainsError, setDomainsError] = useState("");
-  const [domainBusyId, setDomainBusyId] = useState<string>("");
-  const [domainNotice, setDomainNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // Domains and uploads now live in ./state as their own hooks — the first
+  // two slices out of this file. Each owns its state end to end and depends on
+  // nothing else here, which is why they went first; services, invoices,
+  // updates and resource-ops are more entangled and follow separately.
+  const {
+    attachDomain, detachCustomerDomain, domainBusyId, domainNotice, domains,
+    domainsError, domainsLoading, refreshDomains, setDomainNotice,
+  } = useCustomerDomains();
+  const { fetchUploads, handleGeneralUpload, uploadErr, uploadedFiles, uploading, uploadsLoaded } =
+    useUploads();
 
-  const refreshDomains = React.useCallback(async () => {
-    setDomainsError("");
-    try {
-      setDomains(await fetchCustomerDomains());
-    } catch (e: any) {
-      setDomainsError(e?.message || "Failed to load your domains.");
-    } finally {
-      setDomainsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshDomains();
-  }, [refreshDomains]);
-
-  const attachDomain = async (domainId: string, serviceId: string) => {
-    setDomainBusyId(domainId);
-    setDomainNotice(null);
-    try {
-      await attachDomainToService(domainId, serviceId);
-      await refreshDomains();
-      setDomainNotice({ type: "success", text: "Domain pointed at your service. DNS can take a little while to update everywhere." });
-    } catch (e: any) {
-      setDomainNotice({ type: "error", text: e?.message || "Failed to attach this domain." });
-    } finally {
-      setDomainBusyId("");
-    }
-  };
-
-  const detachCustomerDomain = async (domainId: string) => {
-    setDomainBusyId(domainId);
-    setDomainNotice(null);
-    try {
-      await detachDomain(domainId);
-      await refreshDomains();
-      setDomainNotice({ type: "success", text: "Domain detached. You still own it — attach it somewhere whenever you like." });
-    } catch (e: any) {
-      setDomainNotice({ type: "error", text: e?.message || "Failed to detach this domain." });
-    } finally {
-      setDomainBusyId("");
-    }
-  };
 
   const [developerUpsellSvc, setDeveloperUpsellSvc] = useState<string | null>(null);
   // Set by ResourceAdminPanel once every gate passes — the "fully managed, no
@@ -1005,49 +960,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     onNavigate(`/pricing?${qp.toString()}#pricing-plans` as any);
   };
 
-  // --------------------------
-  // Upload
-  // --------------------------
-  // Files are attached to the Web Account server-side (see POST
-  // /api/portal/upload), so the list survives reloads — fetch it once on
-  // mount and re-fetch after every successful upload rather than relying on
-  // session-only optimistic state.
-  const fetchUploads = React.useCallback(async () => {
-    try {
-      const res = await fetch("/api/portal/uploads", { credentials: "include" });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data?.ok && Array.isArray(data.files)) {
-        setUploadedFiles(data.files.map((f: any) => ({ name: f.name, url: f.url })));
-      }
-    } catch {
-      // Leave whatever's already in state — a failed refresh isn't worth an error banner.
-    } finally {
-      setUploadsLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchUploads();
-  }, [fetchUploads]);
-
-  const handleGeneralUpload = async (file: File) => {
-    setUploadErr("");
-    setUploading(true);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-
-      const res = await fetch("/api/portal/upload", { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || "Upload failed");
-
-      await fetchUploads();
-    } catch (e: any) {
-      setUploadErr(e?.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   // --------------------------
   // Billing helpers (front-end)
