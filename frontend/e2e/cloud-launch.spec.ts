@@ -53,24 +53,20 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    // 3. Auto-attach should redirect straight to payment.
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
+    // 3. Auto-attach lands on Checkout (not a separate /payment/:id route —
+    // there isn't one in the current flow; PaymentMethods renders directly
+    // on Checkout.tsx). Pay via the same dev-only mock-pay rail
+    // checkout.spec.ts already uses (PaymentMethods.tsx, gated on
+    // import.meta.env.DEV). This replaces a manual /payment/:invoiceId +
+    // fetch('/api/paypal/capture-order') dance that asserted a navigation
+    // model the app no longer has — it never advanced past /checkout/CHK-...
+    // in CI, which is exactly this drift, not a product bug.
+    await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
+    const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
+    await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
+    await mockPayBtn.click();
 
-    const invoiceMatch = page.url().match(/\/payment\/([^/]+)/);
-    const invoiceId = invoiceMatch ? invoiceMatch[1] : '';
-    expect(invoiceId).toBeTruthy();
-
-    await page.evaluate(async (invId) => {
-      const res = await fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ invoiceDocName: invId, orderID: 'MOCK_PAYPAL_SUCCESS' }),
-      });
-      if (res.ok) window.location.href = '/portal/overview';
-    }, invoiceId);
-
-    await expect(page).toHaveURL(/.*\/portal\/overview/);
+    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
     const appHostingRow = page.locator('text=App Hosting (Node.js / Docker)').first();
     await expect(appHostingRow).toBeVisible({ timeout: 5000 });
   });
@@ -102,16 +98,19 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
-    const firstInvoiceId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
-    await page.evaluate(async (invId) => {
-      await fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ invoiceDocName: invId, orderID: 'MOCK_PAYPAL_SUCCESS' }),
-      });
-    }, firstInvoiceId);
+    // Unlike the first test's CloudLaunchModal path (-> /checkout/CHK-...),
+    // the Pricing/plan-configurator flow this bootstrap uses genuinely does
+    // land on a dedicated /payment/:invoiceId page (Payment.tsx renders the
+    // same PaymentMethods component Checkout.tsx embeds) — that part of the
+    // original test was correct. Only the payment step itself needed fixing:
+    // drive it via the same dev-mock-pay rail as everywhere else in this
+    // suite, rather than a raw fetch to /api/paypal/capture-order.
+    await expect(page).toHaveURL(/\/payment\/.+/, { timeout: 15000 });
+    const firstOrderId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
+    const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
+    await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
+    await mockPayBtn.click();
+    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
 
     // Now this account has a PAID Business plan. Launch a Light-tier volume
     // resource — this must succeed via POST /api/orders (order creation is
@@ -136,6 +135,6 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await expect(page).toHaveURL(/.*\/checkout\/.+/, { timeout: 15000 });
     const secondOrderId = page.url().match(/\/checkout\/([^/]+)/)?.[1] || '';
     expect(secondOrderId).toBeTruthy();
-    expect(secondOrderId).not.toBe(firstInvoiceId);
+    expect(secondOrderId).not.toBe(firstOrderId);
   });
 });
