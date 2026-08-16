@@ -10,6 +10,7 @@ export type ServiceCategory =
   | "Database Hosting"
   | "Domain Registration"
   | "Storage"
+  | "E-Signature"
   | "Apps"
   | "Security & Backup"
   | "POS & Inventory"
@@ -444,6 +445,19 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["In-memory speed", "Daily backups", "Managed by us"],
       sortOrder: 54,
+    },
+    {
+      id: "starter-esign",
+      name: "E-Signature",
+      description: "Send documents for signature and track status — your own e-signature tool.",
+      category: "E-Signature",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "512MB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 512, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 1800, setupKes: 0 },
+      highlights: ["Unlimited documents", "Signer tracking", "Your own domain"],
+      sortOrder: 56,
     },
     {
       id: "starter-hrpay",
@@ -1162,13 +1176,15 @@ export type CloudLaunchCategory =
   | "Website Hosting"
   | "App Hosting"
   | "Database Hosting"
-  | "Storage";
+  | "Storage"
+  | "E-Signature";
 
 export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Website Hosting",
   "App Hosting",
   "Database Hosting",
   "Storage",
+  "E-Signature",
 ];
 
 /** Every self-serve, instantly-provisioned resource, grouped by category. */
