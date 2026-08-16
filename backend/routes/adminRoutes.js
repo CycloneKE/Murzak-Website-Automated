@@ -558,6 +558,21 @@ router.get("/api/admin/provisioning/orphans", requireAuth, requireAdmin, async (
   }
 });
 
+// Platform health: last Platform Health Check row per job_type (orphan_check,
+// capacity_snapshot, backup) — the scheduled sweeps and this route's own
+// on-demand siblings (/orphans, /capacity above) both write to the same
+// doctype, so a manual check between scheduled runs shows up here too.
+router.get("/api/admin/platform-health", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { latestHealthChecks } = require("../services/provisioning/platformHealth");
+    const checks = await latestHealthChecks(frappeClient());
+    return res.json({ ok: true, checks });
+  } catch (err) {
+    console.error("ADMIN PLATFORM HEALTH ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load platform health." });
+  }
+});
+
 // ---- Developer access terminal (admin) — P5.4 ----
 // Metadata-only list: general admin access, broad requireAdmin gate — matches
 // the brainstormed tiering (staff see WHAT happened, not the transcript).
