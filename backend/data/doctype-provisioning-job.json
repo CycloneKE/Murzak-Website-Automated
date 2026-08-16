@@ -26,6 +26,7 @@
     { "fieldname": "column_break_routing", "fieldtype": "Column Break" },
     { "fieldname": "ram_mb", "fieldtype": "Int", "label": "RAM (MB)" },
     { "fieldname": "disk_gb", "fieldtype": "Int", "label": "Disk (GB)" },
+    { "fieldname": "external_port", "fieldtype": "Int", "label": "External Port", "description": "Published host port for Database Hosting remote access (phase 2)" },
     { "fieldname": "backup_status", "fieldtype": "Select", "label": "Backup", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Off-site backup state set at create-time" },
     { "fieldname": "repo_url", "fieldtype": "Data", "label": "Repo URL", "description": "BYOA: customer Git repository this job deploys (optional #branch suffix)" },
     { "fieldname": "app_port", "fieldtype": "Int", "label": "App Port", "description": "BYOA: port the customer's app listens on inside the container (default 3000)" },

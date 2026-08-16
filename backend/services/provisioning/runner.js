@@ -252,7 +252,7 @@ async function reclaimStaleRunning(client, thresholdSec = staleRunningSec()) {
 const CLAIMABLE_JOB_FIELDS = [
   "name", "web_account", "invoice", "service_id", "service_name",
   "category", "capacity_class", "lane", "status", "attempts",
-  "ram_mb", "disk_gb", "next_run_at", "target",
+  "ram_mb", "disk_gb", "external_port", "next_run_at", "target",
   // BYOA: the lane dispatches on repo_url — omitting it here silently
   // downgrades an app deploy to a blank service (caught live 2026-07-16).
   // app_port + deployment_uuid are the same bug class: the lane reads

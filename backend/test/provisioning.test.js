@@ -71,6 +71,17 @@ function makeStore(initialJobs = []) {
 const PJ = (s) => s.docs["Provisioning Job"];
 const CR = (s) => s.docs["Capacity Request"];
 
+async function withEnvAsync(vars, fn) {
+  const saved = {};
+  for (const k of Object.keys(vars)) { saved[k] = process.env[k]; process.env[k] = vars[k]; }
+  try { return await fn(); }
+  finally {
+    for (const k of Object.keys(vars)) {
+      if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
+    }
+  }
+}
+
 const okLane = {
   isConfigured: () => true,
   configError: () => null,
@@ -292,6 +303,47 @@ const okLane = {
   const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
   ok(gated.status === "needs_human" && gated.gated === 1, "enqueue premium over-cap -> needs_human + gated");
   ok(Object.values(CR(s)).length === 1, "enqueue fired one scale-out request");
+
+  section("Database Hosting enqueue: gets a real external_port, needs_human when the pool is exhausted");
+  {
+    const sPort = makeStore([]);
+    const eqPort = await svc.enqueueProvisioningForInvoice({
+      client: sPort, webAccount: "WP", invoiceDocName: "INV-PORT", serviceIds: ["db-mysql"],
+    });
+    ok(eqPort.created.length === 1, "db-mysql purchase creates one job");
+    const portJob = Object.values(PJ(sPort))[0];
+    ok(Number(portJob.external_port) >= 33000 && Number(portJob.external_port) <= 33999, `db-mysql job gets a real port in range (got ${portJob.external_port})`);
+
+    // Two database purchases in the SAME batch must not collide.
+    const sTwo = makeStore([]);
+    const eqTwo = await svc.enqueueProvisioningForInvoice({
+      client: sTwo, webAccount: "WP2", invoiceDocName: "INV-PORT2", serviceIds: ["db-mysql", "db-postgres"],
+    });
+    ok(eqTwo.created.length === 2, "two database products in one order both create jobs");
+    const twoJobs = Object.values(PJ(sTwo));
+    const ports = twoJobs.map((j) => Number(j.external_port));
+    ok(ports[0] !== ports[1], `two database products in the same batch get DIFFERENT ports (got ${ports.join(", ")})`);
+
+    // Non-database volume products never get a port at all.
+    const sWeb = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({
+      client: sWeb, webAccount: "WP3", invoiceDocName: "INV-PORT3", serviceIds: ["starter-web-hosting"],
+    });
+    const webJob = Object.values(PJ(sWeb))[0];
+    ok(!webJob.external_port, "a non-database product never gets an external_port field populated");
+
+    // Exhausted range -> needs_human, matching the capacity-gate-exceeded pattern.
+    await withEnvAsync({ DB_EXTERNAL_PORT_RANGE_START: "33000", DB_EXTERNAL_PORT_RANGE_END: "33000" }, async () => {
+      const sExhausted = makeStore([
+        { name: "TAKEN", service_id: "db-postgres", category: "Database Hosting", status: "active", external_port: 33000 },
+      ]);
+      await svc.enqueueProvisioningForInvoice({
+        client: sExhausted, webAccount: "WP4", invoiceDocName: "INV-PORT4", serviceIds: ["db-mysql"],
+      });
+      const exhaustedJob = Object.values(PJ(sExhausted)).find((j) => j.service_id === "db-mysql");
+      ok(exhaustedJob.status === "needs_human", "exhausted port range -> needs_human, not a fake/duplicate port");
+    });
+  }
 
   section("domain registration: manual lane, and the purchased domain reaches the staff email (Critical 2 + 3)");
   {

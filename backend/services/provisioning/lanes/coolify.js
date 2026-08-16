@@ -582,7 +582,7 @@ function generateRandomSecret() {
  * image's entrypoint does the same "chown data dir as root, then drop to its
  * own user" dance nginx:alpine's does, verified live for.
  */
-function buildDbComposeYaml(name, limits, dbConfig, password) {
+function buildDbComposeYaml(name, limits, dbConfig, password, externalPort) {
   const volumeName = `${name}-data`;
   const envLines = dbConfig.envVars
     ? Object.entries(dbConfig.envVars(password))
@@ -591,6 +591,13 @@ function buildDbComposeYaml(name, limits, dbConfig, password) {
     : "";
   const commandLines = dbConfig.command
     ? `    command: ${JSON.stringify(dbConfig.command(password))}\n`
+    : "";
+  // Phase 2 only — phase 1 deliberately never published a host port (see the
+  // long comment on the generic app path about port 80 colliding with
+  // Coolify's own proxy). A unique per-customer port here doesn't collide
+  // with anything, as long as the allocator guarantees uniqueness.
+  const portsLines = externalPort
+    ? `    ports:\n      - target: ${dbConfig.port}\n        published: ${externalPort}\n`
     : "";
 
   return (
@@ -611,6 +618,7 @@ function buildDbComposeYaml(name, limits, dbConfig, password) {
     `      - no-new-privileges:true\n` +
     `    expose:\n` +
     `      - "${dbConfig.port}"\n` +
+    portsLines +
     commandLines +
     (envLines ? `    environment:\n${envLines}` : "") +
     `    volumes:\n` +
@@ -796,7 +804,7 @@ async function provision(job, opts) {
     : null;
   const curatedAppSecret = curatedAppConfig ? generateRandomSecret() : null;
   const composeYaml = dbConfig
-    ? buildDbComposeYaml(name, limits, dbConfig, dbPassword)
+    ? buildDbComposeYaml(name, limits, dbConfig, dbPassword, Number(job.external_port) > 0 ? Number(job.external_port) : null)
     : curatedAppConfig
     ? buildCuratedAppComposeYaml(name, limits, curatedAppConfig, curatedAppFqdn, curatedAppSecret)
     : `services:\n` +
@@ -850,12 +858,14 @@ async function provision(job, opts) {
       ...(dbConfig
         ? {
             engine: dbConfig.engine,
-            // Best-effort — Coolify's own internal Docker DNS name for this
-            // resource, not independently verified reachable from another
-            // customer's stack (that verification is part of phase 2's
-            // external-access work, not this fix).
-            host: name,
-            port: dbConfig.port,
+            // Phase 2: when both a public host is configured AND this job has
+            // an allocated external port, report the REAL externally-reachable
+            // coordinates. Otherwise fall back to phase 1's honest best-effort
+            // guess (the internal Docker resource name / container port) —
+            // never silently blank, and never a fabricated public endpoint for
+            // a job that was never actually given one.
+            host: (process.env.DB_PUBLIC_HOST && Number(job.external_port) > 0) ? process.env.DB_PUBLIC_HOST : name,
+            port: Number(job.external_port) > 0 ? Number(job.external_port) : dbConfig.port,
             database: dbConfig.database,
             username: dbConfig.username,
             password: dbPassword,

@@ -18,6 +18,7 @@
 const { getServiceMeta, laneFor, CAPACITY } = require("./catalog");
 const { JOB_DOCTYPE } = require("./constants");
 const { isValidRepoUrl } = require("../../utils/repoUrl");
+const dbPortAllocator = require("./dbPortAllocator");
 
 function isEnabled() {
   // On by default; set PROVISIONING_ENABLED=false to pause without touching payments.
@@ -194,6 +195,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     }
   }
 
+  const reservedPortsThisBatch = new Set();
   for (const { serviceId, domainChoice } of services) {
     const payload = buildJobPayload({
       webAccount,
@@ -203,6 +205,23 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       appPort: accountAppPort,
     });
     const meta = getServiceMeta(serviceId);
+
+    // Phase 2: Database Hosting jobs get a real external port so a customer
+    // can connect with their own SQL client. Only for jobs that are actually
+    // going to be built (status is still "queued" here — buildJobPayload
+    // already flipped it to needs_human for an unrecognized id, so don't
+    // bother allocating a port for a job that's escalating regardless).
+    if (payload.category === "Database Hosting" && payload.status === "queued") {
+      const port = await dbPortAllocator.allocatePort(client, { exclude: reservedPortsThisBatch });
+      if (port) {
+        payload.external_port = port;
+        reservedPortsThisBatch.add(port);
+      } else {
+        payload.status = "needs_human";
+        payload.error = "No external port available in the configured range — the pool is exhausted or Frappe couldn't be queried.";
+      }
+    }
+
     if (meta?.capacityClass === "premium") {
       const placement = await scaling.ensureCapacityFor(client, {
         ramMb: payload.ram_mb,
