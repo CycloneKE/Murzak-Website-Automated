@@ -9,6 +9,7 @@ const resourceAdminEligibilityLib = require('../services/resourceAdminEligibilit
 const storageS3Lib = require('../services/storage/storageS3');
 const storageEligibilityLib = require('../services/storageEligibility');
 const storageQuotaLib = require('../services/storage/quota');
+const dbConnectionLib = require('../services/storage/dbConnection');
 // Not destructured at import time — see the routesContext.test.js note above
 // signBrokerToken: destructuring this require would trip that test's greedy
 // static guard for the ctx destructure below.
@@ -1686,6 +1687,45 @@ router.delete("/api/portal/services/:serviceId/files", requireAuth, storageFiles
     console.error("STORAGE DELETE ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't delete that file. Please try again." });
   }
+});
+
+// --- Database connection details ---
+// No resource-admin gating, same reasoning as File Storage: a database's own
+// credentials are the product itself, not an advanced-controls extra.
+router.get("/api/portal/services/:serviceId/database/connection", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  const { serviceId } = req.params;
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("DATABASE CONNECTION LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  // Deliberately indistinguishable from "not yours": same reasoning as every
+  // other ownership-scoped route in this file.
+  if (!job || job.category !== "Database Hosting") {
+    return res.status(404).json({ error: "Connection details aren't available for this service." });
+  }
+  if (job.status !== "active") {
+    return res.status(409).json({ error: "This service isn't live yet." });
+  }
+
+  const details = dbConnectionLib.parseDbConnectionAccess(job.access);
+  if (!details) {
+    // A service recovered after a crash (see coolify.js provision()'s
+    // idempotency path) never had its password persisted — honest empty
+    // state, never a fabricated credential.
+    return res.json({
+      ok: true,
+      engine: null,
+      note: "Connection details aren't available for this service yet — message support and we'll help you reset your credentials.",
+    });
+  }
+  return res.json({ ok: true, ...details });
 });
 
 // --- DEVELOPER TERMINAL ACCESS: eligibility + one-time disclosure ---
