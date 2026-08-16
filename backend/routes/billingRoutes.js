@@ -19,7 +19,6 @@ module.exports = function(ctx) {
     archiver,
     asArray,
     assertNotAnnualBeforePlanChange,
-    assertWithinPlanLimit,
     axios,
     buildUserPayload,
     computeProratedCreditKes,
@@ -324,7 +323,6 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
     if (!Array.isArray(selectedServices)) return res.status(400).json({
       error: "selectedServices must be an array."
     });
-    assertWithinPlanLimit(plan, selectedServices);
     const client = frappeClient();
 
     // An annual-term account's invoice must never be touched by this route's

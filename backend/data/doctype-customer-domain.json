@@ -1,0 +1,36 @@
+{
+  "doctype": "DocType",
+  "name": "Customer Domain",
+  "module": "Custom",
+  "custom": 1,
+  "naming_rule": "Expression (old style)",
+  "autoname": "hash",
+  "title_field": "domain_name",
+  "track_changes": 1,
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "fields": [
+    { "fieldname": "web_account", "fieldtype": "Link", "label": "Web Account", "options": "Web Account", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1, "description": "The account that OWNS this domain. Ownership is per-account, never per-service — that is the whole point of this doctype." },
+    { "fieldname": "domain_name", "fieldtype": "Data", "label": "Domain Name", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1, "description": "Normalized bare hostname, lowercase, no scheme/path/port. Unique per web account." },
+    { "fieldname": "kind", "fieldtype": "Select", "label": "Kind", "options": "registered\nexternal\nmurzak_subdomain", "in_list_view": 1, "in_standard_filter": 1, "reqd": 1, "description": "How the account came to hold it: we registered it, they brought it, or it is a free murzaktech.com label." },
+    { "fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "pending\nactive\nfailed\nexpired\ncancelled", "default": "pending", "in_list_view": 1, "in_standard_filter": 1 },
+    { "fieldname": "column_break_1", "fieldtype": "Column Break" },
+    { "fieldname": "attached_to_service", "fieldtype": "Data", "label": "Attached To Service", "in_standard_filter": 1, "description": "serviceId this domain currently points at, or blank. NOT a Link — services are child rows on Web Account.selected_services, not a doctype. Blank is a legitimate state: a domain can be owned and unattached." },
+    { "fieldname": "registrar", "fieldtype": "Data", "label": "Registrar" },
+    { "fieldname": "expires_on", "fieldtype": "Date", "label": "Expires On" },
+    { "fieldname": "auto_renew", "fieldtype": "Check", "label": "Auto Renew", "default": "0" },
+    { "fieldname": "ssl_status", "fieldtype": "Select", "label": "SSL Status", "options": "none\npending\nactive", "default": "none" },
+
+    { "fieldname": "section_provenance", "fieldtype": "Section Break", "label": "Provenance" },
+    { "fieldname": "source_doctype", "fieldtype": "Data", "label": "Source Doctype", "read_only": 1, "description": "Which intake record produced this domain (Hosting Domain Purchase Request / Hosting External Domain Connection / Hosting Murzak Subdomain), so an admin can trace a domain back to its request." },
+    { "fieldname": "source_name", "fieldtype": "Data", "label": "Source Name", "read_only": 1 },
+    { "fieldname": "column_break_2", "fieldtype": "Column Break" },
+    { "fieldname": "verification_token", "fieldtype": "Data", "label": "Verification Token", "description": "For external domains: the TXT value the customer publishes to prove control." },
+
+    { "fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes" },
+    { "fieldname": "notes", "fieldtype": "Small Text", "label": "Notes" }
+  ],
+  "permissions": [
+    { "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1 }
+  ]
+}

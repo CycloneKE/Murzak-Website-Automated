@@ -439,19 +439,27 @@ function frappeClient() {
           name: 'dev-user@example.com', account_holder_name: 'Admin User',
           work_email: 'dev-user@example.com', plan: 'Business',
           password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
-          account_status: 'Active', 
-          selected_services: JSON.stringify([{
-            serviceId: "test-erpnext-demo", name: "Premium ERP", planId: "business", status: "Active"
-          }])
+          account_status: 'Active',
+          // Child-table rows, matching what fetchSelectedServicesForUser reads
+          // (service_id/service_name/tier/status). This was previously a
+          // JSON.stringify'd array of {serviceId}, which Array.isArray rejects
+          // — so every mock account read as owning NO services and the whole
+          // hosting lane 404'd locally. biz-web-hosting is seeded so the
+          // domain/subdomain flows are exercisable at all; no domain_choice,
+          // since Customer Domain replaced that purchase-time gate.
+          selected_services: [
+            { service_id: "test-erpnext-demo", service_name: "Premium ERP", tier: "Medium", status: "Active" },
+            { service_id: "biz-web-hosting", service_name: "Website Hosting (Business)", tier: "Medium", status: "Active" }
+          ]
         },
         {
           name: 'CLIENT_ACCOUNT', account_holder_name: 'Normal Client',
           work_email: 'client@example.com', plan: 'Business',
           password_hash: '$2b$10$WAAa5npnUZwiw80dUUzgduKy8hm.eUuygS4W8Hv6MsfsHbuH4xJ4O',
-          account_status: 'Active', 
-          selected_services: JSON.stringify([{
-            serviceId: "volume-web", name: "Client Site", planId: "business", status: "Active"
-          }])
+          account_status: 'Active',
+          selected_services: [
+            { service_id: "volume-web", service_name: "Client Site", tier: "Light", status: "Active" }
+          ]
         }
       ];
       console.log('[mock-frappe] in-memory store initialised');
@@ -822,32 +830,13 @@ async function upsertPortalInvoice({ client, webAccountName, type, planKey, amou
   return create.data?.data?.name || null;
 }
 
-function assertWithinPlanLimit(planKey, selectedServices = []) {
-  const list = Array.isArray(selectedServices) ? selectedServices : [];
-  const limitRaw = PLAN_LIMITS[planKey];
-
-  // Unknown plan or None => treat as 0 allowed
-  const limit =
-    typeof limitRaw === "number"
-      ? limitRaw
-      : 0;
-
-  // Enterprise "unlimited-ish"
-  if (limit >= 999) return;
-
-  if (list.length > limit) {
-    const err = new Error(`Plan limit exceeded: ${planKey} allows ${limit} services.`);
-    err.statusCode = 400;
-    throw err;
-  }
-}
-
-function allowedAddonTiersForPlan(planKey) {
-  if (planKey === "Starter") return ["Light"];
-  if (planKey === "Business") return ["Medium"];
-  if (planKey === "Enterprise") return ["Light", "Medium", "Large", "Enterprise"];
-  return [];
-}
+// Plan tiers no longer cap how many services an account may hold — a plan is a
+// support/SLA tier, not a licence to buy. The real cap is physical and is
+// enforced by assertOrderWithinCapacity / orderCapacity.js against the box's
+// RAM and disk, which is the only limit that was ever true.
+//
+// (assertWithinPlanLimit and allowedAddonTiersForPlan lived here. The tier
+// helper was already dead — defined and exported, never called.)
 
 function formatSelectedServices(services = []) {
   const names = (services || [])
@@ -909,7 +898,6 @@ const INVOICE_SERVICES_JSON_FIELD = "services_json";
 const INVOICE_SERVICES_COUNT_FIELD = "services_count";
 
 // plan limits (mirror frontend)
-const PLAN_LIMITS = { Test: 1, Starter: 2, Business: 5, Enterprise: 999 };
 
 // Helper: normalize/guard arrays
 const asArray = (v) => (Array.isArray(v) ? v : []);
@@ -1369,8 +1357,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "No plan selected. Please choose a plan first." });
     }
 
-    const planLimit = PLAN_LIMITS[planKey] ?? 0;
-
     const existingRows = asArray(record?.[WEB_ACCOUNT_SERVICES_FIELD]).map(normalizeChildRow);
     const existingIds = new Set(existingRows.map((r) => r?.[CHILD_SERVICE_ID_FIELD]).filter(Boolean));
 
@@ -1389,15 +1375,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
       return res.json({ ok: true, message: "No new services to add." });
     }
 
-    // Enforce limit (hard lock)
-    try {
-      assertWithinPlanLimit(planKey, new Array(existingRows.length + incoming.length).fill({}));
-    } catch (e) {
-      return res.status(400).json({
-        error: `Plan limit exceeded. ${planKey} allows ${planLimit} services. You currently have ${existingRows.length}.`,
-      });
-    }
-
     const planPaid = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 
     const newRows = incoming.map((s) =>
@@ -1411,9 +1388,6 @@ app.post("/api/services/add", requireAuth, async (req, res) => {
     );
 
     const merged = [...existingRows, ...newRows];
-
-    // Hard lock at the point of write
-    assertWithinPlanLimit(planKey, merged);
 
     await updateWebAccountServices(client, webAccountName, merged);
 
@@ -1878,8 +1852,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       return SERVICE_ID_TO_PLAN[sid] === planKey;
     }).length;
 
-    const planLimit = PLAN_LIMITS[planKey] ?? 0;
-    const remainingSlots = planLimit >= 999 ? 999 : Math.max(planLimit - includedCountExisting, 0);
 
     const planIsPaid =
       planKey === "Test" || planKey === "Enterprise"
@@ -1954,28 +1926,11 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
         }
         nextRows = incomingRows; // overwrite
 
-        try {
-          assertWithinPlanLimit(planKey, nextRows);
-        } catch (e) {
-          const attempted = incomingRows.length;
-          return res.status(400).json({
-            error: `Plan limit exceeded. ${planKey} allows ${planLimit} services.`,
-            code: "PLAN_LIMIT_EXCEEDED",
-            planKey,
-            planLimit,
-            remainingSlots,
-            attemptedToAdd: attempted,
-            message: remainingSlots <= 0
-              ? `You have no remaining slots on ${planKey}. Remove a service or upgrade your plan.`
-              : `You can only add ${remainingSlots} more service${remainingSlots === 1 ? "" : "s"} on ${planKey}.`,
-          });
-        }
         
       } else {
         // Paid old plan → obey retain/replace
         if (upgradeMode === "replace") {
           nextRows = incomingRows;
-          assertWithinPlanLimit(planKey, nextRows);
 
         } else if (upgradeMode === "retain") {
           // merge (your old behavior)
@@ -1987,12 +1942,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
             map.set(row.service_id, { ...map.get(row.service_id), ...row });
           }
           nextRows = Array.from(map.values());
-
-        const includedOnly = nextRows.filter((r) => {
-          const sid = String(r.service_id || "").trim();
-          return SERVICE_ID_TO_PLAN[sid] === planKey;
-        });
-        assertWithinPlanLimit(planKey, includedOnly);          
 
         } else {
           return res.status(409).json({
@@ -2011,22 +1960,6 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       }
       nextRows = Array.from(map.values());
 
-        try {
-          assertWithinPlanLimit(planKey, nextRows);
-        } catch (e) {
-          const attempted = incomingRows.length;
-          return res.status(400).json({
-            error: `Plan limit exceeded. ${planKey} allows ${planLimit} services.`,
-            code: "PLAN_LIMIT_EXCEEDED",
-            planKey,
-            planLimit,
-            remainingSlots,
-            attemptedToAdd: attempted,
-            message: remainingSlots <= 0
-              ? `You have no remaining slots on ${planKey}. Remove a service or upgrade your plan.`
-              : `You can only add ${remainingSlots} more service${remainingSlots === 1 ? "" : "s"} on ${planKey}.`,
-          });
-        }
     }
 
     // Update Web Account
@@ -2473,7 +2406,6 @@ app.post("/api/plan/select-with-services", (req, res) => {
     if (!planKey) return res.status(400).json({ error: "Invalid planName" });
 
     const norm = normalizeSelectedServices(selectedServices);
-    assertWithinPlanLimit(planKey, norm);
     assertOrderWithinCapacity(norm);
 
     req.session.pendingPlan = planKey;
@@ -2871,6 +2803,7 @@ async function fetchHostingSite(client, webAccountName) {
         "name",
         "site_type",
         "primary_host",
+        "customer_domain",
         "status",
         "plan_name",
         "tier",
@@ -2893,6 +2826,7 @@ async function fetchHostingSite(client, webAccountName) {
     id: row.name,
     siteType: row.site_type,
     primaryHost: row.primary_host,
+    customerDomainId: row.customer_domain || null,
     status: String(row.status || "").toLowerCase(),
     planName: row.plan_name || "",
     tier: row.tier || "",
@@ -3137,94 +3071,6 @@ async function ensureUserOwnsHostingService(client, webAccountName) {
   return svc;
 }
 
-async function fetchHostingDomains(client, webAccountName) {
-  const res = await client.get("/api/resource/Hosting Domain", {
-    params: {
-      filters: JSON.stringify([
-        ["web_account", "=", webAccountName],
-        ["service_id", "=", HOSTING_SERVICE_ID],
-      ]),
-      fields: JSON.stringify([
-        "name",
-        "domain_name",
-        "status",
-        "is_primary",
-        "source",
-        "provider",
-        "ssl_status",
-        "creation",
-      ]),
-      limit_page_length: 100,
-      order_by: "creation desc",
-    },
-  });
-
-  return (res.data?.data || []).map((row) => ({
-    id: row.name,
-    domainName: row.domain_name,
-    status: row.status,
-    isPrimary: !!row.is_primary,
-    source: row.source,
-    provider: row.provider ? toCustomerProvider(row.provider) : null,
-    sslStatus: row.ssl_status || "none",
-    createdAt: row.creation,
-  }));
-}
-
-async function fetchHostingDomainRequests(client, webAccountName) {
-  const res = await client.get("/api/resource/Hosting Domain Request", {
-    params: {
-      filters: JSON.stringify([
-        ["web_account", "=", webAccountName],
-        ["service_id", "=", HOSTING_SERVICE_ID],
-      ]),
-      fields: JSON.stringify([
-        "name",
-        "requested_name",
-        "requested_tld",
-        "full_domain",
-        "request_type",
-        "is_included",
-        "requires_payment",
-        "status",
-        "notes",
-        "creation",
-      ]),
-      limit_page_length: 100,
-      order_by: "creation desc",
-    },
-  });
-
-  return (res.data?.data || []).map((row) => ({
-    id: row.name,
-    requestedName: row.requested_name,
-    requestedTld: row.requested_tld,
-    fullDomain: row.full_domain,
-    requestType: row.request_type,
-    isIncluded: !!row.is_included,
-    requiresPayment: !!row.requires_payment,
-    status: row.status,
-    notes: row.notes || "",
-    createdAt: row.creation,
-  }));
-}
-
-function computeIncludedDomainEntitlement(domains, domainRequests) {
-  const includedDomainSlots = 1;
-
-  const usedIncludedDomainSlots =
-    [...domains, ...domainRequests].filter((item) => item.source === "included" || item.isIncluded).length > 0
-      ? 1
-      : 0;
-
-  return {
-    includedDomainSlots,
-    usedIncludedDomainSlots,
-    canRequestIncludedDomain: usedIncludedDomainSlots < includedDomainSlots,
-  };
-}
-
-
 async function createHostingActivityLog(client, {
   webAccountName,
   hostingSiteName,
@@ -3255,6 +3101,7 @@ async function findExistingHostingSiteByHost(client, webAccountName, primaryHost
       fields: JSON.stringify([
         "name",
         "primary_host",
+        "customer_domain",
         "status",
         "site_type",
       ]),
@@ -3272,11 +3119,29 @@ async function ensurePendingHostingSiteForRequest(client, {
   primaryHost,
   serviceTier,
   planName,
+  // The Customer Domain this site serves. primary_host stays as a
+  // denormalized copy so existing reads and provisioning are undisturbed, but
+  // this link is what actually ties a site to a domain the account owns.
+  customerDomainId = "",
   notes = "",
 }) {
   const existing = await findExistingHostingSiteByHost(client, webAccountName, primaryHost);
-  if (existing) return existing;
-  
+  if (existing) {
+    // Backfill the link on sites created before domains were account-owned,
+    // so an existing customer's site picks it up on their next request
+    // instead of staying orphaned forever.
+    if (customerDomainId && !existing.customer_domain) {
+      try {
+        await client.put(`/api/resource/Hosting Site/${encodeURIComponent(existing.name)}`, {
+          customer_domain: customerDomainId,
+        });
+      } catch (e) {
+        console.warn("HOSTING SITE DOMAIN LINK WARN:", e.response?.data || e.message);
+      }
+    }
+    return existing;
+  }
+
   const resolvedStorageLimitMb = getHostingStorageAllocationMb({
     tier: serviceTier || "",
     planName: planName || "",
@@ -3287,6 +3152,7 @@ async function ensurePendingHostingSiteForRequest(client, {
     service_id: HOSTING_SERVICE_ID,
     site_type: siteType,
     primary_host: primaryHost,
+    customer_domain: customerDomainId || "",
     status: "pending",
     plan_name: planName || "Website Hosting",
     tier: serviceTier || "Starter",
@@ -3532,8 +3398,6 @@ const routeContext = {
   findOpenInvoice,
   computeInvoiceAmount,
   upsertPortalInvoice,
-  assertWithinPlanLimit,
-  allowedAddonTiersForPlan,
   formatSelectedServices,
   PLAN_PRICING,
   PLAN_NAME_TO_KEY,
@@ -3551,7 +3415,6 @@ const routeContext = {
   PORTAL_INVOICE_SERVICES_FIELD,
   INVOICE_SERVICES_JSON_FIELD,
   INVOICE_SERVICES_COUNT_FIELD,
-  PLAN_LIMITS,
   asArray,
   DOMAIN_TLD_PRICES,
   normalizeDomainLabel,
@@ -3599,9 +3462,6 @@ const routeContext = {
   recalculateHostingStorageUsage,
   getHostingStorageAllocationMb,
   ensureUserOwnsHostingService,
-  fetchHostingDomains,
-  fetchHostingDomainRequests,
-  computeIncludedDomainEntitlement,
   createHostingActivityLog,
   findExistingHostingSiteByHost,
   ensurePendingHostingSiteForRequest,

@@ -125,6 +125,44 @@ function portalUrl() {
   return (base || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
 }
 
+/**
+ * Alerts staff that a customer is waiting on a reply. Sent to every address in
+ * ADMIN_EMAILS — the same allowlist requireAdmin enforces — so whoever can
+ * answer the thread is the one who hears about it.
+ *
+ * Callers must treat this as best-effort: a customer's message must never fail
+ * because SMTP is down (see the call sites in routes/portalRoutes.js).
+ */
+async function sendAdminSupportAlert({ to, customerName, customerEmail, companyName, subject, message }) {
+  const who = customerName || customerEmail || "A customer";
+  const alertSubject = `[Support] ${who}: ${subject || "New message"}`;
+  const inboxUrl = `${portalUrl()}/admin`;
+
+  const excerpt = String(message || "").slice(0, 500);
+  const text = `${who}${companyName ? ` (${companyName})` : ""} sent a support message.
+
+From:    ${customerEmail || "unknown"}
+Subject: ${subject || "—"}
+
+${excerpt}
+
+Reply in the admin inbox: ${inboxUrl}
+
+— Murzak Technologies`;
+
+  const html = `<p><strong>${escapeHtml(who)}</strong>${companyName ? ` (${escapeHtml(companyName)})` : ""} sent a support message.</p>
+<p><strong>From:</strong> ${escapeHtml(customerEmail || "unknown")}<br>
+<strong>Subject:</strong> ${escapeHtml(subject || "—")}</p>
+<blockquote style="border-left:3px solid #ddd;margin:0;padding:0 0 0 12px;white-space:pre-wrap">${escapeHtml(excerpt)}</blockquote>
+<p><a href="${inboxUrl}" style="background:#0a66c2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Open the admin inbox</a></p>
+<p>— Murzak Technologies</p>`;
+
+  const recipients = Array.isArray(to) ? to : [to];
+  await Promise.all(
+    recipients.filter(Boolean).map((addr) => sendMail({ to: addr, subject: alertSubject, text, html }))
+  );
+}
+
 // ---- Trial lifecycle (started / ending soon / expired) ----
 
 async function sendTrialStartedEmail({ to, clientName, hours, endsAt }) {
@@ -168,6 +206,7 @@ Pick a plan within that window and we restore your sandbox exactly as you left i
 }
 
 module.exports = {
+  sendAdminSupportAlert,
   sendInvoiceDeletedEmail,
   sendMail,
   sendPasswordResetEmail,

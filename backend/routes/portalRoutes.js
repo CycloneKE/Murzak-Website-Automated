@@ -16,6 +16,8 @@ const terminalConstants = require('../services/terminal/constants');
 const accessControlLib = require('../services/terminal/accessControl');
 const s3ClientLib = require('../services/terminal/s3Client');
 const isValidRepoUrl = require('../utils/repoUrl').isValidRepoUrl;
+const supportUnread = require('../services/supportUnread');
+const mailer = require('../utils/mailer');
 
 module.exports = function(ctx) {
   const {
@@ -32,6 +34,34 @@ module.exports = function(ctx) {
 
   const router = express.Router();
   const { buildPortalRequestPayload } = portalRequestPayloadLib;
+
+  /**
+   * Best-effort "a customer is waiting" email to every ADMIN_EMAILS address.
+   *
+   * Fire-and-forget by design: staff notification must never be able to fail a
+   * customer's message (same treatment logPortalUpdate gets). Gated on
+   * shouldAlertAdmins so a chatty customer on an already-pending thread
+   * produces one alert, not one per message.
+   */
+  function notifyAdminsOfCustomerMessage({ previousStatus, email, fullName, companyName, subject, message }) {
+    if (!supportUnread.shouldAlertAdmins(previousStatus)) return;
+    const to = supportUnread.adminRecipients(process.env.ADMIN_EMAILS);
+    if (!to.length) {
+      console.warn("SUPPORT ALERT SKIPPED: ADMIN_EMAILS is not set — no staff will be notified.");
+      return;
+    }
+    mailer
+      .sendAdminSupportAlert({
+        to,
+        customerName: fullName,
+        customerEmail: email,
+        companyName,
+        subject,
+        message,
+      })
+      .then(() => console.log(`SUPPORT ALERT SENT to ${to.length} admin(s) for ${email}`))
+      .catch((e) => console.error("SUPPORT ALERT ERROR:", e?.message || e));
+  }
 
   // Tighter than the global apiLimiter (120/min/IP) — these actions hit real
   // customer infrastructure, not just Frappe reads. stop gets a stricter cap
@@ -131,6 +161,17 @@ router.post("/api/portal/requests", requireAuth, async (req, res) => {
       nowUTC: mysqlDatetimeUTC(),
     });
     const createResp = await client.post("/api/resource/Portal Users Requests", payload);
+
+    // A brand-new thread has no previous status, so this always alerts.
+    notifyAdminsOfCustomerMessage({
+      previousStatus: null,
+      email,
+      fullName: payload.full_name,
+      companyName: payload.company_name,
+      subject: payload.subject,
+      message,
+    });
+
     return res.json({
       ok: true,
       id: createResp.data?.data?.name
@@ -211,17 +252,9 @@ router.get("/api/portal/requests/unread-count", requireAuth, async (req, res) =>
         limit_page_length: 200
       }
     });
-    const rows = Array.isArray(r.data?.data) ? r.data.data : [];
-    const count = rows.filter(t => {
-      const last = t.last_message_at ? new Date(t.last_message_at) : null;
-      const read = t.user_last_read_at ? new Date(t.user_last_read_at) : null;
-      if (!last) return false;
-      if (!read) return true;
-      return last.getTime() > read.getTime();
-    }).length;
     return res.json({
       ok: true,
-      count
+      count: supportUnread.countUserUnread(r.data?.data)
     });
   } catch (err) {
     console.error("UNREAD COUNT ERROR:", err.response?.data || err.message);
@@ -320,6 +353,18 @@ router.post("/api/portal/requests/:id/messages", requireAuth, async (req, res) =
       last_message_at: mysqlDatetimeUTC(),
       status: "Waiting on Admin"
     });
+
+    // doc.status is the value from BEFORE the put above — exactly the
+    // "was this thread already pending?" signal the alert gate needs.
+    notifyAdminsOfCustomerMessage({
+      previousStatus: doc.status,
+      email: doc.email,
+      fullName: doc.full_name,
+      companyName: doc.company_name,
+      subject: doc.subject,
+      message,
+    });
+
     return res.json({
       ok: true,
       id

@@ -1,5 +1,5 @@
 
-import type { HostingDashboardPayload } from "../types/hosting";
+import type { CustomerDomain, HostingDashboardPayload } from "../types/hosting";
 
 async function handleJson<T>(res: Response): Promise<T> {
   const contentType = res.headers.get("content-type") || "";
@@ -26,6 +26,33 @@ export async function fetchHostingDashboard(): Promise<HostingDashboardPayload> 
   });
   const data = await handleJson<{ ok: true; payload: HostingDashboardPayload }>(res);
   return data.payload;
+}
+
+/** Every domain the account owns, whatever service (if any) it points at. */
+export async function fetchCustomerDomains(): Promise<CustomerDomain[]> {
+  const res = await fetch("/api/portal/domains", { credentials: "include" });
+  const data = await handleJson<{ ok: true; domains: CustomerDomain[] }>(res);
+  return data.domains || [];
+}
+
+/** Point an owned domain at an owned, active service. Moves it if already attached. */
+export async function attachDomainToService(domainId: string, serviceId: string) {
+  const res = await fetch(`/api/portal/domains/${encodeURIComponent(domainId)}/attach`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ serviceId }),
+  });
+  return handleJson<{ ok: true; domain: CustomerDomain }>(res);
+}
+
+/** Stop pointing a domain at anything. The account keeps it. */
+export async function detachDomain(domainId: string) {
+  const res = await fetch(`/api/portal/domains/${encodeURIComponent(domainId)}/detach`, {
+    method: "POST",
+    credentials: "include",
+  });
+  return handleJson<{ ok: true; domain: CustomerDomain }>(res);
 }
 
 export async function createDomainPurchaseRequest(input: {

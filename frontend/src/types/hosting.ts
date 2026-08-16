@@ -81,10 +81,31 @@ export interface HostingActivityLog {
   createdAt?: string;
 }
 
+/** A domain the account owns, independent of any service it may point at. */
+export interface CustomerDomain {
+  id: string;
+  domainName: string;
+  kind: "registered" | "external" | "murzak_subdomain";
+  status: "pending" | "active" | "failed" | "expired" | "cancelled";
+  registrar: string;
+  sslStatus: "none" | "pending" | "active";
+  expiresOn: string | null;
+  autoRenew: boolean;
+  /** serviceId this domain currently points at, or null when unattached. */
+  attachedToService: string | null;
+  sourceDoctype: string;
+  sourceName: string;
+  notes: string;
+  createdAt?: string;
+}
+
 export interface HostingSite {
   id: string;
   siteType: "domain" | "murzak_subdomain" | "external_domain";
   primaryHost: string;
+  /** The Customer Domain this site serves. Null on sites created before
+   *  domains became account-owned and never re-requested since. */
+  customerDomainId: string | null;
   status: "pending" | "active" | "suspended";
   planName?: string;
   tier?: string;

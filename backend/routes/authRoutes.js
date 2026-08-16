@@ -7,7 +7,6 @@ module.exports = function(ctx) {
     appBaseUrl,
     applyPlanAndCreateInvoice,
     assertOrderWithinCapacity,
-    assertWithinPlanLimit,
     authLimiter,
     bcrypt,
     buildUserPayload,
@@ -88,7 +87,6 @@ router.post("/api/register", authLimiter, async (req, res) => {
         error: "Missing required fields."
       });
     }
-    assertWithinPlanLimit(resolvedPlan, resolvedServices);
     assertOrderWithinCapacity(resolvedServices);
     const client = frappeClient();
 
@@ -354,8 +352,6 @@ router.post("/api/login", authLimiter, async (req, res) => {
         req.session.pendingPlan = null;
         req.session.pendingServices = null;
       } else {
-        assertWithinPlanLimit(pendingPlan, pendingServices);
-
         // persist web account services as Awaiting Payment
         await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
           plan: pendingPlan,
@@ -528,7 +524,6 @@ router.post("/api/auth/google", authLimiter, async (req, res) => {
         req.session.pendingPlan = null;
         req.session.pendingServices = null;
       } else {
-        assertWithinPlanLimit(pendingPlan, pendingServices);
         await client.put(`/api/resource/Web Account/${encodeURIComponent(docName)}`, {
           plan: pendingPlan,
           [WEB_ACCOUNT_SERVICES_FIELD]: buildWebAccountServiceRows(pendingServices.map(s => ({
