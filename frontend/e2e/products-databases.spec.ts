@@ -68,6 +68,14 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
     // this exact same price text a second time — .first() scopes this back
     // to the order-summary figure specifically, matching line 63 above.
     await expect(page.getByText('KES 2,000/mo', { exact: false }).first()).toBeVisible();
+
+    // Cancel so this order's RAM reservation doesn't count against the
+    // shared-fleet capacity guard for whatever runs after this test — see
+    // the loop test below for the full explanation.
+    const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+    if (orderId) {
+      await page.request.post(`/api/orders/${orderId}/cancel`);
+    }
   });
 
   test('PostgreSQL, MongoDB, and Redis cards each deep-link to their own catalog id', async ({ page }) => {
