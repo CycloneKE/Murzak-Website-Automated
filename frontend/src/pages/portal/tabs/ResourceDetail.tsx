@@ -3,6 +3,7 @@ import { ArrowRight, ExternalLink, Headphones, Server, Shield } from "lucide-rea
 import DeveloperTerminalPanel from "../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPanel";
 import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrowser";
+import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import { usePortal } from "../PortalContext";
 
 /**
@@ -314,6 +315,10 @@ const ResourceDetail: React.FC = () => {
               <StorageFileBrowser serviceId={cloudServiceId} isActive={isActive} />
             ) : (
               <>
+                {svc?.category === "Database Hosting" && (
+                  <DatabaseConnectionPanel serviceId={cloudServiceId} isActive={isActive} />
+                )}
+
                 <ResourceAdminPanel
                   serviceId={cloudServiceId}
                   serviceName={svc?.name || cloudServiceId}
