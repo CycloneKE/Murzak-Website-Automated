@@ -290,7 +290,17 @@ router.post("/api/hosting/murzak-subdomains", requireAuth, async (req, res) => {
     if (!cleanLabel) return res.status(400).json({
       error: "Subdomain label is required."
     });
-    const fullSubdomain = `${cleanLabel}.murzaktech.com`;
+    const subdomainRoot = customerDomains.resolveFreeSubdomainRoot({
+      envValue: process.env.FREE_SUBDOMAIN_ROOT_DOMAIN,
+      nodeEnv: process.env.NODE_ENV,
+    });
+    if (!subdomainRoot.ok) {
+      console.error("MURZAK SUBDOMAIN ERROR:", subdomainRoot.reason);
+      return res.status(503).json({
+        error: "Free subdomains aren't available right now — message support and we'll set one up for you."
+      });
+    }
+    const fullSubdomain = `${cleanLabel}.${subdomainRoot.root}`;
     const client = frappeClient();
     const svc = await getActiveHostingServiceForUser(client, webAccountName);
     // Purchase-time domainChoice gate removed — see the note on the domain

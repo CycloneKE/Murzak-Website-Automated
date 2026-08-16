@@ -93,7 +93,10 @@ function portalBillingUrl() {
   if (!process.env.APP_BASE_URL && process.env.NODE_ENV === "production") {
     console.error("APP_BASE_URL is not set in production — renewal payment-link emails will link to the wrong domain.");
   }
-  const base = (process.env.APP_BASE_URL || "https://murzaktech.com").replace(/\/$/, "");
+  // Fallback only fires when APP_BASE_URL is unset (already logged above as a
+  // misconfiguration). murzaktech.com has no DNS at all; website.murzaktech.tech
+  // is where the app is actually served.
+  const base = (process.env.APP_BASE_URL || "https://website.murzaktech.tech").replace(/\/$/, "");
   return `${base}/portal`;
 }
 

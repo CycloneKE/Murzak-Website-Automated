@@ -386,7 +386,11 @@ const WebsiteHostingDashboard: React.FC = () => {
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, "");
-    return label ? `${label}.murzaktech.com` : "yourname.murzaktech.com";
+    // The root domain here is a preview only — the request is fulfilled
+    // server-side against whatever FREE_SUBDOMAIN_ROOT_DOMAIN is actually
+    // configured to (see resolveFreeSubdomainRoot in customerDomains.js).
+    // This used to say "murzaktech.com", which has no DNS at all.
+    return label ? `${label}.murzaktech.tech` : "yourname.murzaktech.tech";
   }, [murzakForm.requestedLabel]);
 
   const liveSubdomainPreview = useMemo(() => {
@@ -909,7 +913,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <p className="mt-3 text-sm text-slate-500">
           Your website can be hosted under a Murzak-owned subdomain such as
-          <span className="font-semibold text-slate-700 dark:text-slate-100"> example.murzaktech.com</span>.
+          <span className="font-semibold text-slate-700 dark:text-slate-100"> example.murzaktech.tech</span>.
         </p>
 
         <div className="mt-5 space-y-4">

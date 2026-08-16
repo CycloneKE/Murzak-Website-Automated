@@ -152,7 +152,7 @@ const DomainsTab: React.FC = () => {
         <EmptyState
           icon={<Globe className="w-6 h-6" />}
           title="No domains yet"
-          description="Register a new domain, connect one you already own, or take a free murzaktech.com address. Any of them can point at any of your services."
+          description="Register a new domain, connect one you already own, or take a free Murzak subdomain. Any of them can point at any of your services."
           actionLabel="Talk to us about a domain"
           onAction={() => setIsContactOpen(true)}
         />
