@@ -1,17 +1,12 @@
 const express = require('express');
 const byoaService = require('../services/byoaService');
+const { isValidRepoUrl } = require('../utils/repoUrl');
 
 // SKU this wizard deploys against — same catalog entry the repo-URL/checkout
 // pipeline uses (see provisioning/provisioningService.js's requiresRepo gate).
 // Keeps this a PAID feature instead of a free, unmetered Coolify-calling path.
 const BYOA_APP_HOSTING_SERVICE_ID = 'starter-app-hosting';
 const ACTIVE_STATUSES = new Set(['Active', 'Setting up']);
-
-// Same https/git@ + optional #branch validation as PUT /api/portal/account/repo
-// (portalRoutes.js) — kept in sync deliberately, this is the SAME field.
-function isValidRepoUrl(raw) {
-  return /^(https?:\/\/|git@)\S+$/i.test(raw);
-}
 
 module.exports = (routeContext) => {
   const router = express.Router();

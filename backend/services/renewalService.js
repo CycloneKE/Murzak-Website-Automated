@@ -110,6 +110,9 @@ function latestPaidByAccount(rows) {
 }
 
 function portalBillingUrl() {
+  if (!process.env.APP_BASE_URL && process.env.NODE_ENV === "production") {
+    console.error("APP_BASE_URL is not set in production — renewal payment-link emails will link to the wrong domain.");
+  }
   const base = (process.env.APP_BASE_URL || "https://murzaktech.com").replace(/\/$/, "");
   return `${base}/portal`;
 }

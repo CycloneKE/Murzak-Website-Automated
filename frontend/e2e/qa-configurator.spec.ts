@@ -35,7 +35,7 @@ test.describe('CFG-02 — self-serve RAM/disk cap routes to a dedicated quote', 
     // Click "Add" repeatedly (skipping ones that flip to "Added" as we go —
     // Playwright re-resolves the locator each iteration) until the capacity
     // guard copy appears or we run out of addable services. The cap
-    // (SELF_SERVE_ORDER_RAM_CAP_MB = 6144MB) is comfortably exceeded well
+    // (SELF_SERVE_ORDER_RAM_CAP_MB = 3200MB) is comfortably exceeded well
     // before a real catalog runs out of services.
     const overCapMsg = page.locator('text=This build needs dedicated capacity');
     let clicked = 0;

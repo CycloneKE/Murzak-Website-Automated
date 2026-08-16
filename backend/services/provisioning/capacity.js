@@ -1,5 +1,5 @@
 /**
- * Capacity gate — keeps provisioning from overselling the single KVM 4.
+ * Capacity gate — keeps provisioning from overselling the single KVM 2.
  *
  * RAM is the binding constraint (light web/email tenants are cheap; ERP tenants
  * eat 1–2GB each). The gate compares already-reserved RAM + the new job's RAM

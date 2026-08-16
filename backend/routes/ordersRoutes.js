@@ -66,6 +66,32 @@ module.exports = function (ctx) {
     return req.session?.webAccount || req.session?.user?.id;
   }
 
+  // Status-PRESERVING normalizer for rows already stored on the Web Account.
+  //
+  // ctx.normalizeSelectedServices sanitizes CLIENT-SUPPLIED selections and is
+  // intentionally lossy: it collapses status to "Active" | "Awaiting Payment"
+  // (see server.js — do not change that, it also sanitizes an unauthenticated
+  // input path). Feeding it rows read back OUT of the Web Account and PUTting
+  // the result silently demotes "Setting up"/"Suspended" to "Awaiting
+  // Payment", which (1) permanently strips a real customer's add-on
+  // eligibility (see addonEligibility.js's PAID_SERVICE_STATUSES) and (2)
+  // permanently breaks provisioning completion, since runner.js's
+  // markAccountServiceActive only flips rows that are exactly "Setting up".
+  // Reproduced live: any prepare-payment call for a mid-provisioning or
+  // lapsed-renewal customer silently and irreversibly demoted their row.
+  // Mirrors renewalService.js's own care around not touching stored status.
+  function normalizeExistingAccountServiceRows(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .map((r) => ({
+        serviceId: String(r?.service_id ?? r?.serviceId ?? "").trim(),
+        serviceName: String(r?.service_name ?? r?.serviceName ?? "").trim(),
+        tier: String(r?.tier ?? "").trim(),
+        domainChoice: String(r?.domain_choice ?? r?.domainChoice ?? "").trim(),
+        status: String(r?.status ?? "").trim() || "Awaiting Payment",
+      }))
+      .filter((s) => !!s.serviceId);
+  }
+
   // Error mapping matches the Task 1 wrapper: an err.statusCode set by a
   // service function is trusted verbatim (message + optional code); anything
   // without one is an unexpected failure — log it and return a generic 500 so
@@ -266,7 +292,7 @@ module.exports = function (ctx) {
         // first-purchase branch below, which already does this at the same
         // point in the flow.
         const acctForAddon = await fetchWebAccount(client, webAccountName);
-        const existingForAddon = normalizeSelectedServices(asArray(acctForAddon?.[WEB_ACCOUNT_SERVICES_FIELD]));
+        const existingForAddon = normalizeExistingAccountServiceRows(asArray(acctForAddon?.[WEB_ACCOUNT_SERVICES_FIELD]));
         const mergedForAddon = mergeServicesById(existingForAddon, [serviceRow]);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(mergedForAddon));
       } else {
@@ -289,7 +315,7 @@ module.exports = function (ctx) {
         invoiceDocName = result.invoice.name;
 
         const acct = await fetchWebAccount(client, webAccountName);
-        const existingServices = normalizeSelectedServices(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
+        const existingServices = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
         const merged = mergeServicesById(existingServices, [serviceRow]);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(merged));
 

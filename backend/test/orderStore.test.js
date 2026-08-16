@@ -22,7 +22,7 @@ async function throws(fn, code, msg) {
 }
 
 const {
-  createOrder, getOrder, cancelOrder, linkInvoice, reservedDraftRamMb, RESERVATION_TTL_MS,
+  createOrder, getOrder, cancelOrder, linkInvoice, reservedDraftRamMb, reconcileDraftOrders, RESERVATION_TTL_MS,
 } = require("../services/checkout/orderStore");
 const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
 
@@ -221,6 +221,77 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
       client3.invoices["INV-3"].status === "Paid" && client3.invoices["INV-3"].selected_services.length === 1,
       "a Paid invoice is never modified by cancelling its (already-fulfilled) order"
     );
+  }
+
+  // ------------------------------------------------------------------
+  // reconcileDraftOrders — the admin-visible sweep companion to getOrder's
+  // lazy per-request check. Catches orders whose invoice was paid via a
+  // channel that never revisits checkout (webhook), and expires long-dead
+  // Draft orders that never got an invoice at all.
+  // ------------------------------------------------------------------
+  section("reconcileDraftOrders: flips to Paid when the linked invoice paid via webhook");
+  {
+    const client = makeClient({ invoices: { "INV-R1": { name: "INV-R1", status: "Paid" } } });
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-R1" });
+    const summary = await reconcileDraftOrders({ client, nowMs: T0 + 5 * 60 * 1000 });
+    ok(summary.checked === 1, "one Draft order checked");
+    ok(summary.flippedPaid === 1, "flipped to Paid");
+    ok(client.docs[o.id].status === "Paid", "order doc actually updated in the store");
+  }
+
+  section("reconcileDraftOrders: leaves an order alone while its invoice is still Unpaid and fresh");
+  {
+    const client = makeClient({ invoices: { "INV-R2": { name: "INV-R2", status: "Unpaid" } } });
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-R2" });
+    const summary = await reconcileDraftOrders({ client, nowMs: T0 + 5 * 60 * 1000 });
+    ok(summary.flippedPaid === 0 && summary.expired === 0, "not touched — invoice unpaid, reservation still fresh");
+    ok(client.docs[o.id].status === "Draft", "order doc unchanged");
+  }
+
+  section("reconcileDraftOrders: expires a no-invoice order once its reservation is stale past the grace period");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    // Reservation expires at T0+30min; well past a 1h grace period by T0+3h.
+    const summary = await reconcileDraftOrders({ client, nowMs: T0 + 3 * 60 * 60 * 1000, staleGraceMs: 60 * 60 * 1000 });
+    ok(summary.expired === 1, "expired");
+    ok(client.docs[o.id].status === "Cancelled", "order doc flipped to Cancelled, not silently left Draft forever");
+  }
+
+  section("reconcileDraftOrders: does NOT expire a no-invoice order still inside the grace period");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    // Reservation expired at T0+30min, but only 40min past that — inside a 24h grace.
+    const summary = await reconcileDraftOrders({ client, nowMs: T0 + RESERVATION_TTL_MS + 40 * 60 * 1000, staleGraceMs: 24 * 60 * 60 * 1000 });
+    ok(summary.expired === 0, "not yet expired — still within the grace window (default 24h)");
+    ok(client.docs[o.id].status === "Draft", "order doc unchanged");
+  }
+
+  section("reconcileDraftOrders: mixed batch — correct per-order outcome, no cross-contamination");
+  {
+    const client = makeClient({ invoices: { "INV-R3": { name: "INV-R3", status: "Paid" } } });
+    const oPaid = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: oPaid.id, invoiceDocName: "INV-R3" });
+    const oStale = await createOrder({ client, webAccountName: "a", serviceId: "starter-storage", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const oFresh = await createOrder({ client, webAccountName: "a", serviceId: "starter-hrpay", config: {}, fleetReservedRamMb: 0, nowMs: T0 + 3 * 60 * 60 * 1000 });
+    const summary = await reconcileDraftOrders({ client, nowMs: T0 + 3 * 60 * 60 * 1000, staleGraceMs: 60 * 60 * 1000 });
+    ok(summary.checked === 3, "all three checked");
+    ok(summary.flippedPaid === 1 && summary.expired === 1, "exactly one of each outcome");
+    ok(client.docs[oPaid.id].status === "Paid", "paid one flipped");
+    ok(client.docs[oStale.id].status === "Cancelled", "stale one expired");
+    ok(client.docs[oFresh.id].status === "Draft", "fresh one (created at sweep time) untouched");
+  }
+
+  section("reconcileDraftOrders: doctype missing degrades to an error count, never throws");
+  {
+    const brokenClient = {
+      get: async () => { const e = new Error("417"); e.response = { status: 417 }; throw e; },
+    };
+    const summary = await reconcileDraftOrders({ client: brokenClient, nowMs: T0 });
+    ok(summary.errors === 1 && summary.checked === 0, "degrades cleanly instead of throwing into the sweep loop");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

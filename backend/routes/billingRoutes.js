@@ -1,5 +1,6 @@
 
 const express = require('express');
+const coolifyLane = require('../services/provisioning/lanes/coolify');
 
 module.exports = function(ctx) {
   const { 
@@ -9,6 +10,7 @@ module.exports = function(ctx) {
     CHILD_STATUS_FIELD,
     CHILD_TIER_FIELD,
     PORTAL_INVOICE_SERVICES_FIELD,
+    PROVISIONING_JOB_DOCTYPE,
     SERVICE_STATUS_AWAITING,
     WEB_ACCOUNT_SERVICES_FIELD,
     WEB_ACCOUNT_SERVICE_CHILD_DOCTYPE,
@@ -127,6 +129,94 @@ router.post("/api/subscription/upgrade", requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * Tear down the live infrastructure behind a service, before its records go.
+ *
+ * Returns {ok:true} when there is nothing left running — including the cases
+ * where there never was any (unprovisioned, manual lane) or where it's already
+ * gone (Coolify 404). Returns {ok:false} ONLY when a real resource is still up
+ * and we failed to remove it; the caller must then abort and leave every
+ * Frappe record in place, because a deleted record plus a live container is an
+ * orphan nobody can reconcile (see services/provisioning/orphans.js).
+ *
+ * On failure the job is flipped to needs_human so it surfaces in the admin
+ * queue rather than dying in a log line.
+ */
+async function destroyServiceInfrastructure(client, webAccountName, serviceId) {
+  let job = null;
+  try {
+    const listResp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([
+          ["web_account", "=", webAccountName],
+          ["service_id", "=", serviceId],
+        ]),
+        fields: JSON.stringify(["name"]),
+        order_by: "modified desc",
+        limit_page_length: 1,
+      },
+    });
+    const docName = listResp.data?.data?.[0]?.name;
+    if (!docName) return { ok: true, skipped: "no-job" };
+    const docResp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(docName)}`);
+    job = docResp.data?.data;
+    // Never trust the filter alone on a destructive path.
+    if (!job || job.web_account !== webAccountName) return { ok: true, skipped: "not-owned" };
+  } catch (err) {
+    // The doctype may not exist yet on a fresh install — that means nothing
+    // was ever provisioned, so there is nothing to orphan.
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return { ok: true, skipped: "no-doctype" };
+    }
+    console.error("TEARDOWN LOOKUP ERROR:", err.response?.data || err.message);
+    return { ok: false, reason: "lookup-failed" };
+  }
+
+  if (job.status === "deleted") return { ok: true, skipped: "already-deleted" };
+  if (job.lane !== "coolify" || !job.external_ref) {
+    // Nothing this codebase can destroy automatically (manual/bench lane, or
+    // never got as far as creating a resource). Mark it so capacity is freed
+    // and the admin queue doesn't keep showing a job for a dead service.
+    await client
+      .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, { status: "deleted" })
+      .catch((e) => console.error("TEARDOWN MARK ERROR:", e.response?.data || e.message));
+    return { ok: true, skipped: "no-automated-resource" };
+  }
+
+  let kind = "service";
+  try {
+    kind = JSON.parse(job.access || "{}")?.kind === "application" ? "application" : "service";
+  } catch { /* default to service */ }
+
+  try {
+    await coolifyLane.destroy(job.external_ref, { kind });
+  } catch (err) {
+    // Already gone upstream — the goal state is reached, so this is a success
+    // for teardown purposes, not a failure to abort on.
+    if (err?.response?.status !== 404) {
+      const detail = err.response?.data?.message || err.message;
+      console.error("TEARDOWN DESTROY ERROR:", job.name, job.external_ref, detail);
+      await client
+        .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+          status: "needs_human",
+          error: `Teardown failed — resource may still be running: ${String(detail).slice(0, 400)}`,
+        })
+        .catch((e) => console.error("TEARDOWN FLAG ERROR:", e.response?.data || e.message));
+      return { ok: false, reason: "destroy-failed" };
+    }
+  }
+
+  const auditLine = `[${new Date().toISOString()}] [ACTION] teardown completed for ${webAccountName}`;
+  await client
+    .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+      status: "deleted",
+      log: job.log ? `${job.log}\n${auditLine}` : auditLine,
+    })
+    .catch((e) => console.error("TEARDOWN MARK ERROR:", e.response?.data || e.message));
+
+  return { ok: true, destroyed: true };
+}
+
 router.delete("/api/account/services/:serviceId", requireAuth, async (req, res) => {
   try {
     const serviceId = String(req.params.serviceId || "").trim();
@@ -153,6 +243,20 @@ router.delete("/api/account/services/:serviceId", requireAuth, async (req, res) 
       return res.status(409).json({
         error: "This is a paid service. Type DELETE to confirm removal.",
         requiresConfirm: true
+      });
+    }
+
+    // 0) Destroy the live infrastructure BEFORE touching any Frappe record.
+    //
+    // Ordering is the whole point. Until this existed, deleting a service only
+    // removed the rows below and left the container running with no owning
+    // record — an orphan findOrphanedCoolifyResources can flag but nobody can
+    // reconcile. So: if teardown fails, we ABORT and keep the records, rather
+    // than "succeeding" into an unrecoverable state.
+    const teardown = await destroyServiceInfrastructure(client, webAccountName, serviceId);
+    if (!teardown.ok) {
+      return res.status(502).json({
+        error: "We couldn't finish removing this service's infrastructure. Our team has been notified and will complete it — the service is still on your account for now.",
       });
     }
 

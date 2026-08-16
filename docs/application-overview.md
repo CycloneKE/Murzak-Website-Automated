@@ -9,7 +9,7 @@ pieces fit, the repo layout, and the key flows. For the operator's runbook see
 ## 1. What it is
 
 A white-label managed-hosting storefront + customer portal for **Murzak
-Technologies**. It sells slices of one Hostinger KVM 4 server as KES-priced plans
+Technologies**. It sells slices of one Hostinger KVM 2 server as KES-priced plans
 (web hosting, email, ERPNext/POS/CRM business systems, domains), takes **M-Pesa**
 and **card** payments, and (optionally) **provisions** the hosting automatically.
 

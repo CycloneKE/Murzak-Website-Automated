@@ -5,6 +5,7 @@ const k8sLane = require("../services/provisioning/lanes/k8s");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
 const terminalEligibilityLib = require('../services/terminalEligibility');
+const resourceAdminEligibilityLib = require('../services/resourceAdminEligibility');
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
 // file through to the ctx destructure, so any such import placed above it
@@ -14,6 +15,7 @@ const mintWsTicket = require('../utils/wsTicket').mintWsTicket;
 const terminalConstants = require('../services/terminal/constants');
 const accessControlLib = require('../services/terminal/accessControl');
 const s3ClientLib = require('../services/terminal/s3Client');
+const isValidRepoUrl = require('../utils/repoUrl').isValidRepoUrl;
 
 module.exports = function(ctx) {
   const {
@@ -65,7 +67,7 @@ router.put("/api/portal/account/repo", requireAuth, async (req, res) => {
   const raw = String(req.body?.repoUrl ?? "").trim();
   if (raw.length > 500) return res.status(400).json({ error: "Repository URL is too long." });
   // Allow clearing (empty); otherwise require an https or git@ URL (optional #branch).
-  if (raw && !/^(https?:\/\/|git@)\S+$/i.test(raw)) {
+  if (raw && !isValidRepoUrl(raw)) {
     return res.status(400).json({
       error: "Enter a valid repository URL (e.g. https://github.com/you/app, optional #branch).",
     });
@@ -1190,6 +1192,306 @@ router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachL
     }
     console.error("DOMAIN ATTACH ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Failed to connect this domain. Please try again or contact support." });
+  }
+});
+
+/* ======================================================================== *
+ * RESOURCE ADMIN — customer-operated environment variables + runtime logs.
+ *
+ * Gated three ways (kill switch, plan, staff approval + customer disclosure),
+ * all re-read from the live Frappe record on EVERY acting request — see
+ * services/resourceAdminEligibility.js. Scoped to the caller's own coolify-lane
+ * APPLICATION-kind job via the existing loadOwnedAppJob guard: Coolify has no
+ * logs endpoint for composed services, and our service compose (nginx:alpine,
+ * see lanes/coolify.js) references no env vars, so exposing an env editor
+ * there would be a control that silently does nothing.
+ *
+ * The portal never names Coolify. Copy here is Murzak-native by design.
+ * ======================================================================== */
+
+const envMutationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+const runtimeLogsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+/**
+ * The authorization boundary for every resource-admin action. Returns the
+ * caller's web account on success; on failure it has ALREADY sent the
+ * response, and the caller must return immediately.
+ *
+ * Order matters: kill switch → session → plan → approval → disclosure, so the
+ * customer sees the most actionable message rather than the first technicality.
+ */
+async function requireResourceAdmin(req, res) {
+  if (!resourceAdminEligibilityLib.isResourceAdminEnabled()) {
+    res.status(503).json({ error: "Advanced service controls aren't available yet." });
+    return null;
+  }
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) {
+    res.status(401).json({ error: "No session account." });
+    return null;
+  }
+  if (!resourceAdminEligibilityLib.isResourceAdminPlan(req.session?.user?.plan)) {
+    res.status(403).json({
+      code: "plan_required",
+      error: "Advanced service controls are available on the Business plan and above — contact us to upgrade.",
+    });
+    return null;
+  }
+  const gates = await resourceAdminEligibilityLib.fetchResourceAdminGates(frappeClient(), webAccountName);
+  if (!gates.approved) {
+    res.status(403).json({
+      code: "not_approved",
+      error: "Advanced controls haven't been enabled for this account yet — our team will follow up on your request.",
+    });
+    return null;
+  }
+  if (!gates.disclosureAccepted) {
+    res.status(403).json({
+      code: "disclosure_required",
+      error: "Please review and accept the advanced controls disclosure before making changes.",
+    });
+    return null;
+  }
+  return webAccountName;
+}
+
+/**
+ * Resolve the caller's own live application job, or send the response and
+ * return null. Shared by every env/logs route so the ownership check, the lane
+ * check and the "is it actually running" check can never drift apart.
+ */
+async function loadResourceAdminJob(res, webAccountName, serviceId) {
+  if (!serviceId) {
+    res.status(400).json({ error: "Missing serviceId." });
+    return null;
+  }
+  let job;
+  try {
+    job = await loadOwnedAppJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("RESOURCE ADMIN LOOKUP ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to look up this service." });
+    return null;
+  }
+  if (!job) {
+    // Deliberately indistinguishable from "not yours": a wrong-owner probe and
+    // a wrong-kind service must not be tellable apart from the outside.
+    res.status(404).json({ error: "Advanced controls aren't available for this service." });
+    return null;
+  }
+  if (job.status !== "active") {
+    res.status(409).json({ error: "This service isn't live yet — advanced controls open once it's active." });
+    return null;
+  }
+  return job;
+}
+
+/**
+ * Append an audit line to the job's log. Best-effort and non-blocking, matching
+ * runServiceAction: a failed audit write must not turn a real success into a
+ * customer-facing error, but it must never fail silently server-side.
+ *
+ * `line` must NEVER contain an environment variable's value — callers pass the
+ * key name and the action only.
+ */
+function appendJobAudit(client, job, line) {
+  const entry = `[${new Date().toISOString()}] ${line}`;
+  client
+    .put(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(job.name)}`, {
+      log: job.log ? `${job.log}\n${entry}` : entry,
+    })
+    .catch((e) => console.error("RESOURCE ADMIN AUDIT LOG WRITE FAILED:", e.response?.data || e.message));
+}
+
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+// Eligibility is a READ — it reports the gate state so the panel can render the
+// right one of its four states. It never 500s (a blank service page is a worse
+// outcome than a pessimistic "not available"), and unlike the acting routes it
+// answers for any authenticated user rather than 403ing.
+router.get("/api/portal/resource-admin/eligibility", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const enabled = resourceAdminEligibilityLib.isResourceAdminEnabled();
+  const planAllowed = resourceAdminEligibilityLib.isResourceAdminPlan(req.session?.user?.plan);
+  if (!webAccountName) {
+    return res.json({ ok: true, enabled, planAllowed, approved: false, disclosureAccepted: false });
+  }
+  try {
+    const gates = await resourceAdminEligibilityLib.fetchResourceAdminGates(frappeClient(), webAccountName);
+    return res.json({ ok: true, enabled, planAllowed, ...gates });
+  } catch (err) {
+    console.error("RESOURCE ADMIN ELIGIBILITY ERROR:", err.response?.data || err.message);
+    return res.json({ ok: true, enabled, planAllowed, approved: false, disclosureAccepted: false });
+  }
+});
+
+// Intentionally NO plan/approval gate here — any authenticated user may accept
+// the disclosure early. This is safe ONLY because requireResourceAdmin
+// independently re-checks all gates (including this one) before any action.
+// If that re-check is ever weakened, this route becomes a real gap.
+router.post("/api/portal/resource-admin/accept-disclosure", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  try {
+    const stampedAt = mysqlDatetimeUTC();
+    await frappeClient().put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+      resource_admin_disclosure_accepted_at: stampedAt,
+    });
+    return res.json({ ok: true, disclosureAcceptedAt: stampedAt });
+  } catch (err) {
+    console.error("RESOURCE ADMIN DISCLOSURE ACCEPT ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to record disclosure acceptance." });
+  }
+});
+
+// --- Environment variables ---
+
+router.get("/api/portal/services/:serviceId/envs", requireAuth, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  try {
+    const envs = await coolifyLane.listEnvs(job.external_ref, { kind: "application" });
+    // A write-only secret must never travel back to a browser, even to the
+    // account that set it — that's the entire meaning of is_shown_once.
+    return res.json({
+      ok: true,
+      envs: envs.map((e) => (e.isShownOnce ? { ...e, value: null, redacted: true } : { ...e, redacted: false })),
+    });
+  } catch (err) {
+    console.error("ENV LIST ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't load environment variables. Please try again." });
+  }
+});
+
+router.post("/api/portal/services/:serviceId/envs", requireAuth, envMutationLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const key = String(req.body?.key || "").trim();
+  const value = String(req.body?.value ?? "");
+  if (!ENV_KEY_RE.test(key)) {
+    return res.status(400).json({ error: "Use letters, numbers and underscores only, starting with a letter or underscore." });
+  }
+
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+  try {
+    await coolifyLane.createEnv(
+      job.external_ref,
+      { key, value, isBuildTime: !!req.body?.isBuildTime, isLiteral: !!req.body?.isLiteral },
+      { kind: "application" }
+    );
+    appendJobAudit(frappeClient(), job, `[ACTION] env.create ${key} requested by ${webAccountName}`);
+    return res.json({
+      ok: true,
+      // Never imply the change is already live — Coolify accepts the write
+      // immediately, but the running container keeps its old environment.
+      message: `${key} saved. Restart the service to apply it.`,
+      restartRequired: true,
+    });
+  } catch (err) {
+    console.error("ENV CREATE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't save that variable. Please try again." });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+});
+
+router.patch("/api/portal/services/:serviceId/envs/:envKey", requireAuth, envMutationLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const key = String(req.params.envKey || "").trim();
+  if (!ENV_KEY_RE.test(key)) return res.status(400).json({ error: "Unknown variable." });
+
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+  try {
+    await coolifyLane.updateEnv(
+      job.external_ref,
+      { key, value: String(req.body?.value ?? ""), isBuildTime: !!req.body?.isBuildTime, isLiteral: !!req.body?.isLiteral },
+      { kind: "application" }
+    );
+    appendJobAudit(frappeClient(), job, `[ACTION] env.update ${key} requested by ${webAccountName}`);
+    return res.json({ ok: true, message: `${key} updated. Restart the service to apply it.`, restartRequired: true });
+  } catch (err) {
+    console.error("ENV UPDATE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't update that variable. Please try again." });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+});
+
+router.delete("/api/portal/services/:serviceId/envs/:envUuid", requireAuth, envMutationLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const envUuid = String(req.params.envUuid || "").trim();
+  if (!envUuid) return res.status(400).json({ error: "Missing variable id." });
+
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+  try {
+    // Resolve the uuid against THIS resource's own variables before deleting —
+    // an env uuid from another tenant's resource must never be actionable here.
+    const envs = await coolifyLane.listEnvs(job.external_ref, { kind: "application" });
+    const target = envs.find((e) => e.uuid === envUuid);
+    if (!target) return res.status(404).json({ error: "Variable not found on this service." });
+
+    await coolifyLane.deleteEnv(job.external_ref, envUuid, { kind: "application" });
+    appendJobAudit(frappeClient(), job, `[ACTION] env.delete ${target.key} requested by ${webAccountName}`);
+    return res.json({ ok: true, message: `${target.key} removed. Restart the service to apply it.`, restartRequired: true });
+  } catch (err) {
+    console.error("ENV DELETE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't remove that variable. Please try again." });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+});
+
+// --- Runtime logs ---
+// Distinct from the per-deployment BUILD logs above: this is what the running
+// container is emitting right now.
+router.get("/api/portal/services/:serviceId/logs", requireAuth, runtimeLogsLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const lines = Math.min(1000, Math.max(1, Number(req.query.lines) || 200));
+  try {
+    const { logs } = await coolifyLane.getLogs(job.external_ref, { lines }, { kind: "application" });
+    return res.json({ ok: true, lines, logs });
+  } catch (err) {
+    console.error("RUNTIME LOGS ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't fetch logs right now. Please try again." });
   }
 });
 

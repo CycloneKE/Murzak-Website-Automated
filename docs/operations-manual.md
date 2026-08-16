@@ -20,7 +20,7 @@ For deep technical/automation setup, see the companion docs:
 ## 1. What Murzak is (in one minute)
 
 Murzak resells **managed hosting and business systems** in Kenya. We rent **one
-powerful server** (a Hostinger KVM 4: 4 CPU, 16 GB RAM, 200 GB disk) and resell
+powerful server** (a Hostinger KVM 2: 2 CPU, 8 GB RAM, 100 GB disk) and resell
 slices of it as retail plans priced in **KES**, paid by **M-Pesa or card**.
 
 The money-maker is **hosted business systems** — ERPNext, POS, CRM, accounting —

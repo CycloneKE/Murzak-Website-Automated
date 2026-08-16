@@ -19,12 +19,12 @@ const axios = require("axios");
 const { CAPACITY } = require("../catalog");
 const appDomain = require("../appDomain");
 
-// Server-wide budget (from the generated catalog snapshot: KVM 4 = 4 vCPU /
-// 12.8GB sellable). Used to derive a proportional CPU quota per container.
+// Server-wide budget (from the generated catalog snapshot: KVM 2 = 2 vCPU /
+// 6.4GB sellable). Used to derive a proportional CPU quota per container.
 // Fallbacks match the box we sell today so this never divides by zero if the
 // snapshot is missing a field.
-const BOX_VCPU = Number(CAPACITY?.vcpu) > 0 ? Number(CAPACITY.vcpu) : 4;
-const BOX_SELLABLE_RAM_MB = Number(CAPACITY?.sellableRamMb) > 0 ? Number(CAPACITY.sellableRamMb) : 12800;
+const BOX_VCPU = Number(CAPACITY?.vcpu) > 0 ? Number(CAPACITY.vcpu) : 2;
+const BOX_SELLABLE_RAM_MB = Number(CAPACITY?.sellableRamMb) > 0 ? Number(CAPACITY.sellableRamMb) : 6400;
 
 const DEFAULT_RAM_MB = 256;
 const MIN_CPUS = 0.25; // never starve a container below a quarter-core
@@ -369,15 +369,24 @@ async function provisionApp(job, opts) {
   // Idempotency: recover an application created on a previous crashed attempt.
   // The recovery path goes through the SAME finalizeApp as a fresh create —
   // before this, recovery returned success without ever checking a deployment.
+  // ONLY the list call is wrapped — see the matching note in provision(). The
+  // previous version also wrapped finalizeApp, so a recovery whose deploy
+  // failed (even PERMANENTLY) was swallowed and fell through to creating a
+  // second application for the same job.
+  let existing;
   try {
     const listRes = await client.get("/api/v1/applications");
-    const existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
-    if (existing) {
-      const uuid = existing.uuid || existing.id || name;
-      return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: true });
-    }
+    existing = (listRes.data?.data || listRes.data || []).find?.((a) => a.name === name);
   } catch (e) {
-    console.warn(`[coolify] app idempotency GET failed for ${name}: ${e.message}`);
+    // An unreadable list is not evidence of absence — retryable, never create.
+    throw new Error(
+      `coolify: could not list applications to check for an existing "${name}" — refusing to create blind (${e.message})`
+    );
+  }
+
+  if (existing) {
+    const uuid = existing.uuid || existing.id || name;
+    return await finalizeApp(client, c, job, uuid, repo, opts, { recovered: true });
   }
 
   const payload = {
@@ -394,12 +403,20 @@ async function provisionApp(job, opts) {
     // Deployment is triggered + awaited explicitly in finalizeApp — a job is
     // only ever reported active once Coolify says the build FINISHED.
     instant_deploy: false,
+    // CONFIRMED live against Coolify 4.1.2 (2026-08-12): unlike the services
+    // endpoint (which rejects ALL limit fields), /api/v1/applications/public
+    // DOES accept limits_memory and limits_cpus — but 422s on exactly four
+    // others: limits_pids, cap_drop, security_opt, storage_opt ("This field
+    // is not allowed."). Sending them made every BYOA job fail before the
+    // repo was ever cloned. Verified: dropping just those four returns 201.
+    //
+    // So pids/cap-drop/no-new-privileges/disk are NOT enforceable on this
+    // lane at create time. That is a real hardening gap for git-built
+    // customer apps versus the compose-based service lane — deliberately
+    // left visible here rather than silently dropped; see the P5.0 note on
+    // provision() for what the service lane manages to enforce.
     limits_memory: `${limits.ramMb}M`,
     limits_cpus: String(limits.cpus),
-    limits_pids: limits.pidsLimit,
-    cap_drop: ["ALL"],
-    security_opt: ["no-new-privileges:true"],
-    ...(limits.diskGb > 0 ? { storage_opt: { size: `${limits.diskGb}G` } } : {}),
   };
 
   const res = await client.post("/api/v1/applications/public", payload);
@@ -413,6 +430,94 @@ async function provisionApp(job, opts) {
  * @returns {Promise<{externalRef:string, access:object, log:string}>}
  * @throws on any API failure (the runner converts a throw into retry/escalate).
  */
+const serviceStartPollMs = () => Math.max(2000, Number(process.env.COOLIFY_SERVICE_START_POLL_MS || 5000));
+const serviceStartTimeoutMs = () =>
+  Math.max(30000, Number(process.env.COOLIFY_SERVICE_START_TIMEOUT_MS || 120000));
+
+/**
+ * POST /api/v1/services only REGISTERS the compose stack — it does not start
+ * it (confirmed live, 2026-08-12: the created container sat "Exited" with
+ * "No such container" in the logs until a manual Deploy). This triggers the
+ * start action and polls the service's own status field ("<state>:<health>",
+ * e.g. "running:healthy") to a terminal state before the job is ever reported
+ * active, mirroring the BYOA path's deployAndWait — a job must never be
+ * marked active on resource creation alone.
+ */
+async function serviceStatus(client, uuid) {
+  const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
+  const d = res.data?.data || res.data || {};
+  return String(d.status || "");
+}
+
+async function ensureServiceRunning(client, uuid, { sleep } = {}) {
+  const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+
+  // NEVER call /start unconditionally — hit live, 2026-08-12: the
+  // idempotency-recovery path called it on job PRV-USER-26-02-14-0002-00015's
+  // resource, which was ALREADY running fine. Coolify restarted it, a poll
+  // caught the transient "exited" mid-restart, and that got reported as a
+  // PERMANENT failure — needlessly bounced a healthy container and killed a
+  // job that had nothing wrong with it (confirmed still "Running (unknown)"
+  // seconds later). Only trigger start when the resource isn't already up.
+  const initial = await serviceStatus(client, uuid);
+  if (initial.split(":")[0] === "running") return initial;
+
+  await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/start`);
+
+  // Require TWO consecutive "running" reads, not one. A single sample isn't
+  // enough — a crash-looping container (restart: unless-stopped) can be
+  // caught mid-cycle between "restarting" and a fresh "running" the instant
+  // it respawns; one lucky poll otherwise reports the job active while the
+  // container keeps dying (hit live, 2026-08-12: cap_drop:ALL crash-looped
+  // nginx and a single-read version of this check still marked the job
+  // "active" during one of its brief up-flickers).
+  const deadline = Date.now() + serviceStartTimeoutMs();
+  let lastStatus = "";
+  let consecutiveRunning = 0;
+  while (Date.now() < deadline) {
+    await wait(serviceStartPollMs());
+    const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
+    const d = res.data?.data || res.data || {};
+    lastStatus = String(d.status || "");
+    const state = lastStatus.split(":")[0];
+    if (state === "running") {
+      consecutiveRunning += 1;
+      if (consecutiveRunning >= 2) return lastStatus;
+    } else {
+      consecutiveRunning = 0;
+      if (state === "exited") {
+        throw permanentError(`coolify: service failed to start (status=${lastStatus})`, { status: lastStatus });
+      }
+    }
+  }
+  throw new Error(
+    `coolify: service still not running after ${Math.round(serviceStartTimeoutMs() / 1000)}s (status=${lastStatus})`
+  );
+}
+
+/**
+ * Attach the customer-facing hostname to a generic (non-BYOA) service —
+ * the exact gap that left every Website Hosting order stuck on "URL
+ * pending" forever: this lane created and started the container fine, but
+ * never called attachDomain, so access.url was never set and the portal's
+ * url_pending branch had nothing to ever resolve into. Best-effort by
+ * design (mirrors finalizeApp's BYOA domains PATCH) — a rejected PATCH must
+ * not fail the whole job; degrade to no link, same as an unconfigured
+ * APP_DOMAIN_BASE, never a fabricated URL.
+ */
+async function attachServiceUrl(client, uuid, job, name) {
+  const slug = appDomain.slugWithSuffix(name, job.name);
+  const fqdn = appDomain.fqdnFor(slug);
+  if (!fqdn) return "";
+  try {
+    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, { domains: fqdn });
+  } catch (e) {
+    console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
+    return "";
+  }
+  return fqdn;
+}
+
 async function provision(job, opts) {
   // BYOA jobs (repo_url attached at enqueue) build from the customer's git
   // repo as an application; everything else stays the generic service path.
@@ -424,26 +529,51 @@ async function provision(job, opts) {
 
   // 1. Idempotency Check: does it already exist?
   // If the runner crashed after creation but before Frappe update, we must recover.
+  // Recovery goes through the SAME ensureServiceRunning as a fresh create — a
+  // job found "existing" but never started must not be reported active either.
+  // ONLY the list call is wrapped. Everything after "existing found" must
+  // propagate: the previous version wrapped the recovery block too, so a
+  // retryable timeout inside ensureServiceRunning (a slow-starting container)
+  // was swallowed and execution fell straight through to the create below —
+  // manufacturing yet another duplicate on every retry.
+  let existing;
   try {
     const listRes = await client.get("/api/v1/services");
-    const existing = (listRes.data?.data || []).find((s) => s.name === name);
-    if (existing) {
-      const uuid = existing.uuid || existing.id || name;
-      return {
-        externalRef: String(uuid),
-        access: {
-          lane: "coolify",
-          target: opts?.target?.id || "box-1",
-          resource: name,
-          manageUrl: c.baseUrl.replace(/\/+$/, ""),
-          uuid: String(uuid),
-        },
-        log: `coolify: recovered existing service "${name}" (uuid=${uuid}) on ${opts?.target?.id || "box-1"}`,
-      };
-    }
+    // Accept BOTH envelope shapes. Coolify answers some list endpoints with a
+    // bare array rather than {data:[...]}; without the `|| listRes.data`
+    // fallback this expression silently became [], .find() returned undefined,
+    // and the check concluded "doesn't exist" — so every runner retry POSTed
+    // another container. That is exactly what produced 12 redundant running
+    // services on the live box (audited 2026-08-15: four copies each of two
+    // web-hosting tenants, three each of three more). provisionApp's matching
+    // check has always carried this fallback, which is why APPLICATIONS had
+    // zero duplicates while services multiplied. Never narrow this again.
+    existing = (listRes.data?.data || listRes.data || []).find?.((s) => s.name === name);
   } catch (e) {
-    // Ignore list errors and try to create; if it fails on POST we'll catch it there.
-    console.warn(`[coolify] idempotency GET failed for ${name}: ${e.message}`);
+    // A list we cannot read is NOT evidence of absence. Creating here is how a
+    // transient Coolify blip turns into a permanent orphan; throw retryable so
+    // the runner backs off and re-checks instead.
+    throw new Error(
+      `coolify: could not list services to check for an existing "${name}" — refusing to create blind (${e.message})`
+    );
+  }
+
+  if (existing) {
+    const uuid = existing.uuid || existing.id || name;
+    const status = await ensureServiceRunning(client, uuid);
+    const url = await attachServiceUrl(client, uuid, job, name);
+    return {
+      externalRef: String(uuid),
+      access: {
+        lane: "coolify",
+        target: opts?.target?.id || "box-1",
+        resource: name,
+        url,
+        manageUrl: c.baseUrl.replace(/\/+$/, ""),
+        uuid: String(uuid),
+      },
+      log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}`,
+    };
   }
 
   const limits = resourceLimits(job);
@@ -454,33 +584,71 @@ async function provision(job, opts) {
   // today, and is a hard prerequisite for the Phase 5 shell (a jailed shell
   // is only as safe as the container it execs into).
   //
-  // ⚠️ COOLIFY FIELD NAMES UNVERIFIED beyond limits_memory (the one field this
-  // lane already exercised). limits_cpus/limits_pids mirror Coolify's
-  // documented resource-limit columns, but cap-drop / no-new-privileges likely
-  // are NOT settable via this high-level service API and may need a
-  // docker-compose security_opt/cap_drop block on the Coolify resource, or a
-  // post-create `docker update` — EXCEPT cap-drop and no-new-privileges are
-  // create-time only and CANNOT be backfilled onto a running container via
-  // `docker update` (they require recreation). Unknown fields are harmless
-  // (Coolify ignores them); verify against the live instance from the VPS
-  // (docker inspect the created container) before relying on any of these.
+  // CONFIRMED live against Coolify 4.1.2 (2026-08-12): POST /api/v1/services
+  // does NOT accept limits_memory/limits_cpus/limits_pids/cap_drop/
+  // security_opt/storage_opt as top-level fields at all ("This field is not
+  // allowed.") — it 422s on every one of them. The endpoint only accepts a
+  // predefined one-click `type`, or a custom `docker_compose_raw` (base64-
+  // encoded compose YAML; plain-text 422s with "should be base64 encoded").
+  // All resource bounds must instead live INSIDE the compose service
+  // definition, which plain (non-swarm) `docker compose` — what Coolify runs
+  // here — honors directly via mem_limit/cpus/pids_limit/cap_drop/
+  // security_opt. Verified end-to-end: this exact shape returns 201 and the
+  // service is created (smoke-tested then deleted: diag-test-delete-me-3).
+  //
+  // NO host port publish. A first live start attempt (job PRV-USER-26-02-14-
+  // 0002-00015, 2026-08-12) with `ports: [{target:80, published:80}]` failed
+  // with "failed to bind host port 0.0.0.0:80/tcp: address already in use" —
+  // Coolify's own proxy already owns 80/443 on the shared box. Every tenant
+  // publishing the same host port was never going to work on a multi-tenant
+  // instance; Coolify's proxy discovers containers over the internal Docker
+  // network and routes by attached domain (see finalizeApp's domains PATCH
+  // for the BYOA path), so the container just needs to expose the port, not
+  // bind it on the host.
+  //
+  // cap_add CHOWN/SETUID/SETGID: a second live attempt (same job, still
+  // 2026-08-12) with bare `cap_drop: ALL` crash-looped —
+  // nginx:alpine's entrypoint runs as root to `chown` its cache dirs then
+  // drops to the "nginx" user via setuid()/setgid(), and with every
+  // capability dropped that chown() itself failed ("Operation not
+  // permitted"), so the container never got past startup. Adding back just
+  // these three keeps everything else (NET_ADMIN, SYS_ADMIN, etc.) dropped —
+  // still far tighter than the container's default capability set.
+  const composeYaml =
+    `services:\n` +
+    `  app:\n` +
+    `    image: ${job.docker_image || "nginx:alpine"}\n` +
+    `    restart: unless-stopped\n` +
+    `    mem_limit: ${limits.ramMb}m\n` +
+    `    cpus: ${limits.cpus}\n` +
+    `    pids_limit: ${limits.pidsLimit}\n` +
+    `    cap_drop:\n` +
+    `      - ALL\n` +
+    `    cap_add:\n` +
+    `      - CHOWN\n` +
+    `      - SETUID\n` +
+    `      - SETGID\n` +
+    `    security_opt:\n` +
+    `      - no-new-privileges:true\n` +
+    `    expose:\n` +
+    `      - "80"\n`;
+
   const payload = {
     project_uuid: c.project,
     server_uuid: c.server,
     environment_name: c.env,
     name,
-    limits_memory: `${limits.ramMb}M`,
-    limits_cpus: String(limits.cpus),
-    limits_pids: limits.pidsLimit,
-    // Best-effort hardening flags (see caveat above).
-    cap_drop: ["ALL"],
-    security_opt: ["no-new-privileges:true"],
-    ...(limits.diskGb > 0 ? { storage_opt: { size: `${limits.diskGb}G` } } : {}),
+    docker_compose_raw: Buffer.from(composeYaml).toString("base64"),
   };
 
   const res = await client.post("/api/v1/services", payload);
   const data = res.data?.data || res.data || {};
   const uuid = data.uuid || data.id || name;
+
+  // Creation only registers the compose stack (see ensureServiceRunning) — it
+  // must actually be running before this job is ever reported active.
+  const status = await ensureServiceRunning(client, uuid);
+  const url = await attachServiceUrl(client, uuid, job, name);
 
   return {
     externalRef: String(uuid),
@@ -488,10 +656,14 @@ async function provision(job, opts) {
       lane: "coolify",
       target: opts?.target?.id || "box-1",
       resource: name,
+      url,
       manageUrl: c.baseUrl.replace(/\/+$/, ""),
       uuid: String(uuid),
     },
-    log: `coolify: created service "${name}" (uuid=${uuid}) mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit}${limits.diskGb ? ` disk=${limits.diskGb}G` : ""} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
+    // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
+    // catalog figure only, not an enforced container bound on this lane.
+    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
 }
 
@@ -523,6 +695,28 @@ async function resourceAction(externalRef, action, opts) {
     `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/${action}`
   );
   return res.data;
+}
+
+/**
+ * Raw list of live resources — admin orphan-reconciliation only (never used
+ * by provision()/provisionApp(), which do their own idempotency list-and-match
+ * inline). Same envelope shape as that idempotency check: `res.data.data`,
+ * items carry `uuid` (fallback `id`) and `name`.
+ */
+async function listApplications(opts) {
+  const client = http(opts);
+  const res = await client.get("/api/v1/applications");
+  return (res.data?.data || res.data || [])
+    .map((a) => ({ uuid: String(a.uuid || a.id || "").trim(), name: a.name || "" }))
+    .filter((a) => a.uuid);
+}
+
+async function listServices(opts) {
+  const client = http(opts);
+  const res = await client.get("/api/v1/services");
+  return (res.data?.data || res.data || [])
+    .map((s) => ({ uuid: String(s.uuid || s.id || "").trim(), name: s.name || "" }))
+    .filter((s) => s.uuid);
 }
 
 function restart(externalRef, opts) {
@@ -580,6 +774,104 @@ async function attachDomain(externalRef, domain, opts) {
   return res.data;
 }
 
+/* ------------------------------------------------------------------------ *
+ * RESOURCE ADMIN — environment variables, runtime logs, teardown.
+ *
+ * These back the customer-facing resource-admin panel (approved accounts only,
+ * see services/resourceAdminEligibility.js). Unlike the action routes above,
+ * these paths ARE documented for Coolify v4 in both the applications and the
+ * services namespace — except getLogs, which exists ONLY for applications.
+ *
+ * ⚠️ Still unexercised against this instance: the Coolify API is IP-allowlisted
+ * to the VPS, so none of this can be verified from a dev machine (a probe from
+ * anywhere else returns 403 "You are not allowed to access the API"). Run
+ * scripts/coolify-smoke.js ON THE BOX before putting these behind a customer
+ * button — every recent lane bug came from skipping exactly that step.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * Environment variables for an already-provisioned resource.
+ *
+ * NOTE: `value` is a customer SECRET. Nothing in this lane logs it, and
+ * callers must not either — audit trails record the key name and the action,
+ * never the value. Coolify echoes `is_shown_once` for write-only secrets; the
+ * route layer is responsible for honouring it before sending anything to a
+ * browser.
+ */
+async function listEnvs(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`);
+  const rows = res.data?.data || res.data || [];
+  return (Array.isArray(rows) ? rows : []).map((e) => ({
+    uuid: String(e.uuid || e.id || "").trim(),
+    key: e.key || "",
+    value: e.value ?? null,
+    isBuildTime: !!(e.is_buildtime ?? e.is_build_time),
+    isLiteral: !!e.is_literal,
+    isMultiline: !!e.is_multiline,
+    isShownOnce: !!e.is_shown_once,
+  }));
+}
+
+async function createEnv(externalRef, { key, value, isBuildTime = false, isLiteral = false }, opts) {
+  const client = http(opts);
+  const res = await client.post(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`,
+    { key, value, is_buildtime: !!isBuildTime, is_literal: !!isLiteral }
+  );
+  return res.data;
+}
+
+// Coolify v4 updates an env by PATCHing the collection with the key, not by
+// addressing the env uuid in the path (the uuid form is DELETE-only).
+async function updateEnv(externalRef, { key, value, isBuildTime = false, isLiteral = false }, opts) {
+  const client = http(opts);
+  const res = await client.patch(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`,
+    { key, value, is_buildtime: !!isBuildTime, is_literal: !!isLiteral }
+  );
+  return res.data;
+}
+
+async function deleteEnv(externalRef, envUuid, opts) {
+  const client = http(opts);
+  const res = await client.delete(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs/${encodeURIComponent(envUuid)}`
+  );
+  return res.data;
+}
+
+/**
+ * Runtime container logs. APPLICATIONS ONLY — Coolify v4 exposes no equivalent
+ * for composed services, so this throws permanently rather than returning an
+ * empty string a caller might render as "your service logged nothing."
+ */
+async function getLogs(externalRef, { lines = 200 } = {}, opts) {
+  if (opts?.kind !== "application") {
+    throw permanentError("coolify: runtime logs are only available for application-kind resources");
+  }
+  const n = clamp(Number(lines) || 200, 1, 1000);
+  const client = http(opts);
+  const res = await client.get(
+    `/api/v1/applications/${encodeURIComponent(externalRef)}/logs?lines=${n}`
+  );
+  const d = res.data?.data || res.data || {};
+  return { logs: typeof d.logs === "string" ? d.logs : "" };
+}
+
+/**
+ * Destroy the resource. Irreversible, and the ONLY thing in this codebase that
+ * deletes live infrastructure — orphans.js deliberately only *reports*. The
+ * caller must treat a throw as a hard abort and leave its own records intact:
+ * dropping the owning record after a failed teardown is precisely how an
+ * unreconcilable orphan is created.
+ */
+async function destroy(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.delete(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`);
+  return res.data;
+}
+
 module.exports = {
   lane: "coolify",
   isConfigured,
@@ -590,6 +882,8 @@ module.exports = {
   restart,
   stop,
   start,
+  listApplications,
+  listServices,
   getUsage,
   attachDomain,
   resourceName,
@@ -604,4 +898,11 @@ module.exports = {
   normalizeDeployment,
   getDeployment,
   redeploy,
+  // Resource admin (env vars / runtime logs / teardown).
+  listEnvs,
+  createEnv,
+  updateEnv,
+  deleteEnv,
+  getLogs,
+  destroy,
 };

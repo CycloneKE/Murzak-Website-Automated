@@ -141,7 +141,7 @@ async function listDraftRows(client) {
   try {
     const res = await client.get(`/api/resource/${ORDER_DOCTYPE}`, {
       params: {
-        fields: JSON.stringify(["name", "web_account", "status", "ram_mb", "reservation_expires_at"]),
+        fields: JSON.stringify(["name", "web_account", "status", "ram_mb", "reservation_expires_at", "invoice_doc_name"]),
         filters: JSON.stringify([["status", "=", "Draft"]]),
         limit_page_length: 0,
       },
@@ -331,6 +331,57 @@ async function cancelOrder({ client, webAccountName, orderId }) {
   return { ok: true };
 }
 
+/**
+ * Best-effort reconciliation sweep over Draft orders — the admin-visible
+ * companion to getOrder's lazy per-order check. Two things a lazy,
+ * request-triggered check alone won't catch:
+ *  1. An order whose invoice was paid through a channel that never revisits
+ *     the checkout page (an M-Pesa/PayPal webhook activates the invoice
+ *     directly) — the order sits "Draft" forever until someone happens to
+ *     GET it again.
+ *  2. An order that never got an invoice at all, whose reservation expired
+ *     long ago. Its RAM already stopped counting toward capacity the moment
+ *     it expired (reservedDraftRamMb's own filter already handles that) —
+ *     this is purely record hygiene, so an abandoned, dead-end order
+ *     doesn't sit around forever still looking like an in-progress purchase
+ *     (see CHK-00019 — exactly this: a stranded Draft order after the
+ *     eligibility gate 400'd prepare-payment with no recovery path).
+ * Never throws — best-effort, meant to be called from a periodic sweep.
+ */
+async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60 * 1000 }) {
+  const summary = { checked: 0, flippedPaid: 0, expired: 0, errors: 0 };
+  let rows;
+  try {
+    rows = await listDraftRows(client);
+  } catch (e) {
+    summary.errors++;
+    return summary;
+  }
+
+  for (const row of rows) {
+    if (row.status !== "Draft") continue; // filter drift guard, same as reservedDraftRamMb
+    summary.checked++;
+    try {
+      if (row.invoice_doc_name) {
+        const invoice = await fetchInvoice(client, row.invoice_doc_name);
+        if (invoice && String(invoice.status || "").toLowerCase() === "paid") {
+          await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(row.name)}`, { status: "Paid" });
+          summary.flippedPaid++;
+          continue;
+        }
+      }
+      const expiresAt = parseMysqlDatetime(row.reservation_expires_at);
+      if (expiresAt && nowMs - expiresAt > staleGraceMs) {
+        await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(row.name)}`, { status: "Cancelled" });
+        summary.expired++;
+      }
+    } catch (e) {
+      summary.errors++;
+    }
+  }
+  return summary;
+}
+
 /** Link a Portal Invoice doc name to a Draft order (Task 3 calls this once the invoice is created). */
 async function linkInvoice({ client, orderId, invoiceDocName }) {
   await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
@@ -378,5 +429,6 @@ module.exports = {
   cancelOrder,
   linkInvoice,
   reservedDraftRamMb,
+  reconcileDraftOrders,
   toApiOrder,
 };

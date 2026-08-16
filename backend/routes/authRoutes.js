@@ -2,7 +2,7 @@
 const express = require('express');
 
 module.exports = function(ctx) {
-  const { 
+  const {
     WEB_ACCOUNT_SERVICES_FIELD,
     appBaseUrl,
     applyPlanAndCreateInvoice,
@@ -28,8 +28,14 @@ module.exports = function(ctx) {
     requireAuth,
     sendPasswordResetEmail,
     sendVerificationEmail,
-    setupTrialVerification 
+    setupTrialVerification
   } = ctx;
+  // Not part of routeContext (a pure helper, not a wired dependency) —
+  // required after the ctx destructure so test/routesContext.test.js's
+  // static guard (which greedily matches the FIRST `const {` through to
+  // `} = ctx;`) keeps targeting the real destructure. See portalRoutes.js's
+  // top-of-file comment for the same constraint.
+  const { isValidRepoUrl } = require('../utils/repoUrl');
 
   const router = express.Router();
 
@@ -44,7 +50,22 @@ router.post("/api/register", authLimiter, async (req, res) => {
     const emailRaw = req.body.email ?? req.body.workEmail;
     const password = req.body.password;
     const purpose = req.body.purpose ?? "";
-    const sourceCode = req.body.sourceCode ?? "";
+    // Same trim + length cap + https/git@ format check as PUT
+    // /api/portal/account/repo (portalRoutes.js) — this is the SAME field,
+    // just written for the first time at signup instead of edited later.
+    // Previously took req.body.sourceCode straight through with none of
+    // that, so a garbage repo URL could originate right here and ride all
+    // the way into a provisioning job payload.
+    const sourceCodeRaw = String(req.body.sourceCode ?? "").trim();
+    if (sourceCodeRaw.length > 500) {
+      return res.status(400).json({ error: "Repository URL is too long." });
+    }
+    if (sourceCodeRaw && !isValidRepoUrl(sourceCodeRaw)) {
+      return res.status(400).json({
+        error: "Enter a valid repository URL (e.g. https://github.com/you/app, optional #branch).",
+      });
+    }
+    const sourceCode = sourceCodeRaw;
     const email = (emailRaw || "").toLowerCase().trim();
     if (!isValidEmail(email)) {
       return res.status(400).json({

@@ -209,7 +209,10 @@ function baseArgs(extra) {
 
   section("server-side per-order capacity guard");
   {
-    // biz-erp-configured (4096MB) + biz-db-medium (4096MB) = 8192MB > 6144 cap.
+    // biz-erp-configured (4096MB) + biz-db-medium (4096MB) = 8192MB > 3200 cap
+    // (each of these now exceeds the cap alone on the real KVM 2 box — this
+    // pairing was already over-cap before the resize too, so the assertion
+    // below is unchanged; it's just no longer the tightest example).
     const fp = orderFootprint([{ serviceId: "biz-erp-configured" }, { serviceId: "biz-db-medium" }]);
     ok(fp.ramMb === 8192, `two 4GB premium apps sum to 8192MB (got ${fp.ramMb})`);
     await throws(
@@ -219,6 +222,17 @@ function baseArgs(extra) {
       422,
       "over-cap order is rejected"
     );
+    // Real consequence of the KVM 2 resize: a SINGLE premium item, on its
+    // own, now exceeds the self-serve cap (4096MB > 3200MB) — it could not
+    // before (4096MB < the old 6144MB cap). Locking this in so a future
+    // capacity resize can't silently widen the cap back past what a lone
+    // premium tenant needs without someone noticing this assertion break.
+    await throws(
+      () => Promise.resolve().then(() => assertOrderWithinCapacity([{ serviceId: "biz-erp-configured" }])),
+      422,
+      "a single biz-erp-configured order alone is rejected on the real box"
+    );
+
     // A single light bundle is well within the cap.
     let okUnder = true;
     try {

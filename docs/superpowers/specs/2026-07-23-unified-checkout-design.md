@@ -107,7 +107,7 @@ reservation.
 
 ## Capacity gate — reserve at checkout start
 
-The single KVM 4 host (16 GB RAM) is the hard cap, with an operator-configured
+The single KVM 2 host (8 GB RAM) is the hard cap, with an operator-configured
 reserve held back for the system itself.
 
 - **Ledger:** one capacity ledger tracks `allocated` (active services) +

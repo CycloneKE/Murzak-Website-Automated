@@ -163,8 +163,8 @@ test.describe('LNCH-07 — the capacity cap is enforced server-side, not just in
   // NOTE: same DEV_AUTO_LOGIN caveat as elsewhere. This registers + pays a
   // Business plan, then fires an /api/addons/invoice/create request DIRECTLY
   // (bypassing any client-side capacity guard) with a batch of services
-  // whose combined RAM comfortably exceeds SELF_SERVE_ORDER_RAM_CAP_MB
-  // (6144MB) — the server (assertOrderWithinCapacity) must reject it.
+  // whose combined RAM (4608MB) exceeds SELF_SERVE_ORDER_RAM_CAP_MB (3200MB)
+  // — the server (assertOrderWithinCapacity) must reject it.
   test('a directly-POSTed over-cap add-on order is rejected, not accepted', async ({ page }) => {
     const suffix = Math.floor(Math.random() * 1e9);
     const email = `test_lnch07_${suffix}@example.com`;
@@ -198,10 +198,10 @@ test.describe('LNCH-07 — the capacity cap is enforced server-side, not just in
       });
     }, invoiceId);
 
-    // Over-cap batch: 6 volume services totalling well over 6144MB RAM
-    // (1536+1024+768+768+256+256 across web-plus/app/db-light/db-mongo/
-    //  email/storage) — all volume-class so plan-eligibility can't be the
-    // thing that rejects it; the CAPACITY guard has to be what fires.
+    // Over-cap batch: 6 volume services totalling 4608MB RAM (over the
+    // 3200MB cap) — 1536+1024+768+768+256+256 across web-plus/app/db-light/
+    // db-mongo/email/storage — all volume-class so plan-eligibility can't be
+    // the thing that rejects it; the CAPACITY guard has to be what fires.
     const overCap = await page.evaluate(async () => {
       const services = [
         { serviceId: 'starter-web-hosting-plus', serviceName: 'Website Hosting (Growth)', tier: 'Medium', domainChoice: 'Use Murzak Subdomain' },

@@ -37,5 +37,35 @@
     "read_only": 1,
     "insert_after": "terminal_access_approved_by",
     "description": "Customer's one-time acceptance of the developer-terminal disclosure (network/session-recording notice). Never client-settable except via POST /api/portal/terminal/accept-disclosure, which stamps this from the server clock."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "resource_admin_approved_at",
+    "label": "Resource Admin Approved At",
+    "fieldtype": "Datetime",
+    "read_only": 1,
+    "insert_after": "terminal_disclosure_accepted_at",
+    "description": "Stamped by staff via POST /api/admin/web-accounts/:webAccount/resource-admin/approve. Required (alongside resource_admin_disclosure_accepted_at and a Business+ plan) before the customer can edit environment variables or read runtime logs for their own resource."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "resource_admin_approved_by",
+    "label": "Resource Admin Approved By",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "insert_after": "resource_admin_approved_at",
+    "description": "Staff email that approved resource-admin access, for audit."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "resource_admin_disclosure_accepted_at",
+    "label": "Resource Admin Disclosure Accepted At",
+    "fieldtype": "Datetime",
+    "read_only": 1,
+    "insert_after": "resource_admin_approved_by",
+    "description": "Customer's one-time acceptance of the resource-admin disclosure (you can break your own service; support scope changes). Never client-settable except via POST /api/portal/resource-admin/accept-disclosure, which stamps this from the server clock."
   }
 ]
