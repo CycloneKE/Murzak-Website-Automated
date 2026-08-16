@@ -122,7 +122,10 @@ function portalUrl() {
   if (!base && process.env.NODE_ENV === "production") {
     console.error("APP_BASE_URL is not set in production — trial/lifecycle emails will link to the wrong domain.");
   }
-  return (base || "https://murzaktech.com").replace(/\/$/, "") + "/portal";
+  // Fallback only fires when APP_BASE_URL is unset (already logged above as a
+  // misconfiguration). murzaktech.com has no DNS at all; website.murzaktech.tech
+  // is where the app is actually served.
+  return (base || "https://website.murzaktech.tech").replace(/\/$/, "") + "/portal";
 }
 
 /**

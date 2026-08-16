@@ -19,7 +19,11 @@ interface Props {
   variant?: 'default' | 'onDark';
 }
 
-const SITE_ORIGIN = 'https://murzaktech.com';
+// murzaktech.com has no DNS delegation at all (confirmed 2026-08-16) — every
+// URL this used to generate 404'd at the DNS layer before a crawler could
+// even reach it, defeating the "always points at a real, resolvable URL"
+// comment below. The site is actually served from website.murzaktech.tech.
+const SITE_ORIGIN = 'https://website.murzaktech.tech';
 
 // `item.page` is usually a Page *key* ("home", "custom-software"), not a URL
 // path — naively prefixing it with "/" would turn "home" into "/home" (the

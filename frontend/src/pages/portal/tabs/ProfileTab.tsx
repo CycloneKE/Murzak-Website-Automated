@@ -37,7 +37,7 @@ const ProfileTab: React.FC = () => {
             <UserIcon className="w-24 h-24 text-murzak-accent" />
           </div>
           
-          <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
+          <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
             <UserCircle className="w-5 h-5 text-murzak-accent" /> Personal Information
           </h3>
           
@@ -107,18 +107,23 @@ const ProfileTab: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-transparent to-murzak-accent/5 z-0 pointer-events-none"></div>
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
 
+          {/* This card is `.glass-dark` — a fixed dark backdrop that does not
+              switch with the site theme (see index.css). Text here must
+              therefore always use the light palette; a `dark:` variant means
+              "near-black on near-black in light mode", which is what made
+              the plan name and this panel unreadable in light mode. */}
           <div className="relative z-10">
-            <h3 className="text-[12px] font-black text-murzak-ink dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
+            <h3 className="text-[12px] font-black text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
               <Shield className="w-5 h-5 text-murzak-accent" /> Service Plan
             </h3>
-            
+
             <div className="flex flex-col gap-2 mb-8">
-              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-murzak-ink dark:text-slate-100">
+              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-slate-100">
                 {user.plan || "None"}
               </p>
               <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
                 <div className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <span className="text-micro font-black uppercase text-slate-400">
                   Status: {user.accountStatus}
                 </span>
               </div>
@@ -130,17 +135,17 @@ const ProfileTab: React.FC = () => {
                   Provisioned Services
                 </p>
                 <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
-                  <Server className="w-4 h-4 text-murzak-ink dark:text-slate-100" />
+                  <Server className="w-4 h-4 text-slate-100" />
                 </div>
               </div>
-              
+
               <div className="flex items-end gap-2">
                 <span className="text-3xl font-black">{selectedServices.length}</span>
-                <span className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase pb-1">
+                <span className="text-micro font-bold text-slate-400 uppercase pb-1">
                   Active
                 </span>
               </div>
-              
+
             </div>
           </div>
 
@@ -157,7 +162,7 @@ const ProfileTab: React.FC = () => {
 
             <button
               onClick={goToUpgrade}
-              className="w-full bg-black/5 border border-white/15 text-murzak-ink dark:text-slate-100 rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
+              className="w-full bg-black/5 border border-white/15 text-slate-100 rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
             >
               <Crown className="w-4 h-4 text-murzak-accent" /> Upgrade Plan
             </button>
@@ -166,7 +171,7 @@ const ProfileTab: React.FC = () => {
       </div>
 
       <div className="glass-panel p-8 sm:p-10 rounded-[3rem] border border-murzak-border">
-        <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest mb-8 flex items-center gap-3">
+        <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
           <Settings className="w-5 h-5 text-murzak-accent" /> Account Preferences
         </h3>
         

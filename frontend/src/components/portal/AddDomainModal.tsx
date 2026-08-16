@@ -45,7 +45,7 @@ const PATHS: Array<{
   {
     id: "subdomain",
     icon: <Gift className="w-5 h-5" />,
-    title: "Free murzaktech.com subdomain",
+    title: "Free Murzak subdomain",
     description: "No cost, live almost instantly — good for testing or a quick launch.",
   },
 ];
@@ -288,7 +288,11 @@ export default function AddDomainModal({
                       placeholder="yourbrand"
                       className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                     />
-                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 shrink-0">.murzaktech.com</span>
+                    {/* Preview only — the request is fulfilled server-side against
+                        whatever FREE_SUBDOMAIN_ROOT_DOMAIN is actually configured
+                        to (see resolveFreeSubdomainRoot in customerDomains.js).
+                        This used to say ".murzaktech.com", which has no DNS at all. */}
+                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 shrink-0">.murzaktech.tech</span>
                   </div>
                   {label && !subdomainLabelValid && (
                     <p className="mt-2 text-micro font-bold text-red-500">Letters, numbers and hyphens only.</p>

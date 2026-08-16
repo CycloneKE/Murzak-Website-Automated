@@ -24,7 +24,7 @@ const CUSTOMER_DOMAIN_DOCTYPE = "Customer Domain";
 const DOMAIN_KINDS = Object.freeze({
   REGISTERED: "registered", // we register it on their behalf (manual, paid)
   EXTERNAL: "external", // they already own it elsewhere; we point it here
-  MURZAK_SUBDOMAIN: "murzak_subdomain", // free *.murzaktech.com label
+  MURZAK_SUBDOMAIN: "murzak_subdomain", // free *.<FREE_SUBDOMAIN_ROOT_DOMAIN> label
 });
 
 const DOMAIN_KIND_VALUES = Object.freeze(Object.values(DOMAIN_KINDS));
@@ -63,6 +63,41 @@ function normalizeDomainName(raw) {
   s = s.split(":")[0]; // port
   s = s.replace(/\.+$/, ""); // trailing root dot
   return s.trim();
+}
+
+/**
+ * The root domain free Murzak subdomains are issued under — a customer gets
+ * `<label>.<root>`. This used to be hardcoded to "murzaktech.com", which has
+ * no DNS record at all (confirmed 2026-08-16: the live site is actually
+ * served from website.murzaktech.tech). Every free subdomain ever issued was
+ * therefore a promise nobody could reach.
+ *
+ * This is not a display bug like a stale link in an email footer — it is a
+ * customer-facing hostname persisted as fact on their account. So, like
+ * appBaseUrl() in server.js for password-reset links, this refuses to guess
+ * in production rather than silently manufacturing another broken one.
+ *
+ * IMPORTANT: setting FREE_SUBDOMAIN_ROOT_DOMAIN only makes the CODE correct.
+ * Whichever domain gets configured here also needs a wildcard DNS record and
+ * a matching wildcard vhost on whatever sits in front of the app (Coolify's
+ * proxy, here) — neither of which any code can create. Until that
+ * infrastructure exists, no value of this setting will make a newly-issued
+ * subdomain actually resolve; it will only stop the app from lying about it.
+ */
+function resolveFreeSubdomainRoot({ envValue, nodeEnv } = {}) {
+  const configured = String(envValue || "").trim().toLowerCase();
+  if (configured) return { ok: true, root: configured };
+
+  if (nodeEnv === "production") {
+    return {
+      ok: false,
+      reason:
+        "FREE_SUBDOMAIN_ROOT_DOMAIN is not set in production — refusing to issue a subdomain on a guessed domain.",
+    };
+  }
+  // Dev/mock only — the production guard above means this never ships a
+  // stale guess to a real customer.
+  return { ok: true, root: "murzaktech.tech" };
 }
 
 /**
@@ -515,6 +550,7 @@ module.exports = {
   mapCustomerDomainRow,
   normalizeDomainName,
   normalizeStatus,
+  resolveFreeSubdomainRoot,
   setDomainAttachment,
   splitPurchasedDomain,
   summarizeByStatus,

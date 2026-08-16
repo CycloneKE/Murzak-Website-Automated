@@ -74,21 +74,21 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                 <Database size={20} />
               </div>
               <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Enterprise Infrastructure</h3>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Built on blazing-fast NVMe SSDs and robust processors. Your applications run with zero bottlenecks.</p>
+              <p className="text-[13px] text-slate-500 dark:text-slate-300 font-medium leading-relaxed">Built on blazing-fast NVMe SSDs and robust processors. Your applications run with zero bottlenecks.</p>
             </div>
             <div>
               <div className="inline-flex p-2.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-3">
                 <Globe size={20} />
               </div>
               <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Local Datacenter</h3>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Low latency access across East Africa. Keep your data local, fast, and compliant.</p>
+              <p className="text-[13px] text-slate-500 dark:text-slate-300 font-medium leading-relaxed">Low latency access across East Africa. Keep your data local, fast, and compliant.</p>
             </div>
             <div>
               <div className="inline-flex p-2.5 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-3">
                 <ShieldCheck size={20} />
               </div>
               <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-1.5">Fully Managed Security</h3>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">Active DDoS protection, daily backups, and regular patching handled automatically by our team.</p>
+              <p className="text-[13px] text-slate-500 dark:text-slate-300 font-medium leading-relaxed">Active DDoS protection, daily backups, and regular patching handled automatically by our team.</p>
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                       {c.t}
                       {isLink && <ArrowUpRight size={15} className="text-murzak-accent opacity-0 group-hover:opacity-100 transition-opacity" />}
                     </h3>
-                    <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
+                    <p className="text-[13px] text-slate-500 dark:text-slate-300 font-medium leading-relaxed">{c.s}</p>
                   </div>
                 </Tag>
               );
@@ -171,7 +171,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
               <div key={c.t} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7">
                 <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
                 <h3 className="text-base font-black text-murzak-ink dark:text-slate-100 mb-2">{c.t}</h3>
-                <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{c.s}</p>
+                <p className="text-[13px] text-slate-500 dark:text-slate-300 font-medium leading-relaxed">{c.s}</p>
               </div>
             ))}
           </div>

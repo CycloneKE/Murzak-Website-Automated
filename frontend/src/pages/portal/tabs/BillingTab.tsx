@@ -51,22 +51,28 @@ const BillingTab: React.FC = () => {
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
             
             <div className="absolute top-8 right-8 opacity-10 group-hover:scale-110 transition-transform duration-700 z-0">
-              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-murzak-ink dark:text-slate-100" />
+              <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-slate-100" />
             </div>
 
+            {/* This card's background (above) is an unconditional dark gradient —
+                a "black card" treatment that does not switch with the site theme.
+                Its text must therefore always use the light palette; a `dark:`
+                variant here means "near-black on near-black in light mode",
+                which is what made the plan name and these two buttons
+                unreadable in light mode. */}
             <div className="relative z-10 flex flex-col md:flex-row gap-8 justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-black/5 rounded-full border border-white/20 mb-6 backdrop-blur-md">
                   <div className={`w-2 h-2 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                  <span className="text-micro font-black uppercase text-murzak-ink dark:text-slate-100">
+                  <span className="text-micro font-black uppercase text-slate-100">
                     {user.accountStatus} Subscription
                   </span>
                 </div>
 
-                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-murzak-ink dark:text-slate-100">
+                <h3 className="text-4xl sm:text-5xl font-[900] tracking-tighter mb-2 uppercase text-slate-100">
                   {user.plan}
                 </h3>
-                <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mb-8">
+                <p className="text-micro font-bold text-slate-400 uppercase mb-8">
                   Monthly Billing • Next cycle in 14 days
                 </p>
 
@@ -74,18 +80,18 @@ const BillingTab: React.FC = () => {
                   <button onClick={goToUpgrade} className="px-6 py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase shadow-[0_0_20px_rgba(0,189,252,0.3)] hover:scale-105 transition-all flex items-center gap-2">
                     <ArrowUpCircle className="w-4 h-4" /> Change Plan
                   </button>
-                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-black/5 text-murzak-ink dark:text-slate-100 border border-white/20 font-black text-micro uppercase hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+                  <button onClick={() => openAddonsModal("billing")} className="px-6 py-4 rounded-2xl bg-black/5 text-slate-100 border border-white/20 font-black text-micro uppercase hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
                     <Plus className="w-4 h-4" /> Add Services
                   </button>
                 </div>
               </div>
 
               <div className="bg-black/5 border border-murzak-border rounded-3xl p-6 backdrop-blur-md self-start min-w-[200px]">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">Monthly Burn</p>
+                <p className="text-micro font-black uppercase text-slate-400 mb-2">Monthly Burn</p>
                 <p className="text-3xl font-black text-murzak-accent tracking-tighter">KES {monthlyBurnKes.toLocaleString()}</p>
                 <div className="mt-4 pt-4 border-t border-murzak-border flex justify-between items-center">
-                  <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Services</span>
-                  <span className="text-micro font-black text-murzak-ink dark:text-slate-100">{includedSelectedCount}</span>
+                  <span className="text-micro font-black uppercase text-slate-400">Services</span>
+                  <span className="text-micro font-black text-slate-100">{includedSelectedCount}</span>
                 </div>
               </div>
             </div>
@@ -93,7 +99,7 @@ const BillingTab: React.FC = () => {
 
           {/* Included Services List */}
           <div className="glass-panel rounded-[3rem] p-8 sm:p-10 border border-murzak-border">
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-murzak-ink mb-8 flex items-center gap-3">
+            <h3 className="text-[12px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-100 mb-8 flex items-center gap-3">
               <Server className="w-5 h-5 text-murzak-accent" /> Provisioned Services
             </h3>
 
@@ -136,7 +142,11 @@ const BillingTab: React.FC = () => {
 
                     <div className="flex items-center gap-3 self-end sm:self-auto">
                       <div className="flex items-center gap-3">
-                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-ink dark:bg-black/5 text-murzak-ink dark:text-slate-100 border border-slate-200 dark:border-white/20 text-micro font-black uppercase flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(0,189,252,0.15)] group-hover:shadow-[0_0_20px_rgba(0,189,252,0.3)]">
+                        {/* bg-murzak-ink is a solid dark pill even in light mode
+                            (only dark mode fades it to a transparent outline),
+                            so its text must stay light in both — text-murzak-ink
+                            in light mode was near-black on that near-black pill. */}
+                        <button onClick={() => setDeveloperUpsellSvc(s.serviceId)} className="px-3 py-1.5 rounded-full bg-murzak-ink dark:bg-black/5 text-slate-100 border border-slate-200 dark:border-white/20 text-micro font-black uppercase flex items-center gap-1.5 hover:bg-slate-800 dark:hover:bg-white/20 transition shadow-[0_0_15px_rgba(0,189,252,0.15)] group-hover:shadow-[0_0_20px_rgba(0,189,252,0.3)]">
                           <Terminal className="w-3 h-3 text-murzak-accent" /> Developer Access
                         </button>
                         
@@ -175,7 +185,7 @@ const BillingTab: React.FC = () => {
         <div className="xl:col-span-1">
           <div className="glass-panel rounded-[3rem] p-8 border border-murzak-border h-full flex flex-col">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-[12px] font-black text-slate-800 dark:text-murzak-ink uppercase tracking-widest flex items-center gap-3">
+              <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-3">
                 <Receipt className="w-5 h-5 text-murzak-accent" /> Invoices
               </h3>
               <button
