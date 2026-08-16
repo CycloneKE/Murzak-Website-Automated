@@ -21,17 +21,27 @@ function thresholdPct() {
   return 85;
 }
 
+/**
+ * True when the capacity gate should be disabled outright.
+ *
+ * The whole E2E suite shares ONE backend process against one in-memory mock
+ * capacity pool (see .github/workflows/sast.yml — "the whole 115-test suite
+ * shares one backend process/IP"). Every checkout-flow test creates a Draft
+ * order that reserves RAM for RESERVATION_TTL_MS (30 minutes) and is never
+ * paid or cancelled, so reservations accumulate monotonically across the
+ * ~7-minute run. By test ~110 there is enough unpaid, un-expired reservation
+ * sitting in the shared pool to trip a gate designed to stop a real box from
+ * being oversold — which a CI run touching no real infrastructure isn't
+ * doing. Same env var and reasoning as server.js's skipInE2E for rate
+ * limiting: a production safeguard tripping on test-suite bookkeeping, not on
+ * anything the gate exists to catch.
+ */
+function skipInE2E() {
+  return process.env.E2E_TEST === "true";
+}
+
 function thresholdMb() {
-  // The whole Playwright suite runs as many independent, unrelated purchase
-  // flows against ONE long-lived mock-Frappe process — unlike a real fleet,
-  // nothing here ever gets decommissioned, so committed RAM (both live
-  // Provisioning Job rows and draft-order reservations) only climbs as the
-  // run progresses. That's correct simulation of the real single-KVM
-  // constraint for any ONE flow, but the suite's cumulative volume now
-  // regularly exceeds it well before the run ends, tripping capacity gates
-  // that have nothing to do with the behavior actually under test. Mirrors
-  // server.js's skipInE2E() precedent for the same class of CI-only relief.
-  if (process.env.E2E_TEST === "true") return Number.MAX_SAFE_INTEGER;
+  if (skipInE2E()) return Infinity;
   return Math.floor((sellableRamMb() * thresholdPct()) / 100);
 }
 

@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { attachDomainToService, detachDomain, fetchCustomerDomains } from "../../../services/hostingPortal";
+import {
+  attachDomainToService,
+  createDomainPurchaseRequest,
+  createExternalDomainConnection,
+  createMurzakSubdomain,
+  detachDomain,
+  fetchCustomerDomains,
+} from "../../../services/hostingPortal";
 import { type CustomerDomain } from "../../../types/hosting";
 
 /**
@@ -62,8 +69,31 @@ export function useCustomerDomains() {
     }
   };
 
+  // --- Self-service intake (register / bring your own / free subdomain) ---
+  // Three existing endpoints already do this work headlessly — the customer
+  // used to have to open a support chat instead of using them because
+  // nothing in the portal called them outside the buy-hosting flow.
+  const requestNewDomain = async (input: { requestedName: string; requestedTld: string; notes?: string }) => {
+    await createDomainPurchaseRequest(input);
+    await refreshDomains();
+    setDomainNotice({ type: "success", text: "Domain registration requested — we'll email you once it's live." });
+  };
+
+  const connectExternalDomain = async (input: { domainName: string; registrar?: string; notes?: string }) => {
+    await createExternalDomainConnection(input);
+    await refreshDomains();
+    setDomainNotice({ type: "success", text: "Domain connection requested — point it at us and we'll verify it." });
+  };
+
+  const requestFreeSubdomain = async (input: { requestedLabel: string; notes?: string }) => {
+    await createMurzakSubdomain({ requestedLabel: input.requestedLabel, targetType: "folder", targetValue: "", notes: input.notes });
+    await refreshDomains();
+    setDomainNotice({ type: "success", text: "Free subdomain requested — it'll appear here once it's set up." });
+  };
+
   return {
     attachDomain,
+    connectExternalDomain,
     detachCustomerDomain,
     domainBusyId,
     domainNotice,
@@ -71,6 +101,8 @@ export function useCustomerDomains() {
     domainsError,
     domainsLoading,
     refreshDomains,
+    requestFreeSubdomain,
+    requestNewDomain,
     setDomainNotice,
   };
 }

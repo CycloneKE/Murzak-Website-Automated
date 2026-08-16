@@ -42,7 +42,20 @@ export interface NavItem {
 }
 
 export interface NavProps {
-  onNavigate: (page: Page) => void;
+  /**
+   * Accepts a Page key OR a raw path — App.tsx's handler is literally
+   * `(pageOrPath: string)` and callers pass `c.path || c.page`. This was
+   * declared as `(page: Page) => void`, which was simply not what the app
+   * does; nothing caught it because @types/react was missing, so most of the
+   * JSX type-checking was inert.
+   */
+  onNavigate: (pageOrPath: Page | string) => void;
+  /**
+   * Set while a route transition is in flight. App.tsx passes this to five
+   * pages; only three declared it, so the other two silently ignored it and
+   * never showed a loading state.
+   */
+  isLoading?: boolean;
 }
 
 export interface ProjectUpdate {

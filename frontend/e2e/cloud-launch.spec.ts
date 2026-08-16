@@ -58,32 +58,24 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     // unified-checkout migration this flow now goes through. This is also
     // this account's first purchase of a monthly-billed service, so it's
     // eligible for the annual-prepay term selector (checkoutBillingTerm.js's
-    // isEligibleForTermChoice), which defers invoice creation until
-    // confirmed — unlike /pricing?configure=… registrations (see the second
-    // test below), which still bill synchronously at registration.
+    // isEligibleForTermChoice), which defers invoice creation — and with it
+    // PaymentMethods itself, which Checkout.tsx renders only once `invoice`
+    // is set — until the term is confirmed. Unlike /pricing?configure=…
+    // registrations (see the second test below), which still bill
+    // synchronously at registration.
     await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
     await expect(page.getByText('Billing', { exact: true })).toBeVisible({ timeout: 10000 });
-
-    const prepareResponsePromise = page.waitForResponse(
-      (r) => r.url().includes('/prepare-payment') && r.request().method() === 'POST'
-    );
     await page.getByRole('button', { name: 'Continue to payment' }).click();
-    const prepareResponse = await prepareResponsePromise;
-    const prepareData = await prepareResponse.json().catch(() => ({}));
-    const invoiceId = prepareData?.invoiceDocName || '';
-    expect(invoiceId).toBeTruthy();
 
-    await page.evaluate(async (invId) => {
-      const res = await fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ invoiceDocName: invId, orderID: 'MOCK_PAYPAL_SUCCESS' }),
-      });
-      if (res.ok) window.location.href = '/portal/overview';
-    }, invoiceId);
+    // Pay via the same dev-only mock-pay rail checkout.spec.ts already uses
+    // (PaymentMethods.tsx, gated on import.meta.env.DEV) rather than a manual
+    // /api/paypal/capture-order fetch — one less hand-rolled path to drift
+    // out of sync with the real payment component.
+    const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
+    await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
+    await mockPayBtn.click();
 
-    await expect(page).toHaveURL(/.*\/portal\/overview/);
+    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
     const appHostingRow = page.locator('text=App Hosting (Node.js / Docker)').first();
     await expect(appHostingRow).toBeVisible({ timeout: 5000 });
   });
@@ -115,16 +107,19 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    await expect(page).toHaveURL(/.*\/payment\/.+/, { timeout: 15000 });
-    const firstInvoiceId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
-    await page.evaluate(async (invId) => {
-      await fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ invoiceDocName: invId, orderID: 'MOCK_PAYPAL_SUCCESS' }),
-      });
-    }, firstInvoiceId);
+    // Unlike the first test's CloudLaunchModal path (-> /checkout/CHK-...),
+    // the Pricing/plan-configurator flow this bootstrap uses genuinely does
+    // land on a dedicated /payment/:invoiceId page (Payment.tsx renders the
+    // same PaymentMethods component Checkout.tsx embeds) — that part of the
+    // original test was correct. Only the payment step itself needed fixing:
+    // drive it via the same dev-mock-pay rail as everywhere else in this
+    // suite, rather than a raw fetch to /api/paypal/capture-order.
+    await expect(page).toHaveURL(/\/payment\/.+/, { timeout: 15000 });
+    const firstOrderId = page.url().match(/\/payment\/([^/]+)/)?.[1] || '';
+    const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
+    await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
+    await mockPayBtn.click();
+    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
 
     // Now this account has a PAID Business plan. Launch a Light-tier volume
     // resource — this must succeed via POST /api/orders (order creation is
@@ -149,6 +144,6 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await expect(page).toHaveURL(/.*\/checkout\/.+/, { timeout: 15000 });
     const secondOrderId = page.url().match(/\/checkout\/([^/]+)/)?.[1] || '';
     expect(secondOrderId).toBeTruthy();
-    expect(secondOrderId).not.toBe(firstInvoiceId);
+    expect(secondOrderId).not.toBe(firstOrderId);
   });
 });

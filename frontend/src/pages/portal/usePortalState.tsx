@@ -152,8 +152,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   // nothing else here, which is why they went first; services, invoices,
   // updates and resource-ops are more entangled and follow separately.
   const {
-    attachDomain, detachCustomerDomain, domainBusyId, domainNotice, domains,
-    domainsError, domainsLoading, refreshDomains, setDomainNotice,
+    attachDomain, connectExternalDomain, detachCustomerDomain, domainBusyId, domainNotice, domains,
+    domainsError, domainsLoading, refreshDomains, requestFreeSubdomain, requestNewDomain, setDomainNotice,
   } = useCustomerDomains();
   const { fetchUploads, handleGeneralUpload, uploadErr, uploadedFiles, uploading, uploadsLoaded } =
     useUploads();
@@ -1170,6 +1170,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     deployableServices,
     storageServices,
     attachDomain,
+    connectExternalDomain,
     detachCustomerDomain,
     domainBusyId,
     domainNotice,
@@ -1177,6 +1178,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     domainsError,
     domainsLoading,
     refreshDomains,
+    requestFreeSubdomain,
+    requestNewDomain,
     setDomainNotice,
     addonsDisabledReason,
     addonsOpen,
