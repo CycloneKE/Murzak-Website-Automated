@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle2, Globe, Link2, Link2Off, Plus, RefreshCw, ShieldCheck } from "lucide-react";
+import AddDomainModal from "../../../components/portal/AddDomainModal";
 import EmptyState from "../../../components/portal/EmptyState";
 import { usePortal } from "../PortalContext";
 import { type CustomerDomain } from "../../../types/hosting";
@@ -54,6 +55,7 @@ function fmtDate(v?: string | null) {
 const DomainsTab: React.FC = () => {
   const {
     attachDomain,
+    connectExternalDomain,
     detachCustomerDomain,
     domainBusyId,
     domainNotice,
@@ -61,13 +63,15 @@ const DomainsTab: React.FC = () => {
     domainsError,
     domainsLoading,
     refreshDomains,
+    requestFreeSubdomain,
+    requestNewDomain,
     selectedServices,
-    setIsContactOpen,
   } = usePortal();
 
   // Which domain's "point at…" picker is open, and what it's set to.
   const [picking, setPicking] = useState<string>("");
   const [pickedService, setPickedService] = useState<string>("");
+  const [isAddDomainOpen, setIsAddDomainOpen] = useState(false);
 
   // You can only point a domain at something that's actually running. The
   // server enforces this too; hiding the rest just avoids offering a choice
@@ -113,7 +117,7 @@ const DomainsTab: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setIsContactOpen(true)}
+            onClick={() => setIsAddDomainOpen(true)}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase shadow-lg active:scale-95 transition-transform"
           >
             <Plus className="w-4 h-4" /> Add a domain
@@ -153,8 +157,8 @@ const DomainsTab: React.FC = () => {
           icon={<Globe className="w-6 h-6" />}
           title="No domains yet"
           description="Register a new domain, connect one you already own, or take a free murzaktech.com address. Any of them can point at any of your services."
-          actionLabel="Talk to us about a domain"
-          onAction={() => setIsContactOpen(true)}
+          actionLabel="Add a domain"
+          onAction={() => setIsAddDomainOpen(true)}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -257,6 +261,14 @@ const DomainsTab: React.FC = () => {
           })}
         </div>
       )}
+
+      <AddDomainModal
+        isOpen={isAddDomainOpen}
+        onClose={() => setIsAddDomainOpen(false)}
+        onRequestNewDomain={requestNewDomain}
+        onConnectExternalDomain={connectExternalDomain}
+        onRequestFreeSubdomain={requestFreeSubdomain}
+      />
     </div>
   );
 };
