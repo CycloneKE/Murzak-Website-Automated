@@ -130,6 +130,39 @@ router.put("/api/portal/account/repo", requireAuth, async (req, res) => {
   }
 });
 
+// Full name / business name — the two Web Account fields the Profile tab
+// used to render as static text with no way to change them. Email is
+// deliberately excluded: it doubles as the session/login identity, so
+// changing it is a bigger, riskier operation (re-verification, session
+// migration) than this endpoint is scoped for.
+router.put("/api/portal/account/profile", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  const fullName = String(req.body?.fullName ?? "").trim();
+  const companyName = String(req.body?.companyName ?? "").trim();
+  if (!fullName) return res.status(400).json({ error: "Full name is required." });
+  if (fullName.length > 140) return res.status(400).json({ error: "Full name is too long." });
+  if (companyName.length > 140) return res.status(400).json({ error: "Business name is too long." });
+
+  try {
+    const client = frappeClient();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+      account_holder_name: fullName,
+      entity_name: companyName,
+    });
+    if (req.session.user) {
+      req.session.user.name = fullName;
+      req.session.user.company = companyName;
+      await new Promise((resolve) => req.session.save(resolve));
+    }
+    return res.json({ ok: true, name: fullName, company: companyName });
+  } catch (err) {
+    console.error("ACCOUNT PROFILE UPDATE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to update your profile." });
+  }
+});
+
 // --- PORTAL USER CHAT: create thread ---
 router.post("/api/portal/requests", requireAuth, async (req, res) => {
   try {
