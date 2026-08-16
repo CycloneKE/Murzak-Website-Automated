@@ -245,7 +245,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
     `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
 
   const labelClasses =
-    "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1";
+    "block text-micro font-black text-slate-400 uppercase mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
@@ -263,10 +263,10 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-murzak-ink dark:text-murzak-ink">
+              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-100">
                 Chat with support
               </h3>
-              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-micro font-black uppercase text-slate-400 mt-1">
                 Signed in as {email}
               </p>
             </div>
@@ -274,7 +274,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
 
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-murzak-ink transition-colors"
+            className="text-slate-400 hover:text-white transition-colors"
             type="button"
           >
             <X className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
@@ -300,7 +300,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                       className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
                         isUser
                           ? "bg-murzak-accent/20 text-murzak-ink border-murzak-accent"
-                          : "bg-slate-50 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
+                          : "bg-slate-50 text-murzak-ink border-slate-200"
                       }`}
                     >
                       <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">{m.message}</p>
@@ -340,7 +340,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
               <label className={labelClasses}>Message</label>
               {(uploading || uploadedUrl) && (
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
-                  <div className="text-micro font-black uppercase text-slate-200">
+                  <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-300">
                     {uploading ? "Uploading..." : "Attachment ready"}
                     {!uploading && uploadedName ? `: ${uploadedName}` : ""}
                   </div>

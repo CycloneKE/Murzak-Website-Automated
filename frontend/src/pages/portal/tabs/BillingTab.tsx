@@ -10,6 +10,7 @@ const BillingTab: React.FC = () => {
     deletingId,
     downloadingAll,
     downloadingId,
+    dueSubscriptionInvoice,
     goToAddServices,
     goToUpgrade,
     includedSelectedCount,
@@ -27,6 +28,20 @@ const BillingTab: React.FC = () => {
     setLocalInvoices,
     user,
   } = usePortal();
+
+  // Honest billing-cycle line: this app has no confirmed renewal-date field on
+  // the user record, and the exact server cycle length (RENEWAL_CYCLE_DAYS) is
+  // a backend env var never sent to the client — so "renews in N days" would
+  // be a guess dressed up as a fact. What IS real: whether a subscription
+  // invoice is currently due, and when the account was last billed.
+  const lastPaidSubscription = (localInvoices || [])
+    .filter((inv: any) => String(inv?.type || "").toLowerCase().includes("subscription") && inv?.status === "Paid")
+    .sort((a: any, b: any) => String(b?.date || "").localeCompare(String(a?.date || "")))[0];
+  const billingCycleLine = dueSubscriptionInvoice
+    ? "A subscription invoice is due — see Invoices"
+    : lastPaidSubscription
+      ? `Monthly Billing • Last billed ${lastPaidSubscription.date}`
+      : "Monthly Billing";
 
   return (
     <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-12">
@@ -73,7 +88,7 @@ const BillingTab: React.FC = () => {
                   {user.plan}
                 </h3>
                 <p className="text-micro font-bold text-slate-400 uppercase mb-8">
-                  Monthly Billing • Next cycle in 14 days
+                  {billingCycleLine}
                 </p>
 
                 <div className="flex gap-4">
@@ -168,7 +183,7 @@ const BillingTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => onRequestDelete(s, "billing")}
-                        className="p-2.5 rounded-xl bg-white/20 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2.5 rounded-xl bg-white/20 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-red-500 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
                         title="Remove service"
                       >
                         <Trash2 className="w-4 h-4" />

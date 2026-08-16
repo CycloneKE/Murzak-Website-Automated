@@ -77,9 +77,16 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const [repoSaving, setRepoSaving] = useState(false);
   const [repoMsg, setRepoMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // Full name / business name — previously static text on My Account with no
+  // way to change them (email stays read-only; see the endpoint's comment).
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileNameDraft, setProfileNameDraft] = useState<string>(user.name || "");
+  const [profileCompanyDraft, setProfileCompanyDraft] = useState<string>(user.company || "");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [addonsSourceTab, setAddonsSourceTab] = useState<"overview" | "cloud" | "billing">("overview");
-  const [addonsError, setAddonsError] = useState<string>("");
   const [addonsLoading, setAddonsLoading] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<SelectedServiceView | null>(null);
@@ -533,7 +540,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
 
   const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing") => {
-    setAddonsError("");
     setAddonsSourceTab(sourceTab);
     setAddonsOpen(true);
   };
@@ -645,12 +651,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       selectedServices.filter(
         (s) => s.category === "App Hosting" || s.category === "Apps"
       ),
-    [selectedServices]
-  );
-
-  /** Everything that isn't broken out into its own section. */
-  const computeServices = useMemo(
-    () => selectedServices.filter((s) => s.category !== "Database Hosting" && s.category !== "Storage"),
     [selectedServices]
   );
 
@@ -1015,7 +1015,6 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const createAddonInvoice = async (selectedAddons: any[]) => {
     setAddonsLoading(true);
-    setAddonsError("");
 
     const payload = {
       services: selectedAddons.map((s: any) => ({
@@ -1160,12 +1159,33 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     }
   };
 
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      const res = await fetch("/api/portal/account/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ fullName: profileNameDraft.trim(), companyName: profileCompanyDraft.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to save.");
+      onUserUpdate({ ...user, name: data.name, company: data.company });
+      setProfileMsg({ ok: true, text: "Saved." });
+      setProfileEditing(false);
+    } catch (e: any) {
+      setProfileMsg({ ok: false, text: e?.message || "Failed to save." });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   return {
     accountSuspended,
     activeLogServiceId,
     activeTab,
     addonCandidates,
-    computeServices,
     databaseServices,
     deployableServices,
     storageServices,
@@ -1239,6 +1259,11 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     performServiceAction,
     planAttachBanner,
     planAttachBannerTone,
+    profileCompanyDraft,
+    profileEditing,
+    profileMsg,
+    profileNameDraft,
+    profileSaving,
     provisionProgress,
     redeployNote,
     redeploying,
@@ -1247,13 +1272,13 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     repoSaving,
     requestingDeveloper,
     resourceAdminActive,
+    saveProfile,
     saveRepo,
     scalingServiceId,
     selectedServices,
     serviceActionNotice,
     serviceUsage,
     setActiveLogServiceId,
-    setAddonsError,
     setAddonsOpen,
     setAdminUnread,
     setDeleteConfirmText,
@@ -1269,6 +1294,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     setIsSidebarOpen,
     setIsSystemsNavOpen,
     setLocalInvoices,
+    setProfileCompanyDraft,
+    setProfileEditing,
+    setProfileNameDraft,
     setRepoDraft,
     setRepoMsg,
     setResourceAdminActive,

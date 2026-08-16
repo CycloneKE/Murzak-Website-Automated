@@ -6,6 +6,7 @@ import {
   adminMarkRead,
   adminReply,
   adminApproveTerminalAccess,
+  adminApproveResourceAdmin,
   ChatMessage,
   ThreadDoc,
   ThreadSummary,
@@ -89,6 +90,8 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
   const [error, setError] = useState<string>("");
   const [approvingTerminal, setApprovingTerminal] = useState(false);
   const [terminalApproveNote, setTerminalApproveNote] = useState("");
+  const [approvingResourceAdmin, setApprovingResourceAdmin] = useState(false);
+  const [resourceAdminApproveNote, setResourceAdminApproveNote] = useState("");
 
   const pollRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -263,6 +266,23 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
     }
   };
 
+  const isResourceAdminThread = (t: ThreadDoc | null) =>
+    !!t?.subject && t.subject.startsWith("Resource Admin Access Request:");
+
+  const handleApproveResourceAdmin = async () => {
+    if (!threadDoc?.portal_user) return;
+    setApprovingResourceAdmin(true);
+    setResourceAdminApproveNote("");
+    try {
+      await adminApproveResourceAdmin(threadDoc.portal_user);
+      setResourceAdminApproveNote("Advanced controls approved — the customer can now accept the disclosure and manage this service directly.");
+    } catch (e: any) {
+      setResourceAdminApproveNote(e?.message || "Failed to approve advanced controls.");
+    } finally {
+      setApprovingResourceAdmin(false);
+    }
+  };
+
   const messages: ChatMessage[] = threadDoc?.messages || [];
   const threadTitle = threadDoc ? labelFromThread(threadDoc) : "Select a thread";
   const threadMeta = threadDoc
@@ -417,6 +437,26 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
           {terminalApproveNote && (
             <div className="px-6 pt-4 text-micro font-black uppercase text-murzak-accent">
               {terminalApproveNote}
+            </div>
+          )}
+          {isResourceAdminThread(threadDoc) && (
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-murzak-border bg-murzak-accent/5 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                Advanced controls request
+              </p>
+              <button
+                type="button"
+                onClick={handleApproveResourceAdmin}
+                disabled={approvingResourceAdmin || !threadDoc?.portal_user}
+                className="h-9 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              >
+                {approvingResourceAdmin ? "Approving..." : "Approve Advanced Controls"}
+              </button>
+            </div>
+          )}
+          {resourceAdminApproveNote && (
+            <div className="px-6 pt-4 text-micro font-black uppercase text-murzak-accent">
+              {resourceAdminApproveNote}
             </div>
           )}
 

@@ -17,6 +17,8 @@ import { createPortalThread } from "../../../services/portalChat";
 interface ResourceAdminPanelProps {
   serviceId: string;
   serviceName: string;
+  /** Adjusts copy only ("Connection details" vs "Environment Variables") — the underlying data is the same env-var store either way. */
+  serviceCategory?: string;
   isActive: boolean;
   /** Opens Portal.tsx's existing upgrade-request flow. */
   onRequestUpgrade: () => void;
@@ -49,10 +51,12 @@ const REQUEST_TOPICS = [
 const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   serviceId,
   serviceName,
+  serviceCategory,
   isActive,
   onRequestUpgrade,
   onAdminActiveChange,
 }) => {
+  const isDatabase = serviceCategory === "Database Hosting";
   const [eligibility, setEligibility] = useState<ResourceAdminEligibility | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -66,6 +70,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   const [draftKey, setDraftKey] = useState("");
   const [draftValue, setDraftValue] = useState("");
   const [savingEnv, setSavingEnv] = useState(false);
+  const [deletingEnvUuid, setDeletingEnvUuid] = useState<string | null>(null);
   const [restartNeeded, setRestartNeeded] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
@@ -79,6 +84,14 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   const [requestTopic, setRequestTopic] = useState("");
   const [requestDetail, setRequestDetail] = useState("");
   const [requestSending, setRequestSending] = useState(false);
+
+  // Access request — kicks off staff approval the same way Developer Access
+  // does (a support thread AdminInbox recognises by subject prefix and can
+  // approve in place). There's no separate "requested" flag on Web Account;
+  // the thread itself is the request.
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [accessRequestSent, setAccessRequestSent] = useState(false);
+  const [accessRequestError, setAccessRequestError] = useState("");
 
   const active = !!eligibility?.enabled && !!eligibility?.planAllowed && !!eligibility?.approved && !!eligibility?.disclosureAccepted;
 
@@ -113,6 +126,22 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   useEffect(() => {
     onAdminActiveChange?.(active && isActive);
   }, [active, isActive, onAdminActiveChange]);
+
+  const handleRequestAccess = async () => {
+    setRequestingAccess(true);
+    setAccessRequestError("");
+    try {
+      await createPortalThread({
+        subject: `Resource Admin Access Request: ${serviceName}`,
+        message: `I'd like advanced controls (environment variables, live logs) for ${serviceName} (${serviceId}).`,
+      });
+      setAccessRequestSent(true);
+    } catch (e: any) {
+      setAccessRequestError(e?.message || "Couldn't send that request.");
+    } finally {
+      setRequestingAccess(false);
+    }
+  };
 
   const handleAccept = async () => {
     setAccepting(true);
@@ -150,7 +179,9 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   };
 
   const handleDeleteEnv = async (env: EnvVar) => {
+    if (deletingEnvUuid) return;
     setEnvsError("");
+    setDeletingEnvUuid(env.uuid);
     try {
       const res = await deleteEnvVar(serviceId, env.uuid);
       setNotice(res.message);
@@ -158,6 +189,8 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       loadEnvs();
     } catch (e: any) {
       setEnvsError(e?.message || "Couldn't remove that variable.");
+    } finally {
+      setDeletingEnvUuid(null);
     }
   };
 
@@ -240,12 +273,26 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
 
   if (!eligibility.approved) {
     return shell(
-      <div className="flex items-start gap-3">
-        <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-label font-medium text-slate-600 dark:text-slate-400">
-          Advanced controls are awaiting approval from our team — you'll be able to manage this service
-          directly as soon as it's confirmed.
-        </p>
+      <div>
+        <div className="flex items-start gap-3 mb-3">
+          <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-label font-medium text-slate-600 dark:text-slate-400">
+            {accessRequestSent
+              ? "Request sent — our team will follow up in your Support tab, usually the same day."
+              : "Managing your own environment variables and reading live logs needs a quick approval from our team first."}
+          </p>
+        </div>
+        {accessRequestError && <p className="text-label font-bold text-red-500 mb-3">{accessRequestError}</p>}
+        {!accessRequestSent && (
+          <button
+            type="button"
+            onClick={handleRequestAccess}
+            disabled={requestingAccess}
+            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+          >
+            {requestingAccess ? "Sending…" : "Request advanced access"}
+          </button>
+        )}
       </div>
     );
   }
@@ -288,7 +335,9 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       {/* --- Environment variables --- */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-label font-black text-slate-700 dark:text-slate-300">Environment Variables</p>
+          <p className="text-label font-black text-slate-700 dark:text-slate-300">
+            {isDatabase ? "Connection Details" : "Environment Variables"}
+          </p>
           <button
             type="button"
             onClick={loadEnvs}
@@ -297,6 +346,12 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             <RefreshCw className="w-3 h-3" /> Refresh
           </button>
         </div>
+
+        {isDatabase && (
+          <p className="text-micro font-medium text-slate-400 mb-3">
+            Host, credentials and connection URL for this database are stored here as variables — reveal one to copy it.
+          </p>
+        )}
 
         {restartNeeded && (
           <div className="mb-3 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 p-3 flex items-start gap-2">
@@ -351,10 +406,11 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDeleteEnv(env)}
-                  className="text-slate-400 hover:text-red-500 transition shrink-0"
+                  disabled={!!deletingEnvUuid}
+                  className="text-slate-400 hover:text-red-500 transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label={`Remove ${env.key}`}
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className={`w-4 h-4 ${deletingEnvUuid === env.uuid ? "animate-pulse" : ""}`} />
                 </button>
               </div>
             ))}

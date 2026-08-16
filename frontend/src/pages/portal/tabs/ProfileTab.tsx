@@ -1,18 +1,26 @@
 import React from "react";
-import { Activity, Crown, Plus, Server, Settings, Shield, UserCircle, User as UserIcon } from "lucide-react";
+import { Activity, Crown, Pencil, Plus, Server, Settings, Shield, UserCircle, User as UserIcon, X } from "lucide-react";
 import ChangePasswordCard from "../../../components/portal/ChangePasswordCard";
 import { usePortal } from "../PortalContext";
 
 const ProfileTab: React.FC = () => {
   const {
     goToUpgrade,
+    profileCompanyDraft,
+    profileEditing,
+    profileMsg,
+    profileNameDraft,
+    profileSaving,
     repoDraft,
     repoMsg,
     repoSaving,
+    saveProfile,
     saveRepo,
     selectedServices,
-    setAddonsError,
     setAddonsOpen,
+    setProfileCompanyDraft,
+    setProfileEditing,
+    setProfileNameDraft,
     setRepoDraft,
     setRepoMsg,
     setShowOnboarding,
@@ -37,10 +45,68 @@ const ProfileTab: React.FC = () => {
             <UserIcon className="w-24 h-24 text-murzak-accent" />
           </div>
           
-          <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3 relative z-10">
-            <UserCircle className="w-5 h-5 text-murzak-accent" /> Personal Information
-          </h3>
-          
+          <div className="flex items-center justify-between mb-8 relative z-10">
+            <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-3">
+              <UserCircle className="w-5 h-5 text-murzak-accent" /> Personal Information
+            </h3>
+            {!profileEditing && (
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileNameDraft(user.name || "");
+                  setProfileCompanyDraft(user.company || "");
+                  setProfileEditing(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-micro font-black uppercase text-slate-500 hover:text-murzak-accent transition"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+            )}
+          </div>
+
+          {profileEditing ? (
+            <div className="space-y-5 relative z-10">
+              <div>
+                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 block">Full Name</label>
+                <input
+                  type="text"
+                  value={profileNameDraft}
+                  onChange={(e) => setProfileNameDraft(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-none focus:border-murzak-accent/60"
+                />
+              </div>
+              <div>
+                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 block">Business Name</label>
+                <input
+                  type="text"
+                  value={profileCompanyDraft}
+                  onChange={(e) => setProfileCompanyDraft(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-none focus:border-murzak-accent/60"
+                />
+              </div>
+              {profileMsg && !profileMsg.ok && (
+                <p className="text-micro font-bold text-red-500">{profileMsg.text}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  disabled={profileSaving || !profileNameDraft.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase disabled:opacity-40 hover:scale-[1.02] transition-all"
+                >
+                  {profileSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProfileEditing(false)}
+                  disabled={profileSaving}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-300 font-black text-micro uppercase hover:bg-slate-100 dark:hover:bg-black/5 transition"
+                >
+                  <X className="w-3.5 h-3.5" /> Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-8 relative z-10">
             <div className="group/item">
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
@@ -50,7 +116,7 @@ const ProfileTab: React.FC = () => {
                 {user.name}
               </p>
             </div>
-            
+
             <div className="group/item">
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
@@ -59,7 +125,7 @@ const ProfileTab: React.FC = () => {
                 {user.email}
               </p>
             </div>
-            
+
             <div className="group/item">
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
@@ -100,6 +166,7 @@ const ProfileTab: React.FC = () => {
               )}
             </div>
           </div>
+          )}
         </div>
 
         {/* Service Plan */}
@@ -151,10 +218,7 @@ const ProfileTab: React.FC = () => {
 
           <div className="space-y-3 mt-8 relative z-10">
             <button
-              onClick={() => {
-                setAddonsError("");
-                setAddonsOpen(true);
-              }}
+              onClick={() => setAddonsOpen(true)}
               className="w-full bg-murzak-accent text-murzak-ink rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(0,189,252,0.2)] flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Services
