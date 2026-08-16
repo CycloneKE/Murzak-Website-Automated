@@ -1,8 +1,26 @@
 import React, { useState } from "react";
-import { ArrowRight, ExternalLink, Headphones, Server, Shield } from "lucide-react";
+import { AlertTriangle, ArrowRight, ExternalLink, Headphones, Lock, Maximize2, Server, Shield, ShieldCheck, Square } from "lucide-react";
 import DeveloperTerminalPanel from "../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPanel";
+import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrowser";
+import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import { usePortal } from "../PortalContext";
+
+// Same enum SecurityOverviewCard reads from the account-wide aggregate — this
+// renders the per-resource value straight off the Provisioning Job record
+// (ProvisioningActivityEntry.backupStatus/edgeStatus), already fetched for
+// this page's honest status cards. No fabricated timestamps or counts: a
+// resource with no off-site backup provider configured says so plainly.
+const STATUS_LABEL: Record<string, { text: string; tone: string }> = {
+  configured: { text: "Configured", tone: "text-emerald-500" },
+  skipped: { text: "Not configured yet", tone: "text-slate-500" },
+  failed: { text: "Attention needed", tone: "text-red-500" },
+};
+
+function statusChip(value?: string) {
+  const s = (value && STATUS_LABEL[value]) || { text: "Not tracked yet", tone: "text-slate-500" };
+  return <span className={`text-micro font-black uppercase ${s.tone}`}>{s.text}</span>;
+}
 
 /**
  * One resource, with its own tabs.
@@ -33,9 +51,12 @@ const ResourceDetail: React.FC = () => {
     domainResult,
     domainSubmitting,
     handleRedeploy,
+    handleServiceHealthAction,
     navigate,
+    onRequestDelete,
     onTabClick,
     openDeployLog,
+    pendingServiceAction,
     redeployNote,
     redeploying,
     resourceAdminActive,
@@ -215,6 +236,23 @@ const ResourceDetail: React.FC = () => {
               </p>
             )}
 
+            {isActive && cloudJob && (
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                    <ShieldCheck className="w-4 h-4 text-murzak-accent" /> Off-site backup
+                  </span>
+                  {statusChip(cloudJob.backupStatus)}
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                    <Lock className="w-4 h-4 text-murzak-accent" /> Edge / WAF
+                  </span>
+                  {statusChip(cloudJob.edgeStatus)}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setIsContactOpen(true)}
@@ -309,49 +347,106 @@ const ResourceDetail: React.FC = () => {
 
       {pane === "settings" && (
         <>
-            <ResourceAdminPanel
-              serviceId={cloudServiceId}
-              serviceName={svc?.name || cloudServiceId}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-              onAdminActiveChange={setResourceAdminActive}
-            />
-
-            <DeveloperTerminalPanel
-              serviceId={cloudServiceId}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-            />
-
-            {isActive && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
-                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
-                  Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={domainInput}
-                    onChange={(e) => setDomainInput(e.target.value)}
-                    placeholder="shop.yourbusiness.co.ke"
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
-                  />
-                  <button
-                    onClick={submitDomainAttach}
-                    disabled={domainSubmitting || !domainInput.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >
-                    {domainSubmitting ? "Connecting…" : "Connect"}
-                  </button>
-                </div>
-                {domainResult && (
-                  <p className={`mt-3 text-label font-bold ${domainResult.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
-                    {domainResult.text}
-                  </p>
+            {svc?.category === "Storage" ? (
+              <StorageFileBrowser serviceId={cloudServiceId} isActive={isActive} />
+            ) : (
+              <>
+                {svc?.category === "Database Hosting" && (
+                  <DatabaseConnectionPanel serviceId={cloudServiceId} isActive={isActive} />
                 )}
+
+                <ResourceAdminPanel
+                  serviceId={cloudServiceId}
+                  serviceName={svc?.name || cloudServiceId}
+                  isActive={isActive}
+                  onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+                  onAdminActiveChange={setResourceAdminActive}
+                />
+
+                <DeveloperTerminalPanel
+                  serviceId={cloudServiceId}
+                  isActive={isActive}
+                  onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+                />
+
+                {isActive && (
+                  <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
+                    <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
+                      Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={domainInput}
+                        onChange={(e) => setDomainInput(e.target.value)}
+                        placeholder="shop.yourbusiness.co.ke"
+                        className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                      />
+                      <button
+                        onClick={submitDomainAttach}
+                        disabled={domainSubmitting || !domainInput.trim()}
+                        className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      >
+                        {domainSubmitting ? "Connecting…" : "Connect"}
+                      </button>
+                    </div>
+                    {domainResult && (
+                      <p className={`mt-3 text-label font-bold ${domainResult.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
+                        {domainResult.text}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {svc?.capacityClass === "scalable" && isActive && (
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Scaling</p>
+                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
+                  Set a fixed replica count, or let it auto-scale with traffic.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleServiceHealthAction("scale", cloudServiceId)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase text-slate-600 dark:text-slate-300 hover:border-murzak-accent/40 hover:text-murzak-accent transition"
+                >
+                  <Maximize2 className="w-4 h-4" /> Scaling settings
+                </button>
               </div>
             )}
+
+            <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+              <p className="inline-flex items-center gap-2 text-micro font-black uppercase text-red-500 mb-1">
+                <AlertTriangle className="w-4 h-4" /> Danger zone
+              </p>
+              <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
+                These act on this service immediately. There's no undo from here — message support if you're not sure.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {isActive && (
+                  <button
+                    type="button"
+                    disabled={pendingServiceAction?.id === cloudServiceId}
+                    onClick={() => handleServiceHealthAction("stop", cloudServiceId)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-orange-500/30 text-micro font-black uppercase text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 transition disabled:opacity-50"
+                  >
+                    <Square className="w-4 h-4" />
+                    {pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "stop"
+                      ? "Stopping…"
+                      : "Stop service"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => svc && onRequestDelete(svc, "overview")}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-red-500/30 text-micro font-black uppercase text-red-500 hover:bg-red-500/10 transition"
+                >
+                  <AlertTriangle className="w-4 h-4" /> Delete service
+                </button>
+              </div>
+            </div>
         </>
       )}
 

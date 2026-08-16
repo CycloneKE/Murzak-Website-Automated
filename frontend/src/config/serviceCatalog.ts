@@ -10,6 +10,7 @@ export type ServiceCategory =
   | "Database Hosting"
   | "Domain Registration"
   | "Storage"
+  | "E-Signature"
   | "Apps"
   | "Security & Backup"
   | "POS & Inventory"
@@ -357,7 +358,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       tier: "Light",
       capacityClass: "volume",
       specs: { ram: "Shared", storage: "25GB", cpu: "Shared", bandwidth: "Generous", backups: "Weekly", sla: "99.5%" },
-      resources: { ramMb: 256, diskGb: 25 },
+      // ramMb 0: this product runs on one shared MinIO bucket, not a
+      // per-customer container — see
+      // docs/superpowers/specs/2026-08-16-file-storage-object-browser-design.md.
+      resources: { ramMb: 0, diskGb: 25 },
       pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
       highlights: ["Drive-style sharing", "Access controls", "Weekly backups"],
       sortOrder: 40,
@@ -400,7 +404,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      highlights: ["Daily backups", "Auto-generated credentials", "Managed by us"],
       sortOrder: 51,
     },
     {
@@ -413,7 +417,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["Daily backups", "Remote access", "Managed by us"],
+      highlights: ["Daily backups", "Auto-generated credentials", "Managed by us"],
       sortOrder: 52,
     },
     {
@@ -426,7 +430,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["MongoDB 7", "Daily backups", "Remote access"],
+      highlights: ["MongoDB 7", "Daily backups", "Auto-generated credentials"],
       sortOrder: 53,
     },
     {
@@ -441,6 +445,19 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
       highlights: ["In-memory speed", "Daily backups", "Managed by us"],
       sortOrder: 54,
+    },
+    {
+      id: "starter-esign",
+      name: "E-Signature",
+      description: "Send documents for signature and track status — your own e-signature tool.",
+      category: "E-Signature",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "512MB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 512, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 1800, setupKes: 0 },
+      highlights: ["Unlimited documents", "Signer tracking", "Your own domain"],
+      sortOrder: 56,
     },
     {
       id: "starter-hrpay",
@@ -1188,13 +1205,15 @@ export type CloudLaunchCategory =
   | "Website Hosting"
   | "App Hosting"
   | "Database Hosting"
-  | "Storage";
+  | "Storage"
+  | "E-Signature";
 
 export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Website Hosting",
   "App Hosting",
   "Database Hosting",
   "Storage",
+  "E-Signature",
 ];
 
 /** Every self-serve, instantly-provisioned resource, grouped by category. */

@@ -153,3 +153,13 @@ export async function adminApproveTerminalAccess(webAccount: string): Promise<{ 
   if (!res.ok) throw new Error(data?.error || "Failed to approve developer access.");
   return data;
 }
+
+export async function adminApproveResourceAdmin(webAccount: string): Promise<{ approvedAt: string; approvedBy: string }> {
+  const res = await fetch(`/api/admin/web-accounts/${encodeURIComponent(webAccount)}/resource-admin/approve`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Failed to approve advanced controls.");
+  return data;
+}

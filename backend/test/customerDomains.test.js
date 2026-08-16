@@ -30,6 +30,7 @@ const {
   normalizeDomainName,
   normalizeStatus,
   ensureCustomerDomain,
+  resolveFreeSubdomainRoot,
 } = require("../services/customerDomains");
 
 (async () => {
@@ -358,6 +359,41 @@ const {
   ok(Object.keys(summary).length === 5, "no bucket is invented for the junk status");
   ok(summarizeByStatus([]).pending === 0, "empty list");
   ok(summarizeByStatus(undefined).pending === 0, "undefined list does not throw");
+
+  section("resolveFreeSubdomainRoot — never guess a customer-facing hostname in production");
+  ok(
+    resolveFreeSubdomainRoot({ envValue: "murzaktech.tech", nodeEnv: "production" }).ok === true,
+    "an explicitly configured root is used in production"
+  );
+  ok(
+    resolveFreeSubdomainRoot({ envValue: "murzaktech.tech", nodeEnv: "production" }).root === "murzaktech.tech",
+    "…and returned as-is"
+  );
+  ok(
+    resolveFreeSubdomainRoot({ envValue: "  Murzaktech.TECH  ", nodeEnv: "production" }).root === "murzaktech.tech",
+    "trimmed and lowercased"
+  );
+  {
+    const r = resolveFreeSubdomainRoot({ envValue: "", nodeEnv: "production" });
+    ok(r.ok === false, "unset in production is refused, not guessed");
+    ok(/FREE_SUBDOMAIN_ROOT_DOMAIN/.test(r.reason), "the refusal names the env var to set");
+  }
+  ok(
+    resolveFreeSubdomainRoot({ envValue: undefined, nodeEnv: "production" }).ok === false,
+    "undefined in production is refused the same as empty"
+  );
+  ok(
+    resolveFreeSubdomainRoot({ envValue: "", nodeEnv: "development" }).ok === true,
+    "unset OUTSIDE production still returns something usable, so local dev isn't blocked"
+  );
+  ok(
+    resolveFreeSubdomainRoot({ envValue: "", nodeEnv: "development" }).root !== "murzaktech.com",
+    "…and it is NOT the dead domain this used to be hardcoded to"
+  );
+  ok(
+    resolveFreeSubdomainRoot({}).ok === true,
+    "called with no args at all still returns something (defensive — never throws)"
+  );
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed > 0) {

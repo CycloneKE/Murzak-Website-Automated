@@ -71,6 +71,11 @@ function laneFor(meta) {
   if (meta.capacityClass === "premium") return "bench";
   if (meta.capacityClass === "scalable") return "k8s";
   if (meta.category === "Domain Registration") return "manual";
+  // File Storage is a shared MinIO bucket, not a per-purchase container — see
+  // docs/superpowers/specs/2026-08-16-file-storage-object-browser-design.md.
+  // Routed explicitly (not via the ramMb/diskGb zero-footprint fallback below)
+  // because this product DOES consume real shared disk, just not a container.
+  if (meta.category === "Storage") return "objectStorage";
   if (!(Number(meta.ramMb) > 0) && !(Number(meta.diskGb) > 0)) return "manual";
   return "coolify";
 }

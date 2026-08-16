@@ -6,6 +6,14 @@ const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
 const terminalEligibilityLib = require('../services/terminalEligibility');
 const resourceAdminEligibilityLib = require('../services/resourceAdminEligibility');
+const storageS3Lib = require('../services/storage/storageS3');
+const storageEligibilityLib = require('../services/storageEligibility');
+const storageQuotaLib = require('../services/storage/quota');
+const dbConnectionLib = require('../services/storage/dbConnection');
+// Not destructured at import time — see the routesContext.test.js note above
+// signBrokerToken: destructuring this require would trip that test's greedy
+// static guard for the ctx destructure below.
+const getServiceMeta = require('../services/provisioning/catalog').getServiceMeta;
 // Deliberately not destructured at import time — test/routesContext.test.js's
 // static guard greedily matches the first destructuring-brace pattern in the
 // file through to the ctx destructure, so any such import placed above it
@@ -127,6 +135,39 @@ router.put("/api/portal/account/repo", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("ACCOUNT REPO UPDATE ERROR:", err.response?.data || err.message);
     return res.status(500).json({ error: "Failed to update repository URL." });
+  }
+});
+
+// Full name / business name — the two Web Account fields the Profile tab
+// used to render as static text with no way to change them. Email is
+// deliberately excluded: it doubles as the session/login identity, so
+// changing it is a bigger, riskier operation (re-verification, session
+// migration) than this endpoint is scoped for.
+router.put("/api/portal/account/profile", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+  const fullName = String(req.body?.fullName ?? "").trim();
+  const companyName = String(req.body?.companyName ?? "").trim();
+  if (!fullName) return res.status(400).json({ error: "Full name is required." });
+  if (fullName.length > 140) return res.status(400).json({ error: "Full name is too long." });
+  if (companyName.length > 140) return res.status(400).json({ error: "Business name is too long." });
+
+  try {
+    const client = frappeClient();
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, {
+      account_holder_name: fullName,
+      entity_name: companyName,
+    });
+    if (req.session.user) {
+      req.session.user.name = fullName;
+      req.session.user.company = companyName;
+      await new Promise((resolve) => req.session.save(resolve));
+    }
+    return res.json({ ok: true, name: fullName, company: companyName });
+  } catch (err) {
+    console.error("ACCOUNT PROFILE UPDATE ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to update your profile." });
   }
 });
 
@@ -1538,6 +1579,186 @@ router.get("/api/portal/services/:serviceId/logs", requireAuth, runtimeLogsLimit
     console.error("RUNTIME LOGS ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't fetch logs right now. Please try again." });
   }
+});
+
+const storageFilesLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please wait a moment and try again." },
+});
+
+/**
+ * Shared context for every File Storage route: kill switch → session →
+ * ownership (must be an active "Storage" category job) → storage backend
+ * actually configured. Returns `{disabled: true}` when the kill switch is
+ * off (never an error — the frontend hides the panel silently), `null` after
+ * already sending an error response, or `{webAccountName, job, prefix,
+ * quotaBytes}` on success.
+ */
+async function loadStorageContext(req, res) {
+  if (!storageEligibilityLib.isStorageBrowserEnabled()) {
+    return { disabled: true };
+  }
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) {
+    res.status(401).json({ error: "No session account." });
+    return null;
+  }
+  const { serviceId } = req.params;
+  if (!serviceId) {
+    res.status(400).json({ error: "Missing serviceId." });
+    return null;
+  }
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("STORAGE FILES LOOKUP ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to look up this service." });
+    return null;
+  }
+  // Deliberately indistinguishable from "not yours": a wrong-owner probe and a
+  // wrong-category service must not be tellable apart from the outside.
+  if (!job || job.category !== "Storage") {
+    res.status(404).json({ error: "File storage isn't available for this service." });
+    return null;
+  }
+  if (job.status !== "active") {
+    res.status(409).json({ error: "This service isn't live yet." });
+    return null;
+  }
+  if (!storageS3Lib.isConfigured()) {
+    res.status(503).json({ error: "File storage isn't available right now. Please try again shortly." });
+    return null;
+  }
+  const meta = getServiceMeta(serviceId);
+  const quotaBytes = Math.max(0, Number(meta?.diskGb) || 0) * 1024 * 1024 * 1024;
+  const prefix = storageS3Lib.customerPrefix(webAccountName, serviceId);
+  return { webAccountName, job, prefix, quotaBytes };
+}
+
+// --- File Storage: list, upload, download, delete ---
+// No resource-admin gating (RESOURCE_ADMIN_ENABLED/plan/approval/disclosure):
+// browsing your own storage bucket is ordinary product usage for a Light-tier
+// product, not the risky "can break your live service" territory env
+// vars/logs sit in. Gated only by STORAGE_BROWSER_ENABLED (infra readiness)
+// and plain ownership.
+
+router.get("/api/portal/services/:serviceId/files", requireAuth, async (req, res) => {
+  const ctx = await loadStorageContext(req, res);
+  if (ctx === null) return;
+  if (ctx.disabled) return res.json({ ok: true, enabled: false, files: [], usedBytes: 0, quotaBytes: 0 });
+  try {
+    const files = await storageS3Lib.listFiles(ctx.prefix);
+    const usedBytes = files.reduce((s, f) => s + (Number(f.size) || 0), 0);
+    return res.json({ ok: true, enabled: true, files, usedBytes, quotaBytes: ctx.quotaBytes });
+  } catch (err) {
+    console.error("STORAGE FILES LIST ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't load your files. Please try again." });
+  }
+});
+
+router.post("/api/portal/services/:serviceId/files/upload-url", requireAuth, storageFilesLimiter, async (req, res) => {
+  const ctx = await loadStorageContext(req, res);
+  if (ctx === null) return;
+  if (ctx.disabled) return res.status(503).json({ error: "File storage isn't available yet." });
+
+  const safeName = storageS3Lib.sanitizeFileName(req.body?.fileName);
+  if (!safeName) return res.status(400).json({ error: "Invalid file name." });
+  const sizeBytes = Number(req.body?.sizeBytes);
+  if (!(sizeBytes > 0)) return res.status(400).json({ error: "Invalid file size." });
+
+  try {
+    const usedBytes = await storageS3Lib.usedBytes(ctx.prefix);
+    if (!storageQuotaLib.hasQuotaHeadroom({ usedBytes, incomingBytes: sizeBytes, quotaBytes: ctx.quotaBytes })) {
+      const usedGb = (usedBytes / (1024 * 1024 * 1024)).toFixed(1);
+      const quotaGb = (ctx.quotaBytes / (1024 * 1024 * 1024)).toFixed(0);
+      return res.status(409).json({ error: `This would exceed your storage limit (${usedGb}GB of ${quotaGb}GB used).` });
+    }
+    const key = ctx.prefix + safeName;
+    const uploadUrl = storageS3Lib.presignUpload(key);
+    return res.json({ ok: true, uploadUrl, key: safeName });
+  } catch (err) {
+    console.error("STORAGE UPLOAD-URL ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't prepare that upload. Please try again." });
+  }
+});
+
+router.get("/api/portal/services/:serviceId/files/download-url", requireAuth, async (req, res) => {
+  const ctx = await loadStorageContext(req, res);
+  if (ctx === null) return;
+  if (ctx.disabled) return res.status(503).json({ error: "File storage isn't available yet." });
+
+  const safeName = storageS3Lib.sanitizeFileName(req.query?.name);
+  if (!safeName) return res.status(400).json({ error: "Invalid file name." });
+
+  try {
+    const key = ctx.prefix + safeName;
+    const downloadUrl = storageS3Lib.presignDownload(key);
+    return res.json({ ok: true, downloadUrl });
+  } catch (err) {
+    console.error("STORAGE DOWNLOAD-URL ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't prepare that download. Please try again." });
+  }
+});
+
+router.delete("/api/portal/services/:serviceId/files", requireAuth, storageFilesLimiter, async (req, res) => {
+  const ctx = await loadStorageContext(req, res);
+  if (ctx === null) return;
+  if (ctx.disabled) return res.status(503).json({ error: "File storage isn't available yet." });
+
+  const safeName = storageS3Lib.sanitizeFileName(req.query?.name);
+  if (!safeName) return res.status(400).json({ error: "Invalid file name." });
+
+  try {
+    const key = ctx.prefix + safeName;
+    await storageS3Lib.deleteFile(key);
+    return res.json({ ok: true, message: `${safeName} deleted.` });
+  } catch (err) {
+    console.error("STORAGE DELETE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't delete that file. Please try again." });
+  }
+});
+
+// --- Database connection details ---
+// No resource-admin gating, same reasoning as File Storage: a database's own
+// credentials are the product itself, not an advanced-controls extra.
+router.get("/api/portal/services/:serviceId/database/connection", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  const { serviceId } = req.params;
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("DATABASE CONNECTION LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  // Deliberately indistinguishable from "not yours": same reasoning as every
+  // other ownership-scoped route in this file.
+  if (!job || job.category !== "Database Hosting") {
+    return res.status(404).json({ error: "Connection details aren't available for this service." });
+  }
+  if (job.status !== "active") {
+    return res.status(409).json({ error: "This service isn't live yet." });
+  }
+
+  const details = dbConnectionLib.parseDbConnectionAccess(job.access);
+  if (!details) {
+    // A service recovered after a crash (see coolify.js provision()'s
+    // idempotency path) never had its password persisted — honest empty
+    // state, never a fabricated credential.
+    return res.json({
+      ok: true,
+      engine: null,
+      note: "Connection details aren't available for this service yet — message support and we'll help you reset your credentials.",
+    });
+  }
+  return res.json({ ok: true, ...details });
 });
 
 // --- DEVELOPER TERMINAL ACCESS: eligibility + one-time disclosure ---
