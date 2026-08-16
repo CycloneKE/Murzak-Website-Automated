@@ -404,7 +404,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["Daily backups", "Auto-generated credentials", "Managed by us"],
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
       sortOrder: 51,
     },
     {
@@ -417,7 +417,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["Daily backups", "Auto-generated credentials", "Managed by us"],
+      highlights: ["Daily backups", "Remote access", "Managed by us"],
       sortOrder: 52,
     },
     {
@@ -430,7 +430,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 10 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["MongoDB 7", "Daily backups", "Auto-generated credentials"],
+      highlights: ["MongoDB 7", "Daily backups", "Remote access"],
       sortOrder: 53,
     },
     {
@@ -443,7 +443,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       specs: { ram: "1GB", storage: "5GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 768, diskGb: 5 },
       pricing: { model: "addon", monthlyKes: 2000, setupKes: 500 },
-      highlights: ["In-memory speed", "Daily backups", "Managed by us"],
+      highlights: ["In-memory speed", "Daily backups", "Remote access"],
       sortOrder: 54,
     },
     {
