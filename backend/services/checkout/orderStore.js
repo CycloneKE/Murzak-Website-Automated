@@ -31,6 +31,12 @@ const { thresholdMb } = require("../provisioning/capacity");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
+// Two rapid "Launch now" clicks on the same product shouldn't reserve RAM
+// twice against the shared capacity gate for what's really one purchase
+// intent — createOrder returns the existing Draft instead of minting a
+// second one when it sees a same-account/service/config Draft created
+// within this window.
+const DEDUP_WINDOW_MS = 10 * 1000;
 
 const INVOICE_DOCTYPE = "Portal Invoice";
 // Mirrors server.js's PORTAL_INVOICE_SERVICES_FIELD — kept local (not
@@ -141,7 +147,10 @@ async function listDraftRows(client) {
   try {
     const res = await client.get(`/api/resource/${ORDER_DOCTYPE}`, {
       params: {
-        fields: JSON.stringify(["name", "web_account", "status", "ram_mb", "reservation_expires_at", "invoice_doc_name"]),
+        fields: JSON.stringify([
+          "name", "web_account", "status", "ram_mb", "reservation_expires_at", "invoice_doc_name",
+          "service_id", "config_json",
+        ]),
         filters: JSON.stringify([["status", "=", "Draft"]]),
         limit_page_length: 0,
       },
@@ -155,15 +164,39 @@ async function listDraftRows(client) {
   }
 }
 
-/** Sum ram_mb over live (unexpired, unpaid) Draft orders. */
-async function reservedDraftRamMb(client, nowMs) {
-  const rows = await listDraftRows(client);
+/** Sum ram_mb over live (unexpired, unpaid) Draft rows already fetched. */
+function sumReservedFromRows(rows, nowMs) {
   return rows
     // Re-filter in JS: the mock (and a misconfigured server-side filter)
     // may return more than just Draft rows, so behavior must not depend on
     // the backend actually honoring the filters param.
     .filter((r) => r.status === "Draft" && parseMysqlDatetime(r.reservation_expires_at) > nowMs)
     .reduce((sum, r) => sum + (Number(r.ram_mb) || 0), 0);
+}
+
+/** Sum ram_mb over live (unexpired, unpaid) Draft orders. */
+async function reservedDraftRamMb(client, nowMs) {
+  const rows = await listDraftRows(client);
+  return sumReservedFromRows(rows, nowMs);
+}
+
+/**
+ * A same-account/service/config Draft created within DEDUP_WINDOW_MS of now,
+ * if any — two rapid "Launch now" clicks producing two Draft rows for what's
+ * really one purchase intent. Creation time isn't a fetched field; it's
+ * derived from reservation_expires_at - RESERVATION_TTL_MS, which holds
+ * exactly at creation and is the only case this dedup check needs to catch
+ * (a heartbeat-renewed order is already past the short rapid-click window).
+ */
+function findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs }) {
+  return rows.find((r) => {
+    if (r.status !== "Draft" || r.web_account !== webAccountName) return false;
+    if (r.service_id !== serviceId || r.config_json !== configJson) return false;
+    const expiresAt = parseMysqlDatetime(r.reservation_expires_at);
+    if (expiresAt <= nowMs) return false;
+    const createdAt = expiresAt - RESERVATION_TTL_MS;
+    return nowMs - createdAt < DEDUP_WINDOW_MS;
+  });
 }
 
 async function fetchOrderDoc(client, orderId) {
@@ -210,9 +243,16 @@ async function createOrder({
   }
   assertDomainConfigMatchesService(serviceId, meta, config);
 
+  const configJson = JSON.stringify(config || {});
+
   return serialize(async () => {
+    const rows = await listDraftRows(client);
+
+    const dup = findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs });
+    if (dup) return toApiOrder(dup);
+
     const ramMb = Number(meta.ramMb) || 0;
-    const reserved = await reservedDraftRamMb(client, nowMs);
+    const reserved = sumReservedFromRows(rows, nowMs);
     if ((Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) {
       const err = new Error(
         "Not enough shared capacity right now — please try again shortly or contact us for a dedicated quote."
@@ -234,7 +274,7 @@ async function createOrder({
       ram_mb: ramMb,
       disk_gb: Number(meta.diskGb) || 0,
       plan_key: planKey || "",
-      config_json: JSON.stringify(config || {}),
+      config_json: configJson,
       reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
       invoice_doc_name: "",
       source: source || "",

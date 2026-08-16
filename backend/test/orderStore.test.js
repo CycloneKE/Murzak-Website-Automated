@@ -162,6 +162,44 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     );
   }
 
+  section("createOrder: dedups a rapid repeat click for the same account+service+config");
+  {
+    const client = makeClient();
+    const o1 = await createOrder({
+      client, webAccountName: "a", serviceId: "starter-web-hosting",
+      config: { domainChoice: "Use Murzak Subdomain" }, fleetReservedRamMb: 0, nowMs: T0,
+    });
+    const o2 = await createOrder({
+      client, webAccountName: "a", serviceId: "starter-web-hosting",
+      config: { domainChoice: "Use Murzak Subdomain" }, fleetReservedRamMb: 0, nowMs: T0 + 500,
+    });
+    ok(o2.id === o1.id, "second rapid click returns the same Draft order instead of creating a duplicate");
+    ok(Object.keys(client.docs).length === 1, "only one order doc was actually created");
+  }
+
+  section("createOrder: does NOT dedup a different service, a different config, a different account, or a click outside the dedup window");
+  {
+    const client = makeClient();
+    const o1 = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const o2 = await createOrder({ client, webAccountName: "a", serviceId: "starter-storage", config: {}, fleetReservedRamMb: 0, nowMs: T0 + 500 });
+    ok(o2.id !== o1.id, "different service is not deduped");
+
+    const client2 = makeClient();
+    const o3 = await createOrder({ client: client2, webAccountName: "a", serviceId: "domain-com", config: { domain: "acme.com" }, fleetReservedRamMb: 0, nowMs: T0 });
+    const o4 = await createOrder({ client: client2, webAccountName: "a", serviceId: "domain-com", config: { domain: "other.com" }, fleetReservedRamMb: 0, nowMs: T0 + 500 });
+    ok(o4.id !== o3.id, "different config is not deduped");
+
+    const client3 = makeClient();
+    const o5 = await createOrder({ client: client3, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const o6 = await createOrder({ client: client3, webAccountName: "b", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 + 500 });
+    ok(o6.id !== o5.id, "different account is not deduped");
+
+    const client4 = makeClient();
+    const o7 = await createOrder({ client: client4, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const o8 = await createOrder({ client: client4, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 + 60_000 });
+    ok(o8.id !== o7.id, "a repeat click well outside the dedup window creates a new order");
+  }
+
   section("cancelOrder releases the reservation");
   {
     const client = makeClient();
