@@ -107,6 +107,22 @@ const okLane = {
   ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "real-footprint volume product still routes to coolify (no regression)");
   ok(capacity.thresholdMb() === 5440, "RAM threshold = 5440MB (85% of 6400)");
 
+  // The whole E2E suite shares one backend process/mock capacity pool, and
+  // unpaid Draft checkout orders reserve RAM for 30 minutes with nothing
+  // cancelling them — so by test ~110 the shared pool has enough accumulated,
+  // never-expiring reservation to trip this gate on requests that have
+  // nothing to do with real capacity (caught live: cloud-launch.spec.ts and
+  // products-databases.spec.ts started getting a legitimate 409 CAPACITY on
+  // a fresh account's very first order). Mirrors server.js's skipInE2E.
+  {
+    const prevE2E = process.env.E2E_TEST;
+    process.env.E2E_TEST = "true";
+    ok(capacity.thresholdMb() === Infinity, "E2E_TEST=true -> capacity gate disabled outright");
+    ok(capacity.gateExceeded({ reserved: 999999, ramMb: 999999 }) === false, "…so gateExceeded never trips, no matter how much is reserved");
+    if (prevE2E === undefined) delete process.env.E2E_TEST; else process.env.E2E_TEST = prevE2E;
+    ok(capacity.thresholdMb() === 5440, "restoring the env afterward restores the real threshold (no leakage into later tests)");
+  }
+
   section("runner state machine");
   let s = makeStore([{ name: "J1", service_id: "starter-web-hosting", web_account: "WA", capacity_class: "volume", lane: "coolify", status: "queued", attempts: 0, ram_mb: 768 }]);
   await runner.processQueue(s, { lanes: { coolify: okLane } });
