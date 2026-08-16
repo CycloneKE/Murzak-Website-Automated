@@ -571,7 +571,7 @@ const DB_ENGINE_CONFIG = {
 };
 
 /** URL-safe (no YAML/shell quoting edge cases) — matches this codebase's existing crypto usage (s3Client.js). */
-function generateDbPassword() {
+function generateRandomSecret() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
@@ -615,6 +615,74 @@ function buildDbComposeYaml(name, limits, dbConfig, password) {
     (envLines ? `    environment:\n${envLines}` : "") +
     `    volumes:\n` +
     `      - ${volumeName}:${dbConfig.volumePath}\n` +
+    `volumes:\n` +
+    `  ${volumeName}:\n`
+  );
+}
+
+/**
+ * Curated third-party HTTP apps deployed through this lane — pre-built,
+ * published images, not something built from a customer's repo (that's
+ * provisionApp/BYOA) and not a raw database engine (that's DB_ENGINE_CONFIG,
+ * which has no HTTP surface and deliberately skips domain attachment).
+ *
+ * Deliberately a SEPARATE table from DB_ENGINE_CONFIG, not merged — two data
+ * points don't yet justify one shared abstraction. When a third curated app
+ * is added, that's the point to unify both into one generic mechanism.
+ */
+const CURATED_APP_CONFIG = {
+  "starter-esign": {
+    image: "docuseal/docuseal:latest",
+    port: 3000,
+    volumePath: "/data",
+    // Every customer's instance reuses Murzak's own platform SMTP relay —
+    // same identity already used for password-reset/support-alert email.
+    // DocuSeal cannot deliver signature invites without SOME SMTP config;
+    // if SMTP_HOST is unset these come through blank and the app deploys
+    // but can't send mail — surfaces via the runtime-logs panel, not
+    // specially handled here (this lane deploys what's configured, same
+    // posture as everywhere else in it).
+    envVars: (fqdn, secretKeyBase) => ({
+      HOST: fqdn,
+      SECRET_KEY_BASE: secretKeyBase,
+      SMTP_ADDRESS: process.env.SMTP_HOST || "",
+      SMTP_PORT: process.env.SMTP_PORT || "587",
+      SMTP_USERNAME: process.env.SMTP_USER || "",
+      SMTP_PASSWORD: process.env.SMTP_PASS || "",
+      SMTP_AUTHENTICATION: "plain",
+      SMTP_FROM: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
+    }),
+  },
+};
+
+/** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
+function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase) {
+  const volumeName = `${name}-data`;
+  const envLines = Object.entries(appConfig.envVars(fqdn, secretKeyBase))
+    .map(([k, v]) => `      ${k}: "${v}"\n`)
+    .join("");
+
+  return (
+    `services:\n` +
+    `  app:\n` +
+    `    image: ${appConfig.image}\n` +
+    `    restart: unless-stopped\n` +
+    `    mem_limit: ${limits.ramMb}m\n` +
+    `    cpus: ${limits.cpus}\n` +
+    `    pids_limit: ${limits.pidsLimit}\n` +
+    `    cap_drop:\n` +
+    `      - ALL\n` +
+    `    cap_add:\n` +
+    `      - CHOWN\n` +
+    `      - SETUID\n` +
+    `      - SETGID\n` +
+    `    security_opt:\n` +
+    `      - no-new-privileges:true\n` +
+    `    expose:\n` +
+    `      - "${appConfig.port}"\n` +
+    `    environment:\n${envLines}` +
+    `    volumes:\n` +
+    `      - ${volumeName}:${appConfig.volumePath}\n` +
     `volumes:\n` +
     `  ${volumeName}:\n`
   );
@@ -680,6 +748,7 @@ async function provision(job, opts) {
 
   const limits = resourceLimits(job);
   const dbConfig = DB_ENGINE_CONFIG[job.service_id];
+  const curatedAppConfig = CURATED_APP_CONFIG[job.service_id];
 
   // P5.0 container hardening. Every tenant on the shared box gets bounded on
   // ALL four axes (memory/cpu/pids/disk), not just memory, plus capability
@@ -717,9 +786,19 @@ async function provision(job, opts) {
   // permitted"), so the container never got past startup. Adding back just
   // these three keeps everything else (NET_ADMIN, SYS_ADMIN, etc.) dropped —
   // still far tighter than the container's default capability set.
-  const dbPassword = dbConfig ? generateDbPassword() : null;
+  const dbPassword = dbConfig ? generateRandomSecret() : null;
+  // Computed BEFORE creation — slugWithSuffix/fqdnFor are pure functions of
+  // name/job.name, not of the Coolify-assigned uuid, so the same fqdn this
+  // seeds into HOST is what attachServiceUrl (below, after creation) PATCHes
+  // onto the service. No chicken-and-egg: both derive the identical value.
+  const curatedAppFqdn = curatedAppConfig
+    ? appDomain.fqdnFor(appDomain.slugWithSuffix(name, job.name))
+    : null;
+  const curatedAppSecret = curatedAppConfig ? generateRandomSecret() : null;
   const composeYaml = dbConfig
     ? buildDbComposeYaml(name, limits, dbConfig, dbPassword)
+    : curatedAppConfig
+    ? buildCuratedAppComposeYaml(name, limits, curatedAppConfig, curatedAppFqdn, curatedAppSecret)
     : `services:\n` +
       `  app:\n` +
       `    image: ${job.docker_image || "nginx:alpine"}\n` +
@@ -1014,7 +1093,8 @@ module.exports = {
   attachDomain,
   resourceName,
   resourceLimits,
-  generateDbPassword,
+  generateRandomSecret,
+  buildCuratedAppComposeYaml,
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
   classifyDeploymentStatus,

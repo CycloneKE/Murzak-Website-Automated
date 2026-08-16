@@ -39,8 +39,8 @@ function decodeComposeFromBody(body) {
 (async () => {
   section("generateDbPassword — random, URL-safe, long enough to be a real credential");
   {
-    const p1 = coolify.generateDbPassword();
-    const p2 = coolify.generateDbPassword();
+    const p1 = coolify.generateRandomSecret();
+    const p2 = coolify.generateRandomSecret();
     ok(typeof p1 === "string" && p1.length >= 24, "password is a real-length string");
     ok(p1 !== p2, "two calls produce different passwords");
     ok(/^[A-Za-z0-9_-]+$/.test(p1), "URL-safe charset — safe unquoted in YAML, safe as a shell arg, no quoting edge cases");
