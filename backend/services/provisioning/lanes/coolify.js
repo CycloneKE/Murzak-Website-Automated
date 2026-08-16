@@ -16,6 +16,7 @@
  */
 
 const axios = require("axios");
+const crypto = require("crypto");
 const { CAPACITY } = require("../catalog");
 const appDomain = require("../appDomain");
 
@@ -518,6 +519,107 @@ async function attachServiceUrl(client, uuid, job, name) {
   return fqdn;
 }
 
+/**
+ * Per-engine deploy config for the four database catalog products. Deliberately
+ * a small, purpose-built table here — NOT a generic catalog-wide "curated
+ * app" schema. That generalization is real future work (the E-Signature/
+ * ecosystem roadmap will need it) but building it now, under this bug fix,
+ * would solve a bigger problem than the one in front of us.
+ *
+ * envVars/command are functions of the generated password so nothing here
+ * ever hardcodes a shared secret.
+ */
+const DB_ENGINE_CONFIG = {
+  "db-mysql": {
+    engine: "mysql",
+    image: "mysql:8",
+    port: 3306,
+    volumePath: "/var/lib/mysql",
+    username: "root",
+    database: "app",
+    envVars: (password) => ({ MYSQL_ROOT_PASSWORD: password, MYSQL_DATABASE: "app" }),
+  },
+  "db-postgres": {
+    engine: "postgres",
+    image: "postgres:16",
+    port: 5432,
+    volumePath: "/var/lib/postgresql/data",
+    username: "postgres",
+    database: "app",
+    envVars: (password) => ({ POSTGRES_PASSWORD: password, POSTGRES_DB: "app" }),
+  },
+  "db-mongo": {
+    engine: "mongo",
+    image: "mongo:7",
+    port: 27017,
+    volumePath: "/data/db",
+    username: "root",
+    database: null,
+    envVars: (password) => ({ MONGO_INITDB_ROOT_USERNAME: "root", MONGO_INITDB_ROOT_PASSWORD: password }),
+  },
+  "db-redis": {
+    engine: "redis",
+    image: "redis:7",
+    port: 6379,
+    volumePath: "/data",
+    username: null,
+    database: null,
+    // The official redis image has no auth env var — --requirepass is the
+    // only way to seed a password at startup.
+    command: (password) => ["redis-server", "--requirepass", password],
+  },
+};
+
+/** URL-safe (no YAML/shell quoting edge cases) — matches this codebase's existing crypto usage (s3Client.js). */
+function generateDbPassword() {
+  return crypto.randomBytes(24).toString("base64url");
+}
+
+/**
+ * Pure — kept side-effect-free so it's unit-tested directly, same reasoning
+ * as resourceLimits() above. Same hardening (cap_drop ALL + CHOWN/SETUID/
+ * SETGID + no-new-privileges) as the generic app path: every official DB
+ * image's entrypoint does the same "chown data dir as root, then drop to its
+ * own user" dance nginx:alpine's does, verified live for.
+ */
+function buildDbComposeYaml(name, limits, dbConfig, password) {
+  const volumeName = `${name}-data`;
+  const envLines = dbConfig.envVars
+    ? Object.entries(dbConfig.envVars(password))
+        .map(([k, v]) => `      ${k}: "${v}"\n`)
+        .join("")
+    : "";
+  const commandLines = dbConfig.command
+    ? `    command: ${JSON.stringify(dbConfig.command(password))}\n`
+    : "";
+
+  return (
+    `services:\n` +
+    `  app:\n` +
+    `    image: ${dbConfig.image}\n` +
+    `    restart: unless-stopped\n` +
+    `    mem_limit: ${limits.ramMb}m\n` +
+    `    cpus: ${limits.cpus}\n` +
+    `    pids_limit: ${limits.pidsLimit}\n` +
+    `    cap_drop:\n` +
+    `      - ALL\n` +
+    `    cap_add:\n` +
+    `      - CHOWN\n` +
+    `      - SETUID\n` +
+    `      - SETGID\n` +
+    `    security_opt:\n` +
+    `      - no-new-privileges:true\n` +
+    `    expose:\n` +
+    `      - "${dbConfig.port}"\n` +
+    commandLines +
+    (envLines ? `    environment:\n${envLines}` : "") +
+    `    volumes:\n` +
+    `      - ${volumeName}:${dbConfig.volumePath}\n` +
+    `volumes:\n` +
+    `  ${volumeName}:\n`
+  );
+}
+
 async function provision(job, opts) {
   // BYOA jobs (repo_url attached at enqueue) build from the customer's git
   // repo as an application; everything else stays the generic service path.
@@ -577,6 +679,7 @@ async function provision(job, opts) {
   }
 
   const limits = resourceLimits(job);
+  const dbConfig = DB_ENGINE_CONFIG[job.service_id];
 
   // P5.0 container hardening. Every tenant on the shared box gets bounded on
   // ALL four axes (memory/cpu/pids/disk), not just memory, plus capability
@@ -614,24 +717,26 @@ async function provision(job, opts) {
   // permitted"), so the container never got past startup. Adding back just
   // these three keeps everything else (NET_ADMIN, SYS_ADMIN, etc.) dropped —
   // still far tighter than the container's default capability set.
-  const composeYaml =
-    `services:\n` +
-    `  app:\n` +
-    `    image: ${job.docker_image || "nginx:alpine"}\n` +
-    `    restart: unless-stopped\n` +
-    `    mem_limit: ${limits.ramMb}m\n` +
-    `    cpus: ${limits.cpus}\n` +
-    `    pids_limit: ${limits.pidsLimit}\n` +
-    `    cap_drop:\n` +
-    `      - ALL\n` +
-    `    cap_add:\n` +
-    `      - CHOWN\n` +
-    `      - SETUID\n` +
-    `      - SETGID\n` +
-    `    security_opt:\n` +
-    `      - no-new-privileges:true\n` +
-    `    expose:\n` +
-    `      - "80"\n`;
+  const dbPassword = dbConfig ? generateDbPassword() : null;
+  const composeYaml = dbConfig
+    ? buildDbComposeYaml(name, limits, dbConfig, dbPassword)
+    : `services:\n` +
+      `  app:\n` +
+      `    image: ${job.docker_image || "nginx:alpine"}\n` +
+      `    restart: unless-stopped\n` +
+      `    mem_limit: ${limits.ramMb}m\n` +
+      `    cpus: ${limits.cpus}\n` +
+      `    pids_limit: ${limits.pidsLimit}\n` +
+      `    cap_drop:\n` +
+      `      - ALL\n` +
+      `    cap_add:\n` +
+      `      - CHOWN\n` +
+      `      - SETUID\n` +
+      `      - SETGID\n` +
+      `    security_opt:\n` +
+      `      - no-new-privileges:true\n` +
+      `    expose:\n` +
+      `      - "80"\n`;
 
   const payload = {
     project_uuid: c.project,
@@ -648,7 +753,11 @@ async function provision(job, opts) {
   // Creation only registers the compose stack (see ensureServiceRunning) — it
   // must actually be running before this job is ever reported active.
   const status = await ensureServiceRunning(client, uuid);
-  const url = await attachServiceUrl(client, uuid, job, name);
+  // A database is not an HTTP app — attaching a domain would try to route SQL
+  // traffic through Coolify's HTTP reverse proxy, which makes no sense. Real
+  // external ("remote") access is phase 2 (see the design doc); skip entirely
+  // for now.
+  const url = dbConfig ? "" : await attachServiceUrl(client, uuid, job, name);
 
   return {
     externalRef: String(uuid),
@@ -659,11 +768,28 @@ async function provision(job, opts) {
       url,
       manageUrl: c.baseUrl.replace(/\/+$/, ""),
       uuid: String(uuid),
+      ...(dbConfig
+        ? {
+            engine: dbConfig.engine,
+            // Best-effort — Coolify's own internal Docker DNS name for this
+            // resource, not independently verified reachable from another
+            // customer's stack (that verification is part of phase 2's
+            // external-access work, not this fix).
+            host: name,
+            port: dbConfig.port,
+            database: dbConfig.database,
+            username: dbConfig.username,
+            password: dbPassword,
+          }
+        : {}),
     },
     // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
     // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
     // catalog figure only, not an enforced container bound on this lane.
-    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    // NOTE: dbPassword is intentionally never interpolated into this log
+    // string — it lives only in `access`, which the connection-details route
+    // (not the build log) is the sole path back to the customer.
+    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status})${dbConfig ? ` engine=${dbConfig.engine}` : ` url=${url || "(pending)"}`} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
 }
 
@@ -888,6 +1014,8 @@ module.exports = {
   attachDomain,
   resourceName,
   resourceLimits,
+  generateDbPassword,
+  buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
   classifyDeploymentStatus,
   extractLogTail,
