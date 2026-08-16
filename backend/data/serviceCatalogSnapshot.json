@@ -110,7 +110,7 @@
       "category": "Storage",
       "tier": "Light",
       "capacityClass": "volume",
-      "ramMb": 256,
+      "ramMb": 0,
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 1200,

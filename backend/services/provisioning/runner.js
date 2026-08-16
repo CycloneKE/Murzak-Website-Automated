@@ -32,10 +32,17 @@ const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
 const k8s = require("./lanes/k8s");
 const mock = require("./lanes/mock");
+const objectStorage = require("./lanes/objectStorage");
 
+// The mock substitution stays limited to the three lanes that make real
+// external calls (coolify/bench/k8s); objectStorage.provision() makes no
+// network call itself, so it runs for real even under MOCK_PROVISIONING=true
+// — it will still correctly escalate to needs_human via configError() if
+// STORAGE_S3_* isn't set in that test environment, the same "never fake a
+// build" behavior every other lane gets.
 const DEFAULT_LANES = mock.isEnabled()
-  ? { coolify: mock, bench: mock, k8s: mock }
-  : { coolify, bench, k8s };
+  ? { coolify: mock, bench: mock, k8s: mock, objectStorage }
+  : { coolify, bench, k8s, objectStorage };
 
 const enc = encodeURIComponent;
 const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));

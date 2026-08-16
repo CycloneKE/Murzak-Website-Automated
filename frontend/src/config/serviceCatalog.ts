@@ -357,7 +357,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       tier: "Light",
       capacityClass: "volume",
       specs: { ram: "Shared", storage: "25GB", cpu: "Shared", bandwidth: "Generous", backups: "Weekly", sla: "99.5%" },
-      resources: { ramMb: 256, diskGb: 25 },
+      // ramMb 0: this product runs on one shared MinIO bucket, not a
+      // per-customer container — see
+      // docs/superpowers/specs/2026-08-16-file-storage-object-browser-design.md.
+      resources: { ramMb: 0, diskGb: 25 },
       pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
       highlights: ["Drive-style sharing", "Access controls", "Weekly backups"],
       sortOrder: 40,

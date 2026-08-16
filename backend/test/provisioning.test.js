@@ -105,6 +105,7 @@ const okLane = {
   // Same rule generalizes to any other genuinely zero-footprint "volume" product.
   ok(catalog.laneFor(catalog.getServiceMeta("addon-priority-support")) === "manual", "zero-footprint addon -> manual lane, not a fake coolify build");
   ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "real-footprint volume product still routes to coolify (no regression)");
+  ok(catalog.laneFor(catalog.getServiceMeta("starter-storage")) === "objectStorage", "File Storage -> objectStorage lane, not coolify (no fake container)");
   ok(capacity.thresholdMb() === 5440, "RAM threshold = 5440MB (85% of 6400)");
 
   // The whole E2E suite shares one backend process/mock capacity pool, and
