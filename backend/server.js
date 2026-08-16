@@ -3617,6 +3617,38 @@ const server = app.listen(PORT, () => {
     setInterval(run, everyMs).unref();
     console.log(`[checkout-sweep] scheduled every ${Math.round(everyMs / 60000)}m (stale grace ${Math.round(staleGraceMs / 3600000)}h)`);
   }
+
+  // Orphan reconciliation sweep (platform maintenance automation, Job 1):
+  // surfaces live Coolify applications/services with no owning Provisioning
+  // Job, writes a Platform Health Check row, and emails admins only when it
+  // finds something. Read-only — never deletes. Default on: safe.
+  if (process.env.ORPHAN_RECONCILE_SWEEP_ENABLED !== "false") {
+    const { sweepOrphanReconciliation } = require("./services/provisioning/platformHealth");
+    const everyMs = Math.max(300000, Number(process.env.ORPHAN_RECONCILE_SWEEP_INTERVAL_MS || 6 * 60 * 60 * 1000));
+    const run = () =>
+      sweepOrphanReconciliation(frappeClient())
+        .then((r) => console.log(`[orphan-sweep] status=${r.status} ${r.summary}`))
+        .catch((e) => console.warn("[orphan-sweep] error:", e.message));
+    setTimeout(run, 180000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[orphan-sweep] scheduled every ${Math.round(everyMs / 3600000)}h`);
+  }
+
+  // Capacity snapshot sweep (platform maintenance automation, Job 2): writes
+  // a Platform Health Check row every run so the dashboard has a trend, and
+  // emails admins when reserved RAM crosses the same
+  // PROVISIONING_RAM_THRESHOLD_PCT gate real orders are checked against.
+  if (process.env.CAPACITY_SNAPSHOT_SWEEP_ENABLED !== "false") {
+    const { sweepCapacitySnapshot } = require("./services/provisioning/platformHealth");
+    const everyMs = Math.max(300000, Number(process.env.CAPACITY_SNAPSHOT_SWEEP_INTERVAL_MS || 60 * 60 * 1000));
+    const run = () =>
+      sweepCapacitySnapshot(frappeClient())
+        .then((r) => console.log(`[capacity-sweep] status=${r.status} ${r.summary}`))
+        .catch((e) => console.warn("[capacity-sweep] error:", e.message));
+    setTimeout(run, 210000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[capacity-sweep] scheduled every ${Math.round(everyMs / 60000)}m`);
+  }
 });
 
 // ---- Developer access terminal: WS upgrade (Phase 5.2 — auth only) ----

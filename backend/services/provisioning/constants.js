@@ -15,4 +15,5 @@ module.exports = {
   // Managed-setup (premium SaaS) service status; flipped to "Active" on completion.
   STATUS_SETTING_UP: "Setting up",
   STATUS_ACTIVE: "Active",
+  PLATFORM_HEALTH_DOCTYPE: "Platform Health Check",
 };
