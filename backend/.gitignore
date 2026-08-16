@@ -16,8 +16,10 @@ pids
 *.pid
 .pm2
 
-# Uploaded customer storage (do not commit user data)
-storage/
+# Uploaded customer storage (do not commit user data) — anchored to
+# backend/storage/ only, so it doesn't also swallow backend/services/storage/
+# (source code for the File Storage product).
+/storage/
 
 # OS / editor
 .DS_Store

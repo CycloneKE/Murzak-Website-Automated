@@ -110,7 +110,7 @@
       "category": "Storage",
       "tier": "Light",
       "capacityClass": "volume",
-      "ramMb": 256,
+      "ramMb": 0,
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 1200,
@@ -193,6 +193,19 @@
       "pricingModel": "addon",
       "monthlyKes": 2000,
       "setupKes": 500,
+      "requiresRepo": false
+    },
+    "starter-esign": {
+      "id": "starter-esign",
+      "name": "E-Signature",
+      "category": "E-Signature",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 512,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 1800,
+      "setupKes": 0,
       "requiresRepo": false
     },
     "starter-hrpay": {

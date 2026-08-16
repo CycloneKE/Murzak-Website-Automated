@@ -65,12 +65,12 @@ function objectPath(bucket, key) {
 }
 
 /**
- * Generate a presigned GET URL — PURE (no network, no I/O), fully
- * deterministic given the same `now`. This is the function staff/customer
- * downloads actually use; the recording is never proxied through our own
- * server, so we never hold the decrypted bytes in the request path either.
+ * Presigned URL core — shared by presignGetUrl and presignPutUrl. PURE (no
+ * network, no I/O), fully deterministic given the same `now`. Only the HTTP
+ * method differs between a download link and an upload link; everything else
+ * about SigV4 query-string presigning is identical.
  */
-function presignGetUrl(key, opts = {}) {
+function presignUrl(method, key, opts = {}) {
   const c = cfg(opts);
   const now = opts.now || new Date();
   const expiresSeconds = Math.min(Math.max(Number(opts.expiresSeconds) || 300, 1), 7 * 24 * 3600);
@@ -93,7 +93,7 @@ function presignGetUrl(key, opts = {}) {
     .join("&");
 
   const canonicalRequest = [
-    "GET",
+    method,
     canonicalUri,
     canonicalQueryString,
     `host:${host}\n`,
@@ -111,6 +111,16 @@ function presignGetUrl(key, opts = {}) {
   const signature = hmac(signingKey(c.secretAccessKey, now, c.region, c.service), stringToSign).toString("hex");
 
   return `${c.endpoint.protocol}//${host}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
+/** Generate a presigned GET URL — the recording/file download link. */
+function presignGetUrl(key, opts = {}) {
+  return presignUrl("GET", key, opts);
+}
+
+/** Generate a presigned PUT URL — a customer's browser uploads directly here. */
+function presignPutUrl(key, opts = {}) {
+  return presignUrl("PUT", key, opts);
 }
 
 /**
@@ -192,4 +202,75 @@ function isConfigured(opts = {}) {
   try { cfg(opts); return true; } catch { return false; }
 }
 
-module.exports = { presignGetUrl, putObject, deleteObject, isConfigured, objectPath };
+/** Strip XML entities MinIO/S3 escape in Key text nodes. */
+function decodeXmlEntities(s) {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+/**
+ * Regex-parsed XML, matching this codebase's "simple extractor, not a full
+ * parser" style (see scripts/generate-catalog-snapshot.js) — safe here
+ * because the response is our own trusted bucket's, never arbitrary
+ * attacker input.
+ */
+function parseListObjectsXml(xml) {
+  const items = [];
+  const contentsRe = /<Contents>([\s\S]*?)<\/Contents>/g;
+  let m;
+  while ((m = contentsRe.exec(xml)) !== null) {
+    const block = m[1];
+    const key = (block.match(/<Key>([\s\S]*?)<\/Key>/) || [])[1];
+    const size = (block.match(/<Size>([\s\S]*?)<\/Size>/) || [])[1];
+    const lastModified = (block.match(/<LastModified>([\s\S]*?)<\/LastModified>/) || [])[1];
+    if (key) items.push({ key: decodeXmlEntities(key), size: Number(size) || 0, lastModified: lastModified || null });
+  }
+  return items;
+}
+
+/**
+ * List objects under a prefix (ListObjectsV2). Real HTTP call, never
+ * exercised against a live bucket — same unverified-live caveat as
+ * putObject/deleteObject.
+ */
+async function listObjectsV2(prefix, opts = {}) {
+  const c = cfg(opts);
+  const now = opts.now || new Date();
+  const host = c.endpoint.host;
+  const canonicalUri = `/${c.bucket}`;
+  const amzDate = amzDateStamp(now);
+  const credentialScope = `${dateStamp(now)}/${c.region}/${c.service}/aws4_request`;
+  const payloadHash = sha256hex("");
+
+  const queryParams = { "list-type": "2", prefix };
+  const canonicalQueryString = Object.keys(queryParams)
+    .sort()
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
+    .join("&");
+
+  const headers = { host, "x-amz-content-sha256": payloadHash, "x-amz-date": amzDate };
+  const signedHeaderNames = Object.keys(headers).sort();
+  const canonicalHeaders = signedHeaderNames.map((h) => `${h}:${headers[h]}\n`).join("");
+  const signedHeaders = signedHeaderNames.join(";");
+
+  const canonicalRequest = ["GET", canonicalUri, canonicalQueryString, canonicalHeaders, signedHeaders, payloadHash].join("\n");
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, credentialScope, sha256hex(canonicalRequest)].join("\n");
+  const signature = hmac(signingKey(c.secretAccessKey, now, c.region, c.service), stringToSign).toString("hex");
+
+  const authHeader =
+    `AWS4-HMAC-SHA256 Credential=${c.accessKeyId}/${credentialScope}, ` +
+    `SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const url = `${c.endpoint.protocol}//${host}${canonicalUri}?${canonicalQueryString}`;
+  const res = await axios.get(url, {
+    headers: { ...headers, Authorization: authHeader },
+    timeout: Number(process.env.TERMINAL_S3_TIMEOUT_MS || 30000),
+  });
+  return parseListObjectsXml(String(res.data));
+}
+
+module.exports = { presignGetUrl, presignPutUrl, listObjectsV2, putObject, deleteObject, isConfigured, objectPath };

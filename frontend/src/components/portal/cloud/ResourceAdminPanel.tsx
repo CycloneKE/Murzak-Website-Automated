@@ -17,8 +17,6 @@ import { createPortalThread } from "../../../services/portalChat";
 interface ResourceAdminPanelProps {
   serviceId: string;
   serviceName: string;
-  /** Adjusts copy only ("Connection details" vs "Environment Variables") — the underlying data is the same env-var store either way. */
-  serviceCategory?: string;
   isActive: boolean;
   /** Opens Portal.tsx's existing upgrade-request flow. */
   onRequestUpgrade: () => void;
@@ -51,12 +49,10 @@ const REQUEST_TOPICS = [
 const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   serviceId,
   serviceName,
-  serviceCategory,
   isActive,
   onRequestUpgrade,
   onAdminActiveChange,
 }) => {
-  const isDatabase = serviceCategory === "Database Hosting";
   const [eligibility, setEligibility] = useState<ResourceAdminEligibility | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -335,9 +331,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       {/* --- Environment variables --- */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-label font-black text-slate-700 dark:text-slate-300">
-            {isDatabase ? "Connection Details" : "Environment Variables"}
-          </p>
+          <p className="text-label font-black text-slate-700 dark:text-slate-300">Environment Variables</p>
           <button
             type="button"
             onClick={loadEnvs}
@@ -346,12 +340,6 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             <RefreshCw className="w-3 h-3" /> Refresh
           </button>
         </div>
-
-        {isDatabase && (
-          <p className="text-micro font-medium text-slate-400 mb-3">
-            Host, credentials and connection URL for this database are stored here as variables — reveal one to copy it.
-          </p>
-        )}
 
         {restartNeeded && (
           <div className="mb-3 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 p-3 flex items-start gap-2">

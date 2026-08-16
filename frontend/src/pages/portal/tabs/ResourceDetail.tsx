@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { AlertTriangle, ArrowRight, ExternalLink, Headphones, Lock, Maximize2, Server, Shield, ShieldCheck, Square } from "lucide-react";
 import DeveloperTerminalPanel from "../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPanel";
+import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrowser";
+import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import { usePortal } from "../PortalContext";
 
 // Same enum SecurityOverviewCard reads from the account-wide aggregate — this
@@ -345,49 +347,58 @@ const ResourceDetail: React.FC = () => {
 
       {pane === "settings" && (
         <>
-            <ResourceAdminPanel
-              serviceId={cloudServiceId}
-              serviceName={svc?.name || cloudServiceId}
-              serviceCategory={svc?.category}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-              onAdminActiveChange={setResourceAdminActive}
-            />
-
-            <DeveloperTerminalPanel
-              serviceId={cloudServiceId}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-            />
-
-            {isActive && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
-                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
-                  Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={domainInput}
-                    onChange={(e) => setDomainInput(e.target.value)}
-                    placeholder="shop.yourbusiness.co.ke"
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
-                  />
-                  <button
-                    onClick={submitDomainAttach}
-                    disabled={domainSubmitting || !domainInput.trim()}
-                    className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >
-                    {domainSubmitting ? "Connecting…" : "Connect"}
-                  </button>
-                </div>
-                {domainResult && (
-                  <p className={`mt-3 text-label font-bold ${domainResult.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
-                    {domainResult.text}
-                  </p>
+            {svc?.category === "Storage" ? (
+              <StorageFileBrowser serviceId={cloudServiceId} isActive={isActive} />
+            ) : (
+              <>
+                {svc?.category === "Database Hosting" && (
+                  <DatabaseConnectionPanel serviceId={cloudServiceId} isActive={isActive} />
                 )}
-              </div>
+
+                <ResourceAdminPanel
+                  serviceId={cloudServiceId}
+                  serviceName={svc?.name || cloudServiceId}
+                  isActive={isActive}
+                  onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+                  onAdminActiveChange={setResourceAdminActive}
+                />
+
+                <DeveloperTerminalPanel
+                  serviceId={cloudServiceId}
+                  isActive={isActive}
+                  onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+                />
+
+                {isActive && (
+                  <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
+                    <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
+                      Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={domainInput}
+                        onChange={(e) => setDomainInput(e.target.value)}
+                        placeholder="shop.yourbusiness.co.ke"
+                        className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                      />
+                      <button
+                        onClick={submitDomainAttach}
+                        disabled={domainSubmitting || !domainInput.trim()}
+                        className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      >
+                        {domainSubmitting ? "Connecting…" : "Connect"}
+                      </button>
+                    </div>
+                    {domainResult && (
+                      <p className={`mt-3 text-label font-bold ${domainResult.type === "success" ? "text-emerald-500" : "text-red-500"}`}>
+                        {domainResult.text}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {svc?.capacityClass === "scalable" && isActive && (
