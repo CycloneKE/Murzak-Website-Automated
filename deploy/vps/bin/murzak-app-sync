@@ -104,8 +104,18 @@ if [ "$PRUNE" -eq 1 ]; then
     fi
 fi
 
-if [ "$DRY" -eq 0 ] && [ -z "$missing" ]; then
-    echo "in sync ($(printf '%s\n' "$published" | grep -cv '^$' || true) app host(s) published)"
+# Always say something. A run that finds nothing to do must not be silent --
+# empty output is indistinguishable from a crash, and this runs unattended on a
+# timer where "no news" needs to mean "checked, fine" and not "never ran".
+n_wanted=$(printf '%s\n' "$wanted" | grep -cv '^$' || true)
+
+if [ "$DRY" -eq 1 ]; then
+    n_published=$(printf '%s\n' "$published" | grep -cv '^$' || true)
+    echo "dry run: $n_published of $n_wanted app host(s) published"
+else
+    # Recount from disk -- the pre-publish list is stale once we've added any.
+    n_published=$(find "$ENABLED" -maxdepth 1 -name "app-*$SUFFIX" 2>/dev/null | wc -l)
+    echo "$n_published of $n_wanted app host(s) published"
 fi
 
 exit $rc
