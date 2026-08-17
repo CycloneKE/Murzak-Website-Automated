@@ -12,6 +12,7 @@ export type ServiceCategory =
   | "Storage"
   | "E-Signature"
   | "Invoicing"
+  | "Scheduling"
   | "Apps"
   | "Security & Backup"
   | "POS & Inventory"
@@ -472,6 +473,19 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3800, setupKes: 0 },
       highlights: ["Unlimited clients", "Payment tracking", "Your own domain"],
       sortOrder: 57,
+    },
+    {
+      id: "starter-scheduling",
+      name: "Scheduling",
+      description: "Booking pages, calendar sync, and meeting scheduling — your own scheduling tool.",
+      category: "Scheduling",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1024, diskGb: 10 },
+      pricing: { model: "addon", monthlyKes: 3200, setupKes: 0 },
+      highlights: ["Unlimited booking pages", "Calendar sync", "Your own domain"],
+      sortOrder: 58,
     },
     {
       id: "starter-hrpay",
