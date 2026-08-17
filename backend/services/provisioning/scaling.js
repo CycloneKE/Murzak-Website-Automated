@@ -85,20 +85,25 @@ async function triggerHostingerProvision({ reason }) {
   }
   try {
     const axios = require("axios");
-    const c = axios.create({
-      baseURL: (process.env.HOSTINGER_API_BASE || "https://api.hostinger.com").replace(/\/+$/, ""),
-      headers: { Authorization: `Bearer ${process.env.HOSTINGER_API_TOKEN}` },
-      timeout: Number(process.env.HOSTINGER_TIMEOUT_MS || 30000),
-    });
+    const hostingerApi = require("../hostingerApi");
     // Integration point: create a VPS from a preconfigured plan/template.
-    const res = await c.post("/api/vps/v1/virtual-machines", {
-      plan: process.env.HOSTINGER_VPS_PLAN,
-      data_center_id: process.env.HOSTINGER_DC_ID,
-      template_id: process.env.HOSTINGER_TEMPLATE_ID,
-      hostname: `murzak-box-${Date.now()}`,
-      // note carried for audit; Hostinger ignores unknown fields
-      note: `auto-scale: ${reason}`,
-    });
+    // This used to default its base to api.hostinger.com and therefore never
+    // worked — the host resolver owns that decision now.
+    const res = await axios.post(
+      hostingerApi.apiUrl(hostingerApi.PATHS.vpsVirtualMachines),
+      {
+        plan: process.env.HOSTINGER_VPS_PLAN,
+        data_center_id: process.env.HOSTINGER_DC_ID,
+        template_id: process.env.HOSTINGER_TEMPLATE_ID,
+        hostname: `murzak-box-${Date.now()}`,
+        // note carried for audit; Hostinger ignores unknown fields
+        note: `auto-scale: ${reason}`,
+      },
+      {
+        headers: hostingerApi.authHeaders(),
+        timeout: Number(process.env.HOSTINGER_TIMEOUT_MS || 30000),
+      }
+    );
     const ref = res.data?.data?.id || res.data?.id || "requested";
     return { triggered: true, ref: String(ref) };
   } catch (e) {
