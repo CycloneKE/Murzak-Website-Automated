@@ -1,0 +1,5 @@
+# Files deployed to the Linux VPS must keep LF endings. A CRLF checkout on a
+# Windows dev box would otherwise ship scripts that bash rejects with
+# "bad interpreter: /usr/bin/env bash^M" and nginx configs with stray \r.
+deploy/vps/bin/*      text eol=lf
+deploy/vps/nginx/*    text eol=lf
