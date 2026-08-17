@@ -6,10 +6,15 @@ import { AlertCircle, ArrowLeft, Gift, Globe, Link2, Loader2, ShieldCheck, X } f
  * Self-service domain onboarding — three intake endpoints already existed
  * (register / bring-your-own / free subdomain) but the only customer-facing
  * entry point was "open a support chat." This replaces that with a guided
- * screen that calls those endpoints directly; a human still has to fulfil a
- * registration or verify a connection afterward (registrar automation is
- * blocked on the API's terms — see services/customerDomains.js), but the
- * customer no longer has to ask a person to start that process.
+ * screen that calls those endpoints directly.
+ *
+ * A request submitted here still needs a human to fulfil it — this path
+ * creates a Hosting Domain Purchase Request directly, with no invoice behind
+ * it, so it never reaches the automated registration in
+ * domainPurchaseFulfilment.js (that only fires for a domain-* catalog item
+ * bought and paid for at checkout — see backend/services/hostingerDomains.js).
+ * A human still has to fulfil a "connect a domain you own" verification too;
+ * that path has no registration step at all.
  */
 
 type DomainPath = "register" | "external" | "subdomain";
@@ -216,6 +221,12 @@ export default function AddDomainModal({
                 </div>
                 <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
                   This creates a registration request against your active hosting plan. We'll email you once {name || "yourbrand"}{tld} is live.
+                </p>
+                {/* Required by Hostinger's Domain Name Registration Agreement
+                    §7: resellers must inform the customer they are "in fact
+                    registering their domain name through Hostinger." */}
+                <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Domains are registered through our infrastructure partner, Hostinger.
                 </p>
                 {err && <ErrorBanner text={err} />}
                 <SubmitButton
