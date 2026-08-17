@@ -921,14 +921,28 @@ app.post("/api/plan/select", (req, res) => {
 // NOTE: availability is currently a deterministic stub. Wire this to the
 // Hostinger domain API (or a WHOIS/RDAP lookup) for real availability — the
 // frontend already consumes { results: [{ domain, tld, available, priceKes }] }.
+//
+// .com/.org/.net/.io corrected 2026-08-17 against Hostinger's LIVE wholesale
+// cost (GET /api/billing/v1/catalog, category DOMAIN), converted at the
+// day's ~129.3 KES/USD rate: the previous prices were all below wholesale —
+// .com sold at 58% of cost, .io at 46% — meaning automating registration
+// against them would have automated a loss on every sale. New prices carry
+// roughly a 60% margin over cost with headroom for KES/USD moving to ~140
+// before dipping under cost again. Re-check whenever Hostinger's catalog
+// prices move or the shilling moves meaningfully.
+//
+// .co.ke/.ke/.africa are UNCHANGED: Hostinger's catalog does not sell these
+// TLDs at all (confirmed by full-catalog search, not just an itemId miss),
+// so there is no wholesale reference to price against here — they stay on
+// whatever manual-fulfilment sourcing already prices them.
 const DOMAIN_TLD_PRICES = {
   ".co.ke": 1200,
-  ".com": 1500,
+  ".com": 4200,
   ".ke": 1800,
-  ".org": 1800,
-  ".net": 1800,
+  ".org": 3800,
+  ".net": 3800,
   ".africa": 2500,
-  ".io": 4500,
+  ".io": 15500,
 };
 
 function normalizeDomainLabel(raw) {

@@ -141,10 +141,15 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     const client = makeClient();
     const order = await createOrder({
       client, webAccountName: "a", serviceId: "domain-com",
-      config: { domain: "acme.com", priceKes: 1500 }, fleetReservedRamMb: 0, nowMs: T0,
+      // priceKes here is just opaque display config, not cross-checked
+      // against the catalog — order.monthlyKes below is what's actually
+      // derived from getServiceMeta("domain-com"), which is the real price.
+      config: { domain: "acme.com", priceKes: 4200 }, fleetReservedRamMb: 0, nowMs: T0,
     });
     ok(order.config?.domain === "acme.com", "matching TLD is accepted and the domain round-trips through config");
-    ok(order.monthlyKes === 1500 && order.category === "Domain Registration", "domain-com prices at KES 1500 and carries its category");
+    // 4200 as of 2026-08-17's wholesale-cost pricing correction — see
+    // DOMAIN_TLD_PRICES in backend/server.js.
+    ok(order.monthlyKes === 4200 && order.category === "Domain Registration", "domain-com prices at KES 4200 and carries its category");
     // A subdomain of the right TLD is still that TLD (co.ke has a longer,
     // more specific TLD than .com, so this also guards against a prefix
     // false-positive like "acmeXcom" or "acme.company").

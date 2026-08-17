@@ -174,7 +174,9 @@ const deps = {
       services: [{ serviceId: "domain-net", serviceName: "Domain — .net", tier: "Light", domainChoice: "example.net" }],
     });
     ok(res.invoiceDocName === "PINV-NEW-1", "second domain purchase creates an invoice (not rejected)");
-    ok(res.amountKes === 1800, "second domain priced from snapshot (domain-net = 1800)");
+    // 3800 as of 2026-08-17's wholesale-cost pricing correction — see
+    // DOMAIN_TLD_PRICES in backend/server.js.
+    ok(res.amountKes === 3800, "second domain priced from snapshot (domain-net = 3800)");
   }
 
   section("FIX ROUND 2 — Requirement 3: real-hosting-only account keeps full add-on rights");
