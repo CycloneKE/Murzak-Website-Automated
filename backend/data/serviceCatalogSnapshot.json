@@ -221,6 +221,19 @@
       "setupKes": 0,
       "requiresRepo": false
     },
+    "starter-scheduling": {
+      "id": "starter-scheduling",
+      "name": "Scheduling",
+      "category": "Scheduling",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 1024,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 3200,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
     "starter-hrpay": {
       "id": "starter-hrpay",
       "name": "HR & Payroll (Light)",

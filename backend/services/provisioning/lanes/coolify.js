@@ -505,13 +505,32 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  * design (mirrors finalizeApp's BYOA domains PATCH) — a rejected PATCH must
  * not fail the whole job; degrade to no link, same as an unconfigured
  * APP_DOMAIN_BASE, never a fabricated URL.
+ *
+ * CONFIRMED live against Coolify 4.1.2 (2026-08-17): `PATCH /api/v1/services/
+ * {uuid}` with a top-level `domains` field 422s — "This field is not
+ * allowed." (verified via ServicesController@update_by_uuid's own source at
+ * the v4.1.2 tag: its $allowedFields list has no `domains`/`fqdn` key at
+ * all). This means EVERY curated-app purchase before this fix — DocuSeal,
+ * Invoice Ninja — silently got access.url="" forever; the 422 was caught
+ * and logged, never surfaced. The real mechanism, confirmed live and
+ * matching the same controller's `urls` handling (`applyServiceUrls()`,
+ * which sets fqdn directly on the named sub-application and saves it): pass
+ * `urls: [{ name: <compose service key>, url: fqdn }]`. `name` must be the
+ * exact key from the compose YAML — the exposed/primary service
+ * (`appConfig.primaryService` for multi-service apps; every single-service
+ * curated app and the generic fallback both always name their one service
+ * "app", so that's the default when no multi-service config applies).
  */
 async function attachServiceUrl(client, uuid, job, name) {
   const slug = appDomain.slugWithSuffix(name, job.name);
   const fqdn = appDomain.fqdnFor(slug);
   if (!fqdn) return "";
+  const appConfig = CURATED_APP_CONFIG[job.service_id];
+  const containerName = appConfig?.primaryService || "app";
   try {
-    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, { domains: fqdn });
+    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, {
+      urls: [{ name: containerName, url: fqdn }],
+    });
   } catch (e) {
     console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
     return "";
@@ -726,6 +745,7 @@ const CURATED_APP_CONFIG = {
   "starter-invoicing": {
     primaryService: "nginx",
     primaryPort: 80,
+    secrets: { dbPassword: "random", dbRootPassword: "random", appKey: "laravelAppKey" },
     services: {
       mysql: {
         image: "mysql:8",
@@ -783,6 +803,69 @@ const CURATED_APP_CONFIG = {
         image: "nginx:alpine",
         sharedVolumesFrom: "app", // mounts app's app-public/app-storage, read-only
         dependsOn: { app: "service_started" },
+      },
+    },
+  },
+  "starter-scheduling": {
+    primaryService: "app",
+    primaryPort: 3000,
+    secrets: {
+      dbPassword: "random",
+      nextAuthSecret: "random",
+      encryptionKey: "random",
+      cronApiKey: "random",
+    },
+    services: {
+      postgres: {
+        image: "postgres:16",
+        volumeName: "pg-data",
+        volumePath: "/var/lib/postgresql/data",
+        environment: (ctx) => ({
+          POSTGRES_USER: "calcom",
+          POSTGRES_PASSWORD: ctx.dbPassword,
+          POSTGRES_DB: "calcom",
+        }),
+        healthcheck: () =>
+          `      test: ["CMD-SHELL", "pg_isready -U calcom -d calcom"]\n` +
+          `      interval: 5s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 20\n`,
+      },
+      app: {
+        image: "calcom/cal.com:latest",
+        // Cal.com is stateless — all state lives in postgres, so no
+        // volumeName is declared here (the compose builder only emits a
+        // volumes: block for a service when volumeName is present).
+        environment: (ctx) => {
+          const host = ctx.fqdn.replace(/^https?:\/\//, "");
+          return {
+            DATABASE_URL: `postgresql://calcom:${ctx.dbPassword}@postgres:5432/calcom`,
+            DATABASE_DIRECT_URL: `postgresql://calcom:${ctx.dbPassword}@postgres:5432/calcom`,
+            DATABASE_HOST: "postgres:5432",
+            NEXT_PUBLIC_WEBAPP_URL: ctx.fqdn,
+            NEXT_PUBLIC_WEBSITE_URL: ctx.fqdn,
+            NEXT_PUBLIC_EMBED_LIB_URL: `${ctx.fqdn}/embed/embed.js`,
+            // Cal.com's middleware does JSON.parse(`[${ALLOWED_HOSTNAMES}]`) —
+            // confirmed live (2026-08-17): a bare hostname here produced
+            // `[diag-cal-test...]`, invalid JSON (unquoted token), and
+            // crash-looped the app on every request. The value itself must
+            // carry embedded double quotes so, once buildMultiServiceComposeYaml's
+            // generic env-line template wraps it in YAML's own outer quotes,
+            // the container actually receives `"host"` (literal quote chars).
+            ALLOWED_HOSTNAMES: `\\"${host}\\"`,
+            NEXTAUTH_URL: ctx.fqdn,
+            NEXTAUTH_SECRET: ctx.nextAuthSecret,
+            CALENDSO_ENCRYPTION_KEY: ctx.encryptionKey,
+            CRON_API_KEY: ctx.cronApiKey,
+            EMAIL_FROM: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
+            EMAIL_FROM_NAME: "Murzak Scheduling",
+            EMAIL_SERVER_HOST: process.env.SMTP_HOST || "",
+            EMAIL_SERVER_PORT: process.env.SMTP_PORT || "587",
+            EMAIL_SERVER_USER: process.env.SMTP_USER || "",
+            EMAIL_SERVER_PASSWORD: process.env.SMTP_PASS || "",
+          };
+        },
+        dependsOn: { postgres: "service_healthy" },
       },
     },
   },
@@ -847,16 +930,40 @@ function hardeningBlock(limits) {
 }
 
 /**
+ * Maps a declared secret "kind" (from an app config's `secrets` field) to the
+ * generator that produces it. `laravelAppKey` exists only because Invoice
+ * Ninja needs that exact format; every other curated app just needs a plain
+ * random secret.
+ */
+const SECRET_GENERATORS = {
+  random: generateRandomSecret,
+  laravelAppKey: generateLaravelAppKey,
+};
+
+/**
+ * Builds the per-provision secret ctx from an app config's declared `secrets`
+ * map (e.g. `{ dbPassword: "random", appKey: "laravelAppKey" }`), instead of
+ * hardcoding one app's specific secret set into buildMultiServiceComposeYaml.
+ * A second real multi-service app with a different secret shape (Cal.com:
+ * plain random secrets, no Laravel key at all) is what triggered this
+ * generalization — see the design doc.
+ */
+function buildSecretCtx(appConfig, fqdn) {
+  const ctx = { fqdn };
+  for (const [key, kind] of Object.entries(appConfig.secrets || {})) {
+    ctx[key] = SECRET_GENERATORS[kind]();
+  }
+  return ctx;
+}
+
+/**
  * Multi-service curated apps (app + a real backing database, unlike
  * DocuSeal's SQLite default). First consumer: starter-invoicing (Invoice
  * Ninja). RAM/CPU limits apply per-container, not summed across the stack —
  * a known, accepted looseness (see the design doc), not silently ignored.
  */
 function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
-  const dbPassword = generateRandomSecret();
-  const dbRootPassword = generateRandomSecret();
-  const appKey = generateLaravelAppKey();
-  const ctx = { dbPassword, dbRootPassword, appKey, fqdn };
+  const ctx = buildSecretCtx(appConfig, fqdn);
 
   const volumeDecls = [];
   let serviceBlocks = "";
@@ -1351,6 +1458,7 @@ module.exports = {
   buildCuratedAppComposeYaml,
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
+  __test_calcomConfig: CURATED_APP_CONFIG["starter-scheduling"],
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
   classifyDeploymentStatus,
