@@ -21,7 +21,7 @@
 
     { "fieldname": "section_routing", "fieldtype": "Section Break", "label": "Routing & Footprint" },
     { "fieldname": "capacity_class", "fieldtype": "Select", "label": "Capacity Class", "options": "\nvolume\npremium\ndedicated\nscalable" },
-    { "fieldname": "lane", "fieldtype": "Select", "label": "Lane", "options": "\ncoolify\nbench\nmanual\nk8s", "in_list_view": 1, "in_standard_filter": 1 },
+    { "fieldname": "lane", "fieldtype": "Select", "label": "Lane", "options": "\ncoolify\nbench\nmanual\nk8s\nobjectStorage\nemailHosting", "in_list_view": 1, "in_standard_filter": 1, "description": "Must list EVERY value laneFor() can return — buildJobPayload writes this, and Frappe 417s on a Select value that isn't declared here." },
     { "fieldname": "target", "fieldtype": "Data", "label": "Target Box", "default": "box-1", "in_list_view": 1, "in_standard_filter": 1, "description": "Which server hosts this tenant (box-1, box-2, …)" },
     { "fieldname": "column_break_routing", "fieldtype": "Column Break" },
     { "fieldname": "ram_mb", "fieldtype": "Int", "label": "RAM (MB)" },

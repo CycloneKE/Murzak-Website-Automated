@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+#
+# murzak-hostinger-token
+#
+# Prompts for the Hostinger API token, sanity-checks its shape, writes it to
+# /etc/letsencrypt/hostinger.ini (mode 600), and verifies it against the live
+# API with a read-only GET before keeping it.
+#
+# Exists because a bad paste silently produces a file that only fails later,
+# mid-ACME-order. This fails immediately and loudly instead, and never echoes
+# the token or writes it into shell history.
+#
+# Get the token from hPanel -> Account -> API (it needs DNS scope for the
+# domain whose zone we are editing).
+
+set -euo pipefail
+
+CREDS="${MURZAK_HOSTINGER_CREDS:-/etc/letsencrypt/hostinger.ini}"
+# Normalize to a BARE host — the probe below appends the full
+# "/api/dns/v1/..." path. See the same helper in certbot-hostinger-dns: the
+# backend ships an /api-suffixed value for this env var name, and doubling the
+# suffix here would 404 and report a perfectly good token as invalid.
+normalize_api_base() {
+    local raw="${1:-}"
+    raw="${raw%/}"
+    [ -n "$raw" ] || { printf '%s' "https://developers.hostinger.com"; return; }
+    case "$raw" in
+        https://api.hostinger.com|http://api.hostinger.com)
+            printf '%s' "https://developers.hostinger.com"; return ;;
+    esac
+    printf '%s' "${raw%/api}"
+}
+API_BASE="$(normalize_api_base "${HOSTINGER_API_BASE:-}")"
+ZONE="${MURZAK_DNS_ZONE:-murzaktech.tech}"
+
+die() { echo "murzak-hostinger-token: $*" >&2; exit 1; }
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+
+if [ "${1:-}" = "--verify" ]; then
+    # Validate whatever is already in the file -- no prompt, no write. Use this
+    # after editing the file by hand (e.g. with nano), which sidesteps terminals
+    # that mangle pastes into a hidden read.
+    [ -f "$CREDS" ] || die "no $CREDS to verify"
+    TOKEN="$(sed -n 's/^[[:space:]]*HOSTINGER_API_TOKEN[[:space:]]*=[[:space:]]*//p' "$CREDS" | head -1)"
+    [ -n "$TOKEN" ] || die "HOSTINGER_API_TOKEN not found in $CREDS"
+    VERIFY_ONLY=1
+else
+    VERIFY_ONLY=0
+    printf 'Hostinger API token (input hidden, then press Enter): ' >&2
+    IFS= read -rs TOKEN
+    printf '\n' >&2
+fi
+
+# --- shape checks: catch a bad paste before it reaches the API --------------
+[ -n "$TOKEN" ] || die "nothing entered"
+
+# Strip surrounding whitespace: a paste picking up a leading/trailing space or
+# newline is benign. Whitespace *inside* the value is not -- that means the
+# wrong thing was pasted -- and is still rejected below.
+TOKEN="${TOKEN#"${TOKEN%%[![:space:]]*}"}"
+TOKEN="${TOKEN%"${TOKEN##*[![:space:]]}"}"
+
+case "$TOKEN" in
+    *[[:space:]]*) die "token contains internal whitespace -- you pasted more than the token (clipboard may still hold a command)" ;;
+    *'"'*|*"'"*)   die "token contains quote characters -- you pasted surrounding text" ;;
+    '{'*)          die "token looks like JSON, not a bare token" ;;
+    http*)         die "token looks like a URL, not a token" ;;
+    PASTE_TOKEN_HERE) die "that is the placeholder, not a token" ;;
+esac
+
+if [ "${#TOKEN}" -lt 20 ]; then
+    die "token is only ${#TOKEN} characters -- too short to be real"
+fi
+
+odd="$(printf '%s' "$TOKEN" | tr -d 'A-Za-z0-9._~+/=-' | wc -c)"
+[ "$odd" -eq 0 ] || die "token has $odd character(s) outside the expected set -- bad paste"
+
+echo "shape OK (${#TOKEN} characters)" >&2
+
+# --- write, then verify against the live API --------------------------------
+# Keep the previous file so a rejected token doesn't leave us worse off.
+BACKUP=""
+if [ "$VERIFY_ONLY" -eq 0 ]; then
+    if [ -f "$CREDS" ]; then
+        BACKUP="$(mktemp)"
+        cat "$CREDS" > "$BACKUP"
+        chmod 600 "$BACKUP"
+    fi
+
+    umask 077
+    printf 'HOSTINGER_API_TOKEN=%s\n' "$TOKEN" > "$CREDS"
+    chmod 600 "$CREDS"
+    chown root:root "$CREDS"
+fi
+
+code="$(curl -sS -o /dev/null -w '%{http_code}' -X GET \
+    -H "Authorization: Bearer $TOKEN" \
+    -H 'Accept: application/json' \
+    --max-time 20 \
+    "$API_BASE/api/dns/v1/zones/$ZONE" 2>/dev/null || echo ERR)"
+unset TOKEN
+
+case "$code" in
+    2??)
+        [ -n "$BACKUP" ] && rm -f "$BACKUP"
+        echo "verified: API returned $code for zone $ZONE"
+        echo "token stored in $CREDS -- now run: certbot-hostinger-dns selftest"
+        ;;
+    401|403)
+        echo "REJECTED: API returned $code -- the token is invalid, expired, or lacks DNS scope." >&2
+        if [ -n "$BACKUP" ]; then
+            cat "$BACKUP" > "$CREDS"; chmod 600 "$CREDS"; rm -f "$BACKUP"
+            echo "previous contents of $CREDS restored." >&2
+        fi
+        exit 1
+        ;;
+    404)
+        echo "REJECTED: API returned 404 for zone $ZONE -- token may be valid but" >&2
+        echo "  this account does not manage that zone." >&2
+        [ -n "$BACKUP" ] && { cat "$BACKUP" > "$CREDS"; chmod 600 "$CREDS"; rm -f "$BACKUP"; }
+        exit 1
+        ;;
+    *)
+        echo "INCONCLUSIVE: API returned '$code'. Token left in place; investigate before issuing." >&2
+        [ -n "$BACKUP" ] && rm -f "$BACKUP"
+        exit 1
+        ;;
+esac

@@ -9,7 +9,19 @@ that's Phase 1 (the runner).
 
 - `catalog.js` — backend view of the catalog, read from the generated snapshot
   (`backend/data/serviceCatalogSnapshot.json`). Exposes `getServiceMeta(id)` and
-  `laneFor(meta)` (volume → `coolify`, premium → `bench`, dedicated → `manual`).
+  `laneFor(meta)` (volume → `coolify`, premium → `bench`, dedicated → `manual`,
+  scalable → `k8s`, Storage → `objectStorage`, Email Hosting → `emailHosting`).
+
+  Two categories are deliberately routed away from `coolify` because they have
+  **no server footprint of ours**: Domain Registration (`manual`) and Email
+  Hosting (`emailHosting`, runs on Hostinger). Both used to fall through to
+  `coolify` and build a container for a purchase that needs none — email also
+  reserved 256–384MB on the RAM-capped box while provisioning no email at all.
+  If you add a category that we resell rather than host, route it explicitly.
+
+  `laneFor()` must only ever return a value declared in the **`lane` Select** on
+  `data/doctype-provisioning-job.json` — `buildJobPayload` writes it, and Frappe
+  returns 417 for an undeclared Select value.
 - `provisioningService.js` — `runProvisioningForInvoice()` enqueues idempotent
   jobs (keyed by `invoice` + `service_id`) and notifies staff. **Never throws** —
   a provisioning hiccup can't roll back a paid invoice.

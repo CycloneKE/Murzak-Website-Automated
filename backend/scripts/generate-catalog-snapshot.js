@@ -69,6 +69,12 @@ function main() {
     const pricingModel = pull(block, "model");
     const monthlyKes = pull(block, "monthlyKes");
     const setupKes = pull(block, "setupKes");
+    // Email Hosting: mailboxes this product entitles the account to, so the
+    // portal can enforce the allowance instead of trusting marketing copy.
+    // Undefined for non-email products; 0 means "no Murzak-side cap".
+    // Safe with pull()'s first-match regex because it requires "mailboxes:" —
+    // the word inside highlights ("Up to 5 mailboxes") has no colon.
+    const mailboxes = pull(block, "mailboxes");
     // Boolean flag (pull() only handles strings/numbers): BYOA services that
     // deploy the customer's own repo — provisioning needs this to attach the
     // repo URL to the job.
@@ -89,6 +95,7 @@ function main() {
       monthlyKes: monthlyKes == null ? 0 : Number(monthlyKes),
       setupKes: setupKes == null ? 0 : Number(setupKes),
       requiresRepo,
+      ...(mailboxes == null ? {} : { mailboxes: Number(mailboxes) }),
     };
   }
 

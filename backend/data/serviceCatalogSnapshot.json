@@ -97,12 +97,13 @@
       "category": "Email Hosting",
       "tier": "Light",
       "capacityClass": "volume",
-      "ramMb": 256,
-      "diskGb": 25,
+      "ramMb": 0,
+      "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 1500,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 5
     },
     "starter-storage": {
       "id": "starter-storage",
@@ -370,12 +371,13 @@
       "category": "Email Hosting",
       "tier": "Medium",
       "capacityClass": "volume",
-      "ramMb": 384,
-      "diskGb": 40,
+      "ramMb": 0,
+      "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 2500,
       "setupKes": 500,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 0
     },
     "biz-web-hosting": {
       "id": "biz-web-hosting",
@@ -526,12 +528,13 @@
       "category": "Email Hosting",
       "tier": "Light",
       "capacityClass": "volume",
-      "ramMb": 64,
-      "diskGb": 25,
+      "ramMb": 0,
+      "diskGb": 0,
       "pricingModel": "addon",
       "monthlyKes": 1200,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 5
     },
     "addon-bulk-email": {
       "id": "addon-bulk-email",

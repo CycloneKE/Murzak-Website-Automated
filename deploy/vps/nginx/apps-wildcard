@@ -1,0 +1,34 @@
+# /etc/nginx/sites-available/apps-wildcard
+#
+# Serves every *.apps.murzaktech.tech host from ONE Let's Encrypt wildcard
+# certificate, proxying to Coolify's Traefik. Replaces the self-signed
+# "not published yet" catch-all in sites-available/apps.murzaktech.tech.
+#
+# This is what makes the per-host machinery (murzak-app-vhost,
+# murzak-app-sync and its timer, one cert per app) unnecessary: a newly
+# provisioned app is reachable over https the moment Traefik routes it, with
+# no publish step, no 2-minute wait, and no certificate rate limit.
+#
+# Rollout note: per-host vhosts (sites-available/app-<fqdn>) carry an EXACT
+# server_name, and nginx prefers an exact match over a wildcard, so any host
+# already published keeps using its own certificate. That is deliberate --
+# it means enabling this file cannot disturb a live customer, and the per-host
+# path stays as a fallback until the wildcard has survived a renewal.
+#
+# Requires: certbot certificate --cert-name apps-wildcard covering
+# *.apps.murzaktech.tech (see certbot-hostinger-dns).
+#
+# $murzak_apps_connection_upgrade is defined in conf.d/00-murzak-apps-map.conf.
+
+server {
+    listen      443 ssl http2;
+    listen      [::]:443 ssl http2;
+    server_name *.apps.murzaktech.tech;
+
+    ssl_certificate     /etc/letsencrypt/live/apps-wildcard/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/apps-wildcard/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    include /etc/nginx/snippets/murzak-app-proxy.conf;
+}

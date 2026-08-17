@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# murzak-app-vhost-remove <fqdn> [--keep-cert]
+#
+# Unpublishes a customer app host: drops its nginx vhost and, unless
+# --keep-cert is given, deletes the Let's Encrypt certificate so the renewal
+# timer stops trying to renew a host that no longer resolves here.
+#
+# Pair with murzak-app-vhost on teardown/deprovision.
+
+set -euo pipefail
+
+SUFFIX=".apps.murzaktech.tech"
+AVAIL="/etc/nginx/sites-available"
+ENABLED="/etc/nginx/sites-enabled"
+
+die()    { echo "murzak-app-vhost-remove: $*" >&2; exit 1; }
+refuse() { echo "murzak-app-vhost-remove: $*" >&2; exit 2; }
+
+HOST="${1:-}"
+KEEP_CERT="${2:-}"
+[ -n "$HOST" ] || refuse "usage: murzak-app-vhost-remove <fqdn> [--keep-cert]"
+
+# Same guard as murzak-app-vhost: never touch anything outside our suffix, so
+# this can't be used to unpublish an unrelated site on this shared box.
+case "$HOST" in
+    *"$SUFFIX") ;;
+    *) refuse "refusing '$HOST': not under $SUFFIX" ;;
+esac
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+
+rm -f "$ENABLED/app-$HOST" "$AVAIL/app-$HOST"
+
+TESTLOG="$(mktemp)"
+if ! nginx -t >"$TESTLOG" 2>&1; then
+    cat "$TESTLOG" >&2
+    rm -f "$TESTLOG"
+    die "nginx config test failed after removing $HOST; NOT reloading"
+fi
+rm -f "$TESTLOG"
+
+systemctl reload nginx
+
+if [ "$KEEP_CERT" = "--keep-cert" ]; then
+    echo "==> unpublished $HOST (certificate kept)"
+else
+    certbot delete --cert-name "$HOST" --non-interactive >/dev/null 2>&1 \
+        || echo "note: no certificate named $HOST to delete" >&2
+    echo "==> unpublished $HOST (certificate deleted)"
+fi

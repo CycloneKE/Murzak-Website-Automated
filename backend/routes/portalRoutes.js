@@ -10,6 +10,9 @@ const storageS3Lib = require('../services/storage/storageS3');
 const storageEligibilityLib = require('../services/storageEligibility');
 const storageQuotaLib = require('../services/storage/quota');
 const dbConnectionLib = require('../services/storage/dbConnection');
+const hostingerMailLib = require('../services/hostingerMail');
+const mailboxEntitlementLib = require('../services/mailboxEntitlement');
+const mailboxPolicyLib = require('../services/mailboxPolicy');
 // Not destructured at import time — see the routesContext.test.js note above
 // signBrokerToken: destructuring this require would trip that test's greedy
 // static guard for the ctx destructure below.
@@ -1719,6 +1722,230 @@ router.delete("/api/portal/services/:serviceId/files", requireAuth, storageFiles
   } catch (err) {
     console.error("STORAGE DELETE ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't delete that file. Please try again." });
+  }
+});
+
+// --- Email Hosting: mailbox self-service ---
+//
+// No resource-admin gating, same reasoning as File Storage: managing your own
+// mailboxes IS the product, not a "can break your live service" extra.
+//
+// Mailboxes live on HOSTINGER, so every write here reaches a third party. Two
+// controls matter most:
+//
+//  1. The Hostinger order id is taken from the customer's OWN provisioning job
+//     (`external_ref`) and never from the request. A client-supplied order id
+//     would let one tenant administer another's email.
+//  2. Hostinger's mailbox PATCH/DELETE endpoints take a bare mailboxId with no
+//     order scoping, so a raw id from the client would be a cross-tenant
+//     takeover — change any mailbox's password, anywhere. Every such call is
+//     therefore preceded by a membership check against THIS order's mailbox
+//     list (assertMailboxBelongsToOrder).
+
+const mailboxLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many mailbox changes. Please wait a moment and try again." },
+});
+
+/**
+ * Ownership + readiness for the mailbox routes. Mirrors loadStorageContext.
+ * Returns `null` after already sending an error response, or the context.
+ */
+async function loadMailboxContext(req, res) {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) {
+    res.status(401).json({ error: "No session account." });
+    return null;
+  }
+  const { serviceId } = req.params;
+  if (!serviceId) {
+    res.status(400).json({ error: "Missing serviceId." });
+    return null;
+  }
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("MAILBOX LOOKUP ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to look up this service." });
+    return null;
+  }
+  // Deliberately indistinguishable from "not yours" — a wrong-owner probe and a
+  // wrong-category service must not be tellable apart from outside.
+  if (!job || job.category !== "Email Hosting") {
+    res.status(404).json({ error: "Email hosting isn't available for this service." });
+    return null;
+  }
+  if (job.status !== "active") {
+    res.status(409).json({ error: "Your email isn't set up yet. We'll email you when it's ready." });
+    return null;
+  }
+  if (!hostingerMailLib.isConfigured()) {
+    res.status(503).json({ error: "Email management isn't available right now. Please try again shortly." });
+    return null;
+  }
+  const orderId = String(job.external_ref || "").trim();
+  if (!orderId) {
+    // Active but no order recorded means the lane didn't finish binding — a
+    // staff problem, not something the customer can fix by retrying.
+    console.error(`MAILBOX CONTEXT: job ${job.name} is active with no external_ref`);
+    res.status(409).json({ error: "Your email isn't fully set up yet. Please contact support." });
+    return null;
+  }
+  return { webAccountName, job, orderId, serviceId };
+}
+
+/**
+ * Refuse unless `mailboxId` is genuinely on this customer's order.
+ *
+ * This is the cross-tenant guard: Hostinger's password/delete endpoints accept
+ * any mailbox id, so without this a customer could pass someone else's id and
+ * take over their email. The membership decision itself lives in
+ * mailboxPolicy.mailboxBelongsTo so it is unit-tested.
+ */
+async function assertMailboxBelongsToOrder(orderId, mailboxId, res) {
+  if (!String(mailboxId || "").trim()) {
+    res.status(400).json({ error: "Missing mailbox id." });
+    return false;
+  }
+  let mailboxes;
+  try {
+    mailboxes = await hostingerMailLib.listMailboxes(orderId);
+  } catch (err) {
+    console.error("MAILBOX MEMBERSHIP CHECK ERROR:", err.response?.data || err.message);
+    res.status(502).json({ error: "Couldn't verify that mailbox. Please try again." });
+    return false;
+  }
+  if (!mailboxPolicyLib.mailboxBelongsTo(mailboxes, mailboxId)) {
+    // 404, not 403: never confirm that an id exists on someone else's order.
+    res.status(404).json({ error: "Mailbox not found." });
+    return false;
+  }
+  return true;
+}
+
+/** The account's paid-for allowance, reconciled against the Hostinger plan. */
+async function resolveMailboxLimit(ctx, usedCount) {
+  let ownedServices = [];
+  try {
+    const resp = await frappeClient().get(
+      `/api/resource/Web Account/${encodeURIComponent(ctx.webAccountName)}`
+    );
+    const rec = resp.data?.data || {};
+    const rows = Array.isArray(rec.selected_services) ? rec.selected_services : [];
+    ownedServices = rows.map((r) => ({ serviceId: r?.service_id, status: r?.status }));
+  } catch (err) {
+    console.error("MAILBOX ENTITLEMENT READ ERROR:", err.response?.data || err.message);
+    ownedServices = [];
+  }
+  const entitlement = mailboxEntitlementLib.entitlementFor(ownedServices, getServiceMeta);
+
+  let planLimit = null;
+  try {
+    const plan = await hostingerMailLib.getOrderPlan(ctx.orderId);
+    const raw = plan?.mailbox_limit ?? plan?.mailboxes ?? null;
+    planLimit = Number.isFinite(Number(raw)) ? Number(raw) : null;
+  } catch (err) {
+    planLimit = null;
+  }
+
+  const effective = mailboxEntitlementLib.effectiveLimit({ entitlement, planLimit });
+  return { entitlement, planLimit, effective, used: usedCount };
+}
+
+router.get("/api/portal/services/:serviceId/mailboxes", requireAuth, async (req, res) => {
+  const ctx = await loadMailboxContext(req, res);
+  if (ctx === null) return;
+  try {
+    const raw = await hostingerMailLib.listMailboxes(ctx.orderId);
+    const mailboxes = raw.map(mailboxPolicyLib.publicMailbox);
+    const limits = await resolveMailboxLimit(ctx, mailboxes.length);
+    return res.json({
+      ok: true,
+      mailboxes,
+      used: mailboxes.length,
+      limit: limits.effective.unlimited ? null : limits.effective.limit,
+      unlimited: !!limits.effective.unlimited,
+      canCreate: mailboxEntitlementLib.canCreate({ used: mailboxes.length, effective: limits.effective }).ok,
+      // Webmail + client settings, so the customer can actually use the thing.
+      webmailUrl: "https://mail.hostinger.com",
+      imap: { host: "imap.hostinger.com", port: 993, security: "SSL/TLS" },
+      smtp: { host: "smtp.hostinger.com", port: 465, security: "SSL/TLS" },
+    });
+  } catch (err) {
+    console.error("MAILBOX LIST ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't load your mailboxes. Please try again." });
+  }
+});
+
+router.post("/api/portal/services/:serviceId/mailboxes", requireAuth, mailboxLimiter, async (req, res) => {
+  const ctx = await loadMailboxContext(req, res);
+  if (ctx === null) return;
+
+  const localPart = String(req.body?.localPart || "").trim().toLowerCase();
+  if (!mailboxPolicyLib.isValidLocalPart(localPart)) {
+    return res.status(400).json({ error: "Use letters, numbers, dots, dashes or underscores — and don't start or end with a symbol." });
+  }
+  const pwError = mailboxPolicyLib.validatePassword(req.body?.password);
+  if (pwError) return res.status(400).json({ error: pwError });
+
+  try {
+    const existing = await hostingerMailLib.listMailboxes(ctx.orderId);
+    if (mailboxPolicyLib.localPartExists(existing, localPart)) {
+      return res.status(409).json({ error: `${localPart}@ already exists.` });
+    }
+    const limits = await resolveMailboxLimit(ctx, existing.length);
+    const verdict = mailboxEntitlementLib.canCreate({ used: existing.length, effective: limits.effective });
+    if (!verdict.ok) return res.status(409).json({ error: verdict.reason });
+
+    const created = await hostingerMailLib.createMailbox(ctx.orderId, {
+      localPart,
+      password: req.body.password,
+    });
+    return res.json({ ok: true, mailbox: mailboxPolicyLib.publicMailbox(created || { local_part: localPart }) });
+  } catch (err) {
+    console.error("MAILBOX CREATE ERROR:", err.response?.data || err.message);
+    const status = err.response?.status;
+    if (status === 422 || status === 400) {
+      return res.status(400).json({ error: "Hostinger rejected those details. Try a different name or a stronger password." });
+    }
+    return res.status(502).json({ error: "Couldn't create that mailbox. Please try again." });
+  }
+});
+
+router.patch("/api/portal/services/:serviceId/mailboxes/:mailboxId/password", requireAuth, mailboxLimiter, async (req, res) => {
+  const ctx = await loadMailboxContext(req, res);
+  if (ctx === null) return;
+
+  const pwError = mailboxPolicyLib.validatePassword(req.body?.password);
+  if (pwError) return res.status(400).json({ error: pwError });
+
+  if (!(await assertMailboxBelongsToOrder(ctx.orderId, req.params.mailboxId, res))) return;
+
+  try {
+    await hostingerMailLib.changeMailboxPassword(req.params.mailboxId, req.body.password);
+    return res.json({ ok: true, message: "Password updated." });
+  } catch (err) {
+    console.error("MAILBOX PASSWORD ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't update that password. Please try again." });
+  }
+});
+
+router.delete("/api/portal/services/:serviceId/mailboxes/:mailboxId", requireAuth, mailboxLimiter, async (req, res) => {
+  const ctx = await loadMailboxContext(req, res);
+  if (ctx === null) return;
+
+  if (!(await assertMailboxBelongsToOrder(ctx.orderId, req.params.mailboxId, res))) return;
+
+  try {
+    await hostingerMailLib.deleteMailbox(req.params.mailboxId);
+    return res.json({ ok: true, message: "Mailbox deleted." });
+  } catch (err) {
+    console.error("MAILBOX DELETE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't delete that mailbox. Please try again." });
   }
 });
 

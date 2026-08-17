@@ -1,0 +1,66 @@
+# /etc/nginx/sites-available/apps.murzaktech.tech
+#
+# Wildcard :80 front door for Coolify-provisioned customer apps.
+#
+#   - serves ACME HTTP-01 challenges from /var/www/certbot
+#   - forwards everything else to Coolify's Traefik on host port 7080
+#
+# :443 for these hosts is handled by sites-available/apps-wildcard, which
+# terminates with the *.apps.murzaktech.tech Let's Encrypt certificate.
+#
+# This file previously also carried a :443 catch-all with a self-signed cert,
+# to stop unpublished app hosts falling through to mystylecarhire.com's
+# default_server. The wildcard certificate makes that obsolete -- unpublished
+# hosts now get a *trusted* cert and Traefik's 503 -- and keeping both meant
+# two blocks claiming server_name *.apps.murzaktech.tech on :443, which nginx
+# resolves by silently ignoring one ("conflicting server name ... ignored").
+# Which one survived depended on the sites-enabled glob order ('-' sorting
+# before '.'), so a rename could have swapped in the self-signed block and put
+# a certificate warning on every unpublished host. Removed rather than left to
+# luck.
+#
+# The ACME webroot below is still required: it is how certbot proves the
+# per-host certificates, which remain in use for already-published apps until
+# the wildcard has survived a real renewal cycle.
+#
+# Safety: server_name *.apps.murzaktech.tech matches no pre-existing vhost, and
+# this block declares no default_server, so it cannot capture traffic for any
+# other site on this box.
+#
+# $murzak_apps_connection_upgrade is defined in conf.d/00-murzak-apps-map.conf.
+
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name *.apps.murzaktech.tech;
+
+    # ^~ so this beats any regex location and is never handed to the proxy.
+    location ^~ /.well-known/acme-challenge/ {
+        root         /var/www/certbot;
+        default_type "text/plain";
+        try_files    $uri =404;
+    }
+
+    # Customer apps may accept large uploads; don't cap at nginx's 1m default.
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://127.0.0.1:7080;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $murzak_apps_connection_upgrade;
+
+        # Traefik redirects to https itself; pass that through untouched.
+        proxy_redirect off;
+
+        proxy_read_timeout    300s;
+        proxy_send_timeout    300s;
+        proxy_connect_timeout 30s;
+    }
+}

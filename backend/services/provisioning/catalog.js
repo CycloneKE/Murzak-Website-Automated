@@ -71,6 +71,22 @@ function laneFor(meta) {
   if (meta.capacityClass === "premium") return "bench";
   if (meta.capacityClass === "scalable") return "k8s";
   if (meta.category === "Domain Registration") return "manual";
+  // Email Hosting runs on HOSTINGER, not our VPS. Before this, the volume-class
+  // email products fell through to "coolify" and (a) built a meaningless
+  // container for a service that needs none, (b) reserved 256-384MB on the
+  // RAM-capped box for a product that consumes zero of it, and (c) provisioned
+  // no email at all. Same failure as the Domain Registration case above, but it
+  // slipped past that guard because email declares a non-zero ramMb.
+  // Checked after "dedicated" so Enterprise Mail (a custom quote) stays manual.
+  //
+  // "Bulk Email / Newsletters" is in this category but is NOT mailbox hosting —
+  // it is a campaign/transactional sender. Hostinger's mail API offers nothing
+  // like it, and we have no self-hosted implementation (no curated app), so it
+  // would either fake success on the email lane or build an empty container on
+  // coolify. Manual until someone actually builds it.
+  if (meta.category === "Email Hosting") {
+    return meta.id === "addon-bulk-email" ? "manual" : "emailHosting";
+  }
   // File Storage is a shared MinIO bucket, not a per-purchase container — see
   // docs/superpowers/specs/2026-08-16-file-storage-object-browser-design.md.
   // Routed explicitly (not via the ramMb/diskGb zero-footprint fallback below)

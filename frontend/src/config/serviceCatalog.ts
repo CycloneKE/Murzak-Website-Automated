@@ -93,6 +93,17 @@ export type ServiceOption = {
     diskGb: number;
   };
 
+  /**
+   * Email Hosting only — mailboxes this product entitles the account to, so the
+   * portal can ENFORCE the allowance. The "Up to 5 mailboxes" highlight is
+   * marketing copy and can't be enforced; this can.
+   *
+   * Additive across owned services (each +5 addon raises it). `0` means "no
+   * Murzak-side cap", in which case the underlying provider's plan limit is the
+   * real ceiling. Omitted for everything that isn't mailbox hosting.
+   */
+  mailboxes?: number;
+
   pricing: {
     model: "included" | "addon" | "custom"; // custom = dedicated quote
     monthlyKes?: number; // retail monthly price (KES)
@@ -347,7 +358,17 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       tier: "Light",
       capacityClass: "volume",
       specs: { ram: "Shared", storage: "5GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
-      resources: { ramMb: 256, diskGb: 25 },
+      // Zero footprint: mailboxes live on HOSTINGER's infrastructure, not our
+      // VPS. `resources` drives capacity planning only (customer-facing figures
+      // come from `specs`/`highlights` above), and RAM is our hard cap — so the
+      // old 256MB here reserved memory this product never uses, needlessly
+      // limiting how many tenants the box can take.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailboxes this product entitles the customer to. Machine-readable so
+      // the portal can enforce it — the "Up to 5 mailboxes" highlight below is
+      // marketing copy and cannot be. 0 means "no Murzak-side cap" (bounded
+      // only by the underlying Hostinger plan).
+      mailboxes: 5,
       pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
       highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 5 mailboxes"],
       sortOrder: 30,
@@ -631,7 +652,13 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       tier: "Medium",
       capacityClass: "volume",
       specs: { ram: "Shared", storage: "15GB / mailbox", cpu: "Shared", bandwidth: "Generous", backups: "Standard", sla: "99.9%" },
-      resources: { ramMb: 384, diskGb: 40 },
+      // Hostinger-hosted — see starter-email. No VPS RAM/disk consumed.
+      resources: { ramMb: 0, diskGb: 0 },
+      // 0 = no Murzak-side cap, matching the "Unlimited team mailboxes"
+      // highlight. NOTE: the underlying Hostinger plan DOES cap mailboxes, so
+      // "unlimited" is only true up to that ceiling — the portal reports
+      // Hostinger's limit as the effective one.
+      mailboxes: 0,
       pricing: { model: "addon", monthlyKes: 2500, setupKes: 500 },
       highlights: ["Unlimited team mailboxes", "Admin console", "Spam & malware filtering", "Webmail + IMAP/SMTP"],
       sortOrder: 85,
@@ -791,7 +818,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     tier: "Light",
     capacityClass: "volume",
     specs: { ram: "Shared", storage: "5GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.9%" },
-    resources: { ramMb: 64, diskGb: 25 },
+    // Hostinger-hosted mailboxes — see starter-email. No VPS RAM/disk consumed.
+    resources: { ramMb: 0, diskGb: 0 },
+    // Additive: each purchase of this addon raises the account's allowance by 5.
+    mailboxes: 5,
     pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
     highlights: ["5 extra mailboxes", "Spam filtering", "Webmail + IMAP"],
     sortOrder: 30,
@@ -804,6 +834,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     tier: "Light",
     capacityClass: "volume",
     specs: { ram: "Shared", storage: "Shared", cpu: "Shared", bandwidth: "Generous", backups: "Standard", sla: "99.9%" },
+    // Footprint KEPT (unlike the other Email Hosting items): this is a campaign
+    // sender, not Hostinger mailbox hosting, so it will need a real container
+    // on our box once it is actually implemented. Routed to the manual lane
+    // meanwhile — see laneFor() in services/provisioning/catalog.js.
     resources: { ramMb: 256, diskGb: 5 },
     pricing: { model: "addon", monthlyKes: 1500, setupKes: 1000 },
     highlights: ["Campaigns + templates", "SPF/DKIM set up", "Deliverability managed"],

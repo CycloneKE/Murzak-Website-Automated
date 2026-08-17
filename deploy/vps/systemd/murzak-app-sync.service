@@ -1,0 +1,20 @@
+[Unit]
+Description=Publish Coolify-provisioned app hostnames through nginx
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/docs/app-subdomain-routing.md
+After=docker.service nginx.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/murzak-app-sync
+
+# A failing run is not fatal: the next timer tick retries, and an app that
+# cannot get a certificate yet stays reachable over http in the meantime.
+SuccessExitStatus=1
+
+# Needs root to write nginx config, reload nginx, and talk to the docker
+# socket, but nothing beyond this box.
+User=root
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true

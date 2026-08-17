@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+#
+# certbot-hostinger-dns <auth|cleanup|selftest>
+#
+# Completes Let's Encrypt DNS-01 challenges by writing the _acme-challenge TXT
+# record through Hostinger's DNS API. Used as certbot's --manual-auth-hook /
+# --manual-cleanup-hook so a wildcard certificate for *.apps.murzaktech.tech
+# can be issued AND renewed unattended.
+#
+# Hand-rolled rather than using a third-party certbot DNS plugin: this runs as
+# root holding a token that can rewrite the whole DNS zone, so it is worth
+# being ~100 auditable lines making exactly two API calls.
+#
+# API contract (verified against hostinger/api-php-sdk docs):
+#   PUT    /api/dns/v1/zones/{zone}
+#          {"overwrite":false,"zone":[{"name","type","ttl","records":[{"content"}]}]}
+#   DELETE /api/dns/v1/zones/{zone}
+#          {"filters":[{"name","type"}]}
+#
+# SAFETY: `overwrite` is sent explicitly as false and must stay that way. The
+# Hostinger docs default it to TRUE and describe its blast radius
+# inconsistently -- one page says it replaces only records matching name+type,
+# another says it replaces the supplied zone wholesale. This zone also carries
+# pos/erp/website/matatuke and murzaktech.tech itself, so we never rely on the
+# default and never send true.
+#
+#   selftest   Exercise the whole path (write TXT, confirm it propagates from
+#              the authoritative nameserver, delete it) WITHOUT spending an
+#              ACME request. Run this before wiring certbot up.
+
+set -euo pipefail
+
+CREDS="${MURZAK_HOSTINGER_CREDS:-/etc/letsencrypt/hostinger.ini}"
+# Normalize to a BARE host, because the paths below append the full
+# "/api/<group>/v1/..." themselves.
+#
+# The same env var name is read by the Node backend, where consumers disagree
+# about whether it carries an /api suffix (backend/.env.example ships the
+# suffixed form for server.js). If that value were ever exported system-wide,
+# a naive read here would build ".../api/api/dns/v1/..." -> 404 -> the auth hook
+# fails -> a RENEWAL fails. That is how a wildcard certificate expires quietly
+# at 3am and takes every customer app's TLS with it, so accept both forms.
+normalize_api_base() {
+    local raw="${1:-}"
+    raw="${raw%/}"
+    [ -n "$raw" ] || { printf '%s' "https://developers.hostinger.com"; return; }
+    case "$raw" in
+        # api.hostinger.com is not the API and returns 530 on every path.
+        https://api.hostinger.com|http://api.hostinger.com)
+            printf '%s' "https://developers.hostinger.com"; return ;;
+    esac
+    printf '%s' "${raw%/api}"
+}
+API_BASE="$(normalize_api_base "${HOSTINGER_API_BASE:-}")"
+ZONE="${MURZAK_DNS_ZONE:-murzaktech.tech}"
+TTL=60
+PROP_TIMEOUT="${MURZAK_DNS_PROP_TIMEOUT:-300}"
+PROP_INTERVAL=10
+
+die() { echo "certbot-hostinger-dns: $*" >&2; exit 1; }
+
+MODE="${1:-}"
+case "$MODE" in
+    auth|cleanup|selftest) ;;
+    *) die "usage: certbot-hostinger-dns <auth|cleanup|selftest>" ;;
+esac
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+
+# --- credentials -------------------------------------------------------------
+[ -f "$CREDS" ] || die "missing credentials file $CREDS"
+perm="$(stat -c %a "$CREDS")"
+case "$perm" in
+    600|400) ;;
+    *) die "$CREDS must be mode 600 or 400 (found $perm) -- it holds an API token" ;;
+esac
+TOKEN="$(sed -n 's/^[[:space:]]*HOSTINGER_API_TOKEN[[:space:]]*=[[:space:]]*//p' "$CREDS" | head -1)"
+[ -n "$TOKEN" ] || die "HOSTINGER_API_TOKEN not found in $CREDS"
+
+# --- what record are we touching ---------------------------------------------
+if [ "$MODE" = "selftest" ]; then
+    DOMAIN="apps.$ZONE"
+    VALUE="murzak-selftest-$(date +%s)"
+else
+    DOMAIN="${CERTBOT_DOMAIN:-}"
+    [ -n "$DOMAIN" ] || die "CERTBOT_DOMAIN not set (this runs as a certbot hook)"
+    VALUE="${CERTBOT_VALIDATION:-}"
+    [ "$MODE" = "cleanup" ] || [ -n "$VALUE" ] || die "CERTBOT_VALIDATION not set"
+fi
+
+# Refuse anything outside our zone, so this hook can never be pointed at
+# somebody else's DNS by a stray CERTBOT_DOMAIN.
+case "$DOMAIN" in
+    "$ZONE")   REC="_acme-challenge" ;;
+    *".$ZONE") REC="_acme-challenge.${DOMAIN%".$ZONE"}" ;;
+    *) die "refusing: '$DOMAIN' is not inside zone '$ZONE'" ;;
+esac
+FQDN="$REC.$ZONE"
+
+# --- API helper --------------------------------------------------------------
+# Prints the response body; returns non-zero on a non-2xx status. Never echoes
+# the token, including under set -x.
+api() {
+    local method="$1" body="$2" out code
+    out="$(mktemp)"
+    code="$(curl -sS -o "$out" -w '%{http_code}' \
+        -X "$method" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
+        --max-time 30 \
+        -d "$body" \
+        "$API_BASE/api/dns/v1/zones/$ZONE")" || { rm -f "$out"; die "$method request failed (network)"; }
+    cat "$out"; rm -f "$out"
+    case "$code" in 2??) return 0 ;; *) echo "HTTP $code" >&2; return 1 ;; esac
+}
+
+put_txt() {
+    api PUT "$(printf '{"overwrite":false,"zone":[{"name":"%s","type":"TXT","ttl":%d,"records":[{"content":"%s"}]}]}' \
+        "$REC" "$TTL" "$1")"
+}
+
+delete_txt() {
+    api DELETE "$(printf '{"filters":[{"name":"%s","type":"TXT"}]}' "$REC")"
+}
+
+# Poll the zone's authoritative nameserver directly -- a recursive resolver
+# would happily serve a cached negative answer and make us give up early.
+wait_for_txt() {
+    local want="$1" ns deadline
+    ns="$(dig +short NS "$ZONE" | head -1)"
+    [ -n "$ns" ] || die "could not resolve authoritative NS for $ZONE"
+    deadline=$((SECONDS + PROP_TIMEOUT))
+    while [ "$SECONDS" -lt "$deadline" ]; do
+        if dig +short "@$ns" TXT "$FQDN" 2>/dev/null | tr -d '"' | grep -qxF "$want"; then
+            return 0
+        fi
+        sleep "$PROP_INTERVAL"
+    done
+    return 1
+}
+
+# --- modes -------------------------------------------------------------------
+case "$MODE" in
+auth)
+    echo "==> publishing TXT $FQDN"
+    put_txt "$VALUE" >/dev/null || die "failed to write TXT record"
+    echo "==> waiting for $FQDN to propagate"
+    wait_for_txt "$VALUE" || die "TXT did not appear on the authoritative NS within ${PROP_TIMEOUT}s"
+    echo "==> TXT live"
+    ;;
+cleanup)
+    # Best effort: a failed cleanup must never fail the renewal. A stale
+    # challenge TXT is harmless; a hard-failed renewal is not.
+    echo "==> removing TXT $FQDN"
+    delete_txt >/dev/null || echo "warning: cleanup of $FQDN failed (harmless, but tidy it up)" >&2
+    ;;
+selftest)
+    echo "==> selftest against zone $ZONE (no ACME request is made)"
+    echo "==> writing TXT $FQDN"
+    put_txt "$VALUE" >/dev/null || die "write failed -- check the token and its DNS scope"
+    echo "==> waiting for propagation"
+    if wait_for_txt "$VALUE"; then
+        echo "==> propagation OK"
+        rc=0
+    else
+        echo "==> propagation FAILED within ${PROP_TIMEOUT}s" >&2
+        rc=1
+    fi
+    echo "==> cleaning up"
+    delete_txt >/dev/null || echo "warning: cleanup failed; remove $FQDN by hand" >&2
+    [ "$rc" -eq 0 ] && echo "SELFTEST PASSED -- safe to issue the wildcard" \
+                    || echo "SELFTEST FAILED -- do not wire this into certbot yet" >&2
+    exit "$rc"
+    ;;
+esac

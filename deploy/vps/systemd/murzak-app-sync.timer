@@ -1,0 +1,16 @@
+[Unit]
+Description=Periodically publish new Coolify app hostnames through nginx
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/docs/app-subdomain-routing.md
+
+[Timer]
+# A newly provisioned app is reachable over http immediately (the wildcard :80
+# vhost); this closes the https gap. 2 minutes keeps the wait short without
+# hammering Let's Encrypt -- the script only requests a certificate for hosts
+# it has never seen, so a steady state costs nothing.
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
