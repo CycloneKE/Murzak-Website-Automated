@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowRight, ExternalLink, Headphones, Lock, Maximize2, S
 import DeveloperTerminalPanel from "../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPanel";
 import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrowser";
+import MailboxManager from "../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import { usePortal } from "../PortalContext";
 
@@ -349,6 +350,11 @@ const ResourceDetail: React.FC = () => {
         <>
             {svc?.category === "Storage" ? (
               <StorageFileBrowser serviceId={cloudServiceId} isActive={isActive} />
+            ) : svc?.category === "Email Hosting" ? (
+              /* Own branch, like Storage: email runs on Hostinger with no
+                 container of ours, so env vars, a terminal and the danger zone
+                 below would all be meaningless controls here. */
+              <MailboxManager serviceId={cloudServiceId} isActive={isActive} />
             ) : (
               <>
                 {svc?.category === "Database Hosting" && (

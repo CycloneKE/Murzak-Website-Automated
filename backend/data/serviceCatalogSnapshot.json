@@ -102,7 +102,8 @@
       "pricingModel": "addon",
       "monthlyKes": 1500,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 5
     },
     "starter-storage": {
       "id": "starter-storage",
@@ -375,7 +376,8 @@
       "pricingModel": "addon",
       "monthlyKes": 2500,
       "setupKes": 500,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 0
     },
     "biz-web-hosting": {
       "id": "biz-web-hosting",
@@ -531,7 +533,8 @@
       "pricingModel": "addon",
       "monthlyKes": 1200,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "mailboxes": 5
     },
     "addon-bulk-email": {
       "id": "addon-bulk-email",
