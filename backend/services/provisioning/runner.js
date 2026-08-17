@@ -33,16 +33,17 @@ const bench = require("./lanes/bench");
 const k8s = require("./lanes/k8s");
 const mock = require("./lanes/mock");
 const objectStorage = require("./lanes/objectStorage");
+const emailHosting = require("./lanes/emailHosting");
 
-// The mock substitution stays limited to the three lanes that make real
-// external calls (coolify/bench/k8s); objectStorage.provision() makes no
-// network call itself, so it runs for real even under MOCK_PROVISIONING=true
-// — it will still correctly escalate to needs_human via configError() if
-// STORAGE_S3_* isn't set in that test environment, the same "never fake a
-// build" behavior every other lane gets.
+// The mock substitution covers the lanes that make real external calls
+// (coolify/bench/k8s, and emailHosting which talks to Hostinger's API);
+// objectStorage.provision() makes no network call itself, so it runs for real
+// even under MOCK_PROVISIONING=true — it will still correctly escalate to
+// needs_human via configError() if STORAGE_S3_* isn't set in that test
+// environment, the same "never fake a build" behavior every other lane gets.
 const DEFAULT_LANES = mock.isEnabled()
-  ? { coolify: mock, bench: mock, k8s: mock, objectStorage }
-  : { coolify, bench, k8s, objectStorage };
+  ? { coolify: mock, bench: mock, k8s: mock, emailHosting: mock, objectStorage }
+  : { coolify, bench, k8s, emailHosting, objectStorage };
 
 const enc = encodeURIComponent;
 const maxAttempts = () => Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
@@ -322,7 +323,10 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
     }
 
     try {
-      const out = await adapter.provision(job, { target });
+      // `client` is passed so a lane can read the tenant's own Frappe records —
+      // the emailHosting lane needs the customer's domain, since a mailbox is
+      // meaningless without one and guessing would provision the wrong address.
+      const out = await adapter.provision(job, { target, client });
       // Off-site backup at create-time (best-effort; recorded on the job).
       let backup = { status: "skipped" };
       try {
