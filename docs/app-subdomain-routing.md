@@ -148,21 +148,71 @@ spending a request it cannot afford. The reconciler treats exit 3 as
 over `http://` meanwhile.
 
 If you are sustainably provisioning more than ~45 apps/week, the budget is not
-the problem — the architecture is. The escape hatch is a **DNS-01 wildcard
-certificate** for `*.apps.murzaktech.tech`, which would replace all per-host
-certs and vhosts with one. That needs DNS-01 automation:
+the problem — the architecture is. The fix is the wildcard below.
 
-- Hostinger hosts this zone (`nova.dns-parking.com`) and has **no certbot DNS
-  plugin**, but the codebase already uses a `HOSTINGER_API_TOKEN` against
-  their developers API. A `--manual-auth-hook` that writes the `_acme-challenge`
-  TXT record through that API is the likely path.
-- Failing that, moving the zone to Cloudflare makes
-  `python3-certbot-dns-cloudflare` a one-liner.
+## The DNS-01 wildcard
 
-Either way the wildcard must renew **automatically**. This box already carries
-five expired certificates, which is what a manual renewal step reliably
-degrades into — and a wildcard expiring takes down every customer app at once,
-where a per-host cert takes down one.
+One certificate for `*.apps.murzaktech.tech` replaces all per-host certs and
+vhosts. It removes the publish step entirely: a new app is reachable over
+`https://` the moment Traefik routes it — no 2-minute wait, no rate limit, no
+`murzak-app-sync`.
+
+Hostinger hosts this zone (`nova.dns-parking.com`) and has no official certbot
+DNS plugin, so `certbot-hostinger-dns` drives their API directly as a
+`--manual-auth-hook`. Hooks are recorded in the renewal config, so this renews
+unattended under the existing `certbot.timer` — non-negotiable, since a
+wildcard expiring takes down every customer app at once where a per-host cert
+takes down one, and this box already carries five expired certificates.
+
+### API contract
+
+Verified against [hostinger/api-php-sdk](https://github.com/hostinger/api-php-sdk/blob/main/docs/Api/DNSZoneApi.md):
+
+```
+PUT    /api/dns/v1/zones/{zone}
+       {"overwrite":false,"zone":[{"name","type","ttl","records":[{"content"}]}]}
+DELETE /api/dns/v1/zones/{zone}
+       {"filters":[{"name","type"}]}
+```
+
+**`overwrite` must always be sent as `false`.** It *defaults to true*, and the
+Hostinger docs describe its blast radius inconsistently — one page says it
+replaces only records matching name+type, another says it replaces the supplied
+zone wholesale. This zone carries `pos`/`erp`/`website`/`matatuke` and
+`murzaktech.tech` itself, so the hook never relies on the default.
+
+### Rollout
+
+```bash
+# 1. Token, root-only. Never paste it into a shell that logs history.
+install -m600 -o root -g root /dev/null /etc/letsencrypt/hostinger.ini
+printf 'HOSTINGER_API_TOKEN=%s\n' 'REDACTED' > /etc/letsencrypt/hostinger.ini
+
+# 2. Prove the whole DNS path WITHOUT spending an ACME request.
+install -m0755 -o root -g root /tmp/certbot-hostinger-dns /usr/local/bin/
+certbot-hostinger-dns selftest
+
+# 3. Only if selftest passes.
+certbot certonly --manual --preferred-challenges dns \
+  --manual-auth-hook    '/usr/local/bin/certbot-hostinger-dns auth' \
+  --manual-cleanup-hook '/usr/local/bin/certbot-hostinger-dns cleanup' \
+  -d '*.apps.murzaktech.tech' --cert-name apps-wildcard \
+  --non-interactive --agree-tos
+
+# 4. Enable the wildcard vhost, then verify a renewal actually works.
+ln -sfn /etc/nginx/sites-available/apps-wildcard /etc/nginx/sites-enabled/apps-wildcard
+nginx -t && systemctl reload nginx
+certbot renew --cert-name apps-wildcard --dry-run
+```
+
+Only `-d '*.apps.murzaktech.tech'` is requested, deliberately — adding the bare
+`apps.murzaktech.tech` puts two challenges on the same `_acme-challenge.apps`
+TXT name, and the second can clobber the first.
+
+Per-host vhosts carry an exact `server_name`, which nginx prefers over a
+wildcard, so enabling the wildcard cannot disturb an already-published host.
+Keep both until the wildcard has survived one real renewal, then retire
+`murzak-app-sync`, its timer, and the per-host certs.
 
 ## Known gaps
 
