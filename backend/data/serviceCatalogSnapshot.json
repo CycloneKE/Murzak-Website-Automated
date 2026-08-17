@@ -208,6 +208,19 @@
       "setupKes": 0,
       "requiresRepo": false
     },
+    "starter-invoicing": {
+      "id": "starter-invoicing",
+      "name": "Invoicing",
+      "category": "Invoicing",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 1280,
+      "diskGb": 15,
+      "pricingModel": "addon",
+      "monthlyKes": 3800,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
     "starter-hrpay": {
       "id": "starter-hrpay",
       "name": "HR & Payroll (Light)",

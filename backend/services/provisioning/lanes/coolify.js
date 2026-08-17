@@ -575,6 +575,11 @@ function generateRandomSecret() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
+/** Laravel's exact APP_KEY format (base64: + 32 raw random bytes) — no `artisan key:generate` needed. */
+function generateLaravelAppKey() {
+  return `base64:${crypto.randomBytes(32).toString("base64")}`;
+}
+
 /**
  * Pure — kept side-effect-free so it's unit-tested directly, same reasoning
  * as resourceLimits() above. Same hardening (cap_drop ALL + CHOWN/SETUID/
@@ -629,6 +634,63 @@ function buildDbComposeYaml(name, limits, dbConfig, password, externalPort) {
 }
 
 /**
+ * Invoice Ninja's own reference nginx config, verbatim from
+ * invoiceninja/dockerfiles (debian/nginx/invoiceninja.conf +
+ * debian/nginx/laravel.conf) — not simplified or guessed at. Embedded here
+ * (rather than relied on as a bind-mounted file) because Coolify's
+ * docker_compose_raw deploy has no mechanism for shipping extra files
+ * alongside the compose YAML.
+ *
+ * NOTE: every `\.` below is written as `\\.` in this JS source — an
+ * unescaped `\.` inside a template literal has its backslash silently
+ * dropped by JS (producing an unrecognized-escape passthrough of just `.`),
+ * which would corrupt the PHP-routing regex.
+ */
+const INVOICE_NINJA_NGINX_TUNING_CONF =
+  "client_max_body_size 10M;\n" +
+  "client_body_buffer_size 10M;\n" +
+  "server_tokens off;\n" +
+  "fastcgi_buffers 32 16K;\n" +
+  "gzip on;\n" +
+  "gzip_comp_level 2;\n" +
+  "gzip_min_length 1M;\n" +
+  "gzip_proxied any;\n" +
+  "gzip_types *;\n";
+
+const INVOICE_NINJA_NGINX_LARAVEL_CONF =
+  "server {\n" +
+  "    listen 80 default_server;\n" +
+  "    server_name _;\n" +
+  "    root /var/www/html/public;\n" +
+  "\n" +
+  "    add_header X-Frame-Options \"SAMEORIGIN\";\n" +
+  "    add_header X-Content-Type-Options \"nosniff\";\n" +
+  "\n" +
+  "    index index.php;\n" +
+  "\n" +
+  "    charset utf-8;\n" +
+  "\n" +
+  "    location / {\n" +
+  "        try_files $uri $uri/ /index.php?$query_string;\n" +
+  "    }\n" +
+  "\n" +
+  "    location = /favicon.ico { access_log off; log_not_found off; }\n" +
+  "    location = /robots.txt  { access_log off; log_not_found off; }\n" +
+  "\n" +
+  "    error_page 404 /index.php;\n" +
+  "\n" +
+  "    location ~ \\.php$ {\n" +
+  "        fastcgi_pass app:9000;\n" +
+  "        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;\n" +
+  "        include fastcgi_params;\n" +
+  "    }\n" +
+  "\n" +
+  "    location ~ /\\.(?!well-known).* {\n" +
+  "        deny all;\n" +
+  "    }\n" +
+  "}\n";
+
+/**
  * Curated third-party HTTP apps deployed through this lane — pre-built,
  * published images, not something built from a customer's repo (that's
  * provisionApp/BYOA) and not a raw database engine (that's DB_ENGINE_CONFIG,
@@ -661,10 +723,74 @@ const CURATED_APP_CONFIG = {
       SMTP_FROM: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
     }),
   },
+  "starter-invoicing": {
+    primaryService: "nginx",
+    primaryPort: 80,
+    services: {
+      mysql: {
+        image: "mysql:8",
+        volumeName: "mysql-data",
+        volumePath: "/var/lib/mysql",
+        environment: (ctx) => ({
+          MYSQL_DATABASE: "ninja",
+          MYSQL_USER: "ninja",
+          MYSQL_PASSWORD: ctx.dbPassword,
+          MYSQL_ROOT_PASSWORD: ctx.dbRootPassword,
+        }),
+        healthcheck: (ctx) =>
+          `      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uninja", "-p${ctx.dbPassword}"]\n` +
+          `      interval: 5s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 20\n`,
+      },
+      redis: {
+        image: "redis:alpine",
+        volumeName: "redis-data",
+        volumePath: "/data",
+        healthcheck: () =>
+          `      test: ["CMD", "redis-cli", "ping"]\n` +
+          `      interval: 5s\n` +
+          `      timeout: 3s\n` +
+          `      retries: 10\n`,
+      },
+      app: {
+        image: "invoiceninja/invoiceninja-debian:latest",
+        volumeName: "app-public",
+        volumePath: "/var/www/html/public",
+        extraVolumes: [{ name: "app-storage", path: "/var/www/html/storage" }],
+        environment: (ctx) => ({
+          APP_KEY: ctx.appKey,
+          APP_URL: ctx.fqdn,
+          DB_CONNECTION: "mysql",
+          DB_HOST: "mysql",
+          DB_DATABASE: "ninja",
+          DB_USERNAME: "ninja",
+          DB_PASSWORD: ctx.dbPassword,
+          DB_PORT: "3306",
+          REDIS_HOST: "redis",
+          REQUIRE_HTTPS: "true",
+          NINJA_ENVIRONMENT: "selfhost",
+          MAIL_MAILER: "smtp",
+          MAIL_HOST: process.env.SMTP_HOST || "",
+          MAIL_PORT: process.env.SMTP_PORT || "587",
+          MAIL_USERNAME: process.env.SMTP_USER || "",
+          MAIL_PASSWORD: process.env.SMTP_PASS || "",
+          MAIL_FROM_ADDRESS: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
+        }),
+        dependsOn: { mysql: "service_healthy", redis: "service_healthy" },
+      },
+      nginx: {
+        image: "nginx:alpine",
+        sharedVolumesFrom: "app", // mounts app's app-public/app-storage, read-only
+        dependsOn: { app: "service_started" },
+      },
+    },
+  },
 };
 
 /** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
 function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase) {
+  if (appConfig.services) return buildMultiServiceComposeYaml(name, limits, appConfig, fqdn);
   const volumeName = `${name}-data`;
   const envLines = Object.entries(appConfig.envVars(fqdn, secretKeyBase))
     .map(([k, v]) => `      ${k}: "${v}"\n`)
@@ -693,6 +819,123 @@ function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase
     `      - ${volumeName}:${appConfig.volumePath}\n` +
     `volumes:\n` +
     `  ${volumeName}:\n`
+  );
+}
+
+/**
+ * Shared hardening block, identical to every other service this lane builds
+ * (see buildDbComposeYaml/buildCuratedAppComposeYaml) — every container gets
+ * cap_drop ALL + CHOWN/SETUID/SETGID + no-new-privileges, not just the
+ * primary/public-facing one. A database container run as root during its own
+ * init is exactly the same category of risk this hardening exists for.
+ */
+function hardeningBlock(limits) {
+  return (
+    `    restart: unless-stopped\n` +
+    `    mem_limit: ${limits.ramMb}m\n` +
+    `    cpus: ${limits.cpus}\n` +
+    `    pids_limit: ${limits.pidsLimit}\n` +
+    `    cap_drop:\n` +
+    `      - ALL\n` +
+    `    cap_add:\n` +
+    `      - CHOWN\n` +
+    `      - SETUID\n` +
+    `      - SETGID\n` +
+    `    security_opt:\n` +
+    `      - no-new-privileges:true\n`
+  );
+}
+
+/**
+ * Multi-service curated apps (app + a real backing database, unlike
+ * DocuSeal's SQLite default). First consumer: starter-invoicing (Invoice
+ * Ninja). RAM/CPU limits apply per-container, not summed across the stack —
+ * a known, accepted looseness (see the design doc), not silently ignored.
+ */
+function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
+  const dbPassword = generateRandomSecret();
+  const dbRootPassword = generateRandomSecret();
+  const appKey = generateLaravelAppKey();
+  const ctx = { dbPassword, dbRootPassword, appKey, fqdn };
+
+  const volumeDecls = [];
+  let serviceBlocks = "";
+
+  for (const [serviceName, svc] of Object.entries(appConfig.services)) {
+    const envEntries = svc.environment ? svc.environment(ctx) : null;
+    const envLines = envEntries
+      ? `    environment:\n` +
+        Object.entries(envEntries).map(([k, v]) => `      ${k}: "${v}"\n`).join("")
+      : "";
+
+    let volumeLines = "";
+    if (svc.sharedVolumesFrom) {
+      // nginx: mounts the app service's volumes read-only, no volume of its own.
+      const shared = appConfig.services[svc.sharedVolumesFrom];
+      const allShared = [
+        { name: shared.volumeName, path: shared.volumePath },
+        ...(shared.extraVolumes || []),
+      ];
+      volumeLines =
+        `    volumes:\n` +
+        allShared.map((v) => `      - ${name}-${v.name}:${v.path}:ro\n`).join("");
+    } else if (svc.volumeName) {
+      const allVolumes = [{ name: svc.volumeName, path: svc.volumePath }, ...(svc.extraVolumes || [])];
+      volumeLines =
+        `    volumes:\n` +
+        allVolumes.map((v) => `      - ${name}-${v.name}:${v.path}\n`).join("");
+      for (const v of allVolumes) volumeDecls.push(`${name}-${v.name}`);
+    }
+
+    const exposeLines =
+      serviceName === appConfig.primaryService
+        ? `    expose:\n      - "${appConfig.primaryPort}"\n`
+        : "";
+
+    const dependsLines = svc.dependsOn
+      ? `    depends_on:\n` +
+        Object.entries(svc.dependsOn)
+          .map(([dep, cond]) => `      ${dep}:\n        condition: ${cond}\n`)
+          .join("")
+      : "";
+
+    const healthLines = svc.healthcheck
+      ? `    healthcheck:\n${svc.healthcheck(ctx)}`
+      : "";
+
+    let commandLines = "";
+    if (serviceName === "nginx") {
+      commandLines =
+        `    command:\n` +
+        `      - sh\n` +
+        `      - -c\n` +
+        `      - |\n` +
+        `        cat > /etc/nginx/conf.d/laravel.conf << 'NGINXEOF'\n` +
+        INVOICE_NINJA_NGINX_LARAVEL_CONF.split("\n").map((l) => `        ${l}`).join("\n") +
+        `        NGINXEOF\n` +
+        `        cat > /etc/nginx/conf.d/invoiceninja.conf << 'NGINXEOF2'\n` +
+        INVOICE_NINJA_NGINX_TUNING_CONF.split("\n").map((l) => `        ${l}`).join("\n") +
+        `        NGINXEOF2\n` +
+        `        exec nginx -g 'daemon off;'\n`;
+    }
+
+    serviceBlocks +=
+      `  ${serviceName}:\n` +
+      `    image: ${svc.image}\n` +
+      hardeningBlock(limits) +
+      commandLines +
+      envLines +
+      volumeLines +
+      exposeLines +
+      dependsLines +
+      healthLines;
+  }
+
+  return (
+    `services:\n` +
+    serviceBlocks +
+    `volumes:\n` +
+    volumeDecls.map((v) => `  ${v}:\n`).join("")
   );
 }
 
@@ -1104,7 +1347,10 @@ module.exports = {
   resourceName,
   resourceLimits,
   generateRandomSecret,
+  generateLaravelAppKey,
   buildCuratedAppComposeYaml,
+  buildMultiServiceComposeYaml,
+  __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
   classifyDeploymentStatus,

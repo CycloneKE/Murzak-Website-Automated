@@ -11,6 +11,7 @@ export type ServiceCategory =
   | "Domain Registration"
   | "Storage"
   | "E-Signature"
+  | "Invoicing"
   | "Apps"
   | "Security & Backup"
   | "POS & Inventory"
@@ -458,6 +459,19 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 1800, setupKes: 0 },
       highlights: ["Unlimited documents", "Signer tracking", "Your own domain"],
       sortOrder: 56,
+    },
+    {
+      id: "starter-invoicing",
+      name: "Invoicing",
+      description: "Send invoices, track payments, and manage clients — your own invoicing tool.",
+      category: "Invoicing",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "1.25GB", storage: "15GB NVMe", cpu: "Shared", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1280, diskGb: 15 },
+      pricing: { model: "addon", monthlyKes: 3800, setupKes: 0 },
+      highlights: ["Unlimited clients", "Payment tracking", "Your own domain"],
+      sortOrder: 57,
     },
     {
       id: "starter-hrpay",
@@ -1206,7 +1220,8 @@ export type CloudLaunchCategory =
   | "App Hosting"
   | "Database Hosting"
   | "Storage"
-  | "E-Signature";
+  | "E-Signature"
+  | "Invoicing";
 
 export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Website Hosting",
@@ -1214,6 +1229,7 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Database Hosting",
   "Storage",
   "E-Signature",
+  "Invoicing",
 ];
 
 /** Every self-serve, instantly-provisioned resource, grouped by category. */
