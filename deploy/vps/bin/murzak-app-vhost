@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+#
+# murzak-app-vhost <fqdn>
+#
+# Publishes a Coolify-provisioned customer app on https:// through the outer
+# nginx that owns ports 80/443 on this box.
+#
+# Background: Coolify's Traefik binds host ports 7080/7443, not 80/443, so
+# nothing reaches a provisioned app until nginx forwards to it. The wildcard
+# vhost sites-available/apps.murzaktech.tech covers :80 for every app host;
+# this script adds the per-host :443 vhost plus its Let's Encrypt certificate.
+#
+# Idempotent: safe to re-run for a host that is already published.
+#
+# Exit codes: 0 ok, 2 bad input/refused, 1 operational failure.
+
+set -euo pipefail
+
+SUFFIX=".apps.murzaktech.tech"
+WEBROOT="/var/www/certbot"
+AVAIL="/etc/nginx/sites-available"
+ENABLED="/etc/nginx/sites-enabled"
+SNIPPET="/etc/nginx/snippets/murzak-app-proxy.conf"
+
+die()    { echo "murzak-app-vhost: $*" >&2; exit 1; }
+refuse() { echo "murzak-app-vhost: $*" >&2; exit 2; }
+
+HOST="${1:-}"
+[ -n "$HOST" ] || refuse "usage: murzak-app-vhost <fqdn>"
+
+# Only ever touch hostnames we manage. This box also serves unrelated live
+# customer sites, so a buggy or compromised caller must not be able to mint an
+# nginx vhost -- or request a certificate -- for someone else's domain.
+case "$HOST" in
+    *"$SUFFIX") ;;
+    *) refuse "refusing '$HOST': not under $SUFFIX" ;;
+esac
+printf '%s' "$HOST" | grep -qE '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$' \
+    || refuse "refusing '$HOST': not a valid hostname"
+
+[ "$(id -u)" -eq 0 ] || die "must run as root"
+[ -f "$SNIPPET" ]    || die "missing $SNIPPET"
+
+CONF="$AVAIL/app-$HOST"
+LINK="$ENABLED/app-$HOST"
+
+# 1. Certificate first. The vhost references the cert paths, so writing the
+#    vhost before the cert exists would make nginx -t fail.
+if [ -s "/etc/letsencrypt/live/$HOST/fullchain.pem" ]; then
+    echo "==> certificate for $HOST already present"
+else
+    echo "==> requesting certificate for $HOST"
+    certbot certonly --webroot -w "$WEBROOT" -d "$HOST" \
+        --non-interactive --agree-tos --keep-until-expiring \
+        || die "certbot failed for $HOST (is DNS pointing here, and is :80 reachable?)"
+fi
+
+# 2. Write the per-host vhost. :80 is already handled by the wildcard vhost.
+umask 022
+cat > "$CONF" <<EOF
+# Managed by murzak-app-vhost. Do not edit by hand -- regenerated on re-run.
+# Host: $HOST
+server {
+    listen      443 ssl http2;
+    listen      [::]:443 ssl http2;
+    server_name $HOST;
+
+    ssl_certificate     /etc/letsencrypt/live/$HOST/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$HOST/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    include $SNIPPET;
+}
+EOF
+
+ln -sfn "$CONF" "$LINK"
+
+# 3. Validate before reloading. If this host's config would break nginx, undo
+#    it and leave the running config untouched rather than taking the box down.
+TESTLOG="$(mktemp)"
+if ! nginx -t >"$TESTLOG" 2>&1; then
+    cat "$TESTLOG" >&2
+    rm -f "$LINK" "$CONF" "$TESTLOG"
+    die "nginx config test failed; rolled back $HOST, nginx left running as-is"
+fi
+rm -f "$TESTLOG"
+
+systemctl reload nginx
+echo "==> published https://$HOST"

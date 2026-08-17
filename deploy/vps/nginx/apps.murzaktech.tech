@@ -1,0 +1,56 @@
+# /etc/nginx/sites-available/apps.murzaktech.tech
+#
+# Wildcard :80 front door for Coolify-provisioned customer apps.
+#
+# Two jobs:
+#   1. Serve ACME HTTP-01 challenges locally from /var/www/certbot, so certbot
+#      can issue a per-host cert for each app (see murzak-app-vhost).
+#   2. Forward everything else to Coolify's Traefik on host port 7080.
+#
+# Why challenges are served locally rather than proxied to Traefik:
+#   nginx terminates TLS for these hosts, so *nginx* needs the certificate.
+#   If challenges were proxied through, Traefik would answer them and take the
+#   cert for itself, leaving nginx with nothing to present. Only one of the two
+#   may own ACME for a given hostname; here it is nginx.
+#
+# Safety: server_name *.apps.murzaktech.tech matches no pre-existing vhost, and
+# this block declares no default_server, so it cannot capture traffic for any
+# other site on this box.
+
+# $murzak_apps_connection_upgrade is defined in conf.d/00-murzak-apps-map.conf.
+
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name *.apps.murzaktech.tech;
+
+    # ^~ so this wins over any regex location and is never proxied away.
+    location ^~ /.well-known/acme-challenge/ {
+        root         /var/www/certbot;
+        default_type "text/plain";
+        try_files    $uri =404;
+    }
+
+    # Customer apps may accept large uploads; don't cap at nginx's 1m default.
+    client_max_body_size 0;
+
+    location / {
+        proxy_pass http://127.0.0.1:7080;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $murzak_apps_connection_upgrade;
+
+        # Traefik redirects to https itself; pass that through untouched.
+        proxy_redirect off;
+
+        proxy_read_timeout    300s;
+        proxy_send_timeout    300s;
+        proxy_connect_timeout 30s;
+    }
+}
