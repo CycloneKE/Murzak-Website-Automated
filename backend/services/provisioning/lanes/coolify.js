@@ -505,13 +505,32 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  * design (mirrors finalizeApp's BYOA domains PATCH) — a rejected PATCH must
  * not fail the whole job; degrade to no link, same as an unconfigured
  * APP_DOMAIN_BASE, never a fabricated URL.
+ *
+ * CONFIRMED live against Coolify 4.1.2 (2026-08-17): `PATCH /api/v1/services/
+ * {uuid}` with a top-level `domains` field 422s — "This field is not
+ * allowed." (verified via ServicesController@update_by_uuid's own source at
+ * the v4.1.2 tag: its $allowedFields list has no `domains`/`fqdn` key at
+ * all). This means EVERY curated-app purchase before this fix — DocuSeal,
+ * Invoice Ninja — silently got access.url="" forever; the 422 was caught
+ * and logged, never surfaced. The real mechanism, confirmed live and
+ * matching the same controller's `urls` handling (`applyServiceUrls()`,
+ * which sets fqdn directly on the named sub-application and saves it): pass
+ * `urls: [{ name: <compose service key>, url: fqdn }]`. `name` must be the
+ * exact key from the compose YAML — the exposed/primary service
+ * (`appConfig.primaryService` for multi-service apps; every single-service
+ * curated app and the generic fallback both always name their one service
+ * "app", so that's the default when no multi-service config applies).
  */
 async function attachServiceUrl(client, uuid, job, name) {
   const slug = appDomain.slugWithSuffix(name, job.name);
   const fqdn = appDomain.fqdnFor(slug);
   if (!fqdn) return "";
+  const appConfig = CURATED_APP_CONFIG[job.service_id];
+  const containerName = appConfig?.primaryService || "app";
   try {
-    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, { domains: fqdn });
+    await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, {
+      urls: [{ name: containerName, url: fqdn }],
+    });
   } catch (e) {
     console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
     return "";

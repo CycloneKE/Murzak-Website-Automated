@@ -89,7 +89,7 @@ function decodeComposeFromBody(body) {
         throw new Error("unexpected GET " + url);
       },
       post: async (url, body) => { capturedBody = body; return { data: { data: { uuid: "NEW-CAL-1" } } }; },
-      patch: async (url, body) => { patchedDomain = body?.domains; return { data: {} }; },
+      patch: async (url, body) => { patchedDomain = body?.urls?.[0]?.url; ok(body?.urls?.[0]?.name === "app", "the urls[] entry targets the compose service actually named \"app\""); return { data: {} }; },
     });
     try {
       const res = await coolify.provision(job, {});
