@@ -19,31 +19,17 @@
  * (GET /api/mail/v1/orders -> 200) and against the api-php-sdk docs, not
  * inferred from the public docs page.
  *
- * Base URL note: HOSTINGER_API_BASE is used inconsistently across this
- * codebase — server.js defaults to developers.hostinger.com/api while
- * aiService/scaling default to api.hostinger.com, which is NOT the API host
- * (it returns 530). We resolve to the developers host explicitly and tolerate
- * either form of the env var.
+ * Base URL note: HOSTINGER_API_BASE is now resolved in exactly one place,
+ * services/hostingerApi.js, which normalizes it to a bare host so the
+ * documented "/api/..." paths below append cleanly. This module used to carry
+ * its own copy of that logic, whose api.hostinger.com override missed the
+ * "https://api.hostinger.com/api" form and so still resolved to the host that
+ * 530s. resolveHost is re-exported for callers (and tests) that ask this module
+ * where it points.
  */
 
 const axios = require("axios");
-
-const DEFAULT_HOST = "https://developers.hostinger.com";
-
-/**
- * Normalize HOSTINGER_API_BASE into a bare host with no trailing /api, so
- * callers can always append the documented "/api/..." paths exactly as the
- * SDK spells them.
- */
-function resolveHost() {
-  const raw = String(process.env.HOSTINGER_API_BASE || "").trim();
-  if (!raw) return DEFAULT_HOST;
-  const noSlash = raw.replace(/\/+$/, "");
-  // api.hostinger.com is not the API host; don't let a stale env var send
-  // provisioning calls somewhere that 530s.
-  if (/^https?:\/\/api\.hostinger\.com$/i.test(noSlash)) return DEFAULT_HOST;
-  return noSlash.replace(/\/api$/i, "");
-}
+const { resolveHost } = require("./hostingerApi");
 
 function token() {
   return process.env.HOSTINGER_API_TOKEN || "";
