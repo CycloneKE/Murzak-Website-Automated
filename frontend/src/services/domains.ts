@@ -8,14 +8,19 @@ export type TldOption = {
   popular?: boolean;
 };
 
+// Must stay in sync with DOMAIN_TLD_PRICES in backend/server.js and the
+// domain-* entries in serviceCatalog.ts — this is a THIRD copy of the same
+// numbers, used only as the client-side simulation fallback for when the
+// backend endpoint isn't reachable. .com/.org/.net/.io corrected 2026-08-17;
+// see backend/server.js DOMAIN_TLD_PRICES for the wholesale-cost math.
 export const TLD_OPTIONS: TldOption[] = [
   { tld: ".co.ke", priceKes: 1200, popular: true },
-  { tld: ".com", priceKes: 1500, popular: true },
+  { tld: ".com", priceKes: 4200, popular: true },
   { tld: ".ke", priceKes: 1800 },
-  { tld: ".org", priceKes: 1800 },
-  { tld: ".net", priceKes: 1800 },
+  { tld: ".org", priceKes: 3800 },
+  { tld: ".net", priceKes: 3800 },
   { tld: ".africa", priceKes: 2500 },
-  { tld: ".io", priceKes: 4500 },
+  { tld: ".io", priceKes: 15500 },
 ];
 
 export type DomainResult = {

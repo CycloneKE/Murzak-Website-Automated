@@ -31,14 +31,17 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
   }
 
   section("domain registration products resolve from the snapshot, prices match DOMAIN_TLD_PRICES");
+  // .com/.org/.net/.io corrected 2026-08-17 for wholesale-cost pricing — see
+  // DOMAIN_TLD_PRICES in backend/server.js. .co.ke/.ke/.africa unchanged:
+  // Hostinger's catalog doesn't sell those TLDs at all.
   const domainPrices = {
     "domain-coke": 1200,
-    "domain-com": 1500,
+    "domain-com": 4200,
     "domain-ke": 1800,
-    "domain-org": 1800,
-    "domain-net": 1800,
+    "domain-org": 3800,
+    "domain-net": 3800,
     "domain-africa": 2500,
-    "domain-io": 4500,
+    "domain-io": 15500,
   };
   for (const [id, price] of Object.entries(domainPrices)) {
     const meta = getServiceMeta(id);
@@ -52,23 +55,16 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
   // frontend function is the source of truth for display; this asserts the
   // arithmetic property that matters commercially — a customer must never see
   // a monthly figure that annualizes to LESS than what they'll actually be
-  // charged.
+  // charged. Reuses domainPrices above (not a second hardcoded map) so a
+  // future price correction can't update one and silently leave the other
+  // stale, exactly as happened here on 2026-08-17.
   const monthlyEquiv = (yearly) => Math.ceil(yearly / 12);
-  const domainYearly = {
-    "domain-coke": 1200,
-    "domain-com": 1500,
-    "domain-ke": 1800,
-    "domain-org": 1800,
-    "domain-net": 1800,
-    "domain-africa": 2500,
-    "domain-io": 4500,
-  };
-  for (const [id, yearly] of Object.entries(domainYearly)) {
+  for (const [id, yearly] of Object.entries(domainPrices)) {
     const meta = getServiceMeta(id);
     ok(meta?.monthlyKes === yearly, `${id} yearly price is ${yearly}`);
     ok(monthlyEquiv(yearly) * 12 >= yearly, `${id} monthly-equivalent never understates`);
   }
-  ok(monthlyEquiv(1500) === 125, ".com -> 125/mo exactly");
+  ok(monthlyEquiv(4200) === 350, ".com -> 350/mo exactly");
   ok(monthlyEquiv(2500) === 209, ".africa 2500/12 = 208.33 rounds UP to 209");
   ok(monthlyEquiv(1200) === 100, ".co.ke -> 100/mo exactly");
 

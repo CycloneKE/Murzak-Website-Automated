@@ -168,9 +168,21 @@ function buildCustomerDomainPayload({
 }
 
 /**
- * Statuses that mean a human still has to do something. Registration is
- * manual (the registrar's API terms blocked automating it), so "pending" is
- * not a transient state the system clears on its own — it is a work queue.
+ * Statuses that mean a human still has to do something.
+ *
+ * Registration for .com/.org/.net/.io purchased at checkout now clears
+ * "pending" automatically — see domainPurchaseFulfilment.js and
+ * services/hostingerDomains.js. Hostinger's registrar API does not, in fact,
+ * block this (an earlier comment here claimed otherwise; disproven 2026-08-17
+ * by actually reading their Domain Name Registration Agreement and probing
+ * the live API — see docs/domain-registration-automation.md).
+ *
+ * "pending" still means manual work for: .co.ke/.ke/.africa (Hostinger's
+ * catalog doesn't sell them at all), any TLD registered while the automated
+ * attempt fails (falls back to this exact queue, unchanged), and every
+ * domain reaching this doctype via AddDomainModal's "register" path, which
+ * creates a purchase request directly with no paid invoice behind it and so
+ * never reaches the automated path at all.
  */
 const DOMAIN_ACTIONABLE_STATUSES = Object.freeze(["pending"]);
 

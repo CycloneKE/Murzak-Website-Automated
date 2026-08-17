@@ -85,8 +85,10 @@ console.log("# excludeDomainRegistrations (Critical 1: a yearly domain must neve
   ];
   const filtered = excludeDomainRegistrations(rows);
   ok(filtered.length === 1 && filtered[0].serviceId === "db-mysql", "domain-registration service excluded, other services kept");
-  ok(sumSelectedServicesMonthlyKes(rows) === 1500 + 2000, "sanity: unfiltered sum WOULD include the domain's yearly price (1500)");
-  ok(sumSelectedServicesMonthlyKes(filtered) === 2000, "renewal sum with domains excluded bills only the real monthly service (2000), not 1500 extra");
+  // 4200 as of 2026-08-17's wholesale-cost pricing correction — see
+  // DOMAIN_TLD_PRICES in backend/server.js.
+  ok(sumSelectedServicesMonthlyKes(rows) === 4200 + 2000, "sanity: unfiltered sum WOULD include the domain's yearly price (4200)");
+  ok(sumSelectedServicesMonthlyKes(filtered) === 2000, "renewal sum with domains excluded bills only the real monthly service (2000), not 4200 extra");
   ok(excludeDomainRegistrations([]).length === 0, "empty input -> empty output");
   ok(excludeDomainRegistrations(null).length === 0, "non-array input tolerated, never throws");
   ok(excludeDomainRegistrations([{ serviceId: "does-not-exist" }]).length === 1, "unknown service id is not treated as a domain (kept, priced 0 elsewhere)");

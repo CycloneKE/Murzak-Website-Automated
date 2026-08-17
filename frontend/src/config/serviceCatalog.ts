@@ -1001,7 +1001,10 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
     capacityClass: "volume",
     specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
     resources: { ramMb: 0, diskGb: 0 },
-    pricing: { model: "addon", monthlyKes: 1500 },
+    // Corrected 2026-08-17 — see backend/server.js DOMAIN_TLD_PRICES for the
+    // wholesale-cost math. Must stay in sync with that object and with
+    // domainCatalogIdForTld() below.
+    pricing: { model: "addon", monthlyKes: 4200 },
     sortOrder: 20,
   },
   {
@@ -1025,7 +1028,8 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
     capacityClass: "volume",
     specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
     resources: { ramMb: 0, diskGb: 0 },
-    pricing: { model: "addon", monthlyKes: 1800 },
+    // Corrected 2026-08-17 — see DOMAIN_TLD_PRICES in backend/server.js.
+    pricing: { model: "addon", monthlyKes: 3800 },
     sortOrder: 40,
   },
   {
@@ -1037,7 +1041,8 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
     capacityClass: "volume",
     specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
     resources: { ramMb: 0, diskGb: 0 },
-    pricing: { model: "addon", monthlyKes: 1800 },
+    // Corrected 2026-08-17 — see DOMAIN_TLD_PRICES in backend/server.js.
+    pricing: { model: "addon", monthlyKes: 3800 },
     sortOrder: 50,
   },
   {
@@ -1061,7 +1066,9 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
     capacityClass: "volume",
     specs: { ram: "N/A", storage: "N/A", cpu: "N/A", bandwidth: "N/A", backups: "N/A", sla: "N/A" },
     resources: { ramMb: 0, diskGb: 0 },
-    pricing: { model: "addon", monthlyKes: 4500 },
+    // Corrected 2026-08-17 — .io was the worst gap, sold at 46% of Hostinger's
+    // wholesale cost. See DOMAIN_TLD_PRICES in backend/server.js for the math.
+    pricing: { model: "addon", monthlyKes: 15500 },
     sortOrder: 70,
   },
 ];

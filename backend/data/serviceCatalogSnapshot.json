@@ -688,7 +688,7 @@
       "ramMb": 0,
       "diskGb": 0,
       "pricingModel": "addon",
-      "monthlyKes": 1500,
+      "monthlyKes": 4200,
       "setupKes": 0,
       "requiresRepo": false
     },
@@ -714,7 +714,7 @@
       "ramMb": 0,
       "diskGb": 0,
       "pricingModel": "addon",
-      "monthlyKes": 1800,
+      "monthlyKes": 3800,
       "setupKes": 0,
       "requiresRepo": false
     },
@@ -727,7 +727,7 @@
       "ramMb": 0,
       "diskGb": 0,
       "pricingModel": "addon",
-      "monthlyKes": 1800,
+      "monthlyKes": 3800,
       "setupKes": 0,
       "requiresRepo": false
     },
@@ -753,7 +753,7 @@
       "ramMb": 0,
       "diskGb": 0,
       "pricingModel": "addon",
-      "monthlyKes": 4500,
+      "monthlyKes": 15500,
       "setupKes": 0,
       "requiresRepo": false
     }

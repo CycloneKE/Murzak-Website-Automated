@@ -387,6 +387,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             <ShieldCheck size={16} className="text-murzak-accent" />
             Payments are processed by Safaricom M-Pesa and PayPal. We never see or store your card details.
           </p>
+          {svcForOrder && isYearlyBilled(svcForOrder) && (
+            // Required by Hostinger's Domain Name Registration Agreement §7:
+            // resellers must inform the customer they are "in fact registering
+            // their domain name through Hostinger." isYearlyBilled() is true
+            // only for Domain Registration products, so this shows only when
+            // the item being checked out actually is one.
+            <p className="mt-1.5 inline-flex items-center gap-2 text-sm font-bold text-slate-500">
+              <ShieldCheck size={16} className="text-murzak-accent" />
+              Domains are registered through our infrastructure partner, Hostinger.
+            </p>
+          )}
         </div>
         {children}
       </div>
