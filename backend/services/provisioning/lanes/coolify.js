@@ -787,6 +787,62 @@ const CURATED_APP_CONFIG = {
       },
     },
   },
+  "starter-scheduling": {
+    primaryService: "app",
+    primaryPort: 3000,
+    secrets: {
+      dbPassword: "random",
+      nextAuthSecret: "random",
+      encryptionKey: "random",
+      cronApiKey: "random",
+    },
+    services: {
+      postgres: {
+        image: "postgres:16",
+        volumeName: "pg-data",
+        volumePath: "/var/lib/postgresql/data",
+        environment: (ctx) => ({
+          POSTGRES_USER: "calcom",
+          POSTGRES_PASSWORD: ctx.dbPassword,
+          POSTGRES_DB: "calcom",
+        }),
+        healthcheck: () =>
+          `      test: ["CMD-SHELL", "pg_isready -U calcom -d calcom"]\n` +
+          `      interval: 5s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 20\n`,
+      },
+      app: {
+        image: "calcom/cal.com:latest",
+        // Cal.com is stateless — all state lives in postgres, so no
+        // volumeName is declared here (the compose builder only emits a
+        // volumes: block for a service when volumeName is present).
+        environment: (ctx) => {
+          const host = ctx.fqdn.replace(/^https?:\/\//, "");
+          return {
+            DATABASE_URL: `postgresql://calcom:${ctx.dbPassword}@postgres:5432/calcom`,
+            DATABASE_DIRECT_URL: `postgresql://calcom:${ctx.dbPassword}@postgres:5432/calcom`,
+            DATABASE_HOST: "postgres:5432",
+            NEXT_PUBLIC_WEBAPP_URL: ctx.fqdn,
+            NEXT_PUBLIC_WEBSITE_URL: ctx.fqdn,
+            NEXT_PUBLIC_EMBED_LIB_URL: `${ctx.fqdn}/embed/embed.js`,
+            ALLOWED_HOSTNAMES: host,
+            NEXTAUTH_URL: ctx.fqdn,
+            NEXTAUTH_SECRET: ctx.nextAuthSecret,
+            CALENDSO_ENCRYPTION_KEY: ctx.encryptionKey,
+            CRON_API_KEY: ctx.cronApiKey,
+            EMAIL_FROM: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "",
+            EMAIL_FROM_NAME: "Murzak Scheduling",
+            EMAIL_SERVER_HOST: process.env.SMTP_HOST || "",
+            EMAIL_SERVER_PORT: process.env.SMTP_PORT || "587",
+            EMAIL_SERVER_USER: process.env.SMTP_USER || "",
+            EMAIL_SERVER_PASSWORD: process.env.SMTP_PASS || "",
+          };
+        },
+        dependsOn: { postgres: "service_healthy" },
+      },
+    },
+  },
 };
 
 /** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
@@ -1376,6 +1432,7 @@ module.exports = {
   buildCuratedAppComposeYaml,
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
+  __test_calcomConfig: CURATED_APP_CONFIG["starter-scheduling"],
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
   classifyDeploymentStatus,
