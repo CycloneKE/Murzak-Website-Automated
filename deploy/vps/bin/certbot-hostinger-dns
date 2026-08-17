@@ -42,6 +42,12 @@ CREDS="${MURZAK_HOSTINGER_CREDS:-/etc/letsencrypt/hostinger.ini}"
 # at 3am and takes every customer app's TLS with it, so accept both forms.
 normalize_api_base() {
     local raw="${1:-}"
+    # Strip the path suffix BEFORE the host check. Doing it after lets
+    # "https://api.hostinger.com/api" slip past the check and then degrade to
+    # the bare 530 host -- which is exactly the DNS-01 renewal failure this
+    # function exists to prevent.
+    raw="${raw%/}"
+    raw="${raw%/api}"
     raw="${raw%/}"
     [ -n "$raw" ] || { printf '%s' "https://developers.hostinger.com"; return; }
     case "$raw" in
@@ -49,7 +55,7 @@ normalize_api_base() {
         https://api.hostinger.com|http://api.hostinger.com)
             printf '%s' "https://developers.hostinger.com"; return ;;
     esac
-    printf '%s' "${raw%/api}"
+    printf '%s' "$raw"
 }
 API_BASE="$(normalize_api_base "${HOSTINGER_API_BASE:-}")"
 ZONE="${MURZAK_DNS_ZONE:-murzaktech.tech}"

@@ -952,40 +952,11 @@ function stableHash(s) {
   return Math.abs(h);
 }
 
-// Ask Hostinger which of these full domains are available.
-// Returns a Map<fullDomain, boolean>, or null if the API isn't configured/failed
-// (caller then falls back to the local stub). Pricing is always OUR KES retail —
-// we resell, so we don't pass through Hostinger's wholesale price.
-async function hostingerAvailability(label, tldsWithDot) {
-  const token = process.env.HOSTINGER_API_TOKEN;
-  if (!token) return null;
-
-  const base = process.env.HOSTINGER_API_BASE || "https://developers.hostinger.com/api";
-  try {
-    const resp = await axios.post(
-      `${base}/domains/v1/availability`,
-      // Hostinger expects TLDs without the leading dot (e.g. "com", "co.ke").
-      { domain: label, tlds: tldsWithDot.map((t) => t.replace(/^\./, "")) },
-      {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        timeout: 8000,
-      }
-    );
-
-    const rows = Array.isArray(resp.data?.data) ? resp.data.data : Array.isArray(resp.data) ? resp.data : [];
-    const map = new Map();
-    for (const row of rows) {
-      const dom = (row.domain || "").toLowerCase();
-      if (!dom) continue;
-      const available = row.is_available ?? row.available ?? row.is_free ?? false;
-      map.set(dom, !!available);
-    }
-    return map.size ? map : null;
-  } catch (err) {
-    console.warn("HOSTINGER DOMAIN LOOKUP FAILED, using fallback:", err.message);
-    return null;
-  }
-}
+// Availability lives in services/hostingerApi so it shares one host resolver
+// with the other Hostinger callers (and can be unit-tested without booting
+// Express). Pricing is always OUR KES retail — we resell, so we don't pass
+// through Hostinger's wholesale price.
+const hostingerAvailability = require("./services/hostingerApi").checkDomainAvailability;
 
 app.post("/api/domains/check", domainCheckLimiter, async (req, res) => {
   try {
