@@ -31,7 +31,27 @@
 set -euo pipefail
 
 CREDS="${MURZAK_HOSTINGER_CREDS:-/etc/letsencrypt/hostinger.ini}"
-API_BASE="${HOSTINGER_API_BASE:-https://developers.hostinger.com}"
+# Normalize to a BARE host, because the paths below append the full
+# "/api/<group>/v1/..." themselves.
+#
+# The same env var name is read by the Node backend, where consumers disagree
+# about whether it carries an /api suffix (backend/.env.example ships the
+# suffixed form for server.js). If that value were ever exported system-wide,
+# a naive read here would build ".../api/api/dns/v1/..." -> 404 -> the auth hook
+# fails -> a RENEWAL fails. That is how a wildcard certificate expires quietly
+# at 3am and takes every customer app's TLS with it, so accept both forms.
+normalize_api_base() {
+    local raw="${1:-}"
+    raw="${raw%/}"
+    [ -n "$raw" ] || { printf '%s' "https://developers.hostinger.com"; return; }
+    case "$raw" in
+        # api.hostinger.com is not the API and returns 530 on every path.
+        https://api.hostinger.com|http://api.hostinger.com)
+            printf '%s' "https://developers.hostinger.com"; return ;;
+    esac
+    printf '%s' "${raw%/api}"
+}
+API_BASE="$(normalize_api_base "${HOSTINGER_API_BASE:-}")"
 ZONE="${MURZAK_DNS_ZONE:-murzaktech.tech}"
 TTL=60
 PROP_TIMEOUT="${MURZAK_DNS_PROP_TIMEOUT:-300}"

@@ -16,7 +16,21 @@
 set -euo pipefail
 
 CREDS="${MURZAK_HOSTINGER_CREDS:-/etc/letsencrypt/hostinger.ini}"
-API_BASE="${HOSTINGER_API_BASE:-https://developers.hostinger.com}"
+# Normalize to a BARE host — the probe below appends the full
+# "/api/dns/v1/..." path. See the same helper in certbot-hostinger-dns: the
+# backend ships an /api-suffixed value for this env var name, and doubling the
+# suffix here would 404 and report a perfectly good token as invalid.
+normalize_api_base() {
+    local raw="${1:-}"
+    raw="${raw%/}"
+    [ -n "$raw" ] || { printf '%s' "https://developers.hostinger.com"; return; }
+    case "$raw" in
+        https://api.hostinger.com|http://api.hostinger.com)
+            printf '%s' "https://developers.hostinger.com"; return ;;
+    esac
+    printf '%s' "${raw%/api}"
+}
+API_BASE="$(normalize_api_base "${HOSTINGER_API_BASE:-}")"
 ZONE="${MURZAK_DNS_ZONE:-murzaktech.tech}"
 
 die() { echo "murzak-hostinger-token: $*" >&2; exit 1; }
