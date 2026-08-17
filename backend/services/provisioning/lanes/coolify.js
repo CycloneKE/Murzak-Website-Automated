@@ -726,6 +726,7 @@ const CURATED_APP_CONFIG = {
   "starter-invoicing": {
     primaryService: "nginx",
     primaryPort: 80,
+    secrets: { dbPassword: "random", dbRootPassword: "random", appKey: "laravelAppKey" },
     services: {
       mysql: {
         image: "mysql:8",
@@ -847,16 +848,40 @@ function hardeningBlock(limits) {
 }
 
 /**
+ * Maps a declared secret "kind" (from an app config's `secrets` field) to the
+ * generator that produces it. `laravelAppKey` exists only because Invoice
+ * Ninja needs that exact format; every other curated app just needs a plain
+ * random secret.
+ */
+const SECRET_GENERATORS = {
+  random: generateRandomSecret,
+  laravelAppKey: generateLaravelAppKey,
+};
+
+/**
+ * Builds the per-provision secret ctx from an app config's declared `secrets`
+ * map (e.g. `{ dbPassword: "random", appKey: "laravelAppKey" }`), instead of
+ * hardcoding one app's specific secret set into buildMultiServiceComposeYaml.
+ * A second real multi-service app with a different secret shape (Cal.com:
+ * plain random secrets, no Laravel key at all) is what triggered this
+ * generalization — see the design doc.
+ */
+function buildSecretCtx(appConfig, fqdn) {
+  const ctx = { fqdn };
+  for (const [key, kind] of Object.entries(appConfig.secrets || {})) {
+    ctx[key] = SECRET_GENERATORS[kind]();
+  }
+  return ctx;
+}
+
+/**
  * Multi-service curated apps (app + a real backing database, unlike
  * DocuSeal's SQLite default). First consumer: starter-invoicing (Invoice
  * Ninja). RAM/CPU limits apply per-container, not summed across the stack —
  * a known, accepted looseness (see the design doc), not silently ignored.
  */
 function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
-  const dbPassword = generateRandomSecret();
-  const dbRootPassword = generateRandomSecret();
-  const appKey = generateLaravelAppKey();
-  const ctx = { dbPassword, dbRootPassword, appKey, fqdn };
+  const ctx = buildSecretCtx(appConfig, fqdn);
 
   const volumeDecls = [];
   let serviceBlocks = "";
