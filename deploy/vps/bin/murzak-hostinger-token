@@ -23,15 +23,32 @@ die() { echo "murzak-hostinger-token: $*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "must run as root"
 
-printf 'Hostinger API token (input hidden, then press Enter): ' >&2
-IFS= read -rs TOKEN
-printf '\n' >&2
+if [ "${1:-}" = "--verify" ]; then
+    # Validate whatever is already in the file -- no prompt, no write. Use this
+    # after editing the file by hand (e.g. with nano), which sidesteps terminals
+    # that mangle pastes into a hidden read.
+    [ -f "$CREDS" ] || die "no $CREDS to verify"
+    TOKEN="$(sed -n 's/^[[:space:]]*HOSTINGER_API_TOKEN[[:space:]]*=[[:space:]]*//p' "$CREDS" | head -1)"
+    [ -n "$TOKEN" ] || die "HOSTINGER_API_TOKEN not found in $CREDS"
+    VERIFY_ONLY=1
+else
+    VERIFY_ONLY=0
+    printf 'Hostinger API token (input hidden, then press Enter): ' >&2
+    IFS= read -rs TOKEN
+    printf '\n' >&2
+fi
 
 # --- shape checks: catch a bad paste before it reaches the API --------------
 [ -n "$TOKEN" ] || die "nothing entered"
 
+# Strip surrounding whitespace: a paste picking up a leading/trailing space or
+# newline is benign. Whitespace *inside* the value is not -- that means the
+# wrong thing was pasted -- and is still rejected below.
+TOKEN="${TOKEN#"${TOKEN%%[![:space:]]*}"}"
+TOKEN="${TOKEN%"${TOKEN##*[![:space:]]}"}"
+
 case "$TOKEN" in
-    *[[:space:]]*) die "token contains whitespace -- you pasted more than the token" ;;
+    *[[:space:]]*) die "token contains internal whitespace -- you pasted more than the token (clipboard may still hold a command)" ;;
     *'"'*|*"'"*)   die "token contains quote characters -- you pasted surrounding text" ;;
     '{'*)          die "token looks like JSON, not a bare token" ;;
     http*)         die "token looks like a URL, not a token" ;;
@@ -50,16 +67,18 @@ echo "shape OK (${#TOKEN} characters)" >&2
 # --- write, then verify against the live API --------------------------------
 # Keep the previous file so a rejected token doesn't leave us worse off.
 BACKUP=""
-if [ -f "$CREDS" ]; then
-    BACKUP="$(mktemp)"
-    cat "$CREDS" > "$BACKUP"
-    chmod 600 "$BACKUP"
-fi
+if [ "$VERIFY_ONLY" -eq 0 ]; then
+    if [ -f "$CREDS" ]; then
+        BACKUP="$(mktemp)"
+        cat "$CREDS" > "$BACKUP"
+        chmod 600 "$BACKUP"
+    fi
 
-umask 077
-printf 'HOSTINGER_API_TOKEN=%s\n' "$TOKEN" > "$CREDS"
-chmod 600 "$CREDS"
-chown root:root "$CREDS"
+    umask 077
+    printf 'HOSTINGER_API_TOKEN=%s\n' "$TOKEN" > "$CREDS"
+    chmod 600 "$CREDS"
+    chown root:root "$CREDS"
+fi
 
 code="$(curl -sS -o /dev/null -w '%{http_code}' -X GET \
     -H "Authorization: Bearer $TOKEN" \
