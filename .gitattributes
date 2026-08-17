@@ -3,3 +3,4 @@
 # "bad interpreter: /usr/bin/env bash^M" and nginx configs with stray \r.
 deploy/vps/bin/*      text eol=lf
 deploy/vps/nginx/*    text eol=lf
+deploy/vps/systemd/*  text eol=lf

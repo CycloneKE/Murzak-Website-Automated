@@ -50,11 +50,36 @@ Pieces on the VPS:
 | Path | Role |
 |------|------|
 | `/etc/nginx/conf.d/00-murzak-apps-map.conf` | websocket upgrade map; `00-` so it loads before its consumers |
-| `/etc/nginx/sites-available/apps.murzaktech.tech` | wildcard `:80` vhost — ACME webroot + proxy to Traefik |
+| `/etc/nginx/sites-available/apps.murzaktech.tech` | wildcard vhost: `:80` ACME webroot + proxy to Traefik, `:443` catch-all |
 | `/etc/nginx/snippets/murzak-app-proxy.conf` | shared `:443` proxy body, host-agnostic (`proxy_ssl_name $host`) |
 | `/etc/nginx/sites-available/app-<fqdn>` | one per published app, generated |
+| `/etc/ssl/murzak/apps-fallback.{crt,key}` | self-signed cert for the `:443` catch-all |
 | `/usr/local/bin/murzak-app-vhost` | publish a host (cert + vhost + validate + reload) |
 | `/usr/local/bin/murzak-app-vhost-remove` | unpublish a host |
+| `/usr/local/bin/murzak-app-sync` | reconcile nginx against Traefik; publishes anything missing |
+| `murzak-app-sync.{service,timer}` | runs the reconciler every 2 minutes |
+
+### How a new app gets published
+
+Nothing in the backend calls out to the box. `murzak-app-sync` reads the
+Traefik router labels Coolify stamps on every container
+(``Host(`<fqdn>`)``), diffs them against the `app-*` vhosts in
+`sites-enabled/`, and publishes the difference.
+
+That is deliberate. The host already holds the full truth, so this needs no
+callback from the app, no SSH credential inside the app container, and has no
+failure mode where a provisioning job succeeds but its publish step is lost.
+It is also self-healing: it picks up apps created by *any* path — checkout
+flow, GitHub wizard, or someone clicking around the Coolify UI — and
+re-publishes anything that gets removed.
+
+A new app is therefore reachable over `http://` immediately and over
+`https://` within ~2 minutes, showing the catch-all's "not published yet"
+404 in between rather than another tenant's certificate.
+
+`--prune` also unpublishes vhosts whose app is gone; it is **not** on by
+default, since a container being briefly absent (restart, redeploy) would
+otherwise tear down a live customer's TLS.
 
 ### Why nginx owns ACME, not Traefik
 
@@ -108,23 +133,47 @@ sudo /usr/local/bin/murzak-app-vhost-remove my-shop.apps.murzaktech.tech
 - Rollback: `/root/nginx-backup-pre-apps-vhost.tar.gz` is a full `/etc/nginx`
   snapshot from before this work.
 
+## Certificate rate limiting
+
+Let's Encrypt allows **50 new certificates per registered domain per week**.
+Every app host counts against `murzaktech.tech`, shared with
+`pos.`/`erp.`/`website.`/`matatuke.`. Renewals are exempt — only new names
+count.
+
+`murzak-app-vhost` counts certificates issued in the last 7 days (from each
+live cert's `notBefore`, not file mtime, which renewals would skew) and
+**refuses with exit 3** at `MURZAK_CERT_BUDGET` (default 45) rather than
+spending a request it cannot afford. The reconciler treats exit 3 as
+"deferred", not a crash, and retries on the next tick; the app stays reachable
+over `http://` meanwhile.
+
+If you are sustainably provisioning more than ~45 apps/week, the budget is not
+the problem — the architecture is. The escape hatch is a **DNS-01 wildcard
+certificate** for `*.apps.murzaktech.tech`, which would replace all per-host
+certs and vhosts with one. That needs DNS-01 automation:
+
+- Hostinger hosts this zone (`nova.dns-parking.com`) and has **no certbot DNS
+  plugin**, but the codebase already uses a `HOSTINGER_API_TOKEN` against
+  their developers API. A `--manual-auth-hook` that writes the `_acme-challenge`
+  TXT record through that API is the likely path.
+- Failing that, moving the zone to Cloudflare makes
+  `python3-certbot-dns-cloudflare` a one-liner.
+
+Either way the wildcard must renew **automatically**. This box already carries
+five expired certificates, which is what a manual renewal step reliably
+degrades into — and a wildcard expiring takes down every customer app at once,
+where a per-host cert takes down one.
+
 ## Known gaps
 
-1. **Not wired into provisioning.** `murzak-app-vhost` is run by hand today.
-   The deploy path (`backend/services/provisioning/lanes/coolify.js`,
-   `attachServiceUrl`) attaches the domain in Coolify but nothing publishes it
-   through nginx, so a newly provisioned app is reachable only over `http://`
-   until someone runs the script. Wiring this up needs the backend to hold an
-   SSH credential for the VPS.
-2. **Unpublished hosts still leak.** A `*.apps` host with no vhost yet falls to
-   the `mystylecarhire.com` `default_server` on 443 and presents that cert. A
-   catch-all `*.apps.murzaktech.tech` `:443` block with a self-signed cert would
-   close it.
-3. **Rate limit ceiling.** Let's Encrypt allows 50 certificates per registered
-   domain per week. Per-host certs all count against `murzaktech.tech`, shared
-   with `pos.`/`erp.`/`website.`/`matatuke.`. Sustained provisioning above
-   ~45 apps/week will start failing issuance; a wildcard cert (requires DNS-01,
-   which Hostinger's DNS cannot automate today) is the escape hatch.
-4. **Pre-existing expired certs**, untouched by this work:
+1. **Frappe's generated config is a landmine.** See the `bench setup nginx`
+   note above. Nothing here depends on it today, but any future work touching
+   port 443 must account for it.
+2. **Pre-existing expired certs**, untouched by this work:
    `murzaktech.com`, `llm.murzaktech.com`, `digipos.murzaktech.com`,
    `erp.murzaktech.com`, `testing.murzaktech.com`.
+3. **Traefik still attempts its own ACME.** Coolify stamps
+   `tls.certresolver=letsencrypt` on every router, and those challenges now hit
+   nginx's local webroot and 404. Harmless — failed authorizations don't
+   consume the certificate limit — but it is recurring noise in
+   `docker logs coolify-proxy`.

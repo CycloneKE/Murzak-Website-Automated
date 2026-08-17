@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+#
+# murzak-app-sync [--prune] [--dry-run]
+#
+# Reconciles nginx's published app vhosts against what Coolify's Traefik is
+# actually routing, and publishes anything missing.
+#
+# Why a reconciler rather than a provisioning hook: the host already knows the
+# full truth. Every app Coolify deploys carries Traefik router labels naming
+# its FQDN, so this needs no callback from the backend, no SSH credential
+# handed to the app container, and no new failure mode where a provisioning
+# job succeeds but the publish step is lost. It is also self-healing -- it
+# picks up apps created by any path (checkout flow, GitHub wizard, or someone
+# clicking around the Coolify UI) and re-publishes anything that got removed.
+#
+# Run by murzak-app-sync.timer every 2 minutes. Safe to run by hand.
+#
+#   --prune     also unpublish vhosts whose app no longer exists in Coolify
+#   --dry-run   report what would change, touch nothing
+
+set -euo pipefail
+
+SUFFIX=".apps.murzaktech.tech"
+ENABLED="/etc/nginx/sites-enabled"
+PUBLISH="/usr/local/bin/murzak-app-vhost"
+UNPUBLISH="/usr/local/bin/murzak-app-vhost-remove"
+
+PRUNE=0
+DRY=0
+for arg in "$@"; do
+    case "$arg" in
+        --prune)   PRUNE=1 ;;
+        --dry-run) DRY=1 ;;
+        *) echo "murzak-app-sync: unknown option '$arg'" >&2; exit 2 ;;
+    esac
+done
+
+[ "$(id -u)" -eq 0 ] || { echo "murzak-app-sync: must run as root" >&2; exit 1; }
+
+# --- what Traefik is routing -------------------------------------------------
+# Coolify stamps each container with labels like
+#   traefik.http.routers.https-0-<uuid>.rule=Host(`<fqdn>`) && PathPrefix(`/`)
+# Pull every Host(`...`) value out of every running container's labels.
+wanted="$(
+    docker ps -q 2>/dev/null | xargs -r docker inspect \
+        --format '{{range $k, $v := .Config.Labels}}{{$v}}{{"\n"}}{{end}}' 2>/dev/null \
+    | grep -o 'Host(`[^`]*`)' \
+    | sed 's/^Host(`//; s/`)$//' \
+    | grep -F "$SUFFIX" \
+    | sort -u || true
+)"
+
+# --- what nginx already publishes -------------------------------------------
+published="$(
+    find "$ENABLED" -maxdepth 1 -name "app-*$SUFFIX" -printf '%f\n' 2>/dev/null \
+    | sed 's/^app-//' \
+    | sort -u || true
+)"
+
+# --- publish anything missing ------------------------------------------------
+missing="$(comm -23 <(printf '%s\n' "$wanted" | grep -v '^$' || true) \
+                    <(printf '%s\n' "$published" | grep -v '^$' || true))"
+
+rc=0
+if [ -n "$missing" ]; then
+    while IFS= read -r host; do
+        [ -n "$host" ] || continue
+        if [ "$DRY" -eq 1 ]; then
+            echo "would publish: $host"
+            continue
+        fi
+        echo "publishing: $host"
+        # Never let one bad host abort the run -- the rest must still publish.
+        # Exit 3 is the certificate-budget refusal; it is expected under load
+        # and must not be reported as a crash.
+        if "$PUBLISH" "$host"; then
+            :
+        else
+            code=$?
+            if [ "$code" -eq 3 ]; then
+                echo "deferred (cert budget): $host" >&2
+            else
+                echo "FAILED ($code): $host" >&2
+            fi
+            rc=1
+        fi
+    done <<< "$missing"
+fi
+
+# --- optionally unpublish what Coolify no longer has -------------------------
+if [ "$PRUNE" -eq 1 ]; then
+    stale="$(comm -13 <(printf '%s\n' "$wanted" | grep -v '^$' || true) \
+                      <(printf '%s\n' "$published" | grep -v '^$' || true))"
+    if [ -n "$stale" ]; then
+        while IFS= read -r host; do
+            [ -n "$host" ] || continue
+            if [ "$DRY" -eq 1 ]; then
+                echo "would unpublish: $host"
+                continue
+            fi
+            echo "unpublishing: $host"
+            "$UNPUBLISH" "$host" || { echo "FAILED to unpublish: $host" >&2; rc=1; }
+        done <<< "$stale"
+    fi
+fi
+
+if [ "$DRY" -eq 0 ] && [ -z "$missing" ]; then
+    echo "in sync ($(printf '%s\n' "$published" | grep -cv '^$' || true) app host(s) published)"
+fi
+
+exit $rc

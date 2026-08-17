@@ -10,17 +10,28 @@
 # vhost sites-available/apps.murzaktech.tech covers :80 for every app host;
 # this script adds the per-host :443 vhost plus its Let's Encrypt certificate.
 #
+# Normally invoked by murzak-app-sync, not by hand.
+#
 # Idempotent: safe to re-run for a host that is already published.
 #
-# Exit codes: 0 ok, 2 bad input/refused, 1 operational failure.
+# Exit codes: 0 ok, 2 bad input/refused, 3 rate-limit budget exhausted,
+#             1 operational failure.
 
 set -euo pipefail
 
 SUFFIX=".apps.murzaktech.tech"
+REGISTERED_DOMAIN="murzaktech.tech"
 WEBROOT="/var/www/certbot"
 AVAIL="/etc/nginx/sites-available"
 ENABLED="/etc/nginx/sites-enabled"
 SNIPPET="/etc/nginx/snippets/murzak-app-proxy.conf"
+
+# Let's Encrypt allows 50 new certificates per registered domain per week.
+# Every app host counts against murzaktech.tech, shared with pos./erp./
+# website./matatuke. Stop short of the cap so a burst of provisioning cannot
+# consume the whole budget and lock out renewals of unrelated hosts.
+# (Renewals are exempt from this limit; only new names count.)
+CERT_BUDGET="${MURZAK_CERT_BUDGET:-45}"
 
 die()    { echo "murzak-app-vhost: $*" >&2; exit 1; }
 refuse() { echo "murzak-app-vhost: $*" >&2; exit 2; }
@@ -44,12 +55,42 @@ printf '%s' "$HOST" | grep -qE '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-
 CONF="$AVAIL/app-$HOST"
 LINK="$ENABLED/app-$HOST"
 
+# Count certificates for this registered domain issued in the last 7 days, so
+# we can refuse *before* spending a request we cannot afford. Reads notBefore
+# from each live cert rather than file mtime, which renewals would skew.
+certs_issued_last_7d() {
+    local cutoff now count=0 nb
+    now=$(date +%s)
+    cutoff=$((now - 7 * 86400))
+    for pem in /etc/letsencrypt/live/*/cert.pem; do
+        [ -e "$pem" ] || continue
+        case "$(basename "$(dirname "$pem")")" in
+            *".$REGISTERED_DOMAIN"|"$REGISTERED_DOMAIN") ;;
+            *) continue ;;
+        esac
+        nb=$(openssl x509 -in "$pem" -noout -startdate 2>/dev/null | cut -d= -f2-) || continue
+        nb=$(date -d "$nb" +%s 2>/dev/null) || continue
+        [ "$nb" -ge "$cutoff" ] && count=$((count + 1))
+    done
+    printf '%s' "$count"
+}
+
 # 1. Certificate first. The vhost references the cert paths, so writing the
 #    vhost before the cert exists would make nginx -t fail.
 if [ -s "/etc/letsencrypt/live/$HOST/fullchain.pem" ]; then
     echo "==> certificate for $HOST already present"
 else
-    echo "==> requesting certificate for $HOST"
+    issued=$(certs_issued_last_7d)
+    if [ "$issued" -ge "$CERT_BUDGET" ]; then
+        echo "murzak-app-vhost: REFUSING to request a certificate for $HOST." >&2
+        echo "  $issued certificates for *.$REGISTERED_DOMAIN issued in the last 7 days" >&2
+        echo "  (budget $CERT_BUDGET, Let's Encrypt hard limit 50 per registered domain per week)." >&2
+        echo "  The app is still reachable over http. Options: wait for the window to" >&2
+        echo "  roll, raise MURZAK_CERT_BUDGET if you know the real headroom, or move to" >&2
+        echo "  a DNS-01 wildcard certificate -- see docs/app-subdomain-routing.md." >&2
+        exit 3
+    fi
+    echo "==> requesting certificate for $HOST ($issued/$CERT_BUDGET used this week)"
     certbot certonly --webroot -w "$WEBROOT" -d "$HOST" \
         --non-interactive --agree-tos --keep-until-expiring \
         || die "certbot failed for $HOST (is DNS pointing here, and is :80 reachable?)"
