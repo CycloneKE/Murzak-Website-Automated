@@ -826,7 +826,14 @@ const CURATED_APP_CONFIG = {
             NEXT_PUBLIC_WEBAPP_URL: ctx.fqdn,
             NEXT_PUBLIC_WEBSITE_URL: ctx.fqdn,
             NEXT_PUBLIC_EMBED_LIB_URL: `${ctx.fqdn}/embed/embed.js`,
-            ALLOWED_HOSTNAMES: host,
+            // Cal.com's middleware does JSON.parse(`[${ALLOWED_HOSTNAMES}]`) —
+            // confirmed live (2026-08-17): a bare hostname here produced
+            // `[diag-cal-test...]`, invalid JSON (unquoted token), and
+            // crash-looped the app on every request. The value itself must
+            // carry embedded double quotes so, once buildMultiServiceComposeYaml's
+            // generic env-line template wraps it in YAML's own outer quotes,
+            // the container actually receives `"host"` (literal quote chars).
+            ALLOWED_HOSTNAMES: `\\"${host}\\"`,
             NEXTAUTH_URL: ctx.fqdn,
             NEXTAUTH_SECRET: ctx.nextAuthSecret,
             CALENDSO_ENCRYPTION_KEY: ctx.encryptionKey,

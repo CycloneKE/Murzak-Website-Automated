@@ -57,7 +57,7 @@ function decodeComposeFromBody(body) {
     ok(yaml.includes('DATABASE_HOST: "postgres:5432"'), "app gets DATABASE_HOST for start.sh's wait-for-it check");
     ok(yaml.includes('NEXT_PUBLIC_WEBAPP_URL: "https://acct1-scheduling-ab12cd.murzaktech.com"'), "app gets NEXT_PUBLIC_WEBAPP_URL set to the assigned fqdn");
     ok(yaml.includes('NEXTAUTH_URL: "https://acct1-scheduling-ab12cd.murzaktech.com"'), "app gets NEXTAUTH_URL set to the assigned fqdn");
-    ok(yaml.includes('ALLOWED_HOSTNAMES: "acct1-scheduling-ab12cd.murzaktech.com"'), "ALLOWED_HOSTNAMES is the bare host, not the full https:// URL");
+    ok(yaml.includes('ALLOWED_HOSTNAMES: "\\"acct1-scheduling-ab12cd.murzaktech.com\\""'), "ALLOWED_HOSTNAMES carries embedded quotes (Cal.com JSON.parses `[${ALLOWED_HOSTNAMES}]`) and is the bare host, not the full https:// URL");
     ok(/NEXTAUTH_SECRET: ".+"/.test(yaml), "app gets a generated NEXTAUTH_SECRET");
     ok(/CALENDSO_ENCRYPTION_KEY: ".+"/.test(yaml), "app gets a generated CALENDSO_ENCRYPTION_KEY");
     ok(/CRON_API_KEY: ".+"/.test(yaml), "app gets a generated CRON_API_KEY");
