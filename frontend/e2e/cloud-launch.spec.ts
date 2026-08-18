@@ -53,15 +53,24 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await page.getByRole('button', { name: /I authorize Murzak to help set up/i }).click();
     await page.getByRole('button', { name: 'Create My Project & Launch', exact: true }).click();
 
-    // 3. Auto-attach lands on Checkout (not a separate /payment/:id route —
-    // there isn't one in the current flow; PaymentMethods renders directly
-    // on Checkout.tsx). Pay via the same dev-only mock-pay rail
-    // checkout.spec.ts already uses (PaymentMethods.tsx, gated on
-    // import.meta.env.DEV). This replaces a manual /payment/:invoiceId +
-    // fetch('/api/paypal/capture-order') dance that asserted a navigation
-    // model the app no longer has — it never advanced past /checkout/CHK-...
-    // in CI, which is exactly this drift, not a product bug.
+    // 3. Auto-attach lands on the unified checkout page for the new draft
+    // order — NOT a direct /payment/:invoiceId redirect, which predates the
+    // unified-checkout migration this flow now goes through. This is also
+    // this account's first purchase of a monthly-billed service, so it's
+    // eligible for the annual-prepay term selector (checkoutBillingTerm.js's
+    // isEligibleForTermChoice), which defers invoice creation — and with it
+    // PaymentMethods itself, which Checkout.tsx renders only once `invoice`
+    // is set — until the term is confirmed. Unlike /pricing?configure=…
+    // registrations (see the second test below), which still bill
+    // synchronously at registration.
     await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
+    await expect(page.getByText('Billing', { exact: true })).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Continue to payment' }).click();
+
+    // Pay via the same dev-only mock-pay rail checkout.spec.ts already uses
+    // (PaymentMethods.tsx, gated on import.meta.env.DEV) rather than a manual
+    // /api/paypal/capture-order fetch — one less hand-rolled path to drift
+    // out of sync with the real payment component.
     const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
     await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
     await mockPayBtn.click();

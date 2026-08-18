@@ -23,6 +23,7 @@ const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
 const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const { annualPrepayKes } = require("../services/billingTerm");
 
 function makeRes() {
   const r = { statusCode: 200, body: null };
@@ -43,11 +44,6 @@ function findHandler(router, method, path) {
 // aren't independently importable (server.js is a monolith). Mirrors the
 // real implementations closely; pricing itself always comes from the real
 // catalog snapshot via the real orderStore/orderCapacity modules above. ----
-
-function seqOf(name) {
-  const m = /-(\d+)$/.exec(String(name || ""));
-  return m ? Number(m[1]) : 0;
-}
 
 function normalizeSelectedServices(input) {
   return (Array.isArray(input) ? input : [])
@@ -144,13 +140,6 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
   return { ok: true, invoice: created.data?.data };
 }
 
-async function fetchInvoicesForUser(client, webAccountName) {
-  const res = await client.get("/api/resource/Portal Invoice");
-  const rows = (res.data?.data || []).filter((i) => i.web_account === webAccountName);
-  rows.sort((a, b) => seqOf(b.name) - seqOf(a.name));
-  return rows.map((i) => ({ docName: i.name, status: i.status, type: i.type, plan: i.plan, amount: i.amount }));
-}
-
 function baseCtx(client, overrides = {}) {
   return {
     requireAuth: (req, res, next) => next(), // never invoked directly; findHandler skips it
@@ -168,7 +157,6 @@ function baseCtx(client, overrides = {}) {
     fetchWebAccount,
     applyPlanAndCreateInvoice,
     updateWebAccountServices,
-    fetchInvoicesForUser,
     asArray: (v) => (Array.isArray(v) ? v : []),
     normalizeSelectedServices,
     findOpenInvoice: async () => null,
@@ -179,6 +167,7 @@ function baseCtx(client, overrides = {}) {
     mergeServicesById,
     buildWebAccountServiceRows,
     CAPACITY_REQUEST_DOCTYPE: "Capacity Request",
+    sumSelectedServicesMonthlyKes,
     ...overrides,
   };
 }
@@ -229,6 +218,65 @@ function baseCtx(client, overrides = {}) {
     const res = makeRes();
     await getHandler({ session: { webAccount: "intruder" }, params: { id: orderId } }, res);
     ok(res.statusCode === 403, "status 403");
+  }
+
+  section("GET /api/orders/:id — eligibleForTermChoice");
+  {
+    // No ctx override here: ordersRoutes.js imports isEligibleForTermChoice
+    // directly as a plain module function (mirroring annualPrepayKes), never
+    // reading it off ctx, so a ctx override wouldn't affect the real call
+    // below. The real function returns true here because acct-elig
+    // genuinely has no paid Subscription invoice on file — a real first
+    // purchase, the actual condition this test documents.
+    const client = makeMockFrappe({
+      "Web Account": { "acct-elig": { name: "acct-elig", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client);
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const get = findHandler(router, "get", "/api/orders/:id");
+
+    const createRes = makeRes();
+    await create({ session: { webAccount: "acct-elig" }, body: { serviceId: "starter-web-hosting" } }, createRes);
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await get({ session: { webAccount: "acct-elig" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.order?.eligibleForTermChoice === true, "eligibleForTermChoice reflects the real eligibility check (no paid invoice history)");
+  }
+  {
+    // Fail-safe direction: an eligibility-check error must resolve to
+    // false, never true — showing an inappropriate term choice to an
+    // existing customer (C5) is the risk here, the opposite direction from
+    // the renewal sweep's fail-safe-to-monthly.
+    //
+    // ordersRoutes.js imports isEligibleForTermChoice directly as a plain
+    // module function (mirroring annualPrepayKes) rather than reading it off
+    // ctx, so a ctx override can't simulate the failure here — force a
+    // genuine failure in its one dependency instead (the Portal Invoice list
+    // query it runs internally), exactly as a real Frappe outage would.
+    const client = makeMockFrappe({
+      "Web Account": { "acct-elig-err": { name: "acct-elig-err", plan: "None", selected_services: [] } },
+    });
+    const realGet = client.get;
+    client.get = async (url, ...rest) => {
+      if (url === "/api/resource/Portal Invoice") throw new Error("boom");
+      return realGet(url, ...rest);
+    };
+    const ctx = baseCtx(client);
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const get = findHandler(router, "get", "/api/orders/:id");
+
+    const createRes = makeRes();
+    await create({ session: { webAccount: "acct-elig-err" }, body: { serviceId: "starter-web-hosting" } }, createRes);
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await get({ session: { webAccount: "acct-elig-err" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200 (GET order itself still succeeds)");
+    ok(res.body?.order?.eligibleForTermChoice === false, "eligibility check failure fails safe to false");
   }
 
   section("prepare-payment — add-on branch (has paid plan)");
@@ -322,6 +370,166 @@ function baseCtx(client, overrides = {}) {
     ok(!!createdInvoice, "an actual Portal Invoice doc was created (not skipped)");
     ok(createdInvoice?.amount === 1200, "invoice amount reflects the order's service (KES 1200), not zero_amount skip");
     ok(createdInvoice?.status === "Unpaid", "created invoice is Unpaid");
+  }
+
+  // ---- prepare-payment — first-purchase annual amount correction ----
+  // Regression coverage for the Critical money bug: applyPlanAndCreateInvoice
+  // has no billing-term awareness and always bills the plain monthly sum, so
+  // a first-time annual purchase must have its just-created invoice's amount
+  // corrected in the route (see the comment above the correction code in
+  // ordersRoutes.js). These prove the correction fires exactly on the
+  // first-purchase branch and exactly when the effective term is annual —
+  // and that the sibling add-on branch, which already bills correctly via
+  // createAddonInvoice, is never touched by it.
+
+  section("prepare-payment — first purchase, eligible, confirmed annual: bills the annual-prepay amount");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-ann-amt": { name: "acct-ann-amt", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-ann-amt" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    // The confirmed term is carried on THIS call — the checkout page defers
+    // prepare-payment until the customer has picked a term, so there is no
+    // separate "at order creation" term to fall back to anymore.
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-ann-amt" }, params: { id: orderId }, body: { billingTerm: "annual" } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const monthlySum = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    const expectedAnnual = annualPrepayKes(monthlySum);
+    const invoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!invoice, "invoice created");
+    ok(
+      invoice.amount === expectedAnnual,
+      `invoice amount === annualPrepayKes(monthly) (${expectedAnnual}), got ${invoice.amount}`
+    );
+    ok(invoice.amount !== monthlySum, "invoice amount is NOT the plain monthly sum (the confirmed bug)");
+    ok(invoice.billing_term === "annual", "the created invoice itself carries billing_term=annual");
+  }
+
+  section("prepare-payment — first purchase, eligible, omitted term bills the plain monthly sum");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-mo-amt": { name: "acct-mo-amt", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-mo-amt" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-mo-amt" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const monthlySum = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    const invoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!invoice, "invoice created");
+    ok(
+      invoice.amount === monthlySum,
+      `invoice amount === plain monthly sum (${monthlySum}), untouched by the annual correction`
+    );
+    ok(!("billing_term" in invoice), "no billing_term written on a monthly invoice");
+  }
+
+  section("prepare-payment — add-on branch is NOT double-converted, even if a term is sent");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-addon-ann": { name: "acct-addon-ann", plan: "Starter", selected_services: [] } },
+    });
+    // createAddonInvoice already produces the correct pro-rated annual amount
+    // internally (this task deliberately leaves that path untouched) —
+    // simulate that by seeding a Portal Invoice with a known "already
+    // correct" amount, and prove the first-purchase-only annual correction
+    // in ordersRoutes.js never re-applies annualPrepayKes to it (which
+    // would 12x-overcharge a real add-on).
+    client.store["Portal Invoice"] = client.store["Portal Invoice"] || {};
+    client.store["Portal Invoice"]["PINV-ADDON-1"] = { name: "PINV-ADDON-1", amount: 5000, status: "Unpaid" };
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: async () => ({ invoiceDocName: "PINV-ADDON-1" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-addon-ann" }, body: { serviceId: "starter-web-hosting", billingTerm: "annual" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-addon-ann" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.invoiceDocName === "PINV-ADDON-1", "invoiceDocName from createAddonInvoice");
+
+    const invoice = client.store["Portal Invoice"]["PINV-ADDON-1"];
+    ok(
+      invoice.amount === 5000,
+      "add-on invoice amount unchanged by the first-purchase-only annual correction (not 12x'd)"
+    );
+  }
+
+  section("prepare-payment — an ineligible order's client-sent 'annual' is silently ignored");
+  {
+    // acct-not-eligible already has a paid Subscription invoice on file
+    // (seeded directly, simulating a returning customer), so this account
+    // is NOT eligible for a term choice on a new purchase — the server must
+    // re-verify this itself and never trust the client's billingTerm.
+    const client = makeMockFrappe({
+      "Web Account": { "acct-not-eligible": { name: "acct-not-eligible", plan: "None", selected_services: [] } },
+      "Portal Invoice": {
+        "PINV-OLD-PAID": {
+          name: "PINV-OLD-PAID",
+          web_account: "acct-not-eligible",
+          type: "Subscription",
+          status: "Paid",
+          invoice_date: "2026-01-01",
+        },
+      },
+    });
+    const ctx = baseCtx(client, { hasPaidSubscriptionForPlan: async () => false });
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    await create(
+      { session: { webAccount: "acct-not-eligible" }, body: { serviceId: "starter-web-hosting", planKey: "Starter" } },
+      createRes
+    );
+    const orderId = createRes.body.order.id;
+
+    const res = makeRes();
+    await prep(
+      { session: { webAccount: "acct-not-eligible" }, params: { id: orderId }, body: { billingTerm: "annual" } },
+      res
+    );
+    ok(res.statusCode === 200, "status 200");
+    const monthlySum = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    const invoice = client.store["Portal Invoice"]?.[res.body.invoiceDocName];
+    ok(!!invoice, "invoice created");
+    ok(invoice.amount === monthlySum, "billed the plain monthly sum, NOT annualPrepayKes, despite the client's annual request");
+    ok(!("billing_term" in invoice) || invoice.billing_term !== "annual", "invoice is not stamped annual for an ineligible purchase");
   }
 
   // ------------------------------------------------------------------
@@ -560,6 +768,38 @@ function baseCtx(client, overrides = {}) {
     ok(created?.service_id === "starter-web-hosting", "service_id set");
     ok(created?.web_account === "acct-1", "web_account set");
     ok(created?.status === "Open", "status === Open");
+  }
+
+  section("POST /api/orders — billingTerm is accepted and persisted");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-term": { name: "acct-term", plan: "None", selected_services: [] } },
+    });
+    const ctx = baseCtx(client);
+    const router = createOrdersRouter(ctx);
+    const create = findHandler(router, "post", "/api/orders");
+
+    const res = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting", billingTerm: "annual" } },
+      res
+    );
+    ok(res.statusCode === 200, "annual-term order is accepted");
+    ok(res.body?.order?.billingTerm === "annual", "order echoes the requested term");
+
+    const res2 = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting" } },
+      res2
+    );
+    ok(res2.body?.order?.billingTerm === "monthly", "omitted term defaults to monthly");
+
+    const res3 = makeRes();
+    await create(
+      { session: { webAccount: "acct-term" }, body: { serviceId: "starter-web-hosting", billingTerm: "bogus" } },
+      res3
+    );
+    ok(res3.body?.order?.billingTerm === "monthly", "unknown term falls back to monthly, never errors");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

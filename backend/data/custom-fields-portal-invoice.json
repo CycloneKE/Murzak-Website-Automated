@@ -41,5 +41,15 @@
     "in_standard_filter": 1,
     "insert_after": "paypal_order_id",
     "description": "PayPal capture id, persisted for reconciliation/audit. Idempotency is enforced in app code (an already-Paid invoice is never re-captured), so this is intentionally NOT a DB-unique field — most invoices (unpaid / M-Pesa) leave it blank."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "billing_term",
+    "label": "Billing Term",
+    "fieldtype": "Select",
+    "options": "\nmonthly\nannual",
+    "insert_after": "amount",
+    "description": "Set once, at invoice creation, from the customer's confirmed checkout choice or the renewal sweep. Absent means monthly — every pre-existing invoice is safe by construction. This is the SOLE source of an account's billing term; see backend/services/checkoutBillingTerm.js."
   }
 ]

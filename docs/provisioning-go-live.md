@@ -116,6 +116,7 @@ writes three `Web Account` fields that only exist in Frappe once imported.
 
 - Importing the Frappe doctype(s) and the Developer Access custom fields
   (`backend/data/custom-fields-web-account.json`).
+- **`Portal Invoice.billing_term`** — import `backend/data/custom-fields-portal-invoice.json` via Desk "Import Document" or `bench --site <site> import-doc backend/data/custom-fields-portal-invoice.json`. If skipped, every account is billed monthly (the field reads as absent, which is the documented safe default) — annual prepay simply won't be offered until it's imported. This does NOT risk the renewal sweep itself: the field is never read via a bulk list query (see checkoutBillingTerm.js), so an unimported field cannot fail renewal billing for other customers.
 - Writing the lane scripts (`BENCH_PROVISION_CMD`) / Coolify project setup, and
   the optional `BACKUP_CONFIG_CMD` / `EDGE_CONFIG_CMD`.
 - Standing up the dedicated Redis for BullMQ.
