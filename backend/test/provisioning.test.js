@@ -421,6 +421,39 @@ const okLane = {
     "unique job_key violation on insert -> idempotent skip (no double-create, no error)"
   );
 
+  // Regression, 2026-08-18: a 417 is Frappe's GENERIC validation-error status
+  // -- it fires for ANY frappe.exceptions.ValidationError, not only a missing
+  // doctype. Blindly treating every 417 as doctypeMissing mislabeled a real
+  // bug (the "lane" Select field rejecting "emailHosting"/"objectStorage"/
+  // "k8s" -- none were in its options list) as "doctype not installed",
+  // which is false and actively misleading (two other jobs on the SAME
+  // invoice succeeded moments earlier). A 417 whose body carries a
+  // ValidationError exc_type must be reported as a real rejection, not
+  // mistaken for a missing doctype.
+  const savedConsoleError = console.error;
+  let loggedRejection = "";
+  console.error = (msg) => { loggedRejection += msg; };
+  const selectRejectClient = {
+    get: async () => ({ data: { data: [] } }),
+    post: async () => {
+      const e = new Error("ValidationError");
+      e.response = {
+        status: 417,
+        data: { exc_type: "ValidationError", exception: 'frappe.exceptions.ValidationError:  Lane cannot be "emailHosting"' },
+      };
+      throw e;
+    },
+    put: async () => ({}),
+  };
+  try {
+    r = await svc.enqueueProvisioningForInvoice({ client: selectRejectClient, webAccount: "WA", invoiceDocName: "INV6", serviceIds: ["addon-mailboxes-5"] });
+  } finally {
+    console.error = savedConsoleError;
+  }
+  ok(r.doctypeMissing === false, "a ValidationError 417 is NOT mislabeled as doctype-missing");
+  ok(r.skipped.some((x) => x.reason.startsWith("error:")), "the rejection is recorded as a real error, not silently treated as 'doctype not installed'");
+  ok(/job insert REJECTED/.test(loggedRejection) && /emailHosting/.test(loggedRejection), "the rejection is logged loudly (console.error), not just swallowed into a best-effort staff notification");
+
   section("dispatcher mode selection (no Redis needed)");
   const savedRunner = process.env.PROVISIONING_RUNNER_ENABLED;
   const savedQueue = process.env.PROVISIONING_QUEUE;
