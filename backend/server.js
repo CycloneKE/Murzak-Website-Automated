@@ -3143,7 +3143,16 @@ async function ensurePendingHostingSiteForRequest(client, {
   await createHostingActivityLog(client, {
     webAccountName,
     hostingSiteName: siteName,
-    eventType: "site_initialized",
+    // "site_initialized" is not a value the live Hosting Activity Log
+    // DocType's Event Type Select accepts — confirmed 2026-08-18 via the
+    // real doctype metadata: only domain_connected, subdomain_created,
+    // file_uploaded, deployment_requested, deployment_completed, ssl_enabled,
+    // support_request_opened. Sending it 417s the WHOLE request this call is
+    // nested inside (e.g. the domain purchase-request endpoint), even though
+    // the Hosting Site record above was already created successfully.
+    // "deployment_requested" is the closest existing value to "a site record
+    // now exists and is waiting to be provisioned."
+    eventType: "deployment_requested",
     title: "Hosting site initialized",
     description: `${primaryHost} created in pending state awaiting provisioning.`,
   });
@@ -3170,7 +3179,10 @@ async function activateHostingSite(client, {
   await createHostingActivityLog(client, {
     webAccountName,
     hostingSiteName,
-    eventType: "site_activated",
+    // "site_activated" is not in the live Event Type Select either — same
+    // bug as "site_initialized" above. "deployment_completed" is the closest
+    // existing value to "the site is now live."
+    eventType: "deployment_completed",
     title: "Hosting site activated",
     description: `${primaryHost} is now live on hosting.`,
   });
