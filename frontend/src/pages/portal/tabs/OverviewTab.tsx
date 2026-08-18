@@ -22,6 +22,7 @@ import SecurityOverviewCard from "../../../components/portal/SecurityOverviewCar
 import ServiceHealthCard, { ServiceHealth } from "../../../components/portal/ServiceHealthCard";
 import { classifyActivity } from "../helpers";
 import { usePortal } from "../PortalContext";
+import { getService } from "../../../config/serviceCatalog";
 
 const OverviewTab: React.FC = () => {
   const {
@@ -84,6 +85,15 @@ const OverviewTab: React.FC = () => {
 
   const onlineServiceCount = selectedServices.filter(s => s.status === 'Active').length;
   const hasDegradedService = selectedServices.some(s => s.status !== 'Active' && s.status !== 'Setting up');
+  // Sums every currently Active service's real catalog price — NOT
+  // localInvoices[0]?.amount, which only ever read the FIRST invoice ever
+  // issued. An account that adds a second service (an add-on invoice, not a
+  // new "subscription" invoice) kept showing only its original signup total
+  // forever. Uses the same 'Active' predicate as onlineServiceCount above so
+  // the two numbers never disagree about what's actually running.
+  const monthlySpendKes = selectedServices
+    .filter(s => s.status === 'Active')
+    .reduce((sum, s) => sum + (getService(s.serviceId)?.pricing.monthlyKes || 0), 0);
 
   // Next-invoice estimate uses the same 30-day billing cycle the backend
   // already assumes for prorated credit (see computeProratedCreditKes in
@@ -108,7 +118,7 @@ const OverviewTab: React.FC = () => {
     },
     {
       title: "Monthly Spend",
-      value: `KES ${Number(localInvoices.length > 0 && localInvoices[0]?.amount ? localInvoices[0].amount : 0).toLocaleString()}`,
+      value: `KES ${monthlySpendKes.toLocaleString()}`,
       icon: <DollarSign size={20} />
     },
     {
