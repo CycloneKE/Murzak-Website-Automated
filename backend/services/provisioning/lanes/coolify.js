@@ -475,6 +475,7 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
   const deadline = Date.now() + serviceStartTimeoutMs();
   let lastStatus = "";
   let consecutiveRunning = 0;
+  let consecutiveExited = 0;
   while (Date.now() < deadline) {
     await wait(serviceStartPollMs());
     const res = await client.get(`/api/v1/services/${encodeURIComponent(uuid)}`);
@@ -483,12 +484,26 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
     const state = lastStatus.split(":")[0];
     if (state === "running") {
       consecutiveRunning += 1;
+      consecutiveExited = 0;
       if (consecutiveRunning >= 2) return lastStatus;
-    } else {
+    } else if (state === "exited") {
       consecutiveRunning = 0;
-      if (state === "exited") {
+      // Require TWO consecutive "exited" reads too, not one — the same
+      // asymmetry that made "running" single-sample-unsafe applies here in
+      // reverse. Live 2026-08-18: a job legitimately mid-restart (a healthy
+      // container that briefly reports "exited" between the old process
+      // dying and the new one starting) was caught on exactly one read and
+      // permanently failed — the job went to needs_human and its
+      // (perfectly fine, still-running-seconds-later) container was
+      // abandoned. One exited sample proves nothing; two consecutive ones,
+      // serviceStartPollMs apart, means it's actually not coming back.
+      consecutiveExited += 1;
+      if (consecutiveExited >= 2) {
         throw permanentError(`coolify: service failed to start (status=${lastStatus})`, { status: lastStatus });
       }
+    } else {
+      consecutiveRunning = 0;
+      consecutiveExited = 0;
     }
   }
   throw new Error(
@@ -520,6 +535,20 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  * (`appConfig.primaryService` for multi-service apps; every single-service
  * curated app and the generic fallback both always name their one service
  * "app", so that's the default when no multi-service config applies).
+ *
+ * The PATCH alone only writes Coolify's database record — confirmed live
+ * 2026-08-18 (recovering PRV-USER-26-08-18-0001-00029/00030, both stuck with
+ * a running container and access.url set from an EARLIER successful PATCH):
+ * the container's own labels and its on-disk docker-compose.yml had no
+ * `traefik.*`/FQDN entries at all, and the URL 503'd. Coolify only bakes the
+ * new fqdn into the container's Traefik labels when the service is next
+ * restarted — the PATCH does not trigger that itself. Since every "existing"
+ * and freshly-created service reaches this function already running (from
+ * ensureServiceRunning, called before this), that restart is never implicit;
+ * without it the URL this function returns — and that the job then reports
+ * "active" with — has never actually routed. Confirmed the fix live: a
+ * `/restart` call after the PATCH is what makes Traefik pick up the label
+ * (verified both recovered URLs went 503 -> 200 only after this).
  */
 async function attachServiceUrl(client, uuid, job, name) {
   const slug = appDomain.slugWithSuffix(name, job.name);
@@ -535,7 +564,40 @@ async function attachServiceUrl(client, uuid, job, name) {
     console.warn(`[coolify] domains PATCH failed for ${name} (${fqdn}): ${e.message}`);
     return "";
   }
+  // Best-effort, mirroring the PATCH above: the domain record is already
+  // saved even if the restart itself fails or times out, so a customer never
+  // loses the fqdn — worst case Traefik just doesn't route it until the next
+  // restart from any other cause (e.g. a future redeploy).
+  try {
+    await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/restart`);
+    await waitForRunningAgain(client, uuid);
+  } catch (e) {
+    console.warn(`[coolify] restart-after-domain-attach failed for ${name} (${fqdn}): ${e.message}`);
+  }
   return fqdn;
+}
+
+/**
+ * After triggering a restart, wait for the service to come back to
+ * "running" (same two-consecutive-reads tolerance as ensureServiceRunning)
+ * before returning — so attachServiceUrl doesn't hand back a URL for a
+ * container that's still mid-restart. Purely best-effort: never throws,
+ * since the caller already degrades gracefully on any failure here.
+ */
+async function waitForRunningAgain(client, uuid, { sleep } = {}) {
+  const wait = sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  const deadline = Date.now() + serviceStartTimeoutMs();
+  let consecutiveRunning = 0;
+  while (Date.now() < deadline) {
+    await wait(serviceStartPollMs());
+    const status = await serviceStatus(client, uuid);
+    if (status.split(":")[0] === "running") {
+      consecutiveRunning += 1;
+      if (consecutiveRunning >= 2) return;
+    } else {
+      consecutiveRunning = 0;
+    }
+  }
 }
 
 /**
