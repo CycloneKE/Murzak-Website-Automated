@@ -138,7 +138,20 @@ async function requestScaleOut(client, { reason, ramMb }) {
     requestName = res.data?.data?.name || null;
   } catch (e) {
     const code = e?.response?.status;
-    if (code === 404 || code === 417) doctypeMissing = true;
+    const excType = e?.response?.data?.exc_type || "";
+    // A 417 is Frappe's generic validation-error status, not exclusively
+    // "doctype missing" — see the identical fix in provisioningService.js
+    // (2026-08-18: this exact confusion hid a real Select-field rejection
+    // for months). Only a genuine DoesNotExistError, or a bare 404 with no
+    // exc_type, means the doctype itself isn't installed.
+    if (excType === "DoesNotExistError" || (code === 404 && !excType)) {
+      doctypeMissing = true;
+    } else if (code) {
+      console.error(
+        `[provisioning] Capacity Request insert REJECTED: status=${code} exc_type=${excType || "?"} — ` +
+          `${e?.response?.data?.exception || e?.message || ""}`
+      );
+    }
   }
 
   await notifyStaff(

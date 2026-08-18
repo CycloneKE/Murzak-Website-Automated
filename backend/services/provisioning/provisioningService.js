@@ -260,9 +260,19 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       }
     } catch (e) {
       const status = e?.response?.status;
+      const excType = e?.response?.data?.exc_type || "";
       const errText = `${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`;
-      // Frappe returns 417/404 when the doctype doesn't exist yet.
-      if (status === 404 || status === 417 || e.__doctypeMissing) {
+      // A 417 is Frappe's GENERIC validation-error status — it fires for ANY
+      // frappe.exceptions.ValidationError, not just a missing doctype. This
+      // used to treat every 417 as "doctype not installed" (status===417
+      // alone), which silently mislabeled a real bug: the "lane" Select field
+      // rejecting "emailHosting"/"objectStorage"/"k8s" (none were in its
+      // options list — confirmed live 2026-08-18, every job for those three
+      // lanes 417'd on insert, forever, invisibly, since they shipped). Only
+      // treat this as doctype-missing when Frappe's own exc_type says so;
+      // a bare 404 with no exc_type is the other legitimate "not installed"
+      // shape (the resource route itself doesn't exist).
+      if (excType === "DoesNotExistError" || (status === 404 && !excType) || e.__doctypeMissing) {
         doctypeMissing = true;
         // Still surface the service so staff get notified even without the doctype.
         skipped.push({ ...payload, reason: "doctype not installed", domainChoice });
@@ -271,6 +281,16 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
         // Idempotent: a job for (invoice, service) already exists.
         skipped.push({ ...payload, reason: "already queued (unique)", domainChoice });
       } else {
+        // A real, un-recognized rejection (e.g. a Select field missing a
+        // value the catalog actually uses). This is the exact class of bug
+        // that left addon-mailboxes-5 provision-less for USER-26-08-18-0001
+        // with no trace anywhere but a best-effort staff notification —
+        // console.error so it shows up in server logs even if that
+        // notification channel is unconfigured or gets missed.
+        console.error(
+          `[provisioning] job insert REJECTED for ${webAccount}/${serviceId} (invoice ${invoiceDocName}): ` +
+            `status=${status} exc_type=${excType || "?"} — ${errText}`
+        );
         skipped.push({ ...payload, reason: `error: ${e?.message || status || "unknown"}`, domainChoice });
       }
     }
