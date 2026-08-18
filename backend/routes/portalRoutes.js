@@ -746,6 +746,59 @@ router.post("/api/portal/updates/bulk-delete", requireAuth, async (req, res) => 
 
 // --- SERVICE PROVISIONING ACTIVITY (real status/log, no fabricated telemetry) ---
 
+const PROVISIONING_ACTIVITY_FIELDS = [
+  "name", "service_id", "status", "log", "backup_status", "edge_status", "error",
+  "attempts", "access", "creation", "modified", "target",
+];
+
+// Shared by both the per-service and the account-wide activity routes so the
+// two never drift into reporting different statuses for the same job.
+function mapProvisioningJobRow(j) {
+  // access is a JSON string (see doctype-provisioning-job.json) written by
+  // whichever lane provisioned the service. Normalize to one field so the
+  // frontend doesn't need to know the lane-specific shape. Only meaningful
+  // once the job is actually active. CUSTOMER URL ONLY: access.manageUrl
+  // is the Coolify ADMIN panel — never surface it to a customer (white-
+  // label leak AND the wrong link). No url yet => empty, and the frontend
+  // shows "URL pending".
+  let accessUrl = "";
+  if (j.status === "active" && j.access) {
+    try {
+      const parsed = JSON.parse(j.access);
+      accessUrl = parsed?.url || "";
+    } catch {
+      // malformed/truncated access JSON — degrade to no link, not a crash.
+    }
+  }
+  // Server-derived detail so the portal can render an HONEST, actionable
+  // state instead of an empty dashboard.
+  let statusDetail = "";
+  if (j.status === "needs_human") {
+    statusDetail = /no repository URL/i.test(j.error || "")
+      ? "waiting_on_repo"
+      : "needs_attention";
+  } else if (j.status === "active" && !accessUrl) {
+    statusDetail = "url_pending";
+  }
+  return {
+    id: j.name,
+    serviceId: j.service_id || "",
+    status: j.status || "",
+    statusDetail,
+    log: j.log || "",
+    backupStatus: j.backup_status || "",
+    edgeStatus: j.edge_status || "",
+    error: j.error || "",
+    attempts: Number(j.attempts || 0),
+    accessUrl,
+    // Which Murzak box hosts this tenant (box-1, box-2, …) — real
+    // placement data from the runner, safe to show the customer.
+    target: j.target || "",
+    createdAt: j.creation || "",
+    updatedAt: j.modified || "",
+  };
+}
+
 router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, res) => {
   try {
     const webAccountName = req.session?.webAccount || req.session?.user?.id;
@@ -762,62 +815,14 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
           ["web_account", "=", webAccountName],
           ["service_id", "=", serviceId],
         ]),
-        fields: JSON.stringify([
-          "name", "status", "log", "backup_status", "edge_status", "error",
-          "attempts", "access", "creation", "modified", "target",
-        ]),
+        fields: JSON.stringify(PROVISIONING_ACTIVITY_FIELDS),
         order_by: "modified desc",
         limit_page_length: 20,
       },
     });
 
     const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
-    const jobs = rows.map((j) => {
-      // access is a JSON string (see doctype-provisioning-job.json) written by
-      // whichever lane provisioned the service. Normalize to one field so the
-      // frontend doesn't need to know the lane-specific shape. Only meaningful
-      // once the job is actually active. CUSTOMER URL ONLY: access.manageUrl
-      // is the Coolify ADMIN panel — never surface it to a customer (white-
-      // label leak AND the wrong link). No url yet => empty, and the frontend
-      // shows "URL pending".
-      let accessUrl = "";
-      if (j.status === "active" && j.access) {
-        try {
-          const parsed = JSON.parse(j.access);
-          accessUrl = parsed?.url || "";
-        } catch {
-          // malformed/truncated access JSON — degrade to no link, not a crash.
-        }
-      }
-      // Server-derived detail so the portal can render an HONEST, actionable
-      // state instead of an empty dashboard.
-      let statusDetail = "";
-      if (j.status === "needs_human") {
-        statusDetail = /no repository URL/i.test(j.error || "")
-          ? "waiting_on_repo"
-          : "needs_attention";
-      } else if (j.status === "active" && !accessUrl) {
-        statusDetail = "url_pending";
-      }
-      return {
-        id: j.name,
-        status: j.status || "",
-        statusDetail,
-        log: j.log || "",
-        backupStatus: j.backup_status || "",
-        edgeStatus: j.edge_status || "",
-        error: j.error || "",
-        attempts: Number(j.attempts || 0),
-        accessUrl,
-        // Which Murzak box hosts this tenant (box-1, box-2, …) — real
-        // placement data from the runner, safe to show the customer.
-        target: j.target || "",
-        createdAt: j.creation || "",
-        updatedAt: j.modified || "",
-      };
-    });
-
-    return res.json({ ok: true, jobs });
+    return res.json({ ok: true, jobs: rows.map(mapProvisioningJobRow) });
   } catch (err) {
     // The Provisioning Job doctype may not be imported yet (see
     // services/provisioning/README.md) — degrade to an empty, honest result
@@ -826,6 +831,47 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
       return res.json({ ok: true, jobs: [] });
     }
     console.error("FETCH SERVICE ACTIVITY ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load service activity." });
+  }
+});
+
+// Account-wide: the most recent Provisioning Job per service_id, for the
+// resource LIST view — replaces trusting the Web Account's own optimistic
+// `status` (flipped "Active" at payment time regardless of whether
+// provisioning ever ran, see billingActivationService.activatedStatusFor).
+// Without this, the list page has no way to distinguish "bought and really
+// running" from "bought, paid, and never actually provisioned" — exactly the
+// gap that made addon-mailboxes-5 look identical to a working mailbox.
+router.get("/api/portal/services/activity", requireAuth, async (req, res) => {
+  try {
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
+
+    const client = frappeClient();
+    const resp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}`, {
+      params: {
+        filters: JSON.stringify([["web_account", "=", webAccountName]]),
+        fields: JSON.stringify(PROVISIONING_ACTIVITY_FIELDS),
+        order_by: "modified desc",
+        limit_page_length: 200,
+      },
+    });
+
+    const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
+    // Newest first from the query above, so the first row seen per
+    // service_id is the most recent job for that service.
+    const byService = {};
+    for (const row of rows) {
+      const sid = row.service_id;
+      if (!sid || byService[sid]) continue;
+      byService[sid] = mapProvisioningJobRow(row);
+    }
+    return res.json({ ok: true, jobsByService: byService });
+  } catch (err) {
+    if (err?.response?.status === 404 || /doctype/i.test(err?.response?.data?.exception || "")) {
+      return res.json({ ok: true, jobsByService: {} });
+    }
+    console.error("FETCH ACCOUNT SERVICE ACTIVITY ERROR:", err.response?.data || err.message);
     return res.status(500).json({ error: "Failed to load service activity." });
   }
 });

@@ -1,12 +1,12 @@
 import React from "react";
 import { Plus } from "lucide-react";
-import TopologyMap from "../../../components/portal/TopologyMap";
+import ResourceList from "../../../components/portal/ResourceList";
 import WebsiteHostingDashboard from "../../../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ResourceDetail from "./ResourceDetail";
 import { usePortal } from "../PortalContext";
 
 const CloudTab: React.FC = () => {
-  const { cloudServiceId, navigate, openAddonsModal, selectedServices, setActiveLogServiceId } =
+  const { cloudServiceId, navigate, openAddonsModal, selectedServices } =
     usePortal();
 
   return (
@@ -46,14 +46,14 @@ const CloudTab: React.FC = () => {
 
       {!cloudServiceId && (
         <div className="space-y-8">
-          <TopologyMap 
-            services={selectedServices} 
-            onNodeClick={(id) => {
-              const svc = selectedServices.find(s => s.serviceId === id);
+          <ResourceList
+            services={selectedServices}
+            onSelect={(id) => {
+              const svc = selectedServices.find((s) => s.serviceId === id);
               if (svc?.status === "Awaiting Payment") {
                 navigate("/portal/billing");
               } else {
-                setActiveLogServiceId(id);
+                navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
               }
             }}
           />

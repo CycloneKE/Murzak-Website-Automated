@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowRight, Plus } from "lucide-react";
 import EmptyState from "../../../components/portal/EmptyState";
 import { usePortal } from "../PortalContext";
 import { type SelectedServiceView } from "../../../types";
+import { fetchAllServiceActivity, ProvisioningActivityEntry } from "../../../services/serviceActivity";
+import { RealStateBadge } from "../../../components/portal/resourceState";
 
 /**
  * A resource-type section: the same services the Resources tab lists, narrowed
@@ -38,6 +40,17 @@ const ResourceListTab: React.FC<Props> = ({
   emptyDescription,
 }) => {
   const { navigate, openAddonsModal } = usePortal();
+
+  const [jobsByService, setJobsByService] = useState<Record<string, ProvisioningActivityEntry>>({});
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAllServiceActivity()
+      .then((jobs) => { if (!cancelled) setJobsByService(jobs); })
+      .catch(() => { if (!cancelled) setJobsByService({}); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [services.length]);
 
   return (
     <div className="w-full">
@@ -89,6 +102,9 @@ const ResourceListTab: React.FC<Props> = ({
                 >
                   {s.status}
                 </span>
+              </div>
+              <div className="mt-3">
+                <RealStateBadge svc={s} job={jobsByService[s.serviceId]} loading={loading} />
               </div>
               <span className="mt-5 inline-flex items-center gap-2 text-micro font-black uppercase text-murzak-accent">
                 Manage <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />

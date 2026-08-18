@@ -1,6 +1,7 @@
 
 export interface ProvisioningActivityEntry {
   id: string;
+  serviceId: string;
   status: string;
   // Server-derived honest state:
   //   "waiting_on_repo" — BYOA job parked because no repository URL is on file
@@ -44,6 +45,14 @@ export async function fetchServiceActivity(serviceId: string): Promise<Provision
   });
   const data = await handleJson<{ ok: true; jobs: ProvisioningActivityEntry[] }>(res);
   return data.jobs;
+}
+
+// The most recent Provisioning Job per service_id, for the resource LIST
+// view — the real (not payment-time-optimistic) provisioning state.
+export async function fetchAllServiceActivity(): Promise<Record<string, ProvisioningActivityEntry>> {
+  const res = await fetch(`/api/portal/services/activity`, { credentials: "include" });
+  const data = await handleJson<{ ok: true; jobsByService: Record<string, ProvisioningActivityEntry> }>(res);
+  return data.jobsByService || {};
 }
 
 // Deployment history for a git-sourced app. available:false => the section
