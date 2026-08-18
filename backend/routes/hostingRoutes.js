@@ -1,6 +1,8 @@
 
 const express = require('express');
 const customerDomains = require('../services/customerDomains');
+const hostingActivityLog = require('../services/hostingActivityLog');
+const HOSTING_EVENT_TYPES = hostingActivityLog.EVENT_TYPES;
 
 module.exports = function(ctx) {
   const { 
@@ -459,7 +461,11 @@ router.post("/api/hosting/subdomains", requireAuth, async (req, res) => {
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
       hosting_site: activeSite.id,
-      event_type: "subdomain_requested",
+      // "subdomain_requested" is not in the doctype's Select vocabulary (see
+      // services/hostingActivityLog.js EVENT_TYPES) and 417'd every request
+      // that hit this line in production. subdomain_created is the closest
+      // valid value until a real "requested" state exists.
+      event_type: HOSTING_EVENT_TYPES.SUBDOMAIN_CREATED,
       title: "Subdomain request submitted",
       description: fullSubdomain
     });
@@ -578,7 +584,7 @@ router.post("/api/hosting/files/upload", requireAuth, upload.single("file"), asy
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
       hosting_site: activeSite.id,
-      event_type: "file_uploaded",
+      event_type: HOSTING_EVENT_TYPES.FILE_UPLOADED,
       title: "File uploaded",
       description: `${req.file.originalname} uploaded successfully.`
     });
@@ -628,7 +634,7 @@ router.post("/api/hosting/deployments/request", requireAuth, async (req, res) =>
       web_account: webAccountName,
       service_id: HOSTING_SERVICE_ID,
       hosting_site: activeSite.id,
-      event_type: "deployment_requested",
+      event_type: HOSTING_EVENT_TYPES.DEPLOYMENT_REQUESTED,
       title: "Deployment requested",
       description: sourceFile ? `Deployment requested using ${sourceFile}` : "Deployment requested."
     });

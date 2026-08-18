@@ -17,6 +17,7 @@ const {
 } = require("./utils/mailer");
 const { createLoginThrottle } = require("./utils/loginThrottle");
 const firebaseAdmin = require("./services/firebaseAdmin");
+const hostingActivityLogService = require("./services/hostingActivityLog");
 
 // ---- Short-lived token store for password reset & email verification ----
 // In-memory (matches the current single-instance session store). Tokens are the
@@ -3046,136 +3047,39 @@ async function ensureUserOwnsHostingService(client, webAccountName) {
   return svc;
 }
 
-async function createHostingActivityLog(client, {
-  webAccountName,
-  hostingSiteName,
-  eventType,
-  title,
-  description = "",
-}) {
-  if (!hostingSiteName) return null;
-
-  return client.post("/api/resource/Hosting Activity Log", {
-    web_account: webAccountName,
-    service_id: HOSTING_SERVICE_ID,
-    hosting_site: hostingSiteName,
-    event_type: eventType,
-    title,
-    description,
+// Thin bindings over services/hostingActivityLog.js: that module is pure
+// (serviceId and the storage-allocation heuristic are passed in rather than
+// closed over) so it's importable and unit-testable without booting Express.
+// These wrappers restore the old call signature everywhere else in this file
+// and in routes/hostingRoutes.js so nothing downstream had to change.
+function createHostingActivityLog(client, opts) {
+  return hostingActivityLogService.createHostingActivityLog(client, {
+    ...opts,
+    serviceId: HOSTING_SERVICE_ID,
   });
 }
 
-async function findExistingHostingSiteByHost(client, webAccountName, primaryHost) {
-  const res = await client.get("/api/resource/Hosting Site", {
-    params: {
-      filters: JSON.stringify([
-        ["web_account", "=", webAccountName],
-        ["service_id", "=", HOSTING_SERVICE_ID],
-        ["primary_host", "=", primaryHost],
-      ]),
-      fields: JSON.stringify([
-        "name",
-        "primary_host",
-        "customer_domain",
-        "status",
-        "site_type",
-      ]),
-      limit_page_length: 1,
-      order_by: "creation desc",
-    },
-  });
-
-  return res.data?.data?.[0] || null;
-}
-
-async function ensurePendingHostingSiteForRequest(client, {
-  webAccountName,
-  siteType,
-  primaryHost,
-  serviceTier,
-  planName,
-  // The Customer Domain this site serves. primary_host stays as a
-  // denormalized copy so existing reads and provisioning are undisturbed, but
-  // this link is what actually ties a site to a domain the account owns.
-  customerDomainId = "",
-  notes = "",
-}) {
-  const existing = await findExistingHostingSiteByHost(client, webAccountName, primaryHost);
-  if (existing) {
-    // Backfill the link on sites created before domains were account-owned,
-    // so an existing customer's site picks it up on their next request
-    // instead of staying orphaned forever.
-    if (customerDomainId && !existing.customer_domain) {
-      try {
-        await client.put(`/api/resource/Hosting Site/${encodeURIComponent(existing.name)}`, {
-          customer_domain: customerDomainId,
-        });
-      } catch (e) {
-        console.warn("HOSTING SITE DOMAIN LINK WARN:", e.response?.data || e.message);
-      }
-    }
-    return existing;
-  }
-
-  const resolvedStorageLimitMb = getHostingStorageAllocationMb({
-    tier: serviceTier || "",
-    planName: planName || "",
-  });
-
-  const created = await client.post("/api/resource/Hosting Site", {
-    web_account: webAccountName,
-    service_id: HOSTING_SERVICE_ID,
-    site_type: siteType,
-    primary_host: primaryHost,
-    customer_domain: customerDomainId || "",
-    status: "pending",
-    plan_name: planName || "Website Hosting",
-    tier: serviceTier || "Starter",
-    storage_limit_mb: resolvedStorageLimitMb,
-    storage_used_mb: 0,
-    ssl_status: "pending",
-    document_root: "",
-    notes: String(notes || "").trim(),
-  });
-
-  const siteName = created.data?.data?.name;
-
-  await createHostingActivityLog(client, {
+function findExistingHostingSiteByHost(client, webAccountName, primaryHost) {
+  return hostingActivityLogService.findExistingHostingSiteByHost(client, {
     webAccountName,
-    hostingSiteName: siteName,
-    eventType: "site_initialized",
-    title: "Hosting site initialized",
-    description: `${primaryHost} created in pending state awaiting provisioning.`,
+    serviceId: HOSTING_SERVICE_ID,
+    primaryHost,
   });
-
-  return created.data?.data || null;
 }
 
-async function activateHostingSite(client, {
-  webAccountName,
-  hostingSiteName,
-  primaryHost,
-  documentRoot,
-  sslStatus = "active",
-  notes = "",
-}) {
-  await client.put(`/api/resource/Hosting Site/${encodeURIComponent(hostingSiteName)}`, {
-    primary_host: String(primaryHost || "").trim().toLowerCase(),
-    document_root: String(documentRoot || "").trim(),
-    status: "active",
-    ssl_status: String(sslStatus || "active").trim().toLowerCase(),
-    notes: String(notes || "").trim(),
+function ensurePendingHostingSiteForRequest(client, opts) {
+  return hostingActivityLogService.ensurePendingHostingSiteForRequest(client, {
+    ...opts,
+    serviceId: HOSTING_SERVICE_ID,
+    getStorageAllocationMb: getHostingStorageAllocationMb,
   });
+}
 
-  await createHostingActivityLog(client, {
-    webAccountName,
-    hostingSiteName,
-    eventType: "site_activated",
-    title: "Hosting site activated",
-    description: `${primaryHost} is now live on hosting.`,
+function activateHostingSite(client, opts) {
+  return hostingActivityLogService.activateHostingSite(client, {
+    ...opts,
+    serviceId: HOSTING_SERVICE_ID,
   });
-
-  return true;
 }
 
 async function finalizeMurzakSubdomainProvisioning(client, {
