@@ -65,14 +65,21 @@ const ContactPage: React.FC<ContactPageProps> = () => {
     } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition`;
 
   return (
-    <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20">
+    <div className="relative">
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind the
+          contact page content, matching the treatment on Home/Cloud/About/Products. */}
+      <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/contact-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+      <div className="absolute inset-0 z-0 section-bg-wash" />
+      <div className="absolute inset-0 z-0 section-bg-fade" />
+
+    <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-12 sm:py-20 relative z-10">
       <div className="text-center mb-12 sm:mb-16">
         <p className="font-mono text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Get in touch</p>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
         <p className="mt-5 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto leading-relaxed">
-          Tell us what you're trying to do — in plain words. Our Nairobi team usually replies within one business day.
+          Tell us what you're trying to do, in plain words. Our Nairobi team usually replies within one business day.
         </p>
       </div>
 
@@ -172,6 +179,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 };
