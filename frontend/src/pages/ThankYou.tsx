@@ -23,6 +23,11 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
   return (
     <div className="animate-fade-in bg-transparent text-murzak-ink dark:text-slate-100 transition-colors duration-300">
       <section className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-transparent px-6">
+        <img
+          src="/images/checkout-flow-bg.webp"
+          alt=""
+          className="absolute inset-0 z-[-2] w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
+        />
         <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-white via-white/95 to-white dark:from-murzak-ink dark:via-murzak-ink/95 dark:to-murzak-ink" />
 
         <div className="max-w-lg mx-auto text-center relative z-10">
@@ -31,7 +36,7 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
             You're all set.
           </h1>
           <p className="text-base text-slate-600 dark:text-slate-500 font-medium mb-10">
-            Thanks for your payment — taking you to your portal now.
+            Thanks for your payment. Taking you to your portal now.
           </p>
           <Button variant="primary" size="lg" onClick={() => onNavigate('portal')}>
             Go to your portal <ArrowRight size={18} />
