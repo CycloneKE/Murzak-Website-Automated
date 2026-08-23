@@ -242,3 +242,81 @@ test.describe('AUTH-09 — password reset never confirms or denies an account ex
     expect(fakeMsg?.trim()).toBe(secondMsg?.trim());
   });
 });
+
+// SEC-04 (2026-08-23 security-seo-foundations plan, Task 4): `returnTo` is
+// attacker-controlled query-string input — Login.tsx reads it straight off
+// the URL (params.get("returnTo")) and hands it to App.tsx's handleLogin,
+// which is the single place that calls navigate(). A crafted protocol-
+// relative value like `//evil.example.com` (or a backslash variant that
+// normalizes to the same shape) is a classic open-redirect vector once it
+// reaches navigate() unsanitized. This is now the ONLY active defense
+// against that vector: Task 3 (patching the react-router-dom open-redirect
+// advisory itself) was deferred because the fix requires a v6->v7 major
+// bump touching every route in the app — see the plan doc's Task 3 section
+// and commit 4be88f4.
+test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => {
+  test.beforeEach(async ({ page }) => {
+    // The mocked /api/login below never sets a real session cookie (it's a
+    // route interception, not a real backend session), so once the SPA
+    // lands in /portal/*, any other /api/* call the freshly-mounted Portal
+    // fires would 401 against the real dev backend and trip
+    // apiInterceptor.ts's session-expired handler, bouncing the page BACK to
+    // /login — which would masquerade as a failure of the returnTo fix
+    // itself. Stub every other /api/* call to a harmless 200 so only the
+    // returnTo sanitization is actually under test.
+    await page.route('**/api/**', async (route) => {
+      const url = route.request().url();
+      if (url.includes('/api/auth/me')) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) });
+      }
+      if (url.includes('/api/login')) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            user: {
+              id: 'u1',
+              name: 'Dev User',
+              email: 'dev@example.com',
+              company: 'Dev Co',
+              plan: 'Business',
+              accountStatus: 'Active',
+              projects: [],
+              servers: [],
+              invoices: [],
+              updates: [],
+            },
+          }),
+        });
+      }
+      // Anything else Portal fetches on mount (billing, updates, unread
+      // counts, etc.) — a generic empty 200 is enough to keep it from 401ing.
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+    });
+  });
+
+  const submitLogin = async (page: import('@playwright/test').Page, returnTo: string) => {
+    await page.goto(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    await expect(page.locator('h1')).toContainText(/Client Dashboard/, { timeout: 10000 });
+    await page.locator('input[type="email"]').fill('dev@example.com');
+    await page.locator('input[type="password"]').fill('whatever-not-checked-by-mock');
+    await page.getByRole('button', { name: 'Open My Portal' }).click();
+  };
+
+  test('a protocol-relative returnTo falls back to the safe default', async ({ page }) => {
+    await submitLogin(page, '//evil.example.com');
+    await page.waitForURL(/\/portal/, { timeout: 10000 });
+
+    // Must land on the safe in-app default, never carry the URL to an
+    // external origin.
+    expect(page.url()).not.toContain('evil.example.com');
+    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+  });
+
+  test('a real internal returnTo still lands on the intended page', async ({ page }) => {
+    await submitLogin(page, '/portal/billing');
+    await page.waitForURL(/\/portal\/billing/, { timeout: 10000 });
+
+    expect(new URL(page.url()).pathname).toBe('/portal/billing');
+  });
+});

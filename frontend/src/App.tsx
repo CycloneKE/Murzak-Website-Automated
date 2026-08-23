@@ -38,6 +38,7 @@ import ForServices from "./pages/for/ForServices";
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
 import { useTheme } from "./context/ThemeContext";
+import { safeReturnTo } from "./utils/safeReturnTo";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -271,7 +272,7 @@ const App: React.FC = () => {
     setUser(u);
     setIsLoggedIn(true);
     sessionExpiredHandled.current = false;
-    navigate(returnTo || "/portal/overview");
+    navigate(safeReturnTo(returnTo, "/portal/overview"));
   };
 
   const handleUserUpdate = (u: User) => {
