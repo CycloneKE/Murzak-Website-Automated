@@ -5,13 +5,17 @@
 // comes from the catalog snapshot; PLAN_NOT_PAID / eligibility / capacity
 // gates are preserved exactly.
 
-const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
+const {
+  getServiceMeta,
+  sumSelectedServicesMonthlyKes,
+  sumSelectedServicesSetupKes,
+} = require("./provisioning/catalog");
 const {
   isAddonEligible,
   accountHasNonDomainPaidService,
   invoiceRowsIncludeNonDomainService,
 } = require("./addonEligibility");
-const { assertOrderWithinCapacity } = require("./orderCapacity");
+const { assertOrderWithinCapacity, assertFleetHasHeadroom } = require("./orderCapacity");
 
 // Web Account child-table field names, used only to read the tenant's
 // EXISTING services for the capacity guard below. Copied from their
@@ -122,9 +126,20 @@ async function resolveNonDomainPaidHistory({ client, webAccountName, accountServ
  *   findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
  *   PORTAL_INVOICE_SERVICES_FIELD }
  *
+ * `mergeIntoOpenInvoice` (default true) controls whether an existing OPEN
+ * unpaid Add-on invoice is adopted and grown, or a dedicated invoice is
+ * created for exactly this selection. The order-driven checkout
+ * (ordersRoutes prepare-payment) passes false: that flow has already quoted
+ * the buyer one specific total for one specific order, so adopting an invoice
+ * carrying services from an abandoned checkout would charge them a number the
+ * page never displayed and silently activate the abandoned service too.
+ * The portal's multi-service add-on endpoint keeps the merge — it returns the
+ * recomputed amountKes to its caller, so the total it charges is the total it
+ * reports.
+ *
  * @returns {Promise<{invoiceDocName: string, amountKes: number}>}
  */
-async function createAddonInvoice({ client, webAccountName, services, deps }) {
+async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true }) {
   const {
     fetchWebAccount, hasPaidSubscriptionForPlan, normalizeSelectedServices,
     findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
@@ -219,15 +234,29 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     .filter((s) => s.serviceId);
   assertOrderWithinCapacity([...existingSelection, ...norm]);
 
+  // ...and the fleet-level question the per-order cap never asks: is there
+  // room left on the box at all? Only the NEW services are weighed — whatever
+  // this account already runs is already counted in the fleet's reserved RAM.
+  await assertFleetHasHeadroom({ client, selectedServices: norm });
+
   // Add-ons are always priced à la carte — there are no free plan-included
   // slots (matches the configurator/checkout, which never offers a free
   // service). The per-service pricing check above guarantees this is > 0.
-  const amount = sumSelectedServicesMonthlyKes(norm);
+  //
+  // Setup is a ONE-TIME fee and is added here, on the service's first
+  // invoice, so the amount matches the totalDueKes the checkout page showed
+  // the customer (services/checkout/orderStore.js). It is deliberately NOT
+  // part of sumSelectedServicesMonthlyKes — renewalService.js bills that
+  // monthly and would otherwise re-charge setup forever.
+  const amount =
+    sumSelectedServicesMonthlyKes(norm) + sumSelectedServicesSetupKes(norm);
 
   const today = new Date().toISOString().slice(0, 10);
 
   // Find any open unpaid add-on invoice
-  const open = await findOpenInvoice(client, webAccountName, "Add-on");
+  const open = mergeIntoOpenInvoice
+    ? await findOpenInvoice(client, webAccountName, "Add-on")
+    : null;
 
   let createdInvoiceId = null;
   let invoiceAmountKes = amount;
@@ -273,8 +302,13 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
 
     const mergedServices = Array.from(mergedMap.values());
 
-    // For open unpaid add-on invoice, all rows are chargeable add-ons
-    const mergedAmount = sumSelectedServicesMonthlyKes(mergedServices);
+    // For open unpaid add-on invoice, all rows are chargeable add-ons.
+    // Every row here is still unpaid, so none of them has had its one-time
+    // setup fee collected yet — bill setup for all of them, same as the
+    // new-invoice branch above.
+    const mergedAmount =
+      sumSelectedServicesMonthlyKes(mergedServices) +
+      sumSelectedServicesSetupKes(mergedServices);
 
     const mergedRows = buildInvoiceServiceRows(
       mergedServices.map((s) => ({

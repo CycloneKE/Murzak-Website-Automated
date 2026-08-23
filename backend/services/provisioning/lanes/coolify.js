@@ -1170,6 +1170,29 @@ async function provision(job, opts) {
   const dbConfig = DB_ENGINE_CONFIG[job.service_id];
   const curatedAppConfig = CURATED_APP_CONFIG[job.service_id];
 
+  // Refuse to silently ship an empty nginx:alpine container as a stand-in for
+  // a product that has no real delivery mechanism. Before this, ANY volume-
+  // class service with no db/curated-app config reached the generic fallback
+  // below and built successfully -- so starter-db-light/starter-db-mongo (no
+  // engine wired), addon-waf/addon-malware (no firewall or scanner behind
+  // them at all), addon-cdn/addon-ssl-premium/addon-dedicated-ip/
+  // addon-backup-plus/addon-staging (edge-proxy or provider-level features,
+  // not containers) all billed the customer for infrastructure that was never
+  // provisioned. "Website Hosting" and "App Hosting" are the one legitimate
+  // case -- nginx (or the customer's own image, handled earlier via BYOA's
+  // repo_url branch) is a real product there.
+  if (!dbConfig && !curatedAppConfig) {
+    const DELIVERABLE_VIA_GENERIC_CONTAINER = new Set(["Website Hosting", "App Hosting"]);
+    if (!DELIVERABLE_VIA_GENERIC_CONTAINER.has(job.category)) {
+      throw permanentError(
+        `coolify: ${job.service_id} has no database engine, curated app, or generic-container ` +
+        `delivery path configured -- refusing to bill for an empty placeholder container. ` +
+        `A human must provision this manually or the catalog entry must be removed.`,
+        { code: "NO_DELIVERY_MECHANISM" }
+      );
+    }
+  }
+
   // P5.0 container hardening. Every tenant on the shared box gets bounded on
   // ALL four axes (memory/cpu/pids/disk), not just memory, plus capability
   // drop + no-new-privileges. This protects co-tenants from a runaway app

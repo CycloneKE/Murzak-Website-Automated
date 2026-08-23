@@ -137,13 +137,131 @@ async function loadOwnedInvoiceForPayPal({
 // Shared, security-critical check: does a captured PayPal amount match what we
 // billed for this invoice? Used by BOTH the browser capture flow and the
 // out-of-band webhook so the two rails can never drift. Fails closed.
-function capturedAmountMatches({ invoiceAmountKes, capturedValue, capturedCurrency }) {
-  const expected = Number(convertKesToPaypalAmount(effectiveChargeKes(invoiceAmountKes)));
+function capturedAmountMatches({ invoiceAmountKes, capturedValue, capturedCurrency, expectedUsd }) {
+  // `expectedUsd` is the value snapshotted onto the invoice when the PayPal
+  // order was created — i.e. the amount the buyer actually saw and approved.
+  // Prefer it over recomputing: the live computation depends on both the
+  // current invoice amount and the current KES_TO_USD_RATE, either of which
+  // can change between approval and capture, and a mismatch here happens
+  // AFTER the money has already moved.
+  const expected = Number.isFinite(Number(expectedUsd)) && Number(expectedUsd) > 0
+    ? Number(expectedUsd)
+    : Number(convertKesToPaypalAmount(effectiveChargeKes(invoiceAmountKes)));
   const value = Number(capturedValue);
   if (!Number.isFinite(value)) return false;
   if (Math.abs(value - expected) > 0.01) return false;
   if (capturedCurrency && capturedCurrency !== "USD") return false;
   return true;
+}
+
+/**
+ * Post-capture verification, as a pure function.
+ *
+ * Extracted so the failure paths are testable without moving real money: the
+ * checks below run AFTER ordersController.captureOrder has already debited the
+ * buyer, so getting them wrong is not recoverable by retrying.
+ *
+ * Returns {ok:true} or {ok:false, code, reason} — never throws. The caller
+ * decides what to do with a failure, and must record it before surfacing it.
+ */
+function verifyCapture({ invoice, jsonResponse }) {
+  const purchaseUnit = jsonResponse?.purchase_units?.[0];
+  const capture = purchaseUnit?.payments?.captures?.[0];
+  const captureStatus = capture?.status || jsonResponse?.status;
+
+  if (captureStatus !== "COMPLETED") {
+    return {
+      ok: false,
+      code: "NOT_COMPLETED",
+      reason: `PayPal capture not completed. Status: ${captureStatus || "UNKNOWN"}`,
+    };
+  }
+
+  // PayPal echoes back the referenceId/customId set at order creation. FAIL
+  // CLOSED on a missing reference — otherwise a captured order with the right
+  // amount could be applied to somebody else's invoice.
+  const orderRef = purchaseUnit?.reference_id || purchaseUnit?.custom_id || capture?.custom_id;
+  if (!orderRef || orderRef !== invoice.name) {
+    return {
+      ok: false,
+      code: "REFERENCE_MISMATCH",
+      reason: `PayPal order reference ${orderRef || "(missing)"} does not match invoice ${invoice.name}.`,
+    };
+  }
+
+  const captured = capture?.amount || purchaseUnit?.amount;
+  if (!capturedAmountMatches({
+    invoiceAmountKes: invoice.amount,
+    capturedValue: Number(captured?.value),
+    capturedCurrency: captured?.currency_code,
+    expectedUsd: invoice.paypal_expected_usd,
+  })) {
+    const expectedValue = Number(invoice.paypal_expected_usd) > 0
+      ? invoice.paypal_expected_usd
+      : convertKesToPaypalAmount(effectiveChargeKes(invoice.amount));
+    return {
+      ok: false,
+      code: "AMOUNT_MISMATCH",
+      reason: `PayPal amount mismatch. Expected ${expectedValue} USD, captured ${captured?.value} ${captured?.currency_code || "?"}.`,
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Record a capture that could not be applied to its invoice.
+ *
+ * The money has already left the buyer's account by the time any of this runs.
+ * Previously the caller simply threw: the invoice stayed Unpaid, no capture id
+ * was stored anywhere, and the webhook independently failed the same check and
+ * told PayPal to stop retrying — so nothing in the system knew the customer had
+ * paid. This writes the identifiers needed to find and refund (or apply) the
+ * payment by hand, and logs loudly enough to be picked up by alerting.
+ *
+ * Best-effort and never throws: paypal_capture_id / paypal_order_id /
+ * payment_exception are optional Portal Invoice custom fields
+ * (backend/data/custom-fields-portal-invoice.json). If they are not installed
+ * the write 417s — losing the audit trail must not also destroy the caller's
+ * own error path, which is what surfaces the failure to the buyer.
+ */
+async function recordPaymentException({ frappeClient, invoice, jsonResponse, reason, code }) {
+  const purchaseUnit = jsonResponse?.purchase_units?.[0];
+  const capture = purchaseUnit?.payments?.captures?.[0];
+  const paypalOrderId = jsonResponse?.id || null;
+  const paypalCaptureId = capture?.id || null;
+
+  // Loud and structured — this line is the alerting hook until real error
+  // tracking is wired up. A captured-but-unapplied payment is money owed.
+  console.error(
+    "PAYPAL PAYMENT EXCEPTION — money captured but NOT applied:",
+    JSON.stringify({
+      invoice: invoice?.name,
+      code,
+      reason,
+      paypalOrderId,
+      paypalCaptureId,
+      capturedValue: capture?.amount?.value ?? purchaseUnit?.amount?.value ?? null,
+      capturedCurrency: capture?.amount?.currency_code ?? purchaseUnit?.amount?.currency_code ?? null,
+    })
+  );
+
+  try {
+    await frappeClient.put(
+      `/api/resource/Portal Invoice/${encodeURIComponent(invoice.name)}`,
+      {
+        payment_gateway: "PayPal",
+        paypal_order_id: paypalOrderId,
+        paypal_capture_id: paypalCaptureId,
+        payment_exception: `${code}: ${reason}`,
+      }
+    );
+  } catch (e) {
+    console.error(
+      `PAYPAL PAYMENT EXCEPTION — could not persist the exception on ${invoice?.name} ` +
+      `(are the Portal Invoice custom fields installed?): ${e.message}`
+    );
+  }
 }
 
 async function createPayPalOrderForInvoice({
@@ -186,15 +304,31 @@ async function createPayPalOrderForInvoice({
   const { body, ...httpResponse } = await ordersController.createOrder(collect);
   const jsonResponse = JSON.parse(body);
 
-  // Optional: if you add custom fields to Portal Invoice later, save pending PayPal order ID here.
-  // Example custom fields:
-  // custom_paypal_order_id, custom_paypal_status, custom_payment_gateway
+  // Snapshot what the buyer is being asked to approve, so the capture can be
+  // verified against THIS number rather than recomputed later from the live
+  // invoice amount and the live KES_TO_USD_RATE. Without it, an FX update or
+  // an invoice edited mid-checkout makes every in-flight capture fail its
+  // amount check — after the money has already moved.
   //
-  // await frappeClient.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoice.name)}`, {
-  //   custom_paypal_order_id: jsonResponse.id,
-  //   custom_paypal_status: jsonResponse.status,
-  //   custom_payment_gateway: "PayPal",
-  // });
+  // Best-effort: these are optional Portal Invoice custom fields
+  // (backend/data/custom-fields-portal-invoice.json). If they're absent the
+  // write 417s and verifyCapture falls back to the live computation, i.e.
+  // exactly the old behaviour — never worse.
+  try {
+    await frappeClient.put(
+      `/api/resource/Portal Invoice/${encodeURIComponent(invoice.name)}`,
+      {
+        payment_gateway: "PayPal",
+        paypal_order_id: jsonResponse.id,
+        paypal_expected_usd: value,
+      }
+    );
+  } catch (e) {
+    console.warn(
+      `PAYPAL: could not snapshot expected amount on ${invoice.name} ` +
+      `(are the Portal Invoice custom fields installed?): ${e.message}`
+    );
+  }
 
   return {
     invoice,
@@ -277,44 +411,29 @@ async function capturePayPalOrderForInvoice({
   const paypalOrderId = jsonResponse?.id || orderID;
   const paypalCaptureId = capture?.id || null;
 
-  if (captureStatus !== "COMPLETED") {
-    const err = new Error(
-      `PayPal capture not completed. Status: ${captureStatus || "UNKNOWN"}`
-    );
+  // --- Verify the capture (status, ownership, amount) ---
+  // Everything below runs AFTER ordersController.captureOrder has already
+  // debited the buyer, so a rejection here is not a "declined payment" — it is
+  // money that has moved and cannot be applied. Record it before throwing:
+  // previously each of these paths threw bare, leaving the invoice Unpaid with
+  // no capture id stored anywhere, while the webhook failed the identical check
+  // and answered {ignored:true} so PayPal stopped retrying. Nothing in the
+  // system then knew the customer had paid.
+  const verdict = verifyCapture({ invoice, jsonResponse });
+  if (!verdict.ok) {
+    // NOT_COMPLETED is the one case where no money moved — nothing to record.
+    if (verdict.code !== "NOT_COMPLETED") {
+      await recordPaymentException({
+        frappeClient,
+        invoice,
+        jsonResponse,
+        reason: verdict.reason,
+        code: verdict.code,
+      });
+    }
+    const err = new Error(verdict.reason);
     err.statusCode = 400;
-    err.paypal = jsonResponse;
-    throw err;
-  }
-
-  // --- Verify the captured order actually belongs to THIS invoice ---
-  // PayPal echoes back the referenceId/customId we set at order creation
-  // (paypalService createPayPalOrderForInvoice sets both to invoice.name).
-  // FAIL CLOSED: a missing reference must be rejected, not trusted — otherwise a
-  // captured order with the right amount could be applied to a different invoice.
-  const orderRef = purchaseUnit?.reference_id || purchaseUnit?.custom_id || capture?.custom_id;
-  if (!orderRef || orderRef !== invoice.name) {
-    const err = new Error("PayPal order does not match this invoice.");
-    err.statusCode = 400;
-    err.paypal = jsonResponse;
-    throw err;
-  }
-
-  // --- Verify the captured amount and currency match what we billed ---
-  // Shared with the webhook via capturedAmountMatches so the two rails agree.
-  const captured = capture?.amount || purchaseUnit?.amount;
-  const capturedValue = Number(captured?.value);
-  const capturedCurrency = captured?.currency_code;
-
-  if (!capturedAmountMatches({
-    invoiceAmountKes: invoice.amount,
-    capturedValue,
-    capturedCurrency,
-  })) {
-    const expectedValue = convertKesToPaypalAmount(effectiveChargeKes(invoice.amount));
-    const err = new Error(
-      `PayPal amount mismatch. Expected ${expectedValue} USD, captured ${captured?.value} ${capturedCurrency || "?"}.`
-    );
-    err.statusCode = 400;
+    err.code = verdict.code;
     err.paypal = jsonResponse;
     throw err;
   }
@@ -362,6 +481,8 @@ async function capturePayPalOrderForInvoice({
 module.exports = {
   loadOwnedInvoiceForPayPal,
   createPayPalOrderForInvoice,
+  verifyCapture,
+  recordPaymentException,
   capturePayPalOrderForInvoice,
   convertKesToPaypalAmount,
   capturedAmountMatches,

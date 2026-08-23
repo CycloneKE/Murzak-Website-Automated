@@ -106,7 +106,7 @@ function decodeComposeFromBody(body) {
 
   section("regression: every non-DB service_id is byte-for-byte unaffected");
   await withEnvAsync(LANE_ENV, async () => {
-    const job = { name: "PRV-WEB-1", web_account: "acct-3", service_id: "starter-web-hosting", ram_mb: 512, disk_gb: 5 };
+    const job = { name: "PRV-WEB-1", web_account: "acct-3", service_id: "starter-web-hosting", ram_mb: 512, disk_gb: 5, category: "Website Hosting" };
     let capturedBody = null;
     const origCreate = axios.create;
     axios.create = () => ({
