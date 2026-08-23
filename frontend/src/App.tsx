@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import InteractiveBackground from "./components/InteractiveBackground";
+import OrganizationSchema from "./components/OrganizationSchema";
 
 import Home from "./pages/Home";
 import Cloud from "./pages/Cloud";
@@ -354,6 +355,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
       <InteractiveBackground isDarkMode={false} />
+      <OrganizationSchema />
 
       <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {(isPortalRoute || isPaymentRoute) && (
