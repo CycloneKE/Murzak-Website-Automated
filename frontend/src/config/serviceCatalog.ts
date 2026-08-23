@@ -257,7 +257,8 @@ export const PLAN_SLA: Record<PlanCode, SlaTier> = {
 };
 
 // =====================================================================
-//  CATALOG — right-sized to one upstream KVM node (16GB RAM / 200GB NVMe).
+//  CATALOG — right-sized to one upstream node (8GB RAM / 100GB NVMe — see
+//  SERVER_CAPACITY above; corrected 2026-08-15, was wrongly assumed 2x that).
 //  Prices are margin-driven proposals (server costs ~KES 3,000/mo).
 //  TUNE the monthlyKes / setupKes numbers freely.
 // =====================================================================
@@ -334,6 +335,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       requiresDomainChoice: true,
       highlights: ["Free SSL + CDN", "Daily backups", "Staging area", "Priority email support"],
       sortOrder: 20,
+      // DEPRECATED (go-live catalog audit): strictly dominated by biz-web-hosting (same KES 2,500/mo, 20GB here vs 25GB there) -- no reason a new customer should ever be offered this one.
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
     {
       id: "starter-app-hosting",
@@ -520,6 +525,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3000, setupKes: 1500 },
       highlights: ["Payroll runs", "Leave & attendance", "Managed updates"],
       sortOrder: 60,
+      // DEPRECATED (go-live catalog audit): premium/Frappe-bench product at only 1536MB -- under-provisioned for the lane it runs on; fold into Murzak ERP.
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
   ],
 
@@ -589,6 +598,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Invoicing & ledgers", "Tax reports", "Managed backups"],
       sortOrder: 50,
+      // DEPRECATED (go-live catalog audit): undifferentiated from biz-webapps/biz-docs (identical 1536MB/KES 3,500) -- these are ERPNext modules, not separate products; fold into Murzak ERP.
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
     {
       id: "biz-webapps",
@@ -602,6 +615,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Node/PHP/Python", "CI deploy", "Managed runtime"],
       sortOrder: 60,
+      // DEPRECATED (go-live catalog audit): undifferentiated from biz-accounting/biz-docs (identical 1536MB/KES 3,500).
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
     {
       id: "biz-scalable-webapp",
@@ -617,6 +634,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       requiresRepo: true,
       highlights: ["Kubernetes backed", "Auto-scaling", "Self-healing", "Zero-downtime deploys"],
       sortOrder: 65,
+      // DEPRECATED (go-live catalog audit): routes to the Kubernetes lane on the same 2-vCPU shared box as everything else -- not a workload this node can actually isolate/scale.
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
     {
       id: "biz-docs",
@@ -630,6 +651,10 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Versioning", "Access control", "Full-text search"],
       sortOrder: 70,
+      // DEPRECATED (go-live catalog audit): undifferentiated from biz-accounting/biz-webapps (identical 1536MB/KES 3,500).
+      // Hidden from new purchases; existing owners keep correct pricing/renewals
+      // via getService/getServiceMeta (never filtered).
+      deprecated: true,
     },
     {
       id: "biz-db-medium",
@@ -776,9 +801,9 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
 
 // =====================================================================
 //  UNIVERSAL ADD-ONS — light, high-margin extras available on ANY paid
-//  plan (Starter/Business). They sit on the shared KVM 4 (volume class)
-//  and enrich the configurator with cross-cutting upsells. Prices are
-//  margin-driven proposals — tune freely.
+//  plan (Starter/Business). They sit on the shared node (volume class,
+//  see SERVER_CAPACITY above) and enrich the configurator with
+//  cross-cutting upsells. Prices are margin-driven proposals — tune freely.
 // =====================================================================
 export const UNIVERSAL_ADDONS: ServiceItem[] = [
   // ---- Domains & SSL ----
@@ -794,6 +819,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 700, setupKes: 0 },
     highlights: ["Covers all subdomains", "Green-bar trust", "Auto-renew & install"],
     sortOrder: 10,
+    // DEPRECATED (go-live catalog audit): no delivery mechanism -- built an empty nginx:alpine container.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
   {
     id: "addon-dedicated-ip",
@@ -807,6 +836,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 700, setupKes: 0 },
     highlights: ["Own IP", "Better mail reputation", "Direct access"],
     sortOrder: 20,
+    // DEPRECATED (go-live catalog audit): no delivery mechanism -- built an empty nginx:alpine container.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
 
   // ---- Email ----
@@ -870,6 +903,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
     highlights: ["Hourly snapshots", "30-day history", "One-click restore"],
     sortOrder: 60,
+    // DEPRECATED (go-live catalog audit): no delivery mechanism -- built an empty nginx:alpine container (backup rotation is a provider/edge concern, not a Coolify service).
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
 
   // ---- Security ----
@@ -885,6 +922,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
     highlights: ["OWASP rules", "Bot mitigation", "DDoS dampening"],
     sortOrder: 70,
+    // DEPRECATED (go-live catalog audit): billed for a firewall that does not exist -- backend/services/provisioning/lanes/coolify.js built an empty nginx:alpine container for this id.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
   {
     id: "addon-malware",
@@ -898,6 +939,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 900, setupKes: 0 },
     highlights: ["Daily scans", "Auto-clean", "Alerts"],
     sortOrder: 80,
+    // DEPRECATED (go-live catalog audit): billed for malware scanning that does not exist -- built an empty nginx:alpine container.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
 
   // ---- Performance ----
@@ -913,6 +958,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 900, setupKes: 0 },
     highlights: ["Edge caching", "Faster global loads", "Bandwidth offload"],
     sortOrder: 90,
+    // DEPRECATED (go-live catalog audit): no delivery mechanism -- a CDN is an edge/provider concern, not a Coolify service; built an empty nginx:alpine container.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
   {
     id: "addon-staging",
@@ -926,6 +975,10 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
     pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
     highlights: ["One-click clone", "Push to live", "No risk"],
     sortOrder: 100,
+    // DEPRECATED (go-live catalog audit): no delivery mechanism -- built an empty nginx:alpine container.
+    // Hidden from new purchases; existing owners keep correct pricing/renewals
+    // via getService/getServiceMeta (never filtered).
+    deprecated: true,
   },
 
   // ---- Support & SLA ----
