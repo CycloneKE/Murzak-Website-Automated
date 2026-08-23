@@ -4,3 +4,9 @@
 deploy/vps/bin/*      text eol=lf
 deploy/vps/nginx/*    text eol=lf
 deploy/vps/systemd/*  text eol=lf
+
+# CSP script-src uses a SHA-256 hash of this file's inline theme-flash
+# script (backend/server.js) — a CRLF/LF mismatch on checkout would change
+# the hash and silently break the CSP without any error, only a returning
+# light-mode flash. Pin LF so the hash stays stable across platforms.
+frontend/index.html   text eol=lf
