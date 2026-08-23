@@ -102,6 +102,7 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, 
   const plans = (Object.values(PLAN_META)).map((m) => ({
     code: m.code,
     name: m.label,
+    startingKes: m.startingKes,
     price: m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes),
     pricePrefix: m.startingKes && m.startingKes > 0 ? 'from' : '',
     period: m.period,
@@ -175,7 +176,9 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         description: plan.description,
         offers: {
           "@type": "Offer",
-          price: plan.price === "Free" ? "0" : plan.price === "Custom" ? undefined : String(plan.price).replace(/[^\d]/g, ""),
+          // Derived from the same numeric source of truth (m.startingKes) that
+          // drives the display price, not by re-parsing the formatted string.
+          price: plan.startingKes == null ? undefined : String(plan.startingKes),
           priceCurrency: "KES",
           url: "https://murzaktech.com/pricing",
         },
