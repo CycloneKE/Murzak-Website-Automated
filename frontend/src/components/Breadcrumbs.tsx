@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { pageToPath, type Page } from '../types';
+import { toSafeJsonLdString } from '../utils/jsonLd';
 
 export interface BreadcrumbItem {
   label: string;
@@ -51,7 +52,7 @@ const Breadcrumbs: React.FC<Props> = ({ items, onNavigate, className = '', varia
       ...(item.page ? { item: `${SITE_ORIGIN}${resolvePath(item.page)}` } : {}),
     })),
   };
-  const jsonLdString = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+  const jsonLdString = toSafeJsonLdString(jsonLd);
 
   return (
     <nav aria-label="Breadcrumb" className="mb-6">
