@@ -22,16 +22,16 @@ console.log("# buildExecCreatePayload — jail defaults");
   ok(p.User === "10001:10001", "defaults to a non-root uid:gid (never root)");
   ok(p.User !== "0" && p.User !== "root" && !p.User.startsWith("0:"), "never execs as root");
   ok(p.Tty === true && p.AttachStdin && p.AttachStdout, "attaches a TTY + stdio");
-  ok(p.Cmd[0] === "setsid", "wraps the shell in setsid (own process group for reaping)");
-  // Regression, 2026-08-23: confirmed live that bare `setsid CMD` (no -c)
-  // detaches from any controlling terminal -- under `docker exec -t` this
-  // produced a clean exit(0) with the shell's output NEVER reaching the
-  // hijacked stream. `-c`/`--ctty` re-attaches the new session to the pty
-  // docker already allocated; both busybox's and util-linux's setsid
-  // support it, so this is portable across Alpine and Debian-based tenant
-  // images. Without this flag every real terminal session would have
-  // looked like it opened (a "ready" frame) and then silently shown nothing.
-  ok(p.Cmd[1] === "-c", "setsid keeps the controlling terminal (-c) -- without it, exec output never reaches the client");
+  // Regression, 2026-08-23: setsid (bare, and with -c) was confirmed live to
+  // kill a Tty:true exec's hijacked stream outright -- zero bytes delivered,
+  // at any point before the process's own natural exit -- for any command
+  // with a real gap before output/exit (a sleep, a real user typing). Only
+  // near-instant commands slipped through, which is what made the earlier
+  // `setsid -c` "fix" look correct in a quick manual check. Isolated with
+  // paired A/B execs straight against the Docker socket: identical command,
+  // only the setsid wrapper differed. See lib/exec.js's docblock.
+  ok(p.Cmd[0] === "sh", "the shell runs directly -- NOT wrapped in setsid, which kills the TTY hijack stream on this host");
+  ok(!p.Cmd.includes("setsid"), "setsid never appears anywhere in the exec command");
   ok(p.Env.some((e) => e === "TERM=xterm-256color"), "sets TERM");
   ok(p.Env.some((e) => e === "MURZAK_TERMINAL_SESSION=sess-1"), "stamps the session-id marker env for the reaper");
 
