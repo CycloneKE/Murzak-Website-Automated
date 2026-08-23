@@ -23,6 +23,15 @@ console.log("# buildExecCreatePayload — jail defaults");
   ok(p.User !== "0" && p.User !== "root" && !p.User.startsWith("0:"), "never execs as root");
   ok(p.Tty === true && p.AttachStdin && p.AttachStdout, "attaches a TTY + stdio");
   ok(p.Cmd[0] === "setsid", "wraps the shell in setsid (own process group for reaping)");
+  // Regression, 2026-08-23: confirmed live that bare `setsid CMD` (no -c)
+  // detaches from any controlling terminal -- under `docker exec -t` this
+  // produced a clean exit(0) with the shell's output NEVER reaching the
+  // hijacked stream. `-c`/`--ctty` re-attaches the new session to the pty
+  // docker already allocated; both busybox's and util-linux's setsid
+  // support it, so this is portable across Alpine and Debian-based tenant
+  // images. Without this flag every real terminal session would have
+  // looked like it opened (a "ready" frame) and then silently shown nothing.
+  ok(p.Cmd[1] === "-c", "setsid keeps the controlling terminal (-c) -- without it, exec output never reaches the client");
   ok(p.Env.some((e) => e === "TERM=xterm-256color"), "sets TERM");
   ok(p.Env.some((e) => e === "MURZAK_TERMINAL_SESSION=sess-1"), "stamps the session-id marker env for the reaper");
 

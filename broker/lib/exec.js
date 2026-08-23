@@ -13,12 +13,23 @@ const DEFAULT_SHELL_PROBE = "command -v bash >/dev/null 2>&1 && exec bash -il ||
  * Build the Docker `POST /containers/{id}/exec` payload for a JAILED shell:
  *   - non-root user (uid:gid) — the container image must actually have this
  *     user; we never exec as root (`-u 0`) even if the image defaults to it.
- *   - a login-ish interactive shell wrapped in `setsid` so the whole session
- *     runs in its OWN process group → killing that group on disconnect reaps
- *     the shell AND its direct children (see reaper note in index.js; grandkids
- *     re-parented to PID 1 still need the sweep, this just covers the common
- *     case cleanly).
+ *   - a login-ish interactive shell wrapped in `setsid -c` so the whole
+ *     session runs in its OWN process group → killing that group on
+ *     disconnect reaps the shell AND its direct children (see reaper note in
+ *     index.js; grandkids re-parented to PID 1 still need the sweep, this
+ *     just covers the common case cleanly).
  *   - a sane TERM + a marker env var the reaper sweep greps for.
+ *
+ * The `-c` is load-bearing, confirmed live 2026-08-23: bare `setsid CMD`
+ * detaches the new session from any controlling terminal (both busybox's and
+ * util-linux's setsid document this as the default), and under `docker exec
+ * -t` that reliably produced a clean exit(0) with ZERO output ever reaching
+ * the hijacked stream — the shell ran, but nothing it wrote was visible.
+ * `-c`/`--ctty` ("set controlling terminal to stdin"), present in both
+ * setsid implementations, is what makes the new session actually attach to
+ * the pty docker already allocated. Without it every real exec session
+ * would have looked like it opened fine (a clean "ready" frame) and then
+ * silently produced nothing.
  */
 function buildExecCreatePayload(opts = {}) {
   const user = opts.user || process.env.TERMINAL_EXEC_USER || "10001:10001";
@@ -26,7 +37,7 @@ function buildExecCreatePayload(opts = {}) {
   // setsid runs the shell in a new session/process-group; the marker env lets
   // an out-of-band reaper find orphaned processes belonging to a dead session.
   const inner = opts.shellProbe || DEFAULT_SHELL_PROBE;
-  const cmd = ["setsid", "sh", "-c", inner];
+  const cmd = ["setsid", "-c", "sh", "-c", inner];
   return {
     AttachStdin: true,
     AttachStdout: true,
