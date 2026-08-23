@@ -148,17 +148,18 @@ doesn't exist anywhere in `frontend/public/`. Every social share of the
 site currently shows a broken image. Create a real one (branded, sized to
 the standard 1200×630 OG spec) and add it to `public/`.
 
-**D2. Per-route meta tags.** The SPA ships one static `<title>`/description/
-OG block in `index.html`, identical on every route — Cloud, Pricing, About,
-all product and `/for/*` pages currently look identical to the homepage to
-a crawler or a share preview. Add a small `useDocumentHead`-style hook (no
-new dependency — react-helmet-async isn't installed and isn't needed for
-what's just a handful of `document.title`/meta-tag writes per route) that
-each page sets on mount: a unique, keyword-relevant title and description
-per route, restoring the site-wide default on unmount. Canonical `<link>`
-per route too, since right now every page silently claims the homepage as
-its canonical URL — a duplicate-content signal working against every
-non-home page's own ranking.
+**D2. Per-route meta tags — corrected after reading the actual code.**
+`App.tsx` already has a `pageMetadata` map (`Record<Page, {title,
+description}>`, ~26 entries, one per route including every product and
+`/for/*` subpage) and an effect that applies `document.title` and the
+`<meta name="description">` tag on every route change. **Title and
+description are not the gap.** What that effect does *not* touch: the
+canonical `<link>`, `og:title`/`og:description`/`og:url`/`og:image`, and
+the `twitter:*` tags — those stay hardcoded to `index.html`'s homepage
+values on every route. Fix: extend the existing effect (don't build a
+parallel mechanism) to also update canonical + OG + Twitter tags from the
+same `pageMetadata` entry already in scope, deriving the per-route URL from
+`pathToPage`/`activePage` (same variables the effect already reads).
 
 **D3. Structured data.** `Breadcrumbs.tsx` already emits `BreadcrumbList`
 JSON-LD correctly (safe pattern: JSON-stringified, `<` escaped against
