@@ -75,11 +75,33 @@ async function findExistingJob(client, invoice, serviceId) {
 }
 
 /** Sum ram of jobs already running/active (reserved footprint). null on failure. */
+/**
+ * Job statuses that hold sellable RAM.
+ *
+ * "queued" is the one that matters most: PROVISIONING_RUNNER_ENABLED defaults
+ * to false, so in the default configuration every paid job sits at queued
+ * indefinitely. Counting only running|active meant reserved RAM read ~0 no
+ * matter how much had been sold, which silently disabled the fleet capacity
+ * gate in services/checkout/orderStore.js — the only oversell protection on
+ * the box. Committed work is committed capacity whether or not it has been
+ * built yet.
+ *
+ * "needs_human" counts too: a lane can create the Coolify resource and then
+ * throw, leaving the job escalated with a live container still consuming RAM
+ * (there is no compensating teardown). Not counting it lets that RAM be sold
+ * a second time.
+ *
+ * "failed" and "deleted" are excluded — nothing is running, and counting them
+ * forever would permanently leak capacity that is genuinely free. Orphaned
+ * containers from a failed build are reconciled by the orphan sweep instead.
+ */
+const RAM_HOLDING_JOB_STATUSES = ["queued", "running", "active", "needs_human"];
+
 async function getReservedRamMb(client) {
   try {
     const res = await client.get(`/api/resource/${encodeURIComponent(JOB_DOCTYPE)}`, {
       params: {
-        filters: JSON.stringify([["status", "in", ["running", "active"]]]),
+        filters: JSON.stringify([["status", "in", RAM_HOLDING_JOB_STATUSES]]),
         fields: JSON.stringify(["ram_mb"]),
         limit_page_length: 0,
       },

@@ -41,7 +41,7 @@ const {
 // `listCalls`/`docGets` let tests assert exactly how many extra Frappe
 // calls the fallback made — the zero-extra-query promise for Requirements
 // 2 and 3 is only meaningful if something is actually counting.
-function makeClient({ account, openInvoice = null, paidInvoices = [], getError = null, docGetError = null }) {
+function makeClient({ account, openInvoice = null, paidInvoices = [], getError = null, docGetError = null, fleetReservedMb = 0 }) {
   const posts = [];
   const puts = [];
   const listCalls = [];
@@ -49,6 +49,13 @@ function makeClient({ account, openInvoice = null, paidInvoices = [], getError =
   return {
     posts, puts, listCalls, docGets,
     get: async (url, opts) => {
+      // Fleet capacity gate (services/orderCapacity.js assertFleetHasHeadroom)
+      // reads committed RAM from the Provisioning Job list. `fleetReservedMb`
+      // lets a test simulate a full box; the default is an empty fleet so the
+      // pricing/eligibility tests here are unaffected by the gate.
+      if (url.includes("Provisioning%20Job") || url.includes("Provisioning Job")) {
+        return { data: { data: fleetReservedMb > 0 ? [{ ram_mb: fleetReservedMb }] : [] } };
+      }
       if (url.includes("/Web Account/") || url.includes("/Web%20Account/"))
         return { data: { data: account } };
       if (url.includes("/api/resource/Portal Invoice") && opts?.params) {
@@ -103,7 +110,9 @@ const deps = {
       services: [{ serviceId: "starter-web-hosting", serviceName: "Website Hosting (Starter)", tier: "Light", domainChoice: "" }],
     });
     ok(res.invoiceDocName === "PINV-NEW-1", "returns created invoice docName");
-    ok(res.amountKes === 1200, "amount priced from snapshot, not request");
+    // 1200 monthly + 500 one-time setup, both read from the catalog snapshot
+    // rather than from anything in the request body.
+    ok(res.amountKes === 1700, "amount priced from snapshot, not request");
     ok(client.posts.length === 1, "one invoice POST issued");
   }
 
@@ -527,6 +536,130 @@ const deps = {
       403, "unpaid plan is refused before the eligibility loop (and its fallback) ever runs"
     );
     ok(client.listCalls.length === 0, "no paid-invoice scan happened — PLAN_NOT_PAID short-circuits first");
+  }
+
+  // ------------------------------------------------------------------
+  // SETUP FEES — the catalog prices a one-time setupKes on most services
+  // and the checkout page shows the customer monthlyKes + setupKes
+  // (services/checkout/orderStore.js's totalDueKes). Before this, every
+  // invoice amount came from sumSelectedServicesMonthlyKes() alone, so the
+  // setup fee was displayed and never billed: KES 12,000 on
+  // biz-erp-configured, 5,000 on biz-erp-light, 3,000 on biz-pos-inventory,
+  // 500-2,000 on the rest, silently dropped on every single sale.
+  //
+  // Setup is ONE-TIME. It belongs on the first invoice for a service and
+  // must never reach renewalService.js's monthly sweep — hence a separate
+  // sumSelectedServicesSetupKes() rather than folding it into the monthly
+  // total that renewals also read.
+  // ------------------------------------------------------------------
+
+  section("SETUP FEES — a new add-on invoice bills monthly + one-time setup");
+  {
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    // starter-web-hosting: monthlyKes 1200 + setupKes 500.
+    const res = await createAddonInvoice({
+      client, webAccountName: "acct-1", deps,
+      services: [{ serviceId: "starter-web-hosting" }],
+    });
+    const body = client.posts[0]?.body;
+    ok(body?.amount === 1700, `invoice amount is 1200 monthly + 500 setup = 1700 (got ${body?.amount})`);
+    ok(res.amountKes === 1700, `returned amountKes matches the invoice (got ${res.amountKes})`);
+  }
+
+  section("SETUP FEES — a service with no setup fee is unchanged");
+  {
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+    });
+    // starter-storage: monthlyKes 1200, no setupKes.
+    await createAddonInvoice({
+      client, webAccountName: "acct-1", deps,
+      services: [{ serviceId: "starter-storage" }],
+    });
+    ok(client.posts[0]?.body?.amount === 1200, `no setup fee -> amount stays 1200 (got ${client.posts[0]?.body?.amount})`);
+  }
+
+  section("SETUP FEES — merging into an open invoice bills every unpaid row's setup");
+  {
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+      // Rows are shaped as normalizeInvoiceServiceRow returns them (deps
+      // stubs it to the identity), so they must carry `serviceId` — a
+      // `service_id` row is filtered out by the !!s.serviceId guard and the
+      // merge would silently test nothing.
+      openInvoice: {
+        name: "PINV-OPEN-1", status: "Unpaid", amount: 1700,
+        services: [{ serviceId: "starter-web-hosting", status: "Awaiting Payment" }],
+      },
+    });
+    await createAddonInvoice({
+      client, webAccountName: "acct-1",
+      deps: { ...deps, findOpenInvoice: async () => ({ name: "PINV-OPEN-1", status: "Unpaid" }) },
+      services: [{ serviceId: "db-mysql" }],
+    });
+    // starter-web-hosting 1200+500, db-mysql 2000+500 -> 4200
+    const put = client.puts[0]?.body;
+    ok(put?.amount === 4200, `merged invoice bills both setups: 1700 + 2500 = 4200 (got ${put?.amount})`);
+  }
+
+  section("FLEET CAPACITY — an add-on is refused when the box is full");
+  {
+    // 5000MB already committed fleet-wide; biz-erp-light is 2048MB, and the
+    // threshold is 85% of 6400 = 5440. Before the fleet gate reached this
+    // path, only the per-order 3200MB cap applied — so an unlimited number of
+    // customers could each buy a 2048MB service onto a box with room for three.
+    const client = makeClient({
+      account: {
+        plan: "Business",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+      fleetReservedMb: 5000,
+    });
+    await throws(
+      () => createAddonInvoice({
+        client, webAccountName: "acct-1", deps,
+        services: [{ serviceId: "biz-erp-light" }],
+      }),
+      409, "add-on purchase on a full box is refused"
+    );
+    ok(client.posts.length === 0, "no invoice was created for the refused purchase");
+  }
+
+  section("FLEET CAPACITY — a zero-footprint domain is still buyable on a full box");
+  {
+    const client = makeClient({
+      account: {
+        plan: "Starter",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
+      },
+      fleetReservedMb: 6400,
+    });
+    const res = await createAddonInvoice({
+      client, webAccountName: "acct-1", deps,
+      services: [{ serviceId: "domain-com", domainChoice: "example.com" }],
+    });
+    ok(!!res.invoiceDocName, "domain purchase succeeds even with the node completely committed");
+  }
+
+  section("SETUP FEES — renewals must never re-charge setup");
+  {
+    const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+    // renewalService.js bills with this function every ~30 days. If setup
+    // ever leaks into it, every customer is re-charged their setup fee
+    // monthly, forever.
+    const monthly = sumSelectedServicesMonthlyKes([{ serviceId: "starter-web-hosting" }]);
+    ok(monthly === 1200, `monthly sum excludes the 500 setup fee (got ${monthly})`);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
