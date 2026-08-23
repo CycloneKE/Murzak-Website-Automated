@@ -193,9 +193,14 @@ unvalidated value read straight from the `/login?returnTo=...` query
 string (also reachable via the session-expiry redirect and the
 plan-selection flow). `npm audit` on the frontend confirms the pinned
 `react-router-dom` (`^6.30.3`) carries a moderate CVE for exactly this
-shape: open redirect via `useNavigate`/`<Link>`. Two fixes, both required:
-  - `npm audit fix` to pull the patched `react-router-dom` (semver-compatible,
-    no major bump needed).
+shape: open redirect via `useNavigate`/`<Link>`. Originally planned as two
+required fixes; execution found the library-level fix (`npm audit fix`)
+actually requires a major version bump (see E3's correction) and was
+deferred by user decision. The application-level fix below is therefore
+the operative one, not a belt-and-suspenders addition to an already-patched
+library:
+  - ~~`npm audit fix` to pull the patched `react-router-dom`~~ — deferred,
+    requires `react-router-dom@7`, see E3.
   - Defense in depth in code: validate `returnTo` is a same-origin relative
     path (starts with a single `/`, not `//` or containing a `:`) before
     ever passing it to `navigate()`, falling back to the safe default
@@ -212,11 +217,19 @@ source (`'sha256-...'`) scoped to that one static inline script, so
 mechanism needed — the script's contents are static, not server-rendered
 per-request.
 
-**E3. Dependency audit.** `npm audit` (frontend) currently reports 2
-moderate findings, both from E1's react-router advisory — resolved by the
-same `npm audit fix`. Re-run after, confirm clean, and check `backend`'s
-audit too as a quick adjacent pass (not a deep backend security review —
-out of scope here).
+**E3. Dependency audit — corrected after execution (2026-08-23).**
+`npm audit` (frontend) reports 2 moderate findings, both from E1's
+react-router advisory. Original assumption that `npm audit fix` alone
+resolves this was wrong: the vulnerable range is `react-router 6.0.0 -
+7.17.0` (no patched 6.x release exists), so the only fix is
+`npm audit fix --force`, a major version bump to `react-router-dom@7.18.2`
+touching every route in the app. **User decision: defer that upgrade as
+its own separate, properly-tested effort** rather than fold it into this
+phase; E1's `safeReturnTo()` application-level fix closes the practical
+exploit path in the meantime. `npm audit` will continue reporting these 2
+findings until the deferred v7 migration happens — expected, not a
+regression. Backend audit checked as a quick adjacent pass (not a deep
+backend security review — out of scope here).
 
 **E4. Confirmed clean, called out so it isn't re-litigated during
 implementation**: the sole `dangerouslySetInnerHTML` use (`Breadcrumbs.tsx`,

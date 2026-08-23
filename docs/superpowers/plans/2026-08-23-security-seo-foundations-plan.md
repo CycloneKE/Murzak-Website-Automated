@@ -185,7 +185,25 @@ git commit -m "fix: replace CSP script-src 'unsafe-inline' with a scoped hash al
 
 ---
 
-### Task 3: Patch the react-router-dom open-redirect CVE
+### Task 3: Patch the react-router-dom open-redirect CVE — DEFERRED
+
+**Status: deferred, user decision 2026-08-23.** Execution revealed this
+plan's assumption was wrong: there is no patched 6.x release
+(`npm audit` reports the vulnerable range as `react-router 6.0.0 -
+7.17.0`), so the only fix is `npm audit fix --force`, which upgrades
+`react-router-dom` to `7.18.2` — a major version bump touching every route
+in this app (~25+ routes, nested portal routing, dynamic `:invoiceDocName`/
+`:orderId` segments), not the semver-compatible patch originally assumed.
+User decision: defer the major-version upgrade as its own separate,
+properly-tested effort; rely on Task 4's `safeReturnTo()` application-level
+validation to close the actual exploitable pattern in the meantime. The
+underlying library CVE stays open in `npm audit` output until that
+separate upgrade happens — this is a known, accepted gap, not an oversight.
+
+**Do not execute this task's steps below as part of this plan.** They are
+left in place as the record of what a future react-router-dom v7 migration
+task should do, scoped as its own plan (with full route-by-route
+regression verification) rather than folded into this one.
 
 **Files:**
 - Modify: `frontend/package.json`, `frontend/package-lock.json` (via
