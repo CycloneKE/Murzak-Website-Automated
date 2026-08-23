@@ -20,7 +20,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       icon: <Calculator size={20} />,
       title: "Accounting",
       bullets: [
-        "Auto-generated general ledger from every sale, purchase, and journal entry — drill down to trace any transaction",
+        "Auto-generated general ledger from every sale, purchase, and journal entry, so you can drill down to trace any transaction",
         "Multi-currency, multi-branch chart of accounts with consolidated reporting",
         "VAT/PAYE-ready tax ledgers, plus KRA eTIMS integration",
         "Real-time Balance Sheet, P&L, Trial Balance, and Cash Flow reports",
@@ -40,7 +40,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       icon: <Users size={20} />,
       title: "HR & Payroll",
       bullets: [
-        "Full employee lifecycle — onboarding, transfers, promotions, exit interviews",
+        "Full employee lifecycle: onboarding, transfers, promotions, exit interviews",
         "Geolocation-enabled attendance, configurable leave policies and KE public holidays",
         "Custom salary structures with PAYE/NHIF/NSSF-ready payroll runs and payslips",
         "Expense claims and advances with multi-level approval, synced straight to accounting",
@@ -62,7 +62,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       bullets: [
         "Capture and nurture leads through a visible pipeline, stage by stage",
         "Opportunity tracking with revenue forecasting",
-        "Full customer history — every call, meeting, and quote in one record",
+        "Full customer history: every call, meeting, and quote in one record",
         "Sales performance reports your team can actually act on",
       ],
     },
@@ -140,8 +140,8 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               </div>
 
               <div className="space-y-3 mb-6">
-                <MetricBar label="Warehouse — Nairobi" percent={72} tone="accent" />
-                <MetricBar label="Warehouse — Mombasa" percent={38} tone="warning" />
+                <MetricBar label="Warehouse: Nairobi" percent={72} tone="accent" />
+                <MetricBar label="Warehouse: Mombasa" percent={38} tone="warning" />
               </div>
 
               <div className="flex items-center gap-2.5 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20 px-4 py-3">
@@ -153,8 +153,15 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/erp-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
+
       {/* Modules Grid */}
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
           <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Core Modules</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything connects automatically.</h2>
@@ -180,7 +187,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive */}
-      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="order-2 lg:order-1 relative p-8 rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl overflow-hidden">
             <div className="absolute top-0 right-0 p-4">
@@ -212,7 +219,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Pricing Tiers */}
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto text-center mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">Transparent Pricing</h2>
            <p className="text-slate-500 font-medium">Choose the tier that fits your team size. We handle the hosting, backups, and security.</p>
@@ -234,9 +241,11 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
+      <Section className="relative z-10 bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
+
+      </div>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">
