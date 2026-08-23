@@ -23,3 +23,19 @@ export async function acceptTerminalDisclosure(): Promise<{ disclosureAcceptedAt
   });
   return handleJson<{ disclosureAcceptedAt: string }>(res);
 }
+
+export interface TerminalSession {
+  wsTicket: string;
+  wsPath: string;
+}
+
+// Single-use, ~45s-lived ticket for the WS upgrade — mint immediately before
+// connecting, never cached or reused across sessions.
+export async function mintTerminalSession(serviceId: string): Promise<TerminalSession> {
+  const res = await fetch(`/api/portal/services/${encodeURIComponent(serviceId)}/terminal/session`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await handleJson<{ ok: true } & TerminalSession>(res);
+  return { wsTicket: data.wsTicket, wsPath: data.wsPath };
+}
