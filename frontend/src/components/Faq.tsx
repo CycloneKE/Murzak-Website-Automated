@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { Plus, HelpCircle } from "lucide-react";
+import { toSafeJsonLdString } from "../utils/jsonLd";
 
 export type FaqItem = { q: string; a: string };
 
@@ -13,8 +14,25 @@ interface Props {
 export default function Faq({ items, title = "Frequently asked questions", eyebrow = "Need to know" }: Props) {
   const [open, setOpen] = useState<number | null>(0);
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.a,
+      },
+    })),
+  };
+  const faqJsonLdString = toSafeJsonLdString(faqJsonLd);
+
   return (
-    <section className="max-w-4xl mx-auto px-6 sm:px-10">
+    <>
+      {/* eslint-disable-next-line react/no-danger */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLdString }} />
+      <section className="max-w-4xl mx-auto px-6 sm:px-10">
       <div className="mb-10 text-center">
         <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
           <HelpCircle size={14} /> {eyebrow}
@@ -57,5 +75,6 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
         })}
       </div>
     </section>
+    </>
   );
 }
