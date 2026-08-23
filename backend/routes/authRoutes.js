@@ -7,6 +7,7 @@ module.exports = function(ctx) {
     appBaseUrl,
     applyPlanAndCreateInvoice,
     assertOrderWithinCapacity,
+    assertFleetHasHeadroom,
     authLimiter,
     bcrypt,
     buildUserPayload,
@@ -89,6 +90,13 @@ router.post("/api/register", authLimiter, async (req, res) => {
     }
     assertOrderWithinCapacity(resolvedServices);
     const client = frappeClient();
+
+    // Fleet gate. The per-order cap above only asks whether one tenant could
+    // ever be this big; it says nothing about how much of the box is already
+    // sold. Without this, sign-up-with-services could commit the same 6.25GB
+    // to unlimited customers and the oversell only surfaced later, at
+    // provisioning, as a human escalation — after the money was taken.
+    await assertFleetHasHeadroom({ client, selectedServices: resolvedServices });
 
     // --- Claim Test Plan Invoice by email (1 email = 1 trial) ---
     const trialLookup = await client.get("/api/resource/Test Plan Invoice", {

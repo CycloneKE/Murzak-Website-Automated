@@ -1,4 +1,10 @@
-const fetch = require('node-fetch');
+// Uses the runtime's global fetch (stable since Node 18; this project runs
+// Node 22, see the Dockerfile) -- node-fetch was required here but never
+// declared in package.json, so it existed only as a transitive install. This
+// file sits on the SERVER BOOT PATH (server.js requires routes/byoaRoutes.js
+// at top level, which requires this file at ITS top level), so a routine
+// dependency bump that dropped the transitive package would have crashed
+// the entire server at require-time, not just BYOA calls.
 
 const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || 'mock_github_client_id';
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || 'mock_github_client_secret';

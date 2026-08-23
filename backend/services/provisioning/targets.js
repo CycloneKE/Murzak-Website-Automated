@@ -2,8 +2,9 @@
  * Capacity targets — Phase 2 (horizontal scale).
  *
  * A "target" is a server that can host tenants. There is always box-1 (the
- * original Hostinger KVM 4, sized from SERVER_CAPACITY). Additional boxes are
- * declared in PROVISIONING_TARGETS as JSON, e.g.:
+ * original shared node, sized from SERVER_CAPACITY — 2 vCPU / 8 GB RAM /
+ * 100 GB NVMe; corrected 2026-08-15, was wrongly assumed 2x that). Additional
+ * boxes are declared in PROVISIONING_TARGETS as JSON, e.g.:
  *
  *   PROVISIONING_TARGETS='[{"id":"box-2","sellableRamMb":12800,"status":"active",
  *     "coolify":{"baseUrl":"https://cool2…","token":"…","projectUuid":"…","serverUuid":"…"},

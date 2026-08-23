@@ -585,7 +585,10 @@ router.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json"
-      }
+      },
+      // A stalled Daraja response used to pin this request forever — with the
+      // customer's phone already prompted and no way to know whether it went out.
+      timeout: DARAJA_TIMEOUT_MS
     });
     const stkData = stkResp.data || {};
     if (stkData.ResponseCode !== "0") {
@@ -595,10 +598,34 @@ router.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       });
     }
 
-    // Persist checkoutRequestID so the callback can match it
-    await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-      mpesa_checkout_request_id: stkData.CheckoutRequestID
-    });
+    // Persist checkoutRequestID so the callback can match it.
+    //
+    // Also append it to a bounded HISTORY. Writing only the single field meant
+    // each push overwrote the last: a customer who left the first prompt open,
+    // tapped pay again, then entered their PIN on the FIRST prompt produced a
+    // callback carrying an id no invoice matched any more — their money left
+    // and nothing recorded it. The callback now falls back to this history.
+    const priorHistory = inv.mpesa_checkout_request_ids
+      || inv.mpesa_checkout_request_id
+      || "";
+    const invoiceUpdate = {
+      mpesa_checkout_request_id: stkData.CheckoutRequestID,
+      mpesa_checkout_request_ids: appendCheckoutRequestId(priorHistory, stkData.CheckoutRequestID)
+    };
+    try {
+      await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, invoiceUpdate);
+    } catch (e) {
+      // mpesa_checkout_request_ids is a newer custom field. If it isn't
+      // installed yet, fall back to the single-id write rather than losing the
+      // id entirely — without it the callback can match nothing at all.
+      console.warn(
+        "MPESA: could not write checkout-id history (is the Portal Invoice " +
+        `custom field installed?): ${e.response?.data?.message || e.message}`
+      );
+      await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+        mpesa_checkout_request_id: stkData.CheckoutRequestID
+      });
+    }
     return res.json({
       ok: true,
       checkoutRequestID: stkData.CheckoutRequestID,
@@ -659,16 +686,22 @@ router.post("/api/billing/mpesa/callback", async (req, res) => {
       return;
     }
     const client = frappeClient();
-    const searchRes = await client.get("/api/resource/Portal Invoice", {
-      params: {
-        filters: JSON.stringify([["mpesa_checkout_request_id", "=", checkoutRequestID]]),
-        fields: JSON.stringify(["name", "web_account", "status", "amount"]),
-        limit_page_length: 1
-      }
-    });
-    const inv = searchRes.data?.data?.[0];
+    // Two-step lookup: exact match on the current id, then the history of
+    // superseded pushes. A customer who pays an older prompt must still be
+    // matched to their invoice — see services/mpesaService.js.
+    const inv = await findInvoiceByCheckoutRequestId(client, checkoutRequestID);
     if (!inv?.name) {
-      console.warn("MPESA CALLBACK: no invoice found for checkoutRequestID:", checkoutRequestID);
+      // Money may well have moved here. Log loudly enough to alert on: this is
+      // an unmatched payment, not a routine miss.
+      console.error(
+        "MPESA CALLBACK: NO INVOICE MATCHED — possible unrecorded payment:",
+        JSON.stringify({
+          checkoutRequestID,
+          amount: mpesaMetaValue(body, "Amount") || null,
+          receipt: mpesaMetaValue(body, "MpesaReceiptNumber") || null,
+          phone: mpesaMetaValue(body, "PhoneNumber") || null,
+        })
+      );
       return;
     }
     if (String(inv.status || "").toLowerCase() === "paid") {

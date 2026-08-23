@@ -10,6 +10,9 @@ lifecycle, cross-cutting workflows, and an incident playbook), see
 that one is the "what do I do for THIS specific product/situation" reference.
 
 For deep technical/automation setup, see the companion docs:
+- `docs/production-env-setup.md` — getting the ~139 env vars onto the live
+  server in the right order, tiered by blast radius, ending in a pre-launch
+  verification sequence.
 - `docs/operations-workbook.md` — per-product playbooks + incident response.
 - `docs/provisioning-go-live.md` — turning automation on, env var by env var.
 - `docs/provisioning-automation-plan.md` — the architecture/strategy.
@@ -28,8 +31,13 @@ which are sticky and high-margin. Plain web hosting and email are cheap add-ons.
 
 **The golden rule:** **RAM is the ceiling.** Light sites use ~50–150 MB each
 (host dozens). A business system (ERP/POS/CRM) eats **1–2 GB each**, so only
-**~4–8** fit on the box before we need a second server. Everything below is built
-around not overselling that 16 GB.
+**~3** fit on the box before we need a second server. Everything below is built
+around not overselling that 8 GB.
+
+*(Corrected — this used to say "16 GB" and "~4–8," which was the pre-2026-08-15
+KVM 4 assumption, exactly 2x the real KVM 2 this doc's own line 21 already
+states. See docs/provisioning-automation-plan.md §8 for the fuller correction
+note.)*
 
 ---
 

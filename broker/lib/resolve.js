@@ -20,6 +20,20 @@
  * it is an EXACT string equality with the expected ownership name.
  */
 const OWNERSHIP_LABEL_KEYS = [
+  // Confirmed live 2026-08-18 against a real Coolify 4.1.2 service
+  // (`app-a5apm1mb72t9qlcopo1e9ybd`, USER-26-08-18-0001's biz-web-hosting):
+  // `coolify.resourceName` is the ONLY label carrying the actual ownership
+  // slug (`${web_account}-${service_id}`, i.e. exactly what coolify.js's
+  // resourceName() computes and what the token's expectedName is set to).
+  // The container's own NAME is Coolify-generated ("app-<serviceUuid>"),
+  // never the ownership slug, and none of the other three labels below ever
+  // carry it either (coolify.name mirrors the container name; serviceName
+  // and com.docker.compose.service are always the literal "app" — the
+  // single compose service key, not tenant-identifying; com.docker.compose
+  // .project is the Coolify-assigned service UUID). Before this fix,
+  // resolveOwnedContainerId matched ZERO real containers — every /exec
+  // would have 403'd as NO_MATCH against every live tenant service.
+  "coolify.resourceName",
   "coolify.name",
   "coolify.serviceName",
   "com.docker.compose.service",

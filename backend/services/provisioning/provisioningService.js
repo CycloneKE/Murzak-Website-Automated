@@ -75,11 +75,33 @@ async function findExistingJob(client, invoice, serviceId) {
 }
 
 /** Sum ram of jobs already running/active (reserved footprint). null on failure. */
+/**
+ * Job statuses that hold sellable RAM.
+ *
+ * "queued" is the one that matters most: PROVISIONING_RUNNER_ENABLED defaults
+ * to false, so in the default configuration every paid job sits at queued
+ * indefinitely. Counting only running|active meant reserved RAM read ~0 no
+ * matter how much had been sold, which silently disabled the fleet capacity
+ * gate in services/checkout/orderStore.js — the only oversell protection on
+ * the box. Committed work is committed capacity whether or not it has been
+ * built yet.
+ *
+ * "needs_human" counts too: a lane can create the Coolify resource and then
+ * throw, leaving the job escalated with a live container still consuming RAM
+ * (there is no compensating teardown). Not counting it lets that RAM be sold
+ * a second time.
+ *
+ * "failed" and "deleted" are excluded — nothing is running, and counting them
+ * forever would permanently leak capacity that is genuinely free. Orphaned
+ * containers from a failed build are reconciled by the orphan sweep instead.
+ */
+const RAM_HOLDING_JOB_STATUSES = ["queued", "running", "active", "needs_human"];
+
 async function getReservedRamMb(client) {
   try {
     const res = await client.get(`/api/resource/${encodeURIComponent(JOB_DOCTYPE)}`, {
       params: {
-        filters: JSON.stringify([["status", "in", ["running", "active"]]]),
+        filters: JSON.stringify([["status", "in", RAM_HOLDING_JOB_STATUSES]]),
         fields: JSON.stringify(["ram_mb"]),
         limit_page_length: 0,
       },
@@ -260,9 +282,19 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       }
     } catch (e) {
       const status = e?.response?.status;
+      const excType = e?.response?.data?.exc_type || "";
       const errText = `${e?.response?.data?.exception || e?.response?.data?._error_message || e?.message || ""}`;
-      // Frappe returns 417/404 when the doctype doesn't exist yet.
-      if (status === 404 || status === 417 || e.__doctypeMissing) {
+      // A 417 is Frappe's GENERIC validation-error status — it fires for ANY
+      // frappe.exceptions.ValidationError, not just a missing doctype. This
+      // used to treat every 417 as "doctype not installed" (status===417
+      // alone), which silently mislabeled a real bug: the "lane" Select field
+      // rejecting "emailHosting"/"objectStorage"/"k8s" (none were in its
+      // options list — confirmed live 2026-08-18, every job for those three
+      // lanes 417'd on insert, forever, invisibly, since they shipped). Only
+      // treat this as doctype-missing when Frappe's own exc_type says so;
+      // a bare 404 with no exc_type is the other legitimate "not installed"
+      // shape (the resource route itself doesn't exist).
+      if (excType === "DoesNotExistError" || (status === 404 && !excType) || e.__doctypeMissing) {
         doctypeMissing = true;
         // Still surface the service so staff get notified even without the doctype.
         skipped.push({ ...payload, reason: "doctype not installed", domainChoice });
@@ -271,6 +303,16 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
         // Idempotent: a job for (invoice, service) already exists.
         skipped.push({ ...payload, reason: "already queued (unique)", domainChoice });
       } else {
+        // A real, un-recognized rejection (e.g. a Select field missing a
+        // value the catalog actually uses). This is the exact class of bug
+        // that left addon-mailboxes-5 provision-less for USER-26-08-18-0001
+        // with no trace anywhere but a best-effort staff notification —
+        // console.error so it shows up in server logs even if that
+        // notification channel is unconfigured or gets missed.
+        console.error(
+          `[provisioning] job insert REJECTED for ${webAccount}/${serviceId} (invoice ${invoiceDocName}): ` +
+            `status=${status} exc_type=${excType || "?"} — ${errText}`
+        );
         skipped.push({ ...payload, reason: `error: ${e?.message || status || "unknown"}`, domainChoice });
       }
     }

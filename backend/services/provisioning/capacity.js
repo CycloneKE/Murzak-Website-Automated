@@ -37,7 +37,12 @@ function thresholdPct() {
  * anything the gate exists to catch.
  */
 function skipInE2E() {
-  return process.env.E2E_TEST === "true";
+  // NEVER honored in production -- see the docblock above for why this
+  // exists in CI. Undocumented and unguarded before this: if E2E_TEST were
+  // ever set in a live environment it would silently tell the storefront
+  // the node has infinite capacity, disabling the one oversell protection
+  // this module exists to provide.
+  return process.env.E2E_TEST === "true" && process.env.NODE_ENV !== "production";
 }
 
 function thresholdMb() {

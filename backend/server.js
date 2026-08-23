@@ -88,9 +88,14 @@ const createPaypalRouter = require("./routes/paypalRoutes");
 const createAiRouter = require("./routes/aiRoutes");
 const { activateServicesForInvoice } = require("./services/billingActivationService");
 const { effectiveChargeKes, isVerificationOnly } = require("./utils/billingAmount");
-const { assertOrderWithinCapacity } = require("./services/orderCapacity");
-const { capturedAmountMatches } = require("./services/paypalService");
-const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./services/provisioning/catalog");
+const { assertOrderWithinCapacity, assertFleetHasHeadroom } = require("./services/orderCapacity");
+const { capturedAmountMatches, recordPaymentException } = require("./services/paypalService");
+const { DARAJA_TIMEOUT_MS } = require("./services/mpesaService");
+const {
+  getServiceMeta,
+  sumSelectedServicesMonthlyKes,
+  sumSelectedServicesSetupKes,
+} = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
 const { assertNotAnnualBeforePlanChange, getCurrentBillingTerm } = require("./services/checkoutBillingTerm");
 const { PAID_SERVICE_STATUSES } = require("./services/addonEligibility");
@@ -248,7 +253,11 @@ app.use(
 // of the responses they're actually asserting on. Skip the broad IP limiters
 // in that mode; the per-account loginThrottle below (which AUTH-02 exercises
 // directly) is unaffected since it isn't one of these.
-const skipInE2E = () => process.env.E2E_TEST === "true";
+// NEVER honored in production -- E2E_TEST is a CI-only escape hatch with no
+// production guard before this, and if it were ever set (or leaked into) a
+// live environment it would silently disable brute-force protection on every
+// auth endpoint.
+const skipInE2E = () => process.env.E2E_TEST === "true" && process.env.NODE_ENV !== "production";
 
 // Tight limiter for auth/credential endpoints to blunt brute force.
 const authLimiter = rateLimit({
@@ -387,7 +396,16 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function requireAdmin(req, res, next) {
+// Admin access requires BOTH a matching email in ADMIN_EMAILS AND a verified
+// inbox. Registration sends a verification link but never blocks login on it
+// (see routes/authRoutes.js's verify-email handler), so an ADMIN_EMAILS entry
+// nobody had registered yet -- a role address like admin@ or support@ -- could
+// be self-registered by a stranger and used to pass this check immediately,
+// with no proof they control that inbox. The verification state is re-read
+// from Frappe on every check (not cached on the session) so a session created
+// before verification can never carry a stale pass, and any Frappe failure
+// fails CLOSED -- an outage must never silently grant admin.
+async function requireAdmin(req, res, next) {
   const allow = (process.env.ADMIN_EMAILS || "")
     .split(",")
     .map(s => s.trim().toLowerCase())
@@ -398,12 +416,39 @@ function requireAdmin(req, res, next) {
   if (!email || !allow.includes(email)) {
     return res.status(403).json({ error: "Admin access only." });
   }
+
+  const webAccountName = req.session?.webAccount || email;
+  try {
+    const client = frappeClient();
+    const acctRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
+    const verified = !!acctRes?.data?.data?.email_verified;
+    if (!verified) {
+      return res.status(403).json({ error: "Admin access only." });
+    }
+  } catch (e) {
+    console.error("REQUIRE ADMIN: could not confirm email_verified -- failing closed:", e.response?.data || e.message);
+    return res.status(403).json({ error: "Admin access only." });
+  }
   next();
 }
 
 // helper: basic but effective email shape validation
 function isValidEmail(email) {
   return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+// helper: a Frappe docname is a plain resource identifier, never a path.
+// Rejects anything that could be interpreted as a path segment (slash, dot-dot,
+// percent, query/fragment delimiters, control characters) BEFORE it is ever
+// concatenated into a Frappe REST URL. Deliberately permissive on the charset
+// actually used by real docnames (letters, digits, space, hyphen, underscore,
+// @, ., :) rather than trying to match one exact naming series.
+function isSafeFrappeDocname(id) {
+  if (typeof id !== "string") return false;
+  const trimmed = id.trim();
+  if (!trimmed || trimmed.length > 140) return false;
+  if (trimmed.includes("..")) return false;
+  return /^[A-Za-z0-9 @._:-]+$/.test(trimmed);
 }
 
 // helper: MySQL DATETIME format (UTC+3)
@@ -1093,13 +1138,16 @@ app.post("/api/test-plan", publicFormLimiter, async (req, res) => {
   }
 });
 
-// Fetch a Test Plan Invoice by id (docname)
-app.get("/api/test-plan/:id", async (req, res) => {
+// Fetch a Test Plan Invoice by id (docname). Unauthenticated by necessity -- this prefills the signup form from a trial request submitted moments earlier by the SAME anonymous visitor, before any session exists. The docname is validated and encoded before ever reaching the privileged admin-token Frappe client, and the route is rate-limited like its sibling POST /api/test-plan.
+app.get("/api/test-plan/:id", publicFormLimiter, async (req, res) => {
   try {
     const client = frappeClient();
     const id = req.params.id;
+    if (!isSafeFrappeDocname(id)) {
+      return res.status(400).json({ error: "Invalid id." });
+    }
 
-    const resp = await client.get(`/api/resource/Test Plan Invoice/${id}`);
+    const resp = await client.get(`/api/resource/Test Plan Invoice/${encodeURIComponent(id)}`);
     const doc = resp.data?.data;
 
     if (!doc) return res.status(404).json({ error: "Trial not found" });
@@ -1462,7 +1510,25 @@ async function applyPlanAndCreateInvoice(client, webAccountName, planKey, select
   // selected (the catalog snapshot — same source the configurator totals
   // from), not a flat per-plan-tier price: a Starter customer with one
   // KES 1,200/mo service must be charged KES 1,200, not a flat plan rate.
-  let amount = sumSelectedServicesMonthlyKes(selectedServices);
+  // One-time setup fees. The checkout page quotes the customer
+  // monthlyKes + setupKes (services/checkout/orderStore.js's totalDueKes);
+  // before this, only the monthly half was ever invoiced, so every setup fee
+  // in the catalog — KES 5,000 on biz-erp-light, 12,000 on
+  // biz-erp-configured — was displayed and silently never charged.
+  //
+  // Only rows that are NOT already Active are charged: /api/subscription/upgrade
+  // calls this with the FULL post-upgrade row set (services the customer
+  // already owns are stamped "Active"), and setup must not be re-billed on
+  // those. Rows with no status are new purchases and do pay setup.
+  //
+  // Kept out of sumSelectedServicesMonthlyKes deliberately — renewalService.js
+  // bills that sum every RENEWAL_CYCLE_DAYS and would re-charge setup monthly.
+  const setupBearingRows = normalizeSelectedServices(selectedServices).filter(
+    (s) => String(s?.status || "").toLowerCase() !== "active"
+  );
+  const setupKes = sumSelectedServicesSetupKes(setupBearingRows);
+
+  let amount = sumSelectedServicesMonthlyKes(selectedServices) + setupKes;
   if (amount <= 0) return { ok: true, skipped: true, reason: "zero_amount" };
 
   // Apply credit if any (upgrade flow)
@@ -2185,6 +2251,9 @@ async function getMpesaAccessToken() {
 
   const resp = await axios.get(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
     headers: { Authorization: `Basic ${credentials}` },
+    // Bounded: this call sits directly in front of the STK push, so a stalled
+    // token fetch blocks the payment request with no upper limit.
+    timeout: DARAJA_TIMEOUT_MS,
   });
 
   const token = resp.data?.access_token;
@@ -2335,11 +2404,30 @@ app.post("/api/paypal/webhook", async (req, res) => {
       // Shared with the capture flow via capturedAmountMatches so they can't drift.
       const capturedValue = Number(resource?.amount?.value);
       const capturedCurrency = resource?.amount?.currency_code;
-      if (!capturedAmountMatches({ invoiceAmountKes: inv.amount, capturedValue, capturedCurrency })) {
-        console.error("PAYPAL WEBHOOK: amount mismatch — not activating", {
-          invoice: inv.name, capturedValue, capturedCurrency,
+      // expectedUsd: the amount snapshotted when the PayPal order was created,
+      // i.e. what the buyer actually approved. Must match what the synchronous
+      // capture path verifies against, or this rail rejects captures the other
+      // one accepts (and vice versa) whenever the FX rate or the invoice moves.
+      if (!capturedAmountMatches({
+        invoiceAmountKes: inv.amount,
+        capturedValue,
+        capturedCurrency,
+        expectedUsd: inv.paypal_expected_usd,
+      })) {
+        // This is money that has already left the customer's account. Record
+        // it against the invoice and answer 200 so PayPal stops retrying a
+        // decision that will never change — but never let it vanish silently,
+        // which is what returning {ignored:true} alone used to do.
+        await recordPaymentException({
+          frappeClient: client,
+          invoice: inv,
+          jsonResponse: { id: resource?.supplementary_data?.related_ids?.order_id || null,
+                          purchase_units: [{ amount: resource?.amount,
+                                             payments: { captures: [{ id: resource?.id, amount: resource?.amount }] } }] },
+          reason: `PayPal webhook amount mismatch. Captured ${capturedValue} ${capturedCurrency || "?"}.`,
+          code: "AMOUNT_MISMATCH",
         });
-        return res.status(200).json({ ok: true, ignored: true });
+        return res.status(200).json({ ok: true, ignored: true, recorded: true });
       }
 
       await activateServicesForInvoice({
@@ -2384,7 +2472,7 @@ app.post("/api/paypal/webhook", async (req, res) => {
 // --- REGISTER ---
 // -------------
 
-app.post("/api/plan/select-with-services", (req, res) => {
+app.post("/api/plan/select-with-services", async (req, res) => {
   try {
     const { planName, selectedServices } = req.body;
 
@@ -2394,13 +2482,25 @@ app.post("/api/plan/select-with-services", (req, res) => {
     const norm = normalizeSelectedServices(selectedServices);
     assertOrderWithinCapacity(norm);
 
+    // Fleet gate at the storefront's first commitment point. Nothing is
+    // billed here — the selection is only parked on the session — but this is
+    // where the customer is told the configuration is available, and letting
+    // them fill in the whole sign-up form before discovering the box is full
+    // is both a bad experience and how oversold orders reached provisioning.
+    // register re-checks (session state can go stale); this is the early,
+    // honest answer.
+    await assertFleetHasHeadroom({ client: frappeClient(), selectedServices: norm });
+
     req.session.pendingPlan = planKey;
     req.session.pendingServices = norm;
 
     return res.json({ ok: true, pendingPlan: planKey, pendingServicesCount: norm.length });
   } catch (err) {
     console.error("PLAN+SERVICES SELECT ERROR:", err.message);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to store selection." });
+    const body = { error: err.message || "Failed to store selection." };
+    if (err.code) body.code = err.code;
+    if (err.code === "CAPACITY") body.waitlistAvailable = true;
+    return res.status(err.statusCode || 500).json(body);
   }
 });
 
@@ -3327,6 +3427,7 @@ const routeContext = {
   convertKesToPaypalAmount,
   reconcileServiceDeletionAgainstInvoices,
   assertOrderWithinCapacity,
+  assertFleetHasHeadroom,
   _mpesaTokenCache,
   getMpesaAccessToken,
   normalizeMpesaPhone,
@@ -3425,12 +3526,21 @@ process.on("uncaughtException", (err) => {
   try {
     Promise.resolve(provisioningQueue.stop()).catch(() => {});
   } catch {}
-  server.close(() => process.exit(1));
+  if (server) server.close(() => process.exit(1));
   setTimeout(() => process.exit(1), 5000).unref();
 });
 
 // ---- Start server ----
-const server = app.listen(PORT, () => {
+// Only bind the port (and start the background sweeps below, which live in
+// this callback) when this file is the process entry point. Under
+// `require("../server")` — which the money-path tests need in order to reach
+// applyPlanAndCreateInvoice and friends — importing the module must not open
+// a socket, start intervals, or connect to Redis. `node server.js` is
+// unaffected: require.main === module is true there, so production boot is
+// byte-for-byte the same path it was before.
+const IS_ENTRYPOINT = require.main === module;
+const server = IS_ENTRYPOINT
+  ? app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   // Provisioning dispatcher — poll | bullmq | off. No-op unless
   // PROVISIONING_RUNNER_ENABLED=true. Async start; never blocks boot.
@@ -3551,20 +3661,23 @@ const server = app.listen(PORT, () => {
     setInterval(run, everyMs).unref();
     console.log(`[capacity-sweep] scheduled every ${Math.round(everyMs / 60000)}m`);
   }
-});
+    })
+  : null;
 
-// ---- Developer access terminal: WS upgrade (Phase 5.2 — auth only) ----
+// ---- Developer access terminal: WS upgrade (Phase 5.2 auth + P5.3 bridge) ----
 // Express middleware (incl. session parsing) does NOT run on the raw
 // 'upgrade' event, so this handler manually: (1) verifies the single-use
 // wsTicket minted by POST .../terminal/session, (2) manually unsigns the
 // session cookie and loads the session from the SAME store express-session
 // uses, (3) re-checks session.webAccount === ticket.webAccount — a stolen
 // ticket alone is not sufficient without also holding the live session
-// cookie. Real exec doesn't exist yet: on success this sends one
-// confirmation frame and closes. The broker bridge (using the brokerToken
-// baked into the ticket at mint time) is P5.3.
+// cookie. Once authenticated, this backend is a dumb byte pipe between the
+// browser and the broker's /exec — it never touches Docker itself (see
+// broker/README.md's capability chain). The broker independently re-verifies
+// the brokerToken and re-resolves container ownership; this handler's own
+// auth chain and the broker's are two separate checks, not one shared trust.
 {
-  const { WebSocketServer } = require("ws");
+  const { WebSocketServer, WebSocket: BrokerWsClient } = require("ws");
   const cookieLib = require("cookie");
   const cookieSignature = require("cookie-signature");
   const { consumeWsTicket } = require("./utils/wsTicket");
@@ -3577,7 +3690,9 @@ const server = app.listen(PORT, () => {
     socket.destroy();
   }
 
-  server.on("upgrade", (req, socket, head) => {
+  // No bound server when this module is imported rather than executed — the
+  // terminal WS upgrade has nothing to attach to.
+  if (server) server.on("upgrade", (req, socket, head) => {
     let reqUrl;
     try {
       reqUrl = new URL(req.url, "http://localhost");
@@ -3632,14 +3747,55 @@ const server = app.listen(PORT, () => {
       }
 
       wss.handleUpgrade(req, socket, head, (ws) => {
-        // Auth chain proven end-to-end. Real exec (broker bridge, jail,
-        // recording) is P5.3 — for now, confirm and close so nothing here
-        // can be mistaken for a working shell.
-        ws.send(JSON.stringify({
-          type: "notice",
-          message: "Authenticated. The developer terminal isn't wired to a real shell yet (Phase 5.3) — this connection proves the auth chain only.",
-        }));
-        ws.close(1000, "not_yet_implemented");
+        // Auth chain proven end-to-end. Bridge to the broker, which holds
+        // the actual Docker access — this process never does.
+        const brokerBase = process.env.BROKER_URL || "";
+        const brokerApiKey = process.env.BROKER_API_KEY || "";
+        if (!brokerBase || !brokerApiKey || !ticketPayload.brokerToken) {
+          console.error("TERMINAL WS ERROR: broker not configured (BROKER_URL/BROKER_API_KEY unset, or ticket missing brokerToken).");
+          try { ws.send(JSON.stringify({ type: "error", message: "Developer access terminal isn't configured yet — contact support." })); } catch {}
+          return ws.close(1011, "broker_not_configured");
+        }
+
+        // BROKER_URL is documented as an http(s) address (matches the docker-
+        // compose service address style); the ws client needs ws(s)://.
+        const brokerWsBase = brokerBase.replace(/\/+$/, "").replace(/^http/i, "ws");
+        const brokerUrl = `${brokerWsBase}/exec?token=${encodeURIComponent(ticketPayload.brokerToken)}`;
+        const brokerWs = new BrokerWsClient(brokerUrl, {
+          headers: { "x-broker-key": brokerApiKey },
+          handshakeTimeout: 10000,
+        });
+
+        // Bridge is only "live" once the broker side has actually opened —
+        // browser messages arriving before that are dropped rather than
+        // queued, since the broker's own exec-open failure (a real Docker
+        // rejection) must reach the browser as an explicit error, never a
+        // silently swallowed keystroke.
+        let bridgeOpen = false;
+
+        brokerWs.on("open", () => { bridgeOpen = true; });
+
+        brokerWs.on("message", (data, isBinary) => {
+          if (ws.readyState === ws.OPEN) ws.send(data, { binary: isBinary });
+        });
+        brokerWs.on("close", (code, reason) => {
+          if (ws.readyState === ws.OPEN) ws.close(1000, reason?.toString().slice(0, 120) || "broker_closed");
+        });
+        brokerWs.on("error", (e) => {
+          console.warn("TERMINAL WS: broker connection error:", e.message);
+          if (!bridgeOpen) {
+            try { ws.send(JSON.stringify({ type: "error", message: "Could not reach the developer access service. Contact support." })); } catch {}
+          }
+          try { ws.close(1011, "broker_error"); } catch {}
+        });
+
+        ws.on("message", (data, isBinary) => {
+          if (bridgeOpen && brokerWs.readyState === brokerWs.OPEN) {
+            brokerWs.send(data, { binary: isBinary });
+          }
+        });
+        ws.on("close", () => { try { brokerWs.close(); } catch {} });
+        ws.on("error", () => { try { brokerWs.close(); } catch {} });
       });
     });
   });
@@ -3650,6 +3806,7 @@ function shutdown(signal) {
   console.log(`${signal} received: closing server...`);
   // Close the provisioning dispatcher (worker/queue/redis) first.
   Promise.resolve(provisioningQueue.stop()).catch(() => {});
+  if (!server) return process.exit(0);
   server.close(() => {
     console.log("HTTP server closed. Exiting.");
     process.exit(0);
@@ -3659,3 +3816,24 @@ function shutdown(signal) {
 }
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// ---- Test surface ----
+// server.js historically exported nothing, so ~3.6k lines of money logic
+// (applyPlanAndCreateInvoice and the invoice helpers it composes) could not
+// be reached from a test at all. Combined with the require.main guard on
+// app.listen above, this makes those paths unit-testable without booting a
+// listener. Route handlers still receive these through routeContext exactly
+// as before — this block only re-exposes existing functions, it changes no
+// behaviour.
+module.exports = {
+  app,
+  applyPlanAndCreateInvoice,
+  isSafeFrappeDocname,
+  requireAdmin,
+  skipInE2E,
+  sumSelectedServicesMonthlyKes,
+  normalizeSelectedServices,
+  mergeServicesById,
+  findExistingUnpaidSubscriptionInvoice,
+  buildInvoiceServiceRows,
+};

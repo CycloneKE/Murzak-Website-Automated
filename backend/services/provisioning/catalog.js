@@ -96,11 +96,34 @@ function laneFor(meta) {
   return "coolify";
 }
 
+/**
+ * Sum the ONE-TIME setup fees for a selection.
+ *
+ * Deliberately separate from sumSelectedServicesMonthlyKes rather than folded
+ * into it: renewalService.js bills the monthly sum every RENEWAL_CYCLE_DAYS,
+ * so a setup fee inside that total would be re-charged to every customer every
+ * month forever. Setup belongs only on a service's FIRST invoice — the
+ * first-purchase path and the add-on path — never on a renewal.
+ *
+ * Same input shapes as the monthly sum (string id, {serviceId}, or
+ * {service_id}); unknown ids contribute 0.
+ */
+function sumSelectedServicesSetupKes(selectedServices = []) {
+  let total = 0;
+  for (const s of Array.isArray(selectedServices) ? selectedServices : []) {
+    const id = typeof s === "string" ? s : s?.serviceId || s?.service_id;
+    const meta = id ? getServiceMeta(String(id)) : null;
+    if (meta) total += Number(meta.setupKes || 0);
+  }
+  return total;
+}
+
 module.exports = {
   SNAPSHOT_PATH,
   CAPACITY,
   ITEMS,
   getServiceMeta,
   sumSelectedServicesMonthlyKes,
+  sumSelectedServicesSetupKes,
   laneFor,
 };

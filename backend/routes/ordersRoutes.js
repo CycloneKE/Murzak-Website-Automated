@@ -268,6 +268,13 @@ module.exports = function (ctx) {
           client,
           webAccountName,
           services: [serviceRow],
+          // This order already quoted the buyer one specific total
+          // (order.totalDueKes, shown on the checkout page). Adopting an
+          // existing open invoice would recompute the amount across every row
+          // on it — including services from checkouts this customer abandoned
+          // — charging them a number they were never shown and activating the
+          // abandoned service alongside. One order, one invoice.
+          mergeIntoOpenInvoice: false,
           deps: {
             fetchWebAccount,
             hasPaidSubscriptionForPlan,

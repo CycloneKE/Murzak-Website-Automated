@@ -17,6 +17,24 @@
  */
 
 const { JOB_DOCTYPE } = require("./provisioningService");
+const os = require("os");
+const crypto = require("crypto");
+
+// A genuinely unique identity per PROCESS (not per call). claimJob writes
+// runner_id then re-reads it to verify the claim -- that verification only
+// discriminates between two racing runners if their identities actually
+// differ. Before this, processJob/processQueue defaulted to the literal
+// "runner" and processJobByName to "worker", so two poll-mode processes (two
+// containers, or a mid-restart overlap) both wrote the SAME constant and the
+// re-read always matched, letting both proceed -- the documented 12-duplicate-
+// Coolify-container incident. RUNNER_ID lets an operator pin a stable identity
+// (useful for reading logs); otherwise hostname+pid+random guarantees no two
+// processes ever collide. Computed once at load, not per call, so repeated
+// calls within one process stay consistent (claimJob's idempotent-reclaim
+// path depends on that).
+const DEFAULT_RUNNER_ID =
+  process.env.RUNNER_ID ||
+  `${os.hostname()}-${process.pid}-${crypto.randomBytes(4).toString("hex")}`;
 const {
   WEB_ACCOUNT_DOCTYPE, WEB_ACCOUNT_SERVICES_FIELD,
   CHILD_SERVICE_ID_FIELD, CHILD_STATUS_FIELD,
@@ -282,7 +300,7 @@ async function fetchClaimable(client, limit) {
 /**
  * Process one job end-to-end. Returns an outcome record; never throws.
  */
-async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner") {
+async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT_RUNNER_ID) {
   try {
     const meta = getServiceMeta(job.service_id);
     const lane = job.lane || laneFor(meta);
@@ -424,7 +442,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = "runner
  * still eligible (the doctype is the source of truth), then process it. Returns
  * an outcome record; never throws.
  */
-async function processJobByName(client, name, lanes = DEFAULT_LANES, runnerId = "worker") {
+async function processJobByName(client, name, lanes = DEFAULT_LANES, runnerId = DEFAULT_RUNNER_ID) {
   let job;
   try {
     job = await fetchJobByName(client, name);
@@ -449,7 +467,7 @@ async function processJobByName(client, name, lanes = DEFAULT_LANES, runnerId = 
  */
 async function processQueue(
   client,
-  { lanes = DEFAULT_LANES, max = batchSize(), runnerId = "runner", limit = concurrency() } = {}
+  { lanes = DEFAULT_LANES, max = batchSize(), runnerId = DEFAULT_RUNNER_ID, limit = concurrency() } = {}
 ) {
   await reclaimStaleRunning(client);
 
@@ -520,6 +538,7 @@ function stopRunner() {
 
 module.exports = {
   DEFAULT_LANES,
+  DEFAULT_RUNNER_ID,
   isRunnerEnabled,
   backoffSec,
   parseSqlTime,

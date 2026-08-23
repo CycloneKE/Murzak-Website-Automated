@@ -45,6 +45,27 @@
   {
     "doctype": "Custom Field",
     "dt": "Portal Invoice",
+    "fieldname": "paypal_expected_usd",
+    "label": "PayPal Expected USD",
+    "fieldtype": "Data",
+    "read_only": 1,
+    "insert_after": "paypal_capture_id",
+    "description": "USD amount quoted to the buyer when the PayPal order was created. The capture is verified against THIS value, not against a figure recomputed later from the live invoice amount and FX rate — otherwise an FX move or an invoice edited mid-checkout fails the capture after the money has already moved."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "payment_exception",
+    "label": "Payment Exception",
+    "fieldtype": "Small Text",
+    "read_only": 1,
+    "in_standard_filter": 1,
+    "insert_after": "paypal_expected_usd",
+    "description": "Set when a payment was captured but could NOT be applied to this invoice (amount or reference mismatch). Money has left the customer account and is owed back or owed application. Filter on this field to find payments needing manual resolution."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
     "fieldname": "billing_term",
     "label": "Billing Term",
     "fieldtype": "Select",

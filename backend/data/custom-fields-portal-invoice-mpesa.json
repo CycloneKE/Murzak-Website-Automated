@@ -21,5 +21,15 @@
     "no_copy": 1,
     "insert_after": "mpesa_checkout_request_id",
     "description": "Safaricom M-Pesa receipt number, persisted best-effort for reconciliation/audit once the callback confirms payment."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "mpesa_checkout_request_ids",
+    "label": "M-Pesa Checkout Request IDs",
+    "fieldtype": "Small Text",
+    "read_only": 1,
+    "insert_after": "mpesa_checkout_request_id",
+    "description": "Bounded history of every CheckoutRequestID pushed for this invoice, newest last. The single mpesa_checkout_request_id field is overwritten by each new STK push; without this history a customer who pays a SUPERSEDED prompt produces a callback that matches no invoice, and the payment is lost. The callback falls back to a LIKE scan of this field."
   }
 ]

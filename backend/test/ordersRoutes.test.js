@@ -328,6 +328,75 @@ function baseCtx(client, overrides = {}) {
     ok(createAddonCalls === 1, "createAddonInvoice NOT called again");
   }
 
+  // ------------------------------------------------------------------
+  // ORDER <-> INVOICE BINDING
+  //
+  // The checkout page quotes the customer exactly one number: this order's
+  // totalDueKes (monthly + setup, from services/checkout/orderStore.js).
+  // prepare-payment used to hand the order to createAddonInvoice, which
+  // adopts any existing OPEN unpaid Add-on invoice and recomputes its amount
+  // across every row on it — including services from checkouts the customer
+  // abandoned earlier. The buyer then saw one number and was charged another,
+  // and the abandoned service silently activated alongside the one they meant
+  // to buy. An order must be billed what it quoted, and nothing else.
+  // ------------------------------------------------------------------
+  section("prepare-payment — an abandoned open invoice does not change what this order charges");
+  {
+    const realCreateAddonInvoice = require("../services/addonInvoiceService").createAddonInvoice;
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-1": {
+          name: "acct-1", plan: "Starter", account_holder_name: "Test Co",
+          // an already-owned, paid service so the add-on eligibility gate passes
+          selected_services: [{ serviceId: "starter-app-hosting", status: "Active" }],
+        },
+      },
+      // The abandoned checkout: an unpaid Add-on invoice for a DIFFERENT service.
+      "Portal Invoice": {
+        "PINV-ABANDONED": {
+          name: "PINV-ABANDONED", web_account: "acct-1", type: "Add-on", status: "Unpaid",
+          amount: 1700,
+          services: [{ serviceId: "starter-web-hosting", status: "Awaiting Payment" }],
+        },
+      },
+    });
+    const ctx = baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+      // the real service looks for an open unpaid Add-on invoice — give it one
+      findOpenInvoice: async () => ({ name: "PINV-ABANDONED", status: "Unpaid" }),
+    });
+    const router = createOrdersRouter(ctx);
+    const createHandler = findHandler(router, "post", "/api/orders");
+    const prepHandler = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const createRes = makeRes();
+    // db-mysql: monthlyKes 2000 + setupKes 500 => the page quotes 2500
+    await createHandler({ session: { webAccount: "acct-1" }, body: { serviceId: "db-mysql" } }, createRes);
+    const orderId = createRes.body.order.id;
+    const quoted = createRes.body.order.totalDueKes;
+    ok(quoted === 2500, `checkout quoted 2000 monthly + 500 setup = 2500 (got ${quoted})`);
+
+    const res = makeRes();
+    await prepHandler({ session: { webAccount: "acct-1" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 200, "status 200");
+
+    const linked = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(
+      linked.amount === quoted,
+      `the invoice bound to this order bills exactly what the page quoted: ${quoted} (got ${linked?.amount})`
+    );
+    ok(
+      res.body.invoiceDocName !== "PINV-ABANDONED",
+      `the order gets its own invoice, not the abandoned one (got ${res.body.invoiceDocName})`
+    );
+    const abandoned = client.store["Portal Invoice"]["PINV-ABANDONED"];
+    ok(
+      abandoned.amount === 1700 && abandoned.services.length === 1,
+      "the abandoned invoice is left untouched, not silently grown"
+    );
+  }
+
   section("prepare-payment — first-purchase branch (no paid plan)");
   {
     const client = makeMockFrappe({

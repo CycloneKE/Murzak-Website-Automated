@@ -31,6 +31,37 @@ ok(containerMatchesOwner(null, EXPECT) === false, "null container is not a match
 ok(containerMatchesOwner({ Names: ["/acme-shop-web"] }, "") === false, "empty expected name never matches");
 ok(normalizeContainerNames(["/a", "//b", "c"]).join(",") === "a,b,c", "normalizeContainerNames strips leading slashes");
 
+// Regression, 2026-08-18: shape confirmed live against a real Coolify 4.1.2
+// service (app-a5apm1mb72t9qlcopo1e9ybd). The container's own NAME is
+// Coolify-generated ("app-<serviceUuid>"), never the ownership slug; only
+// the coolify.resourceName label carries it. Before OWNERSHIP_LABEL_KEYS
+// included it, this container matched NOTHING — every real /exec would
+// have 403'd as NO_MATCH.
+const REAL_SERVICE_CONTAINER = {
+  Id: "real-uuid",
+  Names: ["/app-a5apm1mb72t9qlcopo1e9ybd"],
+  Labels: {
+    "coolify.name": "app-a5apm1mb72t9qlcopo1e9ybd",
+    "coolify.resourceName": "user-26-08-18-0001-biz-web-hosting",
+    "coolify.serviceName": "app",
+    "com.docker.compose.service": "app",
+    "com.docker.compose.project": "a5apm1mb72t9qlcopo1e9ybd",
+  },
+};
+ok(
+  containerMatchesOwner(REAL_SERVICE_CONTAINER, "user-26-08-18-0001-biz-web-hosting") === true,
+  "real Coolify service container shape resolves by coolify.resourceName, not by container name"
+);
+// "app" is the literal compose-service-key label value on every single-
+// service container — it WOULD match if a token's expectedName were ever
+// literally "app", but expectedName is always resourceName(job)
+// ("{web_account}-{service_id}"), never that bare string, so this is not a
+// real collision risk in practice.
+ok(
+  containerMatchesOwner(REAL_SERVICE_CONTAINER, "acme-shop-web") === false,
+  "an unrelated tenant's expected name does not match this container"
+);
+
 console.log("# resolve — unique-id resolution");
 const list = [
   { Id: "aaa", Names: ["/other-tenant-web"] },

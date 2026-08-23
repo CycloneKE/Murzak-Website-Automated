@@ -47,7 +47,7 @@ async function withEnvAsync(vars, fn) {
   const coolify = require("../services/provisioning/lanes/coolify");
   const axios = require("axios");
 
-  const JOB = { name: "PRV-1", web_account: "user-26-02-14-0002", service_id: "starter-web-hosting", ram_mb: 512, disk_gb: 5 };
+  const JOB = { name: "PRV-1", web_account: "user-26-02-14-0002", service_id: "starter-web-hosting", ram_mb: 512, disk_gb: 5, category: "Website Hosting" };
   const EXPECTED_NAME = coolify.resourceName(JOB);
 
   /**

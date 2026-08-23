@@ -67,5 +67,15 @@
     "read_only": 1,
     "insert_after": "resource_admin_approved_by",
     "description": "Customer's one-time acceptance of the resource-admin disclosure (you can break your own service; support scope changes). Never client-settable except via POST /api/portal/resource-admin/accept-disclosure, which stamps this from the server clock."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Web Account",
+    "fieldname": "email_verified",
+    "label": "Email Verified",
+    "fieldtype": "Check",
+    "default": "0",
+    "insert_after": "app_port",
+    "description": "Set to 1 by GET /api/auth/verify-email once the account clicks its verification link (routes/authRoutes.js). requireAdmin (server.js) now REQUIRES this to be truthy in addition to an ADMIN_EMAILS match -- an unverified inbox can never pass admin auth, even if the email matches. IMPORTANT: this field is unset (0) on every EXISTING row when first installed -- there is no automatic backfill and no self-service re-verification path for an account that predates this feature, so every current admin must be flipped to 1 by hand in Frappe Desk (Web Account list -> open the row -> check Email Verified -> save) as part of deploying this change, or they lock themselves out of the admin panel. See docs/production-env-setup.md."
   }
 ]

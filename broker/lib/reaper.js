@@ -1,17 +1,30 @@
 /**
- * Orphan-process reaper (closes the P5.3 gap noted in exec.js/README). A
- * jailed shell runs under `setsid` so killing its process group on
- * disconnect reaps the shell and its DIRECT children — but grandchildren
- * that get re-parented to the container's PID 1 (e.g. a backgrounded
- * `nohup ... &` two levels deep) can survive session teardown. "Closing the
- * tab is not a security boundary" until something goes and cleans those up.
+ * Orphan-process reaper (closes the P5.3 gap noted in exec.js/README).
+ *
+ * ORIGINALLY designed around a jailed shell running under `setsid`, so
+ * killing its process group on disconnect would reap the shell and its
+ * DIRECT children in one shot. `setsid` was removed from exec.js entirely
+ * (confirmed live 2026-08-23: it reliably killed the exec's own hijacked TTY
+ * stream before real output/exit — see that file's docblock), so the shell
+ * is no longer its own process-group leader and a group-kill (`kill -9
+ * -$pid`) can no longer be aimed at it. This sweep now kills the marked PID
+ * directly instead. That is a real, narrower guarantee than before: a
+ * grandchild the shell backgrounds (`nohup ... &`) and that gets
+ * re-parented before this sweep runs will NOT be caught by killing the
+ * shell's own PID, whereas a working process-group kill would have caught
+ * it. "Closing the tab is not a security boundary" already acknowledged
+ * grandchildren as a gap for OTHER reasons (re-parenting to PID 1 mid-
+ * session); this sweep is the backstop for exactly that class of leftover,
+ * and it still catches the common case — the marked shell itself, and any
+ * child still in its own process group when the sweep runs, since a plain
+ * PID kill only fails to reach a child that already re-parented away.
  *
  * How it finds orphans: every jailed shell is exec'd with
  * MURZAK_TERMINAL_SESSION=<sessionId> in its environment (see
  * buildExecCreatePayload in exec.js). Any process in the container carrying
  * that marker whose session id is NOT in the broker's current live-session
  * set is, by definition, left over from a session that has already ended —
- * kill its process group.
+ * kill it.
  *
  * Pure/testable half: buildReaperScript()/buildReaperExecPayload() — a
  * deterministic POSIX sh script using only /proc (no pgrep/pkill, which
@@ -39,12 +52,7 @@ function buildReaperScript() {
     '  case " $LIVE " in',
     '    *" $sid "*) continue ;;',
     '  esac',
-    '  stat=$(cat "$d/stat" 2>/dev/null) || continue',
-    '  rest=${stat##*) }',
-    '  set -- $rest',
-    '  pgrp=$3',
-    '  [ "$pgrp" = "$p" ] || continue',
-    '  kill -9 -"$p" 2>/dev/null',
+    '  kill -9 "$p" 2>/dev/null',
     'done',
   ].join("\n");
 }

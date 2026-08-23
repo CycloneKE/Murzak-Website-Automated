@@ -5,13 +5,17 @@
 // comes from the catalog snapshot; PLAN_NOT_PAID / eligibility / capacity
 // gates are preserved exactly.
 
-const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("./provisioning/catalog");
+const {
+  getServiceMeta,
+  sumSelectedServicesMonthlyKes,
+  sumSelectedServicesSetupKes,
+} = require("./provisioning/catalog");
 const {
   isAddonEligible,
   accountHasNonDomainPaidService,
   invoiceRowsIncludeNonDomainService,
 } = require("./addonEligibility");
-const { assertOrderWithinCapacity } = require("./orderCapacity");
+const { assertOrderWithinCapacity, assertFleetHasHeadroom } = require("./orderCapacity");
 const { daysRemainingInTerm, proRatedAddonKes } = require("./billingTerm");
 const { getCurrentBillingTerm } = require("./checkoutBillingTerm");
 
@@ -173,9 +177,20 @@ async function resolveNonDomainPaidHistory({ client, webAccountName, accountServ
  *   findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
  *   PORTAL_INVOICE_SERVICES_FIELD }
  *
+ * `mergeIntoOpenInvoice` (default true) controls whether an existing OPEN
+ * unpaid Add-on invoice is adopted and grown, or a dedicated invoice is
+ * created for exactly this selection. The order-driven checkout
+ * (ordersRoutes prepare-payment) passes false: that flow has already quoted
+ * the buyer one specific total for one specific order, so adopting an invoice
+ * carrying services from an abandoned checkout would charge them a number the
+ * page never displayed and silently activate the abandoned service too.
+ * The portal's multi-service add-on endpoint keeps the merge — it returns the
+ * recomputed amountKes to its caller, so the total it charges is the total it
+ * reports.
+ *
  * @returns {Promise<{invoiceDocName: string, amountKes: number}>}
  */
-async function createAddonInvoice({ client, webAccountName, services, deps }) {
+async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true }) {
   const {
     fetchWebAccount, hasPaidSubscriptionForPlan, normalizeSelectedServices,
     findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
@@ -270,17 +285,34 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     .filter((s) => s.serviceId);
   assertOrderWithinCapacity([...existingSelection, ...norm]);
 
+  // ...and the fleet-level question the per-order cap never asks: is there
+  // room left on the box at all? Only the NEW services are weighed — whatever
+  // this account already runs is already counted in the fleet's reserved RAM.
+  await assertFleetHasHeadroom({ client, selectedServices: norm });
+
   // Add-ons are always priced à la carte — there are no free plan-included
   // slots (matches the configurator/checkout, which never offers a free
   // service). The per-service pricing check above guarantees this is > 0.
   //
-  // Annual-term accounts pay each add-on's ANNUAL price pro-rated to the days
-  // left in their current term, so the whole account keeps renewing on one
-  // anniversary. Monthly-term accounts — and every legacy account with no
-  // billing_term — are billed the monthly sum exactly as before.
+  // Setup is a ONE-TIME fee and is added here, on the service's first
+  // invoice, so the amount matches the totalDueKes the checkout page showed
+  // the customer (services/checkout/orderStore.js). It is deliberately NOT
+  // part of sumSelectedServicesMonthlyKes — renewalService.js bills that
+  // monthly and would otherwise re-charge setup forever — and it is never
+  // pro-rated by the annual-term branch below: a one-time setup cost doesn't
+  // shrink because a customer is mid-term.
+  //
+  // Annual-term accounts pay each add-on's recurring ANNUAL price pro-rated
+  // to the days left in their current term, so the whole account keeps
+  // renewing on one anniversary. Monthly-term accounts — and every legacy
+  // account with no billing_term — are billed the monthly sum exactly as
+  // before. recurringAmount (not the setup-fee-inclusive amount) is what the
+  // corrupted-annual-account guard below checks — see its own comment for
+  // why a nonzero setup fee must never mask a zeroed-out recurring charge.
   const monthlySum = sumSelectedServicesMonthlyKes(norm);
+  const setupFee = sumSelectedServicesSetupKes(norm);
   const { term, anchorDate } = await getCurrentBillingTerm(client, webAccountName);
-  const amount =
+  const recurringAmount =
     term === "annual"
       ? norm.reduce((total, s) => {
           const meta = getServiceMeta(s.serviceId);
@@ -290,11 +322,14 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
           );
         }, 0)
       : monthlySum;
+  const amount = recurringAmount + setupFee;
 
   const today = new Date().toISOString().slice(0, 10);
 
   // Find any open unpaid add-on invoice
-  const open = await findOpenInvoice(client, webAccountName, "Add-on");
+  const open = mergeIntoOpenInvoice
+    ? await findOpenInvoice(client, webAccountName, "Add-on")
+    : null;
 
   let createdInvoiceId = null;
   let invoiceAmountKes = amount;
@@ -343,8 +378,12 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     // For open unpaid add-on invoice, all rows are chargeable add-ons.
     // Same annual pro-ration as the fresh-invoice path above — otherwise an
     // annual account whose second add-on merges into an open invoice would
-    // silently revert to monthly pricing.
-    const mergedAmount =
+    // silently revert to monthly pricing. Every row here is still unpaid, so
+    // none of them has had its one-time setup fee collected yet either —
+    // bill setup for all of them, same as the new-invoice branch above (and,
+    // same as there, kept out of the recurring amount the corruption guard
+    // checks).
+    const mergedRecurringAmount =
       term === "annual"
         ? mergedServices.reduce((total, s) => {
             const meta = getServiceMeta(s.serviceId);
@@ -354,8 +393,9 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
             );
           }, 0)
         : sumSelectedServicesMonthlyKes(mergedServices);
+    const mergedAmount = mergedRecurringAmount + sumSelectedServicesSetupKes(mergedServices);
 
-    assertNotFreeAnnualAddonInvoice({ term, amount: mergedAmount, anchorDate, serviceRows: mergedServices });
+    assertNotFreeAnnualAddonInvoice({ term, amount: mergedRecurringAmount, anchorDate, serviceRows: mergedServices });
 
     const mergedRows = buildInvoiceServiceRows(
       mergedServices.map((s) => ({
@@ -375,7 +415,7 @@ async function createAddonInvoice({ client, webAccountName, services, deps }) {
     createdInvoiceId = open.name;
     invoiceAmountKes = mergedAmount;
   } else {
-    assertNotFreeAnnualAddonInvoice({ term, amount, anchorDate, serviceRows: norm });
+    assertNotFreeAnnualAddonInvoice({ term, amount: recurringAmount, anchorDate, serviceRows: norm });
 
     const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
     const clientName = accRes.data?.data?.account_holder_name || "";

@@ -56,13 +56,22 @@ services:
       BROKER_API_KEY: ${BROKER_API_KEY}
       BROKER_SIGNING_KEY: ${BROKER_SIGNING_KEY}
       DOCKER_PROXY_URL: http://socket-proxy:2375
+      # The generic (non-BYOA) service compose template's only shipped image
+      # is nginx:alpine, whose built-in non-root user is "nginx" (confirmed
+      # live, 2026-08-18: uid:gid 101:101, not the 10001:10001 default) — set
+      # here so Website Hosting (Business), the dominant product, actually
+      # gets a working shell out of the box. Other curated-app images (their
+      # own non-root user, if any) are NOT covered by this single global
+      # override; exec fails safely (never falls back to root) until each is
+      # tuned individually — a real, deliberately deferred limitation.
+      TERMINAL_EXEC_USER: ${TERMINAL_EXEC_USER:-nginx}
       # P5.4 — session-outcome reporting (broker -> backend, same shared key
-      # as backend -> broker calls) and off-box recording storage. The broker
-      # container must be reachable FROM the backend's internal call too; if
-      # the main app's compose puts the backend on this same network, point
-      # this at that service name (e.g. http://backend:3001). Left unset here
-      # since the backend's compose file/service name lives outside this repo
-      # slice — set it at deploy time.
+      # as backend -> broker calls) and off-box recording storage. Left unset
+      # by default: the backend's Coolify-managed container name changes on
+      # every redeploy, so there's no stable target to point this at without
+      # further Coolify-side network alias work — reporting silently no-ops
+      # until that's done (session recording/history UI stays empty; the
+      # live shell itself is unaffected).
       BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-}
       TERMINAL_S3_ENDPOINT: ${TERMINAL_S3_ENDPOINT:-}
       TERMINAL_S3_BUCKET: ${TERMINAL_S3_BUCKET:-}
@@ -73,6 +82,16 @@ services:
       - socket-proxy
     networks:
       - broker-internal
+      # The payment backend is a separate Coolify-managed stack, already
+      # attached to Coolify's shared "coolify" docker network (confirmed
+      # live) — joining it here is what makes `http://broker:4600` resolvable
+      # from the backend without any Coolify-side reconfiguration, and
+      # without the fragility of a stable-alias workaround (the backend's own
+      # container name changes every redeploy; this network's DOES NOT).
+      # Customer service containers are NOT on this network (each gets its
+      # own isolated per-service network — confirmed live), so this does not
+      # expose the broker to tenant containers, only to the backend.
+      - coolify
     # Extra hardening: the broker never needs new privileges or extra caps.
     security_opt:
       - no-new-privileges:true
@@ -81,4 +100,6 @@ services:
 
 networks:
   broker-internal:
-    internal: true   # no route to the host/internet; backend joins this network
+    internal: true   # no route to the host/internet; broker<->socket-proxy only
+  coolify:
+    external: true    # Coolify's pre-existing shared network; backend already joins it

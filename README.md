@@ -1,9 +1,9 @@
 # Murzak Technologies
 
 White-label managed-hosting storefront + customer portal. Sells KES-priced plans
-(web hosting, email, ERPNext/POS/CRM, domains) off one Hostinger KVM 4 server,
-takes **M-Pesa** and **card** payments, and optionally **provisions** the hosting
-automatically.
+(web hosting, email, ERPNext/POS/CRM, domains) off one shared cloud server
+(2 vCPU / 8 GB RAM / 100 GB NVMe), takes **M-Pesa** and **card** payments, and
+optionally **provisions** the hosting automatically.
 
 > The application lives in **`frontend/`** (React + Vite SPA) and **`backend/`**
 > (Express + Frappe/ERPNext). Files at the repo root are legacy and unused.

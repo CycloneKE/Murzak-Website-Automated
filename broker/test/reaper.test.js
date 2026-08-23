@@ -26,9 +26,15 @@ console.log("# buildReaperScript — POSIX sh, no gawk/pgrep dependency");
   const s = buildReaperScript();
   ok(typeof s === "string" && s.length > 0, "returns a non-empty script");
   ok(s.includes("MURZAK_TERMINAL_SESSION="), "greps for the session marker env var");
-  ok(s.includes('kill -9 -"$p"'), "kills the PROCESS GROUP (leading '-'), not just the pid");
+  // Regression, 2026-08-23: exec.js dropped setsid entirely (it killed the
+  // TTY hijack stream outright on real commands) -- the marked shell is no
+  // longer its own process-group leader, so a group-kill can no longer be
+  // aimed at it. This sweep kills the marked PID directly now; see
+  // reaper.js's docblock for the accepted narrower guarantee (an already
+  // re-parented grandchild survives a plain PID kill).
+  ok(s.includes('kill -9 "$p"'), "kills the marked PID directly (no longer a process-group leader since exec.js dropped setsid)");
+  ok(!s.includes('kill -9 -"$p"'), "never attempts a process-group kill -- there is no process group to target");
   ok(s.includes('[ "$p" = "1" ] && continue'), "never targets PID 1");
-  ok(s.includes('[ "$pgrp" = "$p" ] || continue'), "only acts on group LEADERS (pid == pgrp), never arbitrary children");
   ok(!s.includes("pgrep") && !s.includes("pkill"), "avoids tools that minimal/busybox images may not have");
   ok(buildReaperScript() === s, "deterministic — same output every call");
 }

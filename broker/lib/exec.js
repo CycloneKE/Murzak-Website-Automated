@@ -13,20 +13,35 @@ const DEFAULT_SHELL_PROBE = "command -v bash >/dev/null 2>&1 && exec bash -il ||
  * Build the Docker `POST /containers/{id}/exec` payload for a JAILED shell:
  *   - non-root user (uid:gid) — the container image must actually have this
  *     user; we never exec as root (`-u 0`) even if the image defaults to it.
- *   - a login-ish interactive shell wrapped in `setsid` so the whole session
- *     runs in its OWN process group → killing that group on disconnect reaps
- *     the shell AND its direct children (see reaper note in index.js; grandkids
- *     re-parented to PID 1 still need the sweep, this just covers the common
- *     case cleanly).
+ *   - a login-ish interactive shell — NOT wrapped in setsid (see below).
  *   - a sane TERM + a marker env var the reaper sweep greps for.
+ *
+ * NOT wrapped in `setsid`/`setsid -c`, despite that being the original
+ * design (see git history) — confirmed live 2026-08-23, isolated with four
+ * paired A/B execs directly against the Docker socket, bypassing the broker
+ * and its own retry/session logic entirely: a `Tty:true` exec's hijacked
+ * stream dies with ZERO bytes delivered, at ANY point before the process
+ * naturally exits, whenever the command is wrapped in `setsid` (bare OR
+ * `-c`) — but the IDENTICAL command works perfectly (correct multi-second
+ * streaming, clean close on real exit) the moment `setsid` is removed. A
+ * fast command (`echo hi`, done in under a tick) slips through either way,
+ * which is what made this look fixed earlier — a command with any real gap
+ * before its output or exit (a `sleep`, or a real user typing) reliably
+ * loses the WHOLE session, including output already produced before the
+ * gap. This reproduces identically with or without stdin attached, so it
+ * is not about stdin — something about `setsid` putting the process in a
+ * new session is fatal to this Docker/runc TTY hijack in this environment.
+ * Losing setsid means the shell is no longer its own process-group leader,
+ * so the reaper (lib/reaper.js) can no longer group-kill it — updated
+ * there to kill the marked PID directly instead (see that file's docblock).
  */
 function buildExecCreatePayload(opts = {}) {
   const user = opts.user || process.env.TERMINAL_EXEC_USER || "10001:10001";
   const sessionId = opts.sessionId || "";
-  // setsid runs the shell in a new session/process-group; the marker env lets
-  // an out-of-band reaper find orphaned processes belonging to a dead session.
+  // The marker env lets an out-of-band reaper find orphaned processes
+  // belonging to a dead session (see lib/reaper.js).
   const inner = opts.shellProbe || DEFAULT_SHELL_PROBE;
-  const cmd = ["setsid", "sh", "-c", inner];
+  const cmd = ["sh", "-c", inner];
   return {
     AttachStdin: true,
     AttachStdout: true,

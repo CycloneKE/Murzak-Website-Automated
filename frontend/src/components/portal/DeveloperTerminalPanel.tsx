@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Terminal, ShieldCheck, Clock } from "lucide-react";
 import { fetchTerminalEligibility, acceptTerminalDisclosure, TerminalEligibility } from "../../services/terminal";
+import TerminalView from "./TerminalView";
 
 interface DeveloperTerminalPanelProps {
   serviceId: string;
@@ -141,9 +142,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
           </button>
         </div>
       ) : (
-        <p className="text-label font-medium text-slate-500">
-          Terminal access is finalizing — check back soon.
-        </p>
+        <TerminalView key={serviceId} serviceId={serviceId} />
       )}
     </div>
   );
