@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-23
 **Status:** Approved design, pending implementation plan
-**Scope:** Marketing pages + portal discoverability/density. Phase 1 of a
+**Scope:** Marketing pages + portal discoverability/density, plus SEO and
+frontend security hardening (added after initial approval). Phase 1 of a
 3-phase engagement — Phase 2 is a privacy policy rewrite, Phase 3 is a
 competitive/market-opportunity strategy brief. Both are separate specs,
 written after this phase ships.
@@ -129,6 +130,100 @@ every element shown must come from real state already available in
 `usePortalState`, matching the existing "honest status, never a fake-looking
 empty dashboard" principle already established in `ResourceDetail.tsx`.
 
+## Part D — SEO
+
+**D0. Domain decision (user-confirmed).** All SEO metadata keeps targeting
+`murzaktech.com` — the intended production domain — not the currently-live
+`website.murzaktech.tech`. **This means the fixes below are correct but
+inert for real search engines/crawlers until `murzaktech.com`'s DNS
+delegation is restored** (confirmed NXDOMAIN as of this session — see
+[[murzaktech-site-down-2026-08-15]]). That DNS fix is an infra/registrar
+task, out of scope here. Flag this tradeoff back to the user in the final
+summary so it doesn't read as "SEO is done" when it's "SEO is correct and
+waiting on DNS."
+
+**D1. Fix the broken share image.** `index.html`'s `og:image` and
+`twitter:image` reference `https://murzaktech.com/og-image.png`, which
+doesn't exist anywhere in `frontend/public/`. Every social share of the
+site currently shows a broken image. Create a real one (branded, sized to
+the standard 1200×630 OG spec) and add it to `public/`.
+
+**D2. Per-route meta tags.** The SPA ships one static `<title>`/description/
+OG block in `index.html`, identical on every route — Cloud, Pricing, About,
+all product and `/for/*` pages currently look identical to the homepage to
+a crawler or a share preview. Add a small `useDocumentHead`-style hook (no
+new dependency — react-helmet-async isn't installed and isn't needed for
+what's just a handful of `document.title`/meta-tag writes per route) that
+each page sets on mount: a unique, keyword-relevant title and description
+per route, restoring the site-wide default on unmount. Canonical `<link>`
+per route too, since right now every page silently claims the homepage as
+its canonical URL — a duplicate-content signal working against every
+non-home page's own ranking.
+
+**D3. Structured data.** `Breadcrumbs.tsx` already emits `BreadcrumbList`
+JSON-LD correctly (safe pattern: JSON-stringified, `<` escaped against
+script-tag injection — reuse this exact pattern, don't invent a new one).
+Add:
+  - `Organization`/`LocalBusiness` schema (Nairobi address, founded-in-Kenya
+    signals already used in on-page copy) once, sitewide.
+  - `FAQPage` schema generated from the existing `Faq` component's items —
+    it already receives a typed `FaqItem[]` on every page that uses it, so
+    this is a projection of existing data, not new content.
+  - `Product`/`Offer` schema on Pricing, sourced from `PLAN_META` (same
+    rule as Part C2 — presentation only, no new pricing data invented).
+
+**D4. Sitemap/robots audit.** Confirm `sitemap.xml` covers every real
+route (spot-checked during grounding: present for top-level + product
+pages; needs a full pass to confirm all 4 `/for/*` pages and any newer
+routes aren't missing) and that `lastmod` dates get touched when a page's
+content meaningfully changes as part of this phase's work.
+
+## Part E — Frontend security hardening
+
+**E0. Context.** The backend already sets solid security headers via
+`helmet` (CSP, HSTS, X-Frame-Options, nosniff, `frame-ancestors 'none'`),
+verified by a live test suite (`backend/test/qaSecurity.test.js`, SEC-01/
+SEC-03/SEC-06). This phase is not starting from zero — it closes specific,
+confirmed gaps rather than re-deriving the whole header set.
+
+**E1. Confirmed open-redirect vector.** [App.tsx:274](frontend/src/App.tsx:274)
+does `navigate(returnTo || "/portal/overview")`, where `returnTo` is an
+unvalidated value read straight from the `/login?returnTo=...` query
+string (also reachable via the session-expiry redirect and the
+plan-selection flow). `npm audit` on the frontend confirms the pinned
+`react-router-dom` (`^6.30.3`) carries a moderate CVE for exactly this
+shape: open redirect via `useNavigate`/`<Link>`. Two fixes, both required:
+  - `npm audit fix` to pull the patched `react-router-dom` (semver-compatible,
+    no major bump needed).
+  - Defense in depth in code: validate `returnTo` is a same-origin relative
+    path (starts with a single `/`, not `//` or containing a `:`) before
+    ever passing it to `navigate()`, falling back to the safe default
+    otherwise. The library patch alone shouldn't be trusted as the only
+    layer here.
+
+**E2. Tighten the CSP's `script-src`.** Currently `'unsafe-inline'` on
+`script-src` (`backend/server.js`), justified in-code only for Tailwind's
+injected *styles* — but it's `script-src`, not `style-src`, that carries
+it, and the only actual inline script is the theme-flash-prevention
+snippet in `index.html`. Replace the blanket allowance with a SHA-256 hash
+source (`'sha256-...'`) scoped to that one static inline script, so
+`script-src` no longer allows arbitrary inline script execution. No nonce
+mechanism needed — the script's contents are static, not server-rendered
+per-request.
+
+**E3. Dependency audit.** `npm audit` (frontend) currently reports 2
+moderate findings, both from E1's react-router advisory — resolved by the
+same `npm audit fix`. Re-run after, confirm clean, and check `backend`'s
+audit too as a quick adjacent pass (not a deep backend security review —
+out of scope here).
+
+**E4. Confirmed clean, called out so it isn't re-litigated during
+implementation**: the sole `dangerouslySetInnerHTML` use (`Breadcrumbs.tsx`,
+JSON-LD) already escapes `<` against script-tag breakout — safe pattern,
+leave as-is. Every `target="_blank"` site-wide already pairs with
+`rel="noopener noreferrer"` (or `rel="noreferrer"`) — no reverse-tabnabbing
+gaps found.
+
 ## Verification
 
 - Dev server run, each changed route checked live in both light and dark
@@ -137,6 +232,18 @@ empty dashboard" principle already established in `ResourceDetail.tsx`.
   highest-impact pages (Cloud hero, Pricing, one portal resource view).
 - No new automated visual-regression tooling — matches the precedent set
   in the 2026-08-05 Home design spec.
+- Per-route `<title>`/meta tags spot-checked via view-source (SPA meta
+  writes happen client-side, so a raw fetch of the HTML — what a
+  non-JS-executing crawler sees — is checked separately from what
+  `document.title` shows after mount).
+- JSON-LD validated (schema.org fields present, valid JSON, no
+  script-breakout) rather than just visually confirmed.
+- `npm audit` (frontend) re-run after E1/E3, confirmed at 0 vulnerabilities.
+- `backend/test/qaSecurity.test.js` (SEC-01) re-run against a local server
+  after the CSP `script-src` change, confirming the header still reports
+  correctly and the theme-flash script still executes (a bad hash silently
+  breaks dark-mode-flash prevention rather than throwing — must be checked
+  live, not just header-inspected).
 
 ## Out of scope (this phase)
 
@@ -149,3 +256,12 @@ empty dashboard" principle already established in `ResourceDetail.tsx`.
   work, unless the fresh contrast sweep (A1) turns up something there.
 - Reworking Pricing's plan-card content layout (images) — only the
   page-level background changes.
+- Restoring `murzaktech.com`'s DNS delegation — infra/registrar task,
+  explicitly out of scope per user decision (D0); SEO metadata is prepared
+  for it but won't take effect until DNS is fixed separately.
+- Deep backend security review, session-cookie flag audit, or a
+  style-src CSP tightening — E2 only touches script-src; style-src's
+  `'unsafe-inline'` stays as an accepted, already-justified tradeoff for
+  Tailwind's injected styles.
+- A full backend `npm audit` remediation pass — E3 only checks it as a
+  quick adjacent look, not a fix-everything pass.
