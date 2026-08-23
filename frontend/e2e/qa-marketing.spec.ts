@@ -258,6 +258,18 @@ test.describe('MKT-07 — per-page SEO title updates on client-side navigation',
   });
 });
 
+test.describe('MKT-10 — canonical + Open Graph URL match the actual route', () => {
+  test('canonical link and og:url update on client-side navigation, not left on the homepage', async ({ page }) => {
+    await page.goto('/');
+    await page.goto('/cloud');
+    await page.waitForLoadState('networkidle');
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+    const ogUrl = await page.evaluate(() => document.querySelector('meta[property="og:url"]')?.getAttribute('content'));
+    expect(canonical).toBe('https://murzaktech.com/cloud');
+    expect(ogUrl).toBe('https://murzaktech.com/cloud');
+  });
+});
+
 test.describe('MKT-08 — hero background survives a slow network without breaking layout', () => {
   test('Home hero renders its headline and CTA even before background images finish loading', async ({ page }) => {
     // Delay only image/font requests so the hero background is slow, then

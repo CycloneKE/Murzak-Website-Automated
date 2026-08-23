@@ -70,6 +70,8 @@ const pathToPage: Record<string, Page> = {
   "/deploy": "deploy",
 };
 
+const SITE_ORIGIN = "https://murzaktech.com";
+
 const pageMetadata: Record<Page, { title: string; description: string }> = {
   home: { title: "Murzak Technologies | Custom Software & Cloud Hosting Nairobi", description: "East Africa's trusted partner for custom enterprise software development." },
   services: { title: "Custom Software Development & ERP Systems Nairobi | Murzak", description: "Professional software engineering for Kenyan enterprises." },
@@ -233,12 +235,29 @@ const App: React.FC = () => {
     // new one, since index.html's is the one crawlers see before hydration.
     const descTag = document.querySelector('meta[name="description"]');
     if (descTag) descTag.setAttribute("content", meta.description);
+
+    // Canonical + Open Graph + Twitter previously stayed hardcoded to
+    // index.html's homepage values on every route — a duplicate-content
+    // signal and a broken share preview for every non-home page. Same
+    // pattern as the description tag above: update in place.
+    const canonicalUrl = `${SITE_ORIGIN}${location.pathname}`;
+    const setAttr = (selector: string, attr: string, value: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute(attr, value);
+    };
+    setAttr('link[rel="canonical"]', "href", canonicalUrl);
+    setAttr('meta[property="og:title"]', "content", meta.title);
+    setAttr('meta[property="og:description"]', "content", meta.description);
+    setAttr('meta[property="og:url"]', "content", canonicalUrl);
+    setAttr('meta[name="twitter:title"]', "content", meta.title);
+    setAttr('meta[name="twitter:description"]', "content", meta.description);
+
     window.scrollTo({ top: 0, behavior: "auto" });
 
     setIsPageLoading(true);
     const timer = setTimeout(() => setIsPageLoading(false), 700);
     return () => clearTimeout(timer);
-  }, [activePage, isNotFoundRoute]);
+  }, [activePage, isNotFoundRoute, location.pathname]);
 
   // Preload the current route's hero background so the browser starts
   // fetching it immediately on navigation rather than waiting to parse the
