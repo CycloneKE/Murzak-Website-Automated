@@ -3540,18 +3540,20 @@ const server = app.listen(PORT, () => {
   }
 });
 
-// ---- Developer access terminal: WS upgrade (Phase 5.2 — auth only) ----
+// ---- Developer access terminal: WS upgrade (Phase 5.2 auth + P5.3 bridge) ----
 // Express middleware (incl. session parsing) does NOT run on the raw
 // 'upgrade' event, so this handler manually: (1) verifies the single-use
 // wsTicket minted by POST .../terminal/session, (2) manually unsigns the
 // session cookie and loads the session from the SAME store express-session
 // uses, (3) re-checks session.webAccount === ticket.webAccount — a stolen
 // ticket alone is not sufficient without also holding the live session
-// cookie. Real exec doesn't exist yet: on success this sends one
-// confirmation frame and closes. The broker bridge (using the brokerToken
-// baked into the ticket at mint time) is P5.3.
+// cookie. Once authenticated, this backend is a dumb byte pipe between the
+// browser and the broker's /exec — it never touches Docker itself (see
+// broker/README.md's capability chain). The broker independently re-verifies
+// the brokerToken and re-resolves container ownership; this handler's own
+// auth chain and the broker's are two separate checks, not one shared trust.
 {
-  const { WebSocketServer } = require("ws");
+  const { WebSocketServer, WebSocket: BrokerWsClient } = require("ws");
   const cookieLib = require("cookie");
   const cookieSignature = require("cookie-signature");
   const { consumeWsTicket } = require("./utils/wsTicket");
@@ -3619,14 +3621,55 @@ const server = app.listen(PORT, () => {
       }
 
       wss.handleUpgrade(req, socket, head, (ws) => {
-        // Auth chain proven end-to-end. Real exec (broker bridge, jail,
-        // recording) is P5.3 — for now, confirm and close so nothing here
-        // can be mistaken for a working shell.
-        ws.send(JSON.stringify({
-          type: "notice",
-          message: "Authenticated. The developer terminal isn't wired to a real shell yet (Phase 5.3) — this connection proves the auth chain only.",
-        }));
-        ws.close(1000, "not_yet_implemented");
+        // Auth chain proven end-to-end. Bridge to the broker, which holds
+        // the actual Docker access — this process never does.
+        const brokerBase = process.env.BROKER_URL || "";
+        const brokerApiKey = process.env.BROKER_API_KEY || "";
+        if (!brokerBase || !brokerApiKey || !ticketPayload.brokerToken) {
+          console.error("TERMINAL WS ERROR: broker not configured (BROKER_URL/BROKER_API_KEY unset, or ticket missing brokerToken).");
+          try { ws.send(JSON.stringify({ type: "error", message: "Developer access terminal isn't configured yet — contact support." })); } catch {}
+          return ws.close(1011, "broker_not_configured");
+        }
+
+        // BROKER_URL is documented as an http(s) address (matches the docker-
+        // compose service address style); the ws client needs ws(s)://.
+        const brokerWsBase = brokerBase.replace(/\/+$/, "").replace(/^http/i, "ws");
+        const brokerUrl = `${brokerWsBase}/exec?token=${encodeURIComponent(ticketPayload.brokerToken)}`;
+        const brokerWs = new BrokerWsClient(brokerUrl, {
+          headers: { "x-broker-key": brokerApiKey },
+          handshakeTimeout: 10000,
+        });
+
+        // Bridge is only "live" once the broker side has actually opened —
+        // browser messages arriving before that are dropped rather than
+        // queued, since the broker's own exec-open failure (a real Docker
+        // rejection) must reach the browser as an explicit error, never a
+        // silently swallowed keystroke.
+        let bridgeOpen = false;
+
+        brokerWs.on("open", () => { bridgeOpen = true; });
+
+        brokerWs.on("message", (data, isBinary) => {
+          if (ws.readyState === ws.OPEN) ws.send(data, { binary: isBinary });
+        });
+        brokerWs.on("close", (code, reason) => {
+          if (ws.readyState === ws.OPEN) ws.close(1000, reason?.toString().slice(0, 120) || "broker_closed");
+        });
+        brokerWs.on("error", (e) => {
+          console.warn("TERMINAL WS: broker connection error:", e.message);
+          if (!bridgeOpen) {
+            try { ws.send(JSON.stringify({ type: "error", message: "Could not reach the developer access service. Contact support." })); } catch {}
+          }
+          try { ws.close(1011, "broker_error"); } catch {}
+        });
+
+        ws.on("message", (data, isBinary) => {
+          if (bridgeOpen && brokerWs.readyState === brokerWs.OPEN) {
+            brokerWs.send(data, { binary: isBinary });
+          }
+        });
+        ws.on("close", () => { try { brokerWs.close(); } catch {} });
+        ws.on("error", () => { try { brokerWs.close(); } catch {} });
       });
     });
   });
