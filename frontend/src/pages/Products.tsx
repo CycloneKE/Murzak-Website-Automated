@@ -55,7 +55,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 409 && data?.code === "CAPACITY") {
-        setDomainError("We're at capacity right now — please try again shortly.");
+        setDomainError("We're at capacity right now. Please try again shortly.");
         return;
       }
       if (!res.ok || !data?.order) {
@@ -197,7 +197,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         <Section id="domains" className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-8">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Register a domain</h2>
-             <p className="text-slate-500 dark:text-slate-400 font-medium">Search, pick your extension, and check out — billed yearly.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Search, pick your extension, and check out. Billed yearly.</p>
           </div>
           <div className="max-w-xl">
             <DomainSearch selectedDomain={selectedDomain} onSelect={handleSelectDomain} />

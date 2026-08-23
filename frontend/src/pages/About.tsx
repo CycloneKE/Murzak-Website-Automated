@@ -31,7 +31,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
     {
       name: 'Denvine Brian',
       role: 'Project Manager',
-      bio: 'Keeps every Murzak build on track — from first kickoff call to the day it ships and beyond.',
+      bio: 'Keeps every Murzak build on track, from first kickoff call to the day it ships and beyond.',
       img: '/images/team/denvine-brian.jpg',
       initials: 'DB',
     },
@@ -59,7 +59,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
     {
       icon: <PackageSearch size={20} />,
       t: 'Shipstack',
-      s: 'A logistics and tracking platform digitizing the movement of goods from raw material to end client — built for pharmaceuticals, agriculture, e-commerce and more.',
+      s: 'A logistics and tracking platform digitizing the movement of goods from raw material to end client, built for pharmaceuticals, agriculture, e-commerce and more.',
       status: 'In development',
     },
   ];
@@ -120,12 +120,12 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               <p>
                 Murzak Technologies was founded in 2023 by Joe Sylvester and Kevin Njenga on a simple idea:
                 African businesses deserve software that's built around them, not adapted as an afterthought.
-                We set out to build African-market-centric software — tools that either fit the Kenyan market
+                We set out to build African-market-centric software: tools that either fit the Kenyan market
                 from day one, or get shaped until they do.
               </p>
               <p>
                 Most technology companies talk to engineers. We talk to the person who actually carries the
-                risk — the owner whose shop can't take payments when the system is down, the manager drowning
+                risk: the owner whose shop can't take payments when the system is down, the manager drowning
                 in spreadsheets at month-end.
               </p>
               <p>
@@ -134,7 +134,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                 grow the infrastructure with you.
               </p>
               <p className="text-murzak-ink dark:text-white font-bold">
-                That's the whole idea — competent, local, and genuinely on your side.
+                That's the whole idea: competent, local, and genuinely on your side.
               </p>
             </div>
           </div>
@@ -177,7 +177,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
               {[
-                { icon: <Server size={20} />, t: 'Managed hosting', s: 'Websites, email and databases — provisioned, secured and backed up for you on Murzak Cloud.', page: 'cloud' as const, cta: 'Murzak Cloud' },
+                { icon: <Server size={20} />, t: 'Managed hosting', s: 'Websites, email and databases, provisioned, secured and backed up for you on Murzak Cloud.', page: 'cloud' as const, cta: 'Murzak Cloud' },
                 { icon: <Boxes size={20} />, t: 'Business systems', s: 'Murzak ERP, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
                 { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
               ].map((c) => (
@@ -246,11 +246,11 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
               <div>
                 <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Contact us</p>
                 <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">
-                  Talk to a real person — <span className="text-murzak-gradient">no call centre.</span>
+                  Talk to a real person, <span className="text-murzak-gradient">no call centre.</span>
                 </h2>
                 <p className="mt-5 text-slate-600 dark:text-slate-400 font-medium leading-relaxed max-w-md">
                   Tell us what you’re trying to do in plain words. Our Nairobi team usually replies within one
-                  business day — and you’ll be talking to the people who actually run your systems.
+                  business day, and you’ll be talking to the people who actually run your systems.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
                   <Button onClick={() => onNavigate('contact')}>
@@ -296,7 +296,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 sm:px-10 text-center">
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">Let's talk about your business.</h2>
-          <p className="mt-4 text-lg text-murzak-ink/85 dark:text-slate-300 font-medium">No pitch, no pressure — just a straight conversation about what would actually help.</p>
+          <p className="mt-4 text-lg text-murzak-ink/85 dark:text-slate-300 font-medium">No pitch, no pressure, just a straight conversation about what would actually help.</p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="primary" onClick={() => onNavigate('contact')}>
               <Phone size={17} /> Talk to us
