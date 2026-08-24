@@ -4,7 +4,7 @@ import { Check, X, Sparkles } from "lucide-react";
 
 const rows: { feature: string; diy: string | false; murzak: string | true }[] = [
   { feature: "Server setup & configuration", diy: "You do it (hours of work)", murzak: "Done for you" },
-  { feature: "Billing currency", diy: "USD, card only", murzak: "KES — local invoices" },
+  { feature: "Billing currency", diy: "USD, card only", murzak: "KES, local invoices" },
   { feature: "M-Pesa payments", diy: false, murzak: "STK push built in" },
   { feature: "Murzak ERP / POS / CRM setup", diy: "Self-install & maintain", murzak: "Pre-configured & migrated" },
   { feature: "Backups, SSL & security patching", diy: "Your responsibility", murzak: "Managed daily" },
@@ -23,7 +23,7 @@ export default function ManagedComparison() {
           Why teams pick <span className="text-murzak-gradient">managed Murzak</span>
         </h2>
         <p className="mt-4 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto">
-          A raw server is cheap until you count the setup, the maintenance, and the 2am outage. We handle all of it — billed in KES.
+          A raw server is cheap until you count the setup, the maintenance, and the 2am outage. We handle all of it, billed in KES.
         </p>
       </div>
 

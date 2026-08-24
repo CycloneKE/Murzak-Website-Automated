@@ -54,13 +54,13 @@ function recommend(need: NeedKey, size: SizeKey): Recommendation {
   }
 
   if (need === "email") {
-    return { plan: "Starter", serviceIds: ["starter-email", "starter-storage"], reason: "Business email and a private file drive — light, managed, and cheap." };
+    return { plan: "Starter", serviceIds: ["starter-email", "starter-storage"], reason: "Business email and a private file drive, managed and cheap." };
   }
 
   // unsure
   return big
-    ? { plan: "Business", serviceIds: ["biz-erp-light"], reason: "For a team your size, a managed business-apps plan is the safest starting point — easy to add to later." }
-    : { plan: "Starter", serviceIds: ["starter-web-hosting", "starter-email"], reason: "Start lean with a managed website and email — you can add services anytime." };
+    ? { plan: "Business", serviceIds: ["biz-erp-light"], reason: "For a team your size, a managed business-apps plan is the safest starting point, easy to add to later." }
+    : { plan: "Starter", serviceIds: ["starter-web-hosting", "starter-email"], reason: "Start lean with a managed website and email. You can add services anytime." };
 }
 
 export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSales }: Props) {
