@@ -19,11 +19,11 @@ const TermsOfService: React.FC = () => {
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
+            <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-sky-700 dark:text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
               Legal framework
             </div>
             <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
-              Service <br /><span className="text-murzak-accent">terms.</span>
+              Service <br /><span className="text-sky-700 dark:text-murzak-accent">terms.</span>
             </h1>
             <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">
               The foundational logic governing our custom engineering and cloud partnerships.

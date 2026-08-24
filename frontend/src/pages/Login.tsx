@@ -554,7 +554,7 @@ const handleReset = async (e: React.FormEvent) => {
   const labelStyles = "text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 block ml-1";
 
   return (
-    <div className="min-h-screen bg-murzak-base flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-murzak-base dark:bg-murzak-ink flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
       <img
         src="/images/data-center.webp"
         alt=""
@@ -563,7 +563,12 @@ const handleReset = async (e: React.FormEvent) => {
         fetchPriority="high"
         className="absolute inset-0 z-0 w-full h-full object-cover"
       />
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent" />
+      {/* Light mode: lighten the photo with a slate-300 wash so the always-dark-ink
+          card content (below) reads on a bright backdrop. Dark mode: the same wash
+          would leave the page washed-out white behind dark:text-slate-100 content
+          (see the 2026-08 light-mode contrast sweep), so it switches to an ink wash
+          that actually darkens the photo instead of lightening it. */}
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
       <div className="absolute inset-0 z-0 bg-murzak-accent/10 mix-blend-color" />
       <div className="absolute top-6 lg:top-10 left-6 lg:left-10 z-20">
         <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-micro uppercase hover:text-murzak-accent transition-colors drop-shadow">

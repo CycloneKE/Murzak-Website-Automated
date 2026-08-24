@@ -141,12 +141,12 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
 
       <div className="max-w-3xl mx-auto relative z-10">
         <div className="text-center mb-12 lg:mb-16 pt-12">
-          <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-6 backdrop-blur-md">
+          <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-sky-700 dark:text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-6 backdrop-blur-md">
             <Server size={18} />
             <span className="text-micro sm:text-micro font-black uppercase">Nairobi System Sandbox</span>
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter leading-[0.85] mb-6">
-            Get your <br /><span className="text-murzak-accent">36h trial.</span>
+            Get your <br /><span className="text-sky-700 dark:text-murzak-accent">36h trial.</span>
           </h1>
         </div>
 
