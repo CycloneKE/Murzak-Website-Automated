@@ -155,7 +155,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
                 <CheckCircle2 size={40} />
               </div>
-              <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4 uppercase">Got it — thank you.</h3>
+              <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4 uppercase">Got it, thank you.</h3>
               <p className="text-sm font-bold text-slate-500 dark:text-slate-500 mb-8 max-w-xs mx-auto uppercase tracking-widest leading-relaxed">
                 Your reference is <span className="text-murzak-accent font-black">{refId}</span>. Someone from our team will email you shortly to set up a quick call.
               </p>

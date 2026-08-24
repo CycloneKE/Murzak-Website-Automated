@@ -347,7 +347,7 @@ export default function PlanServicesModal({
         persistSelection();
         onProceedEnterpriseQuote();
       } else {
-        setError("This configuration needs dedicated capacity — remove a service or contact sales.");
+        setError("This configuration needs dedicated capacity. Remove a service or contact sales.");
         setSummaryOpen(true);
       }
       return;
@@ -366,8 +366,8 @@ export default function PlanServicesModal({
   };
 
   const headerSubtitle = quoteMode
-    ? "Pick what you need — we’ll scope and quote dedicated capacity for your stack."
-    : "Build your plan. Prices update live — no surprises at checkout.";
+    ? "Pick what you need, and we’ll scope and quote dedicated capacity for your stack."
+    : "Build your plan. Prices update live, no surprises at checkout.";
 
   return (
     <div className="fixed inset-0 z-[120]">
@@ -413,7 +413,7 @@ export default function PlanServicesModal({
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search services — email, backups, CDN…"
+                    placeholder="Search services: email, backups, CDN…"
                     className="w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
                   />
                 </div>
@@ -811,7 +811,7 @@ export default function PlanServicesModal({
 
                     {selectedSvcItems.some(isManagedSetup) && (
                       <p className="text-micro font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
-                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team — live within a short setup window, not instantly.
+                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team and go live within a short setup window, not instantly.
                       </p>
                     )}
 

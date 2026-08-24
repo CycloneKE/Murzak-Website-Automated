@@ -310,7 +310,7 @@ export default function CloudLaunchModal({
                 />
                 <details className="mt-3">
                   <summary className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none">
-                    Advanced — app port
+                    Advanced: app port
                   </summary>
                   <input
                     type="text"
@@ -358,7 +358,7 @@ export default function CloudLaunchModal({
                 </div>
                 {waitlistJoined ? (
                   <p className="text-slate-600 dark:text-slate-400 font-medium">
-                    You're on the list — we'll email you the moment a slot opens.
+                    You're on the list. We'll email you the moment a slot opens.
                   </p>
                 ) : (
                   <button
