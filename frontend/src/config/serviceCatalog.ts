@@ -358,7 +358,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-email",
       name: "Business Email",
-      description: "Professional email on your domain, up to 5 mailboxes, 5GB each.",
+      description: "Professional email on your domain: up to 5 mailboxes, 5GB each.",
       category: "Email Hosting",
       tier: "Light",
       capacityClass: "volume",
@@ -477,7 +477,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-esign",
       name: "E-Signature",
-      description: "Send documents for signature and track status, your own e-signature tool.",
+      description: "Send documents for signature and track status: your own e-signature tool.",
       category: "E-Signature",
       tier: "Light",
       capacityClass: "volume",
@@ -672,7 +672,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "biz-email",
       name: "Business Email (Teams)",
-      description: "Professional email on your domain for the whole team, larger mailboxes and admin controls.",
+      description: "Professional email on your domain for the whole team: larger mailboxes and admin controls.",
       category: "Email Hosting",
       tier: "Medium",
       capacityClass: "volume",
@@ -1011,7 +1011,7 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
   {
     id: "addon-migration",
     name: "Migration from Another Host",
-    description: "One-time move of your existing site, email or data onto Murzak, done for you.",
+    description: "One-time move of your existing site, email or data onto Murzak: done for you.",
     category: "Support & SLA",
     tier: "Light",
     capacityClass: "volume",
