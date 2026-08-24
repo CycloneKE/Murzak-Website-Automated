@@ -39,7 +39,7 @@ const PATHS: Array<{
     id: "register",
     icon: <Globe className="w-5 h-5" />,
     title: "Register a new domain",
-    description: "Pick a name — we handle registration and it appears here once it's live.",
+    description: "Pick a name, and we'll handle registration. It appears here once it's live.",
   },
   {
     id: "external",
@@ -51,7 +51,7 @@ const PATHS: Array<{
     id: "subdomain",
     icon: <Gift className="w-5 h-5" />,
     title: "Free Murzak subdomain",
-    description: "No cost, live almost instantly — good for testing or a quick launch.",
+    description: "No cost, live almost instantly. Good for testing or a quick launch.",
   },
 ];
 
@@ -122,7 +122,7 @@ export default function AddDomainModal({
       await fn();
       onClose();
     } catch (e: any) {
-      setErr(e?.message || "That didn't go through — try again.");
+      setErr(e?.message || "That didn't go through. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -312,7 +312,7 @@ export default function AddDomainModal({
                 <div className="flex items-start gap-2 p-3 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20">
                   <ShieldCheck className="w-4 h-4 text-murzak-accent shrink-0 mt-0.5" />
                   <p className="text-micro font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Free, no registration needed — this is usually ready the fastest.
+                    Free, no registration needed. This is usually ready the fastest.
                   </p>
                 </div>
                 {err && <ErrorBanner text={err} />}

@@ -117,7 +117,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
     const typed = window.prompt(`Deleting ${label} permanently erases its email. Type the address to confirm:`);
     if (typed === null) return;
     if (typed.trim().toLowerCase() !== label.toLowerCase()) {
-      setError("That didn't match — nothing was deleted.");
+      setError("That didn't match. Nothing was deleted.");
       return;
     }
     setError("");

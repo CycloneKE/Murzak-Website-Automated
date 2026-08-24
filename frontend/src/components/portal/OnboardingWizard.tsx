@@ -144,7 +144,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </h2>
               <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
                 This is your home base. From here you’ll set up your services, pay in shillings, and reach
-                a real person in Nairobi whenever you need one. Let’s get you sorted — it takes about two minutes.
+                a real person in Nairobi whenever you need one. Let’s get you sorted, it takes about two minutes.
               </p>
               <button
                 onClick={next}
@@ -205,7 +205,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 Your setup checklist
               </h2>
               <p className="mt-2 text-[13px] font-medium text-slate-500 dark:text-slate-500 text-center">
-                {doneCount} of {checklist.length} done — knock these out whenever you like.
+                {doneCount} of {checklist.length} done. Knock these out whenever you like.
               </p>
               <div className="mt-6 space-y-2.5">
                 {checklist.map((c) => (
@@ -270,7 +270,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </div>
               <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight text-murzak-ink dark:text-white">You’re all set! 🎉</h2>
               <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
-                That’s the tour. Everything you need is in the menu on the left — and our Nairobi team is one
+                That’s the tour. Everything you need is in the menu on the left, and our Nairobi team is one
                 message away. Welcome aboard, {first}.
               </p>
               <button

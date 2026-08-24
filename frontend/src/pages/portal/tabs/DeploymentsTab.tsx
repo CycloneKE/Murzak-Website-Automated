@@ -121,7 +121,7 @@ const DeploymentsTab: React.FC = () => {
         <EmptyState
           icon={<Rocket className="w-6 h-6" />}
           title="No deployments yet"
-          description="Apps deployed from a Git repository record every build here — what changed, whether it worked, and the log. Managed systems don't deploy this way, so they won't appear."
+          description="Apps deployed from a Git repository record every build here: what changed, whether it worked, and the log. Managed systems don't deploy this way, so they won't appear."
           actionLabel="Go to your resources"
           onAction={() => navigate("/portal/cloud")}
         />
@@ -181,7 +181,7 @@ const DeploymentsTab: React.FC = () => {
           >
             <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
               <span className="text-gray-300 text-xs truncate">
-                Deployment {deployLogView.uuid.slice(0, 12)} — build log
+                Deployment {deployLogView.uuid.slice(0, 12)}: build log
               </span>
               <button
                 className="text-gray-500 hover:text-white p-1"

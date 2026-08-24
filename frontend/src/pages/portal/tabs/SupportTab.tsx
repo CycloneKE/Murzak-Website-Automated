@@ -44,7 +44,7 @@ const SupportTab: React.FC = () => {
           </div>
           <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mt-4">Message us</h3>
           <p className="text-[13px] font-medium text-slate-500 dark:text-slate-500 mt-2 leading-relaxed">
-            Anything at all — a change, a report, something broken. You'll get a reply in
+            Anything at all: a change, a report, something broken. You'll get a reply in
             this same thread and by email, so nothing gets lost.
           </p>
           <button

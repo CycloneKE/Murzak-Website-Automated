@@ -27,7 +27,7 @@ export function realStateFor(svc: SelectedServiceView, job: ProvisioningActivity
     return { label: "Awaiting payment", tone: "slate" };
   }
   if (!job) {
-    return { label: "Not yet provisioned", tone: "red", detail: "No provisioning record found — message support." };
+    return { label: "Not yet provisioned", tone: "red", detail: "No provisioning record found. Message support." };
   }
   if (job.status === "needs_human") {
     return {

@@ -1463,7 +1463,7 @@ const WebsiteHostingDashboard: React.FC = () => {
               <p className="flex-grow text-sm font-bold text-amber-600 dark:text-amber-300">
                 You've used {storagePercent}% of your {formatMb(storageLimit)} storage.
                 {storageUpsell === "sent"
-                  ? " Request received — our team will reach out with upgrade options."
+                  ? " Request received. Our team will reach out with upgrade options."
                   : " Add more before uploads start failing."}
               </p>
               {storageUpsell !== "sent" && (
@@ -1489,7 +1489,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 </button>
               )}
               {storageUpsell === "error" && (
-                <p className="text-xs font-bold text-red-500">Could not send — try again or use the Requests tab.</p>
+                <p className="text-xs font-bold text-red-500">Could not send. Try again or use the Requests tab.</p>
               )}
             </div>
           )}

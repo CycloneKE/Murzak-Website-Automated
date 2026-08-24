@@ -187,8 +187,8 @@ const OverviewTab: React.FC = () => {
               {selectedServices.length === 0
                 ? "No services deployed yet"
                 : hasDegradedService
-                  ? `${onlineServiceCount}/${selectedServices.length} services online — some need attention`
-                  : `${onlineServiceCount}/${selectedServices.length} services online — all healthy`}
+                  ? `${onlineServiceCount}/${selectedServices.length} services online, some need attention`
+                  : `${onlineServiceCount}/${selectedServices.length} services online, all healthy`}
             </p>
           </div>
 
@@ -327,7 +327,7 @@ const OverviewTab: React.FC = () => {
               <EmptyState
                 icon={<FileText size={22} />}
                 title="No files uploaded yet"
-                description="Share configs, briefs, or credentials docs with your engineers — uploads stay attached to your account."
+                description="Share configs, briefs, or credentials docs with your engineers. Uploads stay attached to your account."
               />
             )}
           </div>

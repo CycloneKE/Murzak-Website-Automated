@@ -61,7 +61,7 @@ export function useCustomerDomains() {
     try {
       await detachDomain(domainId);
       await refreshDomains();
-      setDomainNotice({ type: "success", text: "Domain detached. You still own it — attach it somewhere whenever you like." });
+      setDomainNotice({ type: "success", text: "Domain detached. You still own it. Attach it somewhere whenever you like." });
     } catch (e: any) {
       setDomainNotice({ type: "error", text: e?.message || "Failed to detach this domain." });
     } finally {
@@ -76,19 +76,19 @@ export function useCustomerDomains() {
   const requestNewDomain = async (input: { requestedName: string; requestedTld: string; notes?: string }) => {
     await createDomainPurchaseRequest(input);
     await refreshDomains();
-    setDomainNotice({ type: "success", text: "Domain registration requested — we'll email you once it's live." });
+    setDomainNotice({ type: "success", text: "Domain registration requested. We'll email you once it's live." });
   };
 
   const connectExternalDomain = async (input: { domainName: string; registrar?: string; notes?: string }) => {
     await createExternalDomainConnection(input);
     await refreshDomains();
-    setDomainNotice({ type: "success", text: "Domain connection requested — point it at us and we'll verify it." });
+    setDomainNotice({ type: "success", text: "Domain connection requested. Point it at us and we'll verify it." });
   };
 
   const requestFreeSubdomain = async (input: { requestedLabel: string; notes?: string }) => {
     await createMurzakSubdomain({ requestedLabel: input.requestedLabel, targetType: "folder", targetValue: "", notes: input.notes });
     await refreshDomains();
-    setDomainNotice({ type: "success", text: "Free subdomain requested — it'll appear here once it's set up." });
+    setDomainNotice({ type: "success", text: "Free subdomain requested. It'll appear here once it's set up." });
   };
 
   return {

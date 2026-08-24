@@ -113,7 +113,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
         <div className="flex items-start gap-3">
           <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-label font-medium text-slate-600 dark:text-slate-400">
-            Your developer access request is awaiting approval from our team — you'll be able to
+            Your developer access request is awaiting approval from our team. You'll be able to
             connect as soon as it's confirmed.
           </p>
         </div>
@@ -124,7 +124,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
             <div className="text-label font-medium text-slate-600 dark:text-slate-400 space-y-2">
               <p>
                 Before your first session, please review: this shell runs inside your own service's
-                container — you'll be able to see its internal network address, hostname, and
+                container. You'll be able to see its internal network address, hostname, and
                 running processes. Sessions are recorded for security and audit purposes. Use is
                 limited to your own service; attempting to reach other tenants or the host is not
                 permitted and will end your access.
