@@ -199,7 +199,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   return (
     <main className="text-white overflow-x-hidden">
       {/* 01 · HERO */}
-      <section className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* data-bg-surface="dark": this section is unconditionally dark (photo
+          + murzak-ink overlay, no theme toggle) regardless of site theme —
+          see qa-marketing.spec.ts's MKT-01/01b contrast check, which can't
+          see a background painted by these absolutely-positioned sibling
+          layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/nairobi-skyline.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
@@ -247,8 +252,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
+          section below the hero, instead of a different image per section.
+          data-bg-surface="dark": unconditionally dark (see the fix note a
+          few lines down on the ink-gradient div) — flagged for the same
+          reason as the hero above. */}
+      <div data-bg-surface="dark" className="relative">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-50" style={{ backgroundImage: "url('/images/home-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
         <div className="absolute inset-0 z-0 section-bg-wash" />
         {/* This section is unconditionally dark (no theme toggle here — see the

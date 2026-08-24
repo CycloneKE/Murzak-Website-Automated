@@ -66,8 +66,12 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
 
   return (
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero — real workspace photo behind the headline */}
-      <section className="relative min-h-[60vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* Hero — real workspace photo behind the headline.
+          data-bg-surface="dark": unconditionally dark (photo + murzak-ink
+          overlay, no theme toggle) — see qa-marketing.spec.ts's MKT-01/01b
+          contrast check, which can't see a background painted by these
+          absolutely-positioned sibling layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[60vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/about-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/90 via-murzak-ink/70 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">

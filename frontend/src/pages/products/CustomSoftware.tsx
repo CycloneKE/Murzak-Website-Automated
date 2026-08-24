@@ -31,8 +31,12 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero Section — real code-on-screen photo behind the headline */}
-      <section className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* Hero Section — real code-on-screen photo behind the headline.
+          data-bg-surface="dark": unconditionally dark (photo + murzak-ink
+          overlay, no theme toggle) — see qa-marketing.spec.ts's MKT-01/01b
+          contrast check, which can't see a background painted by these
+          absolutely-positioned sibling layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/custom-software-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
@@ -118,7 +122,11 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {whatWeBuild.map((w, i) => (
-              <div key={i} className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
+              // data-bg-surface="dark": card is unconditionally dark
+              // (bg-slate-900/50, no `dark:` pairing) with unconditional
+              // white/slate-400 text to match — see qa-marketing.spec.ts's
+              // MKT-01/01b contrast check.
+              <div key={i} data-bg-surface="dark" className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
                 <div className="text-murzak-accent mb-4">
                   {w.icon}
                 </div>
