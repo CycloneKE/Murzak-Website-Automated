@@ -142,6 +142,16 @@ task, out of scope here. Flag this tradeoff back to the user in the final
 summary so it doesn't read as "SEO is done" when it's "SEO is correct and
 waiting on DNS."
 
+Separately: the per-route canonical/OG/Twitter tag updates added in this
+branch (`App.tsx`'s `useEffect`) only run after the client-side bundle
+executes, so they help JS-executing crawlers like Googlebot but are inert
+for non-JS-executing link-preview scrapers (Facebook, Twitter/X, LinkedIn,
+Slack, WhatsApp) — those read the raw served HTML, which still only carries
+`index.html`'s static homepage OG/Twitter values on every route. Fixing
+that for real requires server-side rendering or prerendering; it's a
+distinct limitation from the DNS blocker above and not addressed by this
+branch.
+
 **D1. Fix the broken share image.** `index.html`'s `og:image` and
 `twitter:image` reference `https://murzaktech.com/og-image.png`, which
 doesn't exist anywhere in `frontend/public/`. Every social share of the
