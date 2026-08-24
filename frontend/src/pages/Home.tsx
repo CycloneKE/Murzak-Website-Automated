@@ -255,7 +255,13 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           section below the hero, instead of a different image per section.
           data-bg-surface="dark": unconditionally dark (see the fix note a
           few lines down on the ink-gradient div) — flagged for the same
-          reason as the hero above. */}
+          reason as the hero above.
+          WARNING: this marker short-circuits the contrast check for
+          everything inside this div (~8 sections down to the final CTA).
+          If you add a block in here that uses a normal light/dark:-toggling
+          pairing (e.g. `bg-white dark:bg-slate-900`), the check will not
+          see it — move it outside this wrapper, or narrow the marker to
+          only the elements that are genuinely always-dark. */}
       <div data-bg-surface="dark" className="relative">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-50" style={{ backgroundImage: "url('/images/home-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
         <div className="absolute inset-0 z-0 section-bg-wash" />
