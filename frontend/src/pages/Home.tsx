@@ -171,7 +171,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       icon: <Server size={22} />,
       title: 'Murzak Cloud',
       tag: 'Hosting that just stays up',
-      desc: 'Websites, email and databases, set up, secured and backed up for you.',
+      desc: 'Websites, email and databases: set up, secured and backed up for you.',
       page: 'cloud' as Page,
       cta: 'Explore Cloud',
       span: 'lg:col-span-2',
@@ -227,7 +227,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </h1>
 
             <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-xl leading-relaxed">
-              Managed hosting, ready-to-use business systems and custom software, set up for you,
+              Managed hosting, ready-to-use business systems and custom software: set up for you,
               billed in shillings, and supported by real people in Nairobi.
             </p>
 

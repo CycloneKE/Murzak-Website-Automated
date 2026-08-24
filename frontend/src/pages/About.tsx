@@ -75,7 +75,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/about-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/90 via-murzak-ink/70 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-5">About Murzak</p>
+          <p className="font-mono text-micro uppercase text-murzak-accent mb-5">About Murzak</p>
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
           </h1>
@@ -181,7 +181,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
               {[
-                { icon: <Server size={20} />, t: 'Managed hosting', s: 'Websites, email and databases, provisioned, secured and backed up for you on Murzak Cloud.', page: 'cloud' as const, cta: 'Murzak Cloud' },
+                { icon: <Server size={20} />, t: 'Managed hosting', s: 'Websites, email and databases: provisioned, secured and backed up for you on Murzak Cloud.', page: 'cloud' as const, cta: 'Murzak Cloud' },
                 { icon: <Boxes size={20} />, t: 'Business systems', s: 'Murzak ERP, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
                 { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
               ].map((c) => (
