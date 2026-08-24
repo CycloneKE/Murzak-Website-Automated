@@ -27,7 +27,7 @@ const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
             <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Clinics & Healthcare</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
-            Focus on patients, not paperwork. <span className="text-murzak-gradient">Records, billing and scheduling — sorted.</span>
+            Focus on patients, not paperwork. <span className="text-murzak-gradient">Records, billing and scheduling, sorted.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's healthcare providers have been waiting for. Ditch the paper records and disjointed billing systems.
@@ -35,8 +35,14 @@ const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/for-healthcare-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto text-center mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">The Murzak Healthcare Stack</h2>
            <p className="text-slate-500 font-medium mb-8">Integrated, secure, and compliant with the Kenya Data Protection Act.</p>
@@ -55,8 +61,7 @@ const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </Section>
 
-      <section className="relative py-24 overflow-hidden border-t border-murzak-border/50">
-        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
+      <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to digitize your clinic?</h2>
           <Button variant="primary" onClick={() => setSalesOpen(true)}>
@@ -64,7 +69,8 @@ const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
           </Button>
         </div>
       </section>
-      
+      </div>
+
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="quote" />
     </main>
   );
