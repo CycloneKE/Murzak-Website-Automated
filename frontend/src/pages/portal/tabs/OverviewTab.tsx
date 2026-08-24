@@ -22,7 +22,15 @@ import SecurityOverviewCard from "../../../components/portal/SecurityOverviewCar
 import ServiceHealthCard, { ServiceHealth } from "../../../components/portal/ServiceHealthCard";
 import { classifyActivity } from "../helpers";
 import { usePortal } from "../PortalContext";
-import { getService } from "../../../config/serviceCatalog";
+import { formatKes, getService, isYearlyBilled } from "../../../config/serviceCatalog";
+
+// Concrete "getting started" suggestions for the zero-service empty state
+// below: a small, fixed set of real catalog ids (a hosting product, a managed
+// business system, a domain) so a brand-new account sees specific next steps
+// instead of one generic button. Every name/price rendered from these is
+// resolved live via getService() from serviceCatalog.ts, so nothing here is
+// invented copy or a hardcoded number.
+const EMPTY_STATE_SUGGESTION_IDS = ["starter-web-hosting", "biz-erp-light", "domain-com"];
 
 const OverviewTab: React.FC = () => {
   const {
@@ -166,6 +174,13 @@ const OverviewTab: React.FC = () => {
     capacityClass: s.capacityClass,
   }));
 
+  // Resolved from the catalog every render (not hardcoded) so a suggestion
+  // can never show a stale name/price if the catalog changes; filters out
+  // any id that stops resolving instead of rendering a broken chip.
+  const emptyStateSuggestions = EMPTY_STATE_SUGGESTION_IDS
+    .map((id) => getService(id))
+    .filter((svc): svc is NonNullable<ReturnType<typeof getService>> => Boolean(svc));
+
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       {/* Status band — the persistent page header already renders the "Welcome
@@ -187,8 +202,8 @@ const OverviewTab: React.FC = () => {
               {selectedServices.length === 0
                 ? "No services deployed yet"
                 : hasDegradedService
-                  ? `${onlineServiceCount}/${selectedServices.length} services online — some need attention`
-                  : `${onlineServiceCount}/${selectedServices.length} services online — all healthy`}
+                  ? `${onlineServiceCount}/${selectedServices.length} services online, some need attention`
+                  : `${onlineServiceCount}/${selectedServices.length} services online, all healthy`}
             </p>
           </div>
 
@@ -259,9 +274,29 @@ const OverviewTab: React.FC = () => {
               <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
                 <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
                 <p className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-2">No Active Services</p>
-                <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-6">You don't have any infrastructure running yet.</p>
+                <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-6">Your account is ready. Here's what you can add.</p>
+
+                {emptyStateSuggestions.length > 0 && (
+                  <div className="flex flex-wrap items-stretch justify-center gap-3 max-w-2xl mx-auto mb-6">
+                    {emptyStateSuggestions.map((svc) => (
+                      <button
+                        key={svc.id}
+                        type="button"
+                        onClick={goToAddServices}
+                        title={svc.description}
+                        className="flex-1 min-w-[150px] max-w-[220px] text-left px-5 py-4 rounded-2xl bg-white/80 dark:bg-white/5 border border-murzak-border hover:border-murzak-accent/50 hover:scale-[1.02] transition-all"
+                      >
+                        <p className="text-micro font-black uppercase tracking-wide text-murzak-ink dark:text-slate-100 truncate">{svc.name}</p>
+                        <p className="text-micro font-bold text-murzak-accent mt-1.5">
+                          {formatKes(svc.pricing.monthlyKes)}{svc.pricing.monthlyKes != null ? (isYearlyBilled(svc) ? "/yr" : "/mo") : ""}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-105 transition-all inline-flex items-center gap-2">
-                  <Plus className="w-4 h-4" /> Deploy Services
+                  <Plus className="w-4 h-4" /> Browse All Services
                 </button>
               </div>
             )}
@@ -327,7 +362,7 @@ const OverviewTab: React.FC = () => {
               <EmptyState
                 icon={<FileText size={22} />}
                 title="No files uploaded yet"
-                description="Share configs, briefs, or credentials docs with your engineers — uploads stay attached to your account."
+                description="Share configs, briefs, or credentials docs with your engineers. Uploads stay attached to your account."
               />
             )}
           </div>

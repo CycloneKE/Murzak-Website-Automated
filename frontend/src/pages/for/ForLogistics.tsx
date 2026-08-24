@@ -27,7 +27,7 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
             <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Logistics & Distribution</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
-            Track every delivery. Route every driver. <span className="text-murzak-gradient">Stop running dispatch on WhatsApp.</span>
+            Track every delivery and route every driver. <span className="text-murzak-gradient">Stop running dispatch on WhatsApp.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's logistics sector has been waiting for. Eliminate delivery disputes and manual tracking.
@@ -59,7 +59,7 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
         {/* Multi-modal freight — sea, road, air, one system */}
         <section className="relative z-10 border-t border-murzak-border/50 py-20">
           <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
-            <h2 className="text-3xl font-[900] tracking-tight mb-4">Sea, road, or air — one system tracks it all</h2>
+            <h2 className="text-3xl font-[900] tracking-tight mb-4">Sea, road or air, one system tracks it all</h2>
             <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-2xl mx-auto">
               Whatever moves your freight, your dispatch, drivers, and customers see the same live status. No more chasing updates across three different apps and a WhatsApp group.
             </p>

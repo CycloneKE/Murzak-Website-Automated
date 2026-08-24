@@ -222,10 +222,10 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
     try {
       const topic = REQUEST_TOPICS.find((t) => t.id === requestTopic);
       await createPortalThread({
-        subject: `${topic?.label} request — ${serviceName}`,
+        subject: `${topic?.label} request: ${serviceName}`,
         message: `Service: ${serviceName} (${serviceId})\nRequest type: ${topic?.label}\n\n${requestDetail.trim()}`,
       });
-      setNotice("Request sent — our team will follow up in your messages.");
+      setNotice("Request sent. Our team will follow up in your messages.");
       setRequestTopic("");
       setRequestDetail("");
     } catch (e: any) {
@@ -274,7 +274,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
           <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-label font-medium text-slate-600 dark:text-slate-400">
             {accessRequestSent
-              ? "Request sent — our team will follow up in your Support tab, usually the same day."
+              ? "Request sent. Our team will follow up in your Support tab, usually the same day."
               : "Managing your own environment variables and reading live logs needs a quick approval from our team first."}
           </p>
         </div>
@@ -307,7 +307,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             </p>
             <p>
               We'll still keep the platform running underneath you, but configuration you change here
-              becomes yours to maintain — our team can no longer guarantee a service we didn't configure.
+              becomes yours to maintain. Our team can no longer guarantee a service we didn't configure.
             </p>
           </div>
         </div>
@@ -346,7 +346,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-label font-medium text-amber-800 dark:text-amber-300">
-                Saved, but not live yet — your service keeps its current environment until it restarts.
+                Saved, but not live yet. Your service keeps its current environment until it restarts.
               </p>
               <button
                 type="button"
@@ -467,7 +467,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       <section>
         <p className="text-label font-black text-slate-700 dark:text-slate-300 mb-1">Ask for more</p>
         <p className="text-micro font-medium text-slate-400 mb-2">
-          These aren't self-service yet — a Murzak engineer sets them up for you.
+          These aren't self-service yet. A Murzak engineer sets them up for you.
         </p>
         <div className="flex flex-wrap gap-2 mb-2">
           {REQUEST_TOPICS.map((t) => (

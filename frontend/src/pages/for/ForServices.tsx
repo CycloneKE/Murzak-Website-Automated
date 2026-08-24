@@ -25,7 +25,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
             <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Professional Services</span>
           </div>
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
-            Win more clients. Deliver on time. <span className="text-murzak-gradient">Get paid faster.</span>
+            Win more clients and deliver on time. <span className="text-murzak-gradient">Get paid faster.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's service businesses have been waiting for. Stop chasing invoices and sending proposals in Word docs.
@@ -33,8 +33,14 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/for-services-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
 
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto text-center mb-12">
            <h2 className="text-3xl font-[900] tracking-tight mb-4">The Murzak Services Stack</h2>
            <p className="text-slate-500 font-medium mb-8">Integrated tools from first pitch to final invoice.</p>
@@ -53,8 +59,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </Section>
 
-      <section className="relative py-24 overflow-hidden border-t border-murzak-border/50">
-        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
+      <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to professionalize your workflow?</h2>
           <Button variant="primary" onClick={() => onNavigate('pricing')}>
@@ -62,6 +67,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
           </Button>
         </div>
       </section>
+      </div>
     </main>
   );
 };

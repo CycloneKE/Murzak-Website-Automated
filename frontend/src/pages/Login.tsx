@@ -46,7 +46,7 @@ interface LoginProps {
       setError("That verification link is invalid or has expired.");
     }
     if (params.get("reason") === "session-expired") {
-      setInfo("Your session expired — please sign in again to continue.");
+      setInfo("Your session expired. Please sign in again to continue.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
@@ -551,10 +551,10 @@ const handleReset = async (e: React.FormEvent) => {
     placeholder:text-murzak-muted/50 focus:outline-none focus:ring-2 focus:ring-murzak-accent/20 focus:border-murzak-accent transition-all duration-200
   `;
 
-  const labelStyles = "text-xs font-semibold text-murzak-muted mb-2 block ml-1";
+  const labelStyles = "text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 block ml-1";
 
   return (
-    <div className="min-h-screen bg-murzak-base flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-murzak-base dark:bg-murzak-ink flex flex-col items-center justify-center p-3 sm:p-4 lg:p-6 relative overflow-hidden">
       <img
         src="/images/data-center.webp"
         alt=""
@@ -563,7 +563,12 @@ const handleReset = async (e: React.FormEvent) => {
         fetchPriority="high"
         className="absolute inset-0 z-0 w-full h-full object-cover"
       />
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent" />
+      {/* Light mode: lighten the photo with a slate-300 wash so the always-dark-ink
+          card content (below) reads on a bright backdrop. Dark mode: the same wash
+          would leave the page washed-out white behind dark:text-slate-100 content
+          (see the 2026-08 light-mode contrast sweep), so it switches to an ink wash
+          that actually darkens the photo instead of lightening it. */}
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
       <div className="absolute inset-0 z-0 bg-murzak-accent/10 mix-blend-color" />
       <div className="absolute top-6 lg:top-10 left-6 lg:left-10 z-20">
         <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-micro uppercase hover:text-murzak-accent transition-colors drop-shadow">
@@ -639,7 +644,7 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             <div className="space-y-6">
-              <h3 className="text-micro font-black text-sky-700 uppercase mb-4">Your Details</h3>
+              <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Your Details</h3>
               {mode === 'signup' && (
                 <>
                   <div className="space-y-1">
@@ -713,7 +718,7 @@ const handleReset = async (e: React.FormEvent) => {
 
             {mode === 'signup' ? (
               <div className="space-y-6">
-                <h3 className="text-micro font-black text-sky-700 uppercase mb-4">Project Setup</h3>
+                <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Project Setup</h3>
                 <div className="space-y-1">
                   <label className={labelStyles}>What is the goal of this project?</label>
                   <div className="relative">
@@ -791,7 +796,7 @@ const handleReset = async (e: React.FormEvent) => {
                 type="button"
                 onClick={handleGoogle}
                 disabled={googleLoading || isSubmitting}
-                className="w-full bg-white dark:bg-black/5 border border-slate-200 dark:border-white/15 text-murzak-ink
+                className="w-full bg-white dark:bg-black/5 border border-slate-200 dark:border-white/15 text-murzak-ink dark:text-slate-100
                            px-6 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-white/15
                            transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50">
                 {googleLoading ? (

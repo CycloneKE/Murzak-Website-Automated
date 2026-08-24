@@ -170,7 +170,7 @@ export const PLAN_META: Record<PlanCode, PlanMeta> = {
     label: "Test Drive",
     startingKes: 0,
     period: "36-hour trial",
-    blurb: "Spin up a real environment and see the performance for yourself — no card required.",
+    blurb: "Spin up a real environment and see the performance for yourself. No card required.",
     bestFor: "Evaluating before you commit",
     cta: "Start free trial",
     features: ["36h live environment", "Engineer-assisted setup", "Live monitoring", "No card required"],
@@ -180,7 +180,7 @@ export const PLAN_META: Record<PlanCode, PlanMeta> = {
     label: "Infrastructure Core",
     startingKes: 1200,
     period: "/mo",
-    blurb: "Fast, managed infrastructure: Website hosting, business email, and databases — billed in KES.",
+    blurb: "Fast, managed infrastructure: Website hosting, business email, and databases, billed in KES.",
     bestFor: "Websites, email & standalone infrastructure",
     cta: "Configure infrastructure",
     features: ["Managed website hosting", "Business email", "Daily backups + SSL", "M-Pesa billing in KES"],
@@ -343,7 +343,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-app-hosting",
       name: "App Hosting (Node.js / Docker)",
-      description: "We deploy your own app straight from its Git repository — Node.js, Python, PHP or any Dockerfile — and keep it running.",
+      description: "We deploy your own app straight from its Git repository (Node.js, Python, PHP or any Dockerfile) and keep it running.",
       category: "App Hosting",
       tier: "Light",
       capacityClass: "volume",
@@ -358,7 +358,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-email",
       name: "Business Email",
-      description: "Professional email on your domain — up to 5 mailboxes, 5GB each.",
+      description: "Professional email on your domain: up to 5 mailboxes, 5GB each.",
       category: "Email Hosting",
       tier: "Light",
       capacityClass: "volume",
@@ -477,7 +477,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-esign",
       name: "E-Signature",
-      description: "Send documents for signature and track status — your own e-signature tool.",
+      description: "Send documents for signature and track status: your own e-signature tool.",
       category: "E-Signature",
       tier: "Light",
       capacityClass: "volume",
@@ -490,7 +490,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-invoicing",
       name: "Invoicing",
-      description: "Send invoices, track payments, and manage clients — your own invoicing tool.",
+      description: "Send invoices, track payments, and manage clients: your own invoicing tool.",
       category: "Invoicing",
       tier: "Light",
       capacityClass: "volume",
@@ -503,7 +503,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "starter-scheduling",
       name: "Scheduling",
-      description: "Booking pages, calendar sync, and meeting scheduling — your own scheduling tool.",
+      description: "Booking pages, calendar sync, and meeting scheduling: your own scheduling tool.",
       category: "Scheduling",
       tier: "Light",
       capacityClass: "volume",
@@ -537,7 +537,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "biz-erp-light",
       name: "Murzak ERP (1–3 users)",
-      description: "Fully managed Murzak ERP for a small operation — we host, configure and back it up.",
+      description: "Fully managed Murzak ERP for a small operation: we host, configure and back it up.",
       category: "ERP Hosting",
       tier: "Medium",
       capacityClass: "premium",
@@ -672,7 +672,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "biz-email",
       name: "Business Email (Teams)",
-      description: "Professional email on your domain for the whole team — larger mailboxes and admin controls.",
+      description: "Professional email on your domain for the whole team: larger mailboxes and admin controls.",
       category: "Email Hosting",
       tier: "Medium",
       capacityClass: "volume",
@@ -755,7 +755,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "ent-bi",
       name: "Business Intelligence (Dedicated)",
-      description: "BI tools hosting — dashboards, ETL, analytics.",
+      description: "BI tools hosting: dashboards, ETL, analytics.",
       category: "Analytics",
       tier: "Enterprise",
       capacityClass: "dedicated",
@@ -1011,7 +1011,7 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
   {
     id: "addon-migration",
     name: "Migration from Another Host",
-    description: "One-time move of your existing site, email or data onto Murzak — done for you.",
+    description: "One-time move of your existing site, email or data onto Murzak: done for you.",
     category: "Support & SLA",
     tier: "Light",
     capacityClass: "volume",
@@ -1035,7 +1035,7 @@ export const UNIVERSAL_ADDONS: ServiceItem[] = [
 export const DOMAIN_CATALOG: ServiceItem[] = [
   {
     id: "domain-coke",
-    name: "Domain — .co.ke",
+    name: "Domain: .co.ke",
     description: "Register a .co.ke domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1047,7 +1047,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-com",
-    name: "Domain — .com",
+    name: "Domain: .com",
     description: "Register a .com domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1062,7 +1062,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-ke",
-    name: "Domain — .ke",
+    name: "Domain: .ke",
     description: "Register a .ke domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1074,7 +1074,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-org",
-    name: "Domain — .org",
+    name: "Domain: .org",
     description: "Register a .org domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1087,7 +1087,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-net",
-    name: "Domain — .net",
+    name: "Domain: .net",
     description: "Register a .net domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1100,7 +1100,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-africa",
-    name: "Domain — .africa",
+    name: "Domain: .africa",
     description: "Register a .africa domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1112,7 +1112,7 @@ export const DOMAIN_CATALOG: ServiceItem[] = [
   },
   {
     id: "domain-io",
-    name: "Domain — .io",
+    name: "Domain: .io",
     description: "Register a .io domain, billed yearly.",
     category: "Domain Registration",
     tier: "Light",
@@ -1216,10 +1216,10 @@ export const GENERIC_POST_PURCHASE_COPY =
  */
 export function postPurchaseCopy(svc: ServiceItem): string {
   if (isManagedSetup(svc)) {
-    return "Our team configures your system and hands it over within 24 hours — watch progress in your portal.";
+    return "Our team configures your system and hands it over within 24 hours. You can watch progress in your portal.";
   }
   if (svc.requiresRepo) {
-    return "We deploy straight from your repository — your app is typically live in about 10 minutes.";
+    return "We deploy straight from your repository. Your app is typically live in about 10 minutes.";
   }
   return GENERIC_POST_PURCHASE_COPY;
 }

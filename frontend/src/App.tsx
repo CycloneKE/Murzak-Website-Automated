@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import InteractiveBackground from "./components/InteractiveBackground";
+import OrganizationSchema from "./components/OrganizationSchema";
 
 import Home from "./pages/Home";
 import Cloud from "./pages/Cloud";
@@ -38,6 +39,7 @@ import ForServices from "./pages/for/ForServices";
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
 import { useTheme } from "./context/ThemeContext";
+import { safeReturnTo } from "./utils/safeReturnTo";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -67,6 +69,8 @@ const pathToPage: Record<string, Page> = {
   "/for/services": "for-services",
   "/deploy": "deploy",
 };
+
+const SITE_ORIGIN = "https://murzaktech.com";
 
 const pageMetadata: Record<Page, { title: string; description: string }> = {
   home: { title: "Murzak Technologies | Custom Software & Cloud Hosting Nairobi", description: "East Africa's trusted partner for custom enterprise software development." },
@@ -231,12 +235,29 @@ const App: React.FC = () => {
     // new one, since index.html's is the one crawlers see before hydration.
     const descTag = document.querySelector('meta[name="description"]');
     if (descTag) descTag.setAttribute("content", meta.description);
+
+    // Canonical + Open Graph + Twitter previously stayed hardcoded to
+    // index.html's homepage values on every route — a duplicate-content
+    // signal and a broken share preview for every non-home page. Same
+    // pattern as the description tag above: update in place.
+    const canonicalUrl = `${SITE_ORIGIN}${location.pathname}`;
+    const setAttr = (selector: string, attr: string, value: string) => {
+      const el = document.querySelector(selector);
+      if (el) el.setAttribute(attr, value);
+    };
+    setAttr('link[rel="canonical"]', "href", canonicalUrl);
+    setAttr('meta[property="og:title"]', "content", meta.title);
+    setAttr('meta[property="og:description"]', "content", meta.description);
+    setAttr('meta[property="og:url"]', "content", canonicalUrl);
+    setAttr('meta[name="twitter:title"]', "content", meta.title);
+    setAttr('meta[name="twitter:description"]', "content", meta.description);
+
     window.scrollTo({ top: 0, behavior: "auto" });
 
     setIsPageLoading(true);
     const timer = setTimeout(() => setIsPageLoading(false), 700);
     return () => clearTimeout(timer);
-  }, [activePage, isNotFoundRoute]);
+  }, [activePage, isNotFoundRoute, location.pathname]);
 
   // Preload the current route's hero background so the browser starts
   // fetching it immediately on navigation rather than waiting to parse the
@@ -271,7 +292,7 @@ const App: React.FC = () => {
     setUser(u);
     setIsLoggedIn(true);
     sessionExpiredHandled.current = false;
-    navigate(returnTo || "/portal/overview");
+    navigate(safeReturnTo(returnTo, "/portal/overview"));
   };
 
   const handleUserUpdate = (u: User) => {
@@ -353,6 +374,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen max-w-[100vw] overflow-x-hidden relative">
       <InteractiveBackground isDarkMode={false} />
+      <OrganizationSchema />
 
       <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {(isPortalRoute || isPaymentRoute) && (

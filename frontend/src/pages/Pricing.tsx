@@ -25,6 +25,7 @@ import Faq, { type FaqItem } from "../components/Faq";
 import PlanAdvisor from "../components/PlanAdvisor";
 import { PLAN_META, formatKes, planForService, type PlanCode } from "../config/serviceCatalog";
 import { Button } from "../components/ui/Button";
+import { toSafeJsonLdString } from "../utils/jsonLd";
 
 interface PricingProps {
   onNavigate: (page: Page | string) => void;
@@ -101,6 +102,7 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, 
   const plans = (Object.values(PLAN_META)).map((m) => ({
     code: m.code,
     name: m.label,
+    startingKes: m.startingKes,
     price: m.startingKes == null ? 'Custom' : m.startingKes === 0 ? 'Free' : formatKes(m.startingKes),
     pricePrefix: m.startingKes && m.startingKes > 0 ? 'from' : '',
     period: m.period,
@@ -113,10 +115,10 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, 
   }));
 
   const faqItems: FaqItem[] = [
-    { q: "How do I pay — and in what currency?", a: "Everything is billed in Kenyan Shillings (KES). Pay by M-Pesa STK push or card from your client portal. No forex surprises." },
-    { q: "Can I use my own domain or register a new one?", a: "Both. Point an existing domain to us, use a free Murzak subdomain to start, or search and register a brand-new domain right inside the plan configurator — we handle the setup." },
+    { q: "How do I pay, and in what currency?", a: "Everything is billed in Kenyan Shillings (KES). Pay by M-Pesa STK push or card from your client portal. No forex surprises." },
+    { q: "Can I use my own domain or register a new one?", a: "Both. Point an existing domain to us, use a free Murzak subdomain to start, or search and register a brand-new domain right inside the plan configurator. We handle the setup." },
     { q: "What does 'managed' actually include?", a: "We provision and configure the server, install and tune your apps (Murzak ERP, POS, CRM, websites), set up SSL, run daily backups, patch security, and support you from Nairobi. You focus on your business." },
-    { q: "Can I add services or upgrade later?", a: "Yes — add services anytime from your portal. Each one is a clearly-priced add-on billed in KES, so you only ever pay for what you actually use." },
+    { q: "Can I add services or upgrade later?", a: "Yes. Add services anytime from your portal. Each one is a clearly-priced add-on billed in KES, so you only ever pay for what you actually use." },
     { q: "What happens if I outgrow my plan?", a: "Larger ERPs, databases and high-load platforms move to dedicated capacity. We size it, quote it, and migrate you with no downtime." },
     { q: "How fast is setup?", a: "Most websites and standard apps go live the same day. Configured Murzak ERP with data migration is scoped during onboarding and typically takes a few days." },
     { q: "Are my data and site backed up?", a: "Yes. Daily backups are included on paid plans, with SSL and security hardening as standard. Disaster-recovery options are available on dedicated plans." },
@@ -162,14 +164,43 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
   setServicesOpen(true);
 };
 
+  const pricingJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: plans.map((plan, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "Product",
+        name: `Murzak ${plan.name}`,
+        description: plan.description,
+        offers: {
+          "@type": "Offer",
+          // Derived from the same numeric source of truth (m.startingKes) that
+          // drives the display price, not by re-parsing the formatted string.
+          price: plan.startingKes == null ? undefined : String(plan.startingKes),
+          priceCurrency: "KES",
+          url: "https://murzaktech.com/pricing",
+        },
+      },
+    })),
+  };
+  const pricingJsonLdString = toSafeJsonLdString(pricingJsonLd);
+
   return (
     <div className="bg-transparent min-h-screen">
-
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: pricingJsonLdString }} />
 
       {/* Hero / CTA landing — now ABOVE the plan grid */}
       <section className="relative pt-10 sm:pt-16 lg:pt-24 pb-16 sm:pb-24 lg:pb-28 overflow-hidden bg-transparent">
-        {/* Background intentionally removed — the universal site backdrop
-            (body image in index.css) now shows through this transparent hero. */}
+        {/* A subtle atmosphere layer behind the glass cards — the cards'
+            own bg-white/60 dark:bg-white/5 backdrop-blur-md still does the
+            legibility work; this only adds depth behind them instead of
+            leaving the page flat. Lower opacity than other pages' hero
+            treatment on purpose, since the plan cards need to stay the
+            visual focus, not the backdrop. */}
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-25" style={{ backgroundImage: "url('/images/pricing-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
 
         <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-murzak-accent/10 rounded-full border border-murzak-accent/20 mb-6 sm:mb-8 backdrop-blur-md">
@@ -221,7 +252,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
 
                 <div className="p-6 sm:p-8 flex-grow flex flex-col">
                   <h3 className="text-micro sm:text-xs font-semibold uppercase text-sky-700 dark:text-murzak-accent mb-2">
-                    {plan.name} {plan.isFeatured ? ' — POPULAR' : ''}
+                    {plan.name} {plan.isFeatured ? ' · POPULAR' : ''}
                   </h3>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     {plan.pricePrefix && (
@@ -292,6 +323,44 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
         </div>
       </section>
 
+      {/* Plan comparison — spec C2: choosing between plans shouldn't rely
+          solely on each card's own feature list. Sourced from PLAN_META so
+          numbers can never drift from the cards above. */}
+      <section className="py-16 sm:py-24 relative z-20">
+        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-4">Side by side</p>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
+              Compare plans at a glance.
+            </h2>
+          </div>
+          <div className="overflow-x-auto rounded-3xl border border-murzak-border/50">
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="bg-black/5 dark:bg-white/5">
+                  <th className="p-4 font-black text-murzak-ink dark:text-slate-100">Plan</th>
+                  <th className="p-4 font-black text-murzak-ink dark:text-slate-100">Starting price</th>
+                  <th className="p-4 font-black text-murzak-ink dark:text-slate-100">Best for</th>
+                  <th className="p-4 font-black text-murzak-ink dark:text-slate-100">Key features</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((plan) => (
+                  <tr key={plan.name} className="border-t border-murzak-border/30">
+                    <td className="p-4 font-black text-murzak-ink dark:text-slate-100">{plan.name}</td>
+                    <td className="p-4 font-mono text-murzak-ink dark:text-slate-100">
+                      {plan.pricePrefix ? `${plan.pricePrefix} ` : ""}{plan.price}
+                    </td>
+                    <td className="p-4 text-slate-600 dark:text-slate-400">{plan.bestFor}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-400">{plan.features.slice(0, 3).join(" · ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       {/* Managed vs DIY comparison */}
       <section className="py-16 sm:py-24 bg-white dark:bg-transparent relative z-20">
         <ManagedComparison />
@@ -309,7 +378,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
           <div className="grid sm:grid-cols-3 gap-5">
             {[
               { n: '01', icon: <SlidersHorizontal size={20} />, t: 'Pick your services', s: 'Use the configurator to choose exactly what you need. The total adds up in shillings as you go.' },
-              { n: '02', icon: <Sparkles size={20} />, t: 'See the total in shillings', s: 'Every service shows its price as you add it and the total updates live — what the configurator shows is exactly what you pay at checkout.' },
+              { n: '02', icon: <Sparkles size={20} />, t: 'See the total in shillings', s: 'Every service shows its price as you add it and the total updates live. What the configurator shows is exactly what you pay at checkout.' },
               { n: '03', icon: <ArrowRight size={20} />, t: 'Add or upgrade anytime', s: 'Need more later? Add services from your portal as a clearly-priced add-on. Outgrow the plan and we migrate you with no downtime.' },
             ].map((step) => (
               <div key={step.n} className="glass-panel relative rounded-3xl p-7 lg:p-8 hover:-translate-y-1 transition-transform">

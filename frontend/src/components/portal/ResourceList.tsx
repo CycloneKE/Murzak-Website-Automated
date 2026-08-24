@@ -43,7 +43,7 @@ const ResourceList: React.FC<ResourceListProps> = ({ services, onSelect }) => {
       <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/80 dark:bg-white/5 backdrop-blur-xl p-10 text-center">
         <Server className="w-8 h-8 text-slate-400 mx-auto mb-3" />
         <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">
-          No resources yet — add a service to get started.
+          No resources yet. Add a service to get started.
         </p>
       </div>
     );

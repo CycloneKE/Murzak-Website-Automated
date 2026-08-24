@@ -8,7 +8,12 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
-const MARKETING_PAGES = ['/', '/cloud', '/products', '/about', '/pricing', '/terms', '/privacy', '/sla'];
+const MARKETING_PAGES = [
+  '/', '/cloud', '/products', '/about', '/pricing', '/terms', '/privacy', '/sla',
+  '/contact', '/login', '/test-request',
+  '/products/pos', '/products/erp', '/products/crm', '/products/custom',
+  '/for/retail', '/for/clinics', '/for/logistics', '/for/services',
+];
 
 /**
  * Relative-luminance contrast ratio (WCAG formula) between two "rgb(r,g,b)"
@@ -33,6 +38,19 @@ function contrastCheckScript() {
   function effectiveBg(el: Element): { r: number; g: number; b: number } | null {
     let node: Element | null = el;
     while (node) {
+      // Some hero / "GLOBAL BACKGROUND WRAPPER" sections paint their
+      // background via SIBLING layers (a photo <img>, a gradient wash) that
+      // sit absolutely-positioned beside the text rather than as an
+      // ancestor's own background-color — a plain ancestor walk can't see
+      // those at all and falls through to the page's <body> color instead,
+      // which is wrong for a section that's genuinely (and deliberately)
+      // dark regardless of site theme. Pages mark exactly those wrappers
+      // with `data-bg-surface="dark"` (see Home/Products/About/
+      // CustomSoftware) so this check can short-circuit to the real
+      // rendered tone instead of misreading the unrelated body color.
+      const marker = (node as HTMLElement).dataset?.bgSurface;
+      if (marker === 'dark') return { r: 9, g: 12, b: 16 }; // matches html.dark body / bg-murzak-ink
+      if (marker === 'light') return { r: 248, g: 250, b: 251 }; // matches body / bg-murzak-base
       const cs = getComputedStyle(node);
       // A gradient/image background (e.g. .bg-brand-gradient buttons using
       // text-murzak-ink deliberately for contrast against a bright gradient)
@@ -103,6 +121,17 @@ test.describe('MKT-01 — dark-mode text contrast', () => {
   for (const path of MARKETING_PAGES) {
     test(`no near-invisible text on ${path} (dark mode)`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: 'dark' });
+      await page.goto(path);
+      await page.waitForLoadState('networkidle');
+      await assertNoInvisibleText(page, path);
+    });
+  }
+});
+
+test.describe('MKT-01b — light-mode text contrast', () => {
+  for (const path of MARKETING_PAGES) {
+    test(`no near-invisible text on ${path} (light mode)`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: 'light' });
       await page.goto(path);
       await page.waitForLoadState('networkidle');
       await assertNoInvisibleText(page, path);
@@ -255,6 +284,18 @@ test.describe('MKT-07 — per-page SEO title updates on client-side navigation',
       }
       lastTitle = title;
     }
+  });
+});
+
+test.describe('MKT-10 — canonical + Open Graph URL match the actual route', () => {
+  test('canonical link and og:url update on client-side navigation, not left on the homepage', async ({ page }) => {
+    await page.goto('/');
+    await page.goto('/cloud');
+    await page.waitForLoadState('networkidle');
+    const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
+    const ogUrl = await page.evaluate(() => document.querySelector('meta[property="og:url"]')?.getAttribute('content'));
+    expect(canonical).toBe('https://murzaktech.com/cloud');
+    expect(ogUrl).toBe('https://murzaktech.com/cloud');
   });
 });
 

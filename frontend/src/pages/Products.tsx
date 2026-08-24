@@ -55,7 +55,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 409 && data?.code === "CAPACITY") {
-        setDomainError("We're at capacity right now — please try again shortly.");
+        setDomainError("We're at capacity right now. Please try again shortly.");
         return;
       }
       if (!res.ok || !data?.order) {
@@ -92,8 +92,12 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
 
   return (
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero Section — background photo behind the headline, not a separate card */}
-      <section className="relative min-h-[70vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* Hero Section — background photo behind the headline, not a separate card.
+          data-bg-surface="dark": unconditionally dark (photo + murzak-ink
+          overlay, no theme toggle) — see qa-marketing.spec.ts's MKT-01/01b
+          contrast check, which can't see a background painted by these
+          absolutely-positioned sibling layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[70vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/products-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-murzak-ink/85 via-murzak-ink/70 to-murzak-ink/90" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center relative z-10">
@@ -197,7 +201,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         <Section id="domains" className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-8">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Register a domain</h2>
-             <p className="text-slate-500 dark:text-slate-400 font-medium">Search, pick your extension, and check out — billed yearly.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Search, pick your extension, and check out. Billed yearly.</p>
           </div>
           <div className="max-w-xl">
             <DomainSearch selectedDomain={selectedDomain} onSelect={handleSelectDomain} />

@@ -17,11 +17,11 @@ const SLA: React.FC = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full text-center lg:text-left">
-          <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
+          <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-sky-700 dark:text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
             Performance guarantee
           </div>
           <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
-            Reliability <br /><span className="text-murzak-accent">assurance.</span>
+            Reliability <br /><span className="text-sky-700 dark:text-murzak-accent">assurance.</span>
           </h1>
           <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90 mx-auto lg:mx-0">
             Our unyielding commitment to system uptime and technical integrity.
@@ -33,7 +33,12 @@ const SLA: React.FC = () => {
         <div className="max-w-4xl mx-auto px-6 lg:px-12">
           <div className="space-y-24">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="bg-murzak-ink p-12 rounded-[3.5rem] text-white shadow-3xl relative overflow-hidden group">
+              {/* This card is unconditionally dark (bg-murzak-ink, no `dark:` pairing)
+                  regardless of site theme, so its content is wrapped in a scoped
+                  `dark` class to force the correct (already-defined) dark-mode
+                  text colors on — rather than duplicating them as fixed classes
+                  (same fix as Products.tsx's Custom Build card). */}
+              <div className="bg-murzak-ink p-12 rounded-[3.5rem] text-white shadow-3xl relative overflow-hidden group dark">
                 <Zap size={40} className="text-murzak-accent mb-8" />
                 <h2 className="text-6xl font-[900] mb-4 tracking-tighter">99.9%</h2>
                 <h3 className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-10">Uptime guarantee</h3>
@@ -64,7 +69,7 @@ const SLA: React.FC = () => {
                     <tr className="hover:bg-murzak-accent/5 transition-colors">
                       <td className="py-6 px-8 font-black text-murzak-ink dark:text-slate-100">P1: Critical outage</td>
                       <td className="py-6 px-8">2 Hours</td>
-                      <td className="py-6 px-8 text-murzak-accent">1 Hour</td>
+                      <td className="py-6 px-8 text-sky-700 dark:text-murzak-accent">1 Hour</td>
                     </tr>
                     <tr className="hover:bg-murzak-accent/5 transition-colors">
                       <td className="py-6 px-8 font-black text-murzak-ink dark:text-slate-100">P2: Major slowdown</td>

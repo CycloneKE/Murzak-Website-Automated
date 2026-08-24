@@ -164,7 +164,7 @@ const PortalShell: React.FC = () => {
                           onTabClick("cloud");
                           navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
                         }}
-                        title={s.status !== "Active" ? `${s.name} — ${s.status || "pending"}` : s.name}
+                        title={s.status !== "Active" ? `${s.name}: ${s.status || "pending"}` : s.name}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-micro font-bold text-left tracking-wide truncate transition-colors ${
                           s.status === "Active"
                             ? "text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
@@ -274,7 +274,7 @@ const PortalShell: React.FC = () => {
             return banner(
               "red",
               <AlertCircle size={22} className="text-red-500" />,
-              <>Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away — your data is safe.</>,
+              <>Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away. Your data is safe.</>,
               { label: "Pay & restore", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
             );
           }
@@ -290,7 +290,7 @@ const PortalShell: React.FC = () => {
             return banner(
               "amber",
               <Timer size={22} className="text-amber-500" />,
-              <>Your trial has ended and the sandbox is paused. Your data is held for 7 days — choose a plan to restore it exactly as you left it.</>,
+              <>Your trial has ended and the sandbox is paused. Your data is held for 7 days. Choose a plan to restore it exactly as you left it.</>,
               { label: "Choose a plan", onClick: () => navigate("/pricing") }
             );
           }
@@ -298,7 +298,7 @@ const PortalShell: React.FC = () => {
             return banner(
               "amber",
               <Receipt size={22} className="text-amber-500" />,
-              <>Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due — KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.</>,
+              <>Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due: KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.</>,
               { label: "Pay now", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
             );
           }
@@ -306,7 +306,7 @@ const PortalShell: React.FC = () => {
             return banner(
               "cyan",
               <CheckCircle2 size={22} className="text-murzak-accent" />,
-              <>Trial sandbox live — ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
+              <>Trial sandbox live, ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
               { label: "Choose a plan", onClick: () => navigate("/pricing") }
             );
           }
@@ -328,7 +328,7 @@ const PortalShell: React.FC = () => {
                   services={databaseServices}
                   icon={<DatabaseIcon className="w-6 h-6" />}
                   emptyTitle="No databases yet"
-                  emptyDescription="Add a managed MySQL, PostgreSQL, MongoDB or Redis instance — we run it, back it up and keep it patched."
+                  emptyDescription="Add a managed MySQL, PostgreSQL, MongoDB or Redis instance. We run it, back it up and keep it patched."
                 />
               }
             />
@@ -442,7 +442,7 @@ const PortalShell: React.FC = () => {
               </p>
 
               <p className="mt-2 text-label font-medium text-slate-600 dark:text-slate-400">
-                This shuts down and destroys the service itself, not just its listing here — its
+                This shuts down and destroys the service itself, not just its listing here. Its
                 container, configuration and any data inside it are removed and cannot be restored.
               </p>
 

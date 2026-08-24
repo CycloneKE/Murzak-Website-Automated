@@ -25,19 +25,19 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
     }
   }, [searchParams]);
   const whatYouCanHost: { icon: React.ReactNode; t: string; s: string; page?: Page; path?: string }[] = [
-    { icon: <Globe size={20} />, t: 'Websites & online stores', s: 'WordPress, custom sites, light e-commerce — fast and SSL-secured.' },
+    { icon: <Globe size={20} />, t: 'Websites & online stores', s: 'WordPress, custom sites, light e-commerce, all fast and SSL-secured.' },
     { icon: <Mail size={20} />, t: 'Business email', s: 'Professional mail on your domain, with spam filtering and admin controls.' },
     { icon: <Database size={20} />, t: 'Databases', s: 'Managed MySQL/Postgres for your apps, tuned and backed up.' },
-    { icon: <HardDrive size={20} />, t: 'File storage', s: 'A private cloud drive for your team — share without the chaos.' },
+    { icon: <HardDrive size={20} />, t: 'File storage', s: 'A private cloud drive for your team, without the shared-folder chaos.' },
     { icon: <Github size={20} />, t: 'Your own app', s: 'Connect a GitHub repo and we build, deploy and keep it running.', page: 'deploy' },
-    { icon: <Globe size={20} />, t: 'A domain name', s: 'Search, register and point a domain at anything you host with us — billed yearly.', path: '/products#domains' },
+    { icon: <Globe size={20} />, t: 'A domain name', s: 'Search, register and point a domain at anything you host with us, billed yearly.', path: '/products#domains' },
   ];
 
   const managed = [
-    { icon: <ShieldCheck size={22} />, t: 'Secured & patched', s: 'Firewalls and security updates handled for you — not left for "later".' },
+    { icon: <ShieldCheck size={22} />, t: 'Secured & patched', s: 'Firewalls and security updates handled for you. Not left for "later".' },
     { icon: <RefreshCw size={22} />, t: 'Backed up daily', s: 'Automatic daily backups, so a bad day never becomes a lost week.' },
     { icon: <Activity size={22} />, t: 'Watched around the clock', s: 'We monitor your systems and step in before small issues become outages.' },
-    { icon: <Headphones size={22} />, t: 'Real support', s: 'A Nairobi team that answers the same day — not a ticket queue overseas.' },
+    { icon: <Headphones size={22} />, t: 'Real support', s: 'A Nairobi team that answers the same day, not a ticket queue overseas.' },
   ];
 
   return (
@@ -54,7 +54,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
             <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
-              Your site, email and apps — set up, secured and backed up by us, on fast infrastructure,
+              Your site, email and apps: set up, secured and backed up by us, on fast infrastructure,
               billed in shillings. You get the result; we handle the servers.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-4">
@@ -142,7 +142,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
               <p className="inline-block font-mono text-micro uppercase text-sky-800 dark:text-murzak-accent mb-3 px-2.5 py-1 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-sm">Fully managed</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
               <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
-                Real engineers watching real infrastructure — not a support queue that routes you overseas.
+                Real engineers watching real infrastructure, not a support queue that routes you overseas.
               </p>
             </div>
 
@@ -160,7 +160,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                 </div>
                 <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-4 py-3">
                   <span className="h-2 w-2 rounded-full bg-murzak-success animate-pulse shrink-0" />
-                  <span className="text-body-sm font-bold text-slate-200">Watched 24/7 — last 30 days</span>
+                  <span className="text-body-sm font-bold text-slate-200">Watched 24/7, last 30 days</span>
                 </div>
               </div>
             </div>

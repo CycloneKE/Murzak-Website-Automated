@@ -60,7 +60,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <Logo theme="dark" className="h-11 mb-6" />
             <p className="text-slate-500 text-sm leading-relaxed mb-7 font-medium max-w-xs">
               Nairobi's managed-technology partner. We host, build and look after the software small and
-              growing businesses depend on — set up for you, billed in shillings, supported by real people.
+              growing businesses depend on. It's set up for you, billed in shillings, supported by real people.
             </p>
 
             <ul className="space-y-3 mb-7">

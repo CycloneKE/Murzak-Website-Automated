@@ -38,7 +38,7 @@ const BillingTab: React.FC = () => {
     .filter((inv: any) => String(inv?.type || "").toLowerCase().includes("subscription") && inv?.status === "Paid")
     .sort((a: any, b: any) => String(b?.date || "").localeCompare(String(a?.date || "")))[0];
   const billingCycleLine = dueSubscriptionInvoice
-    ? "A subscription invoice is due — see Invoices"
+    ? "A subscription invoice is due. See Invoices"
     : lastPaidSubscription
       ? `Monthly Billing • Last billed ${lastPaidSubscription.date}`
       : "Monthly Billing";

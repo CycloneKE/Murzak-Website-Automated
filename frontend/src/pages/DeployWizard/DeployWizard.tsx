@@ -75,7 +75,7 @@ export const DeployWizard: React.FC = () => {
         </div>
         <h1 className="text-3xl font-bold mb-3">App Hosting is a paid plan</h1>
         <p className="text-gray-400 max-w-md mb-8">
-          Deploying a repo runs it on real, managed infrastructure — add App Hosting to your
+          Deploying a repo runs it on real, managed infrastructure. Add App Hosting to your
           plan (billed in KES) and come back to finish deploying.
         </p>
         <div className="flex items-center gap-3">
@@ -140,6 +140,18 @@ export const DeployWizard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col items-center pt-20 relative overflow-hidden font-sans selection:bg-purple-500/30">
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          wizard step (repo selection through live build progress), kept at
+          low opacity so it never competes with the live build log / status
+          text rendered on top of it in the later steps. */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="/images/deploy-wizard-bg.webp"
+          alt=""
+          className="w-full h-full object-cover opacity-20 grayscale"
+        />
+      </div>
+
       {/* Background glow effects */}
       <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/20 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none" />

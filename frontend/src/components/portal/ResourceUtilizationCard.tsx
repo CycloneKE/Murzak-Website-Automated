@@ -67,7 +67,7 @@ function Metric({
       {!hasData && (
         <p className="text-micro text-slate-500 mt-2">
           {unsupported
-            ? "We're wiring this up to our hosting layer — no action needed."
+            ? "We're wiring this up to our hosting layer. No action needed."
             : "Metrics appear automatically once your service reports usage."}
         </p>
       )}

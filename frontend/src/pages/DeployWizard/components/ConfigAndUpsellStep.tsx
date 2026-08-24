@@ -52,7 +52,7 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
         {
           id: 'redis-cache',
           title: 'Managed Redis Cache',
-          description: 'Supercharge your SSR app with ultra-fast session state and API caching.',
+          description: 'Add fast session state and API caching to your SSR app.',
           icon: Zap,
           isRecommended: false
         }
@@ -111,7 +111,7 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex items-start gap-2.5 text-xs text-gray-500 bg-white/[0.03] border border-white/10 rounded-xl p-3">
               <Info className="w-4 h-4 shrink-0 mt-0.5 text-gray-500" />
-              <span>Your live URL is assigned automatically once the build finishes — you'll see it on the next screen.</span>
+              <span>Your live URL is assigned automatically once the build finishes, and you'll see it on the next screen.</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

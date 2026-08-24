@@ -23,8 +23,8 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
 
   const faqs: FaqItem[] = [
     { q: "Does it integrate with my website?", a: "Yes, you can embed contact forms on your website that automatically create leads or tickets in Murzak CRM." },
-    { q: "Can I connect it to Murzak ERP?", a: "Absolutely. They share the same underlying framework, meaning a lead won in the CRM seamlessly becomes a customer in the ERP for invoicing." },
-    { q: "How many users can I have?", a: "The base subscription covers your whole core team, and we scale resources seamlessly as your data and user base grow." },
+    { q: "Can I connect it to Murzak ERP?", a: "Absolutely. They share the same underlying framework, so a lead won in the CRM becomes a customer in the ERP automatically, ready for invoicing." },
+    { q: "How many users can I have?", a: "The base subscription covers your whole core team, and we scale resources as your data and user base grow." },
   ];
 
   return (
@@ -57,8 +57,15 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/crm-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
+
       {/* Feature Grid */}
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {features.map((f, i) => (
             <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
@@ -73,7 +80,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive */}
-      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Visual sales pipelines.</h2>
@@ -88,12 +95,12 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
                ))}
             </ul>
           </div>
-          
+
           <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
-            <img 
-              src="/images/crm-kanban.png" 
-              alt="Murzak CRM Kanban board showing sales pipeline stages" 
-              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]" 
+            <img
+              src="/images/crm-kanban.png"
+              alt="Murzak CRM Kanban board showing sales pipeline stages"
+              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]"
               loading="lazy"
             />
             <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
@@ -102,9 +109,11 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
+      <Section className="relative z-10 bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
+
+      </div>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">

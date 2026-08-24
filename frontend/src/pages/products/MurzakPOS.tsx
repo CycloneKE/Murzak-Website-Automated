@@ -46,7 +46,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
             Sell fast. Know your stock. <span className="text-murzak-gradient">Every branch, one system.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
-            Built from scratch for Kenyan retail — not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
+            Built from scratch for Kenyan retail, not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
@@ -59,8 +59,15 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </section>
 
+      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
+          section below the hero, instead of a different image per section. */}
+      <div className="relative">
+        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/pos-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
+        <div className="absolute inset-0 z-0 section-bg-wash" />
+        <div className="absolute inset-0 z-0 section-bg-fade" />
+
       {/* Feature Grid */}
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
         <div className="max-w-2xl mb-12">
           <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Core Features</p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">Everything you need to run your shop.</h2>
@@ -79,12 +86,12 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive: POS Mockup */}
-      <Section className="border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Checkout made effortless.</h2>
             <p className="text-slate-500 font-medium leading-relaxed mb-6">
-              Ring up items with a barcode scanner or tap the screen. Apply discounts, process M-Pesa payments instantly, and print receipts without touching a mouse. 
+              Ring up items with a barcode scanner or tap the screen. Apply discounts, process M-Pesa payments instantly, and print receipts without touching a mouse.
               Your cashiers will love how fast it is.
             </p>
             <ul className="space-y-3">
@@ -95,12 +102,12 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
               ))}
             </ul>
           </div>
-          
+
           <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
-            <img 
-              src="/images/pos-dashboard.png" 
-              alt="Murzak POS Dashboard showing checkout interface with M-Pesa payment" 
-              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]" 
+            <img
+              src="/images/pos-dashboard.png"
+              alt="Murzak POS Dashboard showing checkout interface with M-Pesa payment"
+              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]"
               loading="lazy"
             />
             <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
@@ -109,7 +116,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Who it's for */}
-      <Section className="border-t border-murzak-border/50">
+      <Section className="relative z-10 border-t border-murzak-border/50">
          <div className="text-center max-w-2xl mx-auto mb-12">
             <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-4">Built for Kenyan Retail</h2>
             <p className="text-slate-500 font-medium">Whether you have one shop or fifty branches, Murzak POS scales with you.</p>
@@ -124,9 +131,11 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* FAQ */}
-      <Section className="bg-murzak-surface/30 border-t border-murzak-border/50">
+      <Section className="relative z-10 bg-murzak-surface/30 border-t border-murzak-border/50">
         <Faq items={faqs} />
       </Section>
+
+      </div>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">

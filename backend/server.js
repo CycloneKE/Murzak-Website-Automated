@@ -125,7 +125,11 @@ const frontendDistPath = path.join(__dirname, "..", "frontend", "dist");
 // Security headers (HSTS, X-Frame-Options, nosniff, referrer-policy, etc.) plus a
 // tailored CSP. Origins pinned: self for the bundled SPA, PayPal for checkout,
 // esm.sh for the importmap, unsplash for a few marketing images, data/blob for
-// inline assets. 'unsafe-inline' is required for Tailwind's injected styles.
+// inline assets. style-src keeps 'unsafe-inline' for Tailwind's injected styles.
+// script-src uses a SHA-256 hash instead of 'unsafe-inline' — scoped to the one
+// static inline script in index.html (theme-flash prevention). If that script's
+// content ever changes, recompute the hash (see Task 2 of the security-seo plan)
+// or the page will silently lose dark-mode-flash prevention with no error.
 // NOTE: verify PayPal checkout + image loading after deploy; tweak origins here.
 app.use(
   helmet({
@@ -134,7 +138,7 @@ app.use(
       useDefaults: true,
       directives: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'", "https://esm.sh", "https://*.paypal.com", "https://*.paypalobjects.com", "https://www.googletagmanager.com", "https://apis.google.com"],
+        "script-src": ["'self'", "'sha256-dpTy0EKZWTHrwaIaZzDQ44We5+7zjDc93mf2g9HGb1E='", "https://esm.sh", "https://*.paypal.com", "https://*.paypalobjects.com", "https://www.googletagmanager.com", "https://apis.google.com"],
         "style-src": ["'self'", "'unsafe-inline'", "https://esm.sh"],
         "img-src": ["'self'", "data:", "blob:", "https://images.unsplash.com", "https://*.paypal.com", "https://*.paypalobjects.com", "https://www.google-analytics.com", "https://*.google-analytics.com"],
         "font-src": ["'self'", "data:", "https://esm.sh"],

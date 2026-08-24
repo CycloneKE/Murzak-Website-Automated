@@ -39,7 +39,7 @@ const STATUS_TEXT: Record<CustomerDomain["status"], string> = {
 
 const STATUS_HINT: Record<CustomerDomain["status"], string> = {
   active: "Resolving to your service.",
-  pending: "Our team is setting this up — we'll email you when it's live.",
+  pending: "Our team is setting this up. We'll email you when it's live.",
   failed: "Something went wrong. Message support and we'll sort it out.",
   expired: "This domain has lapsed. Contact us to renew it.",
   cancelled: "No longer active.",
@@ -195,7 +195,7 @@ const DomainsTab: React.FC = () => {
                       {attachedTo ? (
                         <>Currently serving <span className="font-bold text-murzak-ink dark:text-slate-200">{attachedTo}</span>.</>
                       ) : (
-                        "Not pointed at anything yet — it's yours to use whenever you want."
+                        "Not pointed at anything yet. It's yours to use whenever you want."
                       )}
                     </p>
                   </div>

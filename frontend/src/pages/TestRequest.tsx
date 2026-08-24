@@ -89,7 +89,12 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
 
   if (submitted) {
     return (
-      <div className="min-h-[90vh] flex items-center justify-center p-6 animate-fade-in">
+      <div className="min-h-[90vh] flex items-center justify-center p-6 animate-fade-in relative overflow-hidden">
+        <img
+          src="/images/checkout-flow-bg.webp"
+          alt=""
+          className="absolute inset-0 -z-10 w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
+        />
         <div className="max-w-2xl w-full bg-white dark:bg-white/5 p-10 sm:p-12 lg:p-20 rounded-[3rem] sm:rounded-[4rem] shadow-3xl border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
           <div className="relative z-10 text-center">
             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-murzak-accent/10 text-murzak-accent rounded-full flex items-center justify-center mx-auto mb-8 sm:mb-10">
@@ -122,19 +127,26 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-transparent transition-colors py-12 lg:py-24 px-6 relative overflow-hidden">
-      {/* Let the universal site backdrop show through; just a soft brand aura for depth. */}
+      {/* Shared checkout-flow background image (same as Checkout/Payment/ThankYou)
+          for visual consistency across the trial signup flow, plus the existing
+          soft brand aura on top for depth. */}
+      <img
+        src="/images/checkout-flow-bg.webp"
+        alt=""
+        className="pointer-events-none absolute inset-0 -z-20 w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
+      />
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 right-[-10%] w-[620px] h-[620px] rounded-full blur-[150px] bg-brand-gradient opacity-20 animate-drift-slow" />
       </div>
 
       <div className="max-w-3xl mx-auto relative z-10">
         <div className="text-center mb-12 lg:mb-16 pt-12">
-          <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-6 backdrop-blur-md">
+          <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-sky-700 dark:text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-6 backdrop-blur-md">
             <Server size={18} />
             <span className="text-micro sm:text-micro font-black uppercase">Nairobi System Sandbox</span>
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter leading-[0.85] mb-6">
-            Get your <br /><span className="text-murzak-accent">36h trial.</span>
+            Get your <br /><span className="text-sky-700 dark:text-murzak-accent">36h trial.</span>
           </h1>
         </div>
 

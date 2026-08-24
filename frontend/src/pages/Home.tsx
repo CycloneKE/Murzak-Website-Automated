@@ -159,10 +159,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   const faqItems: FaqItem[] = [
-    { q: "How do I pay — and in what currency?", a: "Everything is billed in Kenyan Shillings. Pay by M-Pesa STK push or card from your dashboard. No converting from dollars." },
+    { q: "How do I pay, and in what currency?", a: "Everything is billed in Kenyan Shillings. Pay by M-Pesa STK push or card from your dashboard. No converting from dollars." },
     { q: "How fast can I start?", a: "Most websites and standard apps go live the same day. Configured ERP with data migration is scoped during onboarding and usually takes a few days." },
     { q: "What does 'managed' actually mean?", a: "We set up the server, install and tune your apps, handle SSL, run daily backups, patch security, and pick up the phone when you need us. You just use it." },
-    { q: "Can I start small and grow?", a: "Yes. Add services anytime — you only pay for what you use. When you outgrow shared hosting, we move you to dedicated capacity with no downtime." },
+    { q: "Can I start small and grow?", a: "Yes. Add services anytime. You only pay for what you use. When you outgrow shared hosting, we move you to dedicated capacity with no downtime." },
     { q: "Is my data backed up and safe?", a: "Daily backups, SSL and security hardening are standard on paid plans. Disaster-recovery options are available when you need them." },
   ];
 
@@ -171,7 +171,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       icon: <Server size={22} />,
       title: 'Murzak Cloud',
       tag: 'Hosting that just stays up',
-      desc: 'Websites, email and databases — set up, secured and backed up for you.',
+      desc: 'Websites, email and databases: set up, secured and backed up for you.',
       page: 'cloud' as Page,
       cta: 'Explore Cloud',
       span: 'lg:col-span-2',
@@ -189,7 +189,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       icon: <Code2 size={22} />,
       title: 'Custom software',
       tag: "When off-the-shelf won't cut it",
-      desc: 'We design and build the exact system your business needs — and keep it running.',
+      desc: 'We design and build the exact system your business needs, and keep it running.',
       page: 'products' as Page,
       cta: 'Start a build',
       span: '',
@@ -199,7 +199,12 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   return (
     <main className="text-white overflow-x-hidden">
       {/* 01 · HERO */}
-      <section className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* data-bg-surface="dark": this section is unconditionally dark (photo
+          + murzak-ink overlay, no theme toggle) regardless of site theme —
+          see qa-marketing.spec.ts's MKT-01/01b contrast check, which can't
+          see a background painted by these absolutely-positioned sibling
+          layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/nairobi-skyline.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
@@ -222,7 +227,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </h1>
 
             <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-xl leading-relaxed">
-              Managed hosting, ready-to-use business systems and custom software — set up for you,
+              Managed hosting, ready-to-use business systems and custom software: set up for you,
               billed in shillings, and supported by real people in Nairobi.
             </p>
 
@@ -247,8 +252,17 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       </section>
 
       {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
+          section below the hero, instead of a different image per section.
+          data-bg-surface="dark": unconditionally dark (see the fix note a
+          few lines down on the ink-gradient div) — flagged for the same
+          reason as the hero above.
+          WARNING: this marker short-circuits the contrast check for
+          everything inside this div (~8 sections down to the final CTA).
+          If you add a block in here that uses a normal light/dark:-toggling
+          pairing (e.g. `bg-white dark:bg-slate-900`), the check will not
+          see it — move it outside this wrapper, or narrow the marker to
+          only the elements that are genuinely always-dark. */}
+      <div data-bg-surface="dark" className="relative">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-50" style={{ backgroundImage: "url('/images/home-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
         <div className="absolute inset-0 z-0 section-bg-wash" />
         {/* This section is unconditionally dark (no theme toggle here — see the
@@ -274,7 +288,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             Invoices in dollars you have to convert. Support answered three time zones away, next week.
           </p>
           <p className="mt-6 text-lg sm:text-xl font-black text-white">
-            That's the part we take off your plate — <span className="text-murzak-gradient">and keep off it.</span>
+            That's the part we take off your plate, <span className="text-murzak-gradient">and keep off it.</span>
           </p>
           <p className="mt-6 font-mono text-label uppercase tracking-widest text-slate-400">
             A day of downtime during month-end can cost more than a year of hosting.
@@ -340,14 +354,14 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16">
           <Reveal className="max-w-2xl mb-14">
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">How it works</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">From "we need this" to live — in four steps.</h2>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">From "we need this" to live in four steps.</h2>
           </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
               { n: '01', icon: <MessageSquare size={20} />, t: 'Tell us what you need', s: 'Build a plan in the configurator, or just describe the problem. No jargon required.' },
               { n: '02', icon: <Settings size={20} />, t: 'We set it up & migrate', s: 'We provision the server, install and tune your apps, move your data and lock down security.' },
               { n: '03', icon: <Rocket size={20} />, t: 'Go live', s: 'Most websites and standard apps are live the same day. ERP with migration takes a few days.' },
-              { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support — for as long as you’re with us.' },
+              { n: '04', icon: <LifeBuoy size={20} />, t: 'We keep it running', s: 'Daily backups, security patching, monitoring and same-day support, for as long as you’re with us.' },
             ].map((step, i) => (
               <Reveal key={step.n} delayMs={i * 80} className="relative rounded-3xl glass-dark p-7 lg:p-8 transition-transform hover:-translate-y-1">
                 <span className="absolute top-6 right-6 font-mono text-label font-black text-white/15">{step.n}</span>
@@ -374,7 +388,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="font-mono text-micro uppercase text-slate-400 mb-5">Ready in days</p>
               <div className="space-y-3">
                 {[
-                  { icon: <Boxes size={16} />, t: 'Murzak ERP', s: 'Inventory, accounting, HR — configured for KE' },
+                  { icon: <Boxes size={16} />, t: 'Murzak ERP', s: 'Inventory, accounting and HR, configured for KE' },
                   { icon: <ShoppingCart size={16} />, t: 'POS & Inventory', s: 'Sell, track stock, see reports' },
                   { icon: <Database size={16} />, t: 'CRM & Helpdesk', s: 'Pipeline, tickets, follow-ups' },
                   { icon: <Mail size={16} />, t: 'Business Email', s: 'Your-name@your-domain, managed' },
@@ -403,7 +417,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 <p className="text-slate-500">04 <span className="text-slate-300">we_run_it</span> <span className="text-murzak-accent">forever()</span></p>
               </div>
               <p className="mt-6 font-sans text-slate-400 text-sm font-medium leading-relaxed">
-                A customer portal, an M-Pesa integration, a system no one else sells — designed and built around your workflow.
+                A customer portal, an M-Pesa integration, a system no one else sells, designed and built around your workflow.
               </p>
               <button onClick={() => onNavigate('products')} className="mt-6 inline-flex items-center gap-2 font-sans font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all">
                 Start a build <ArrowUpRight size={15} />
@@ -449,7 +463,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="font-mono text-micro uppercase text-slate-400 mb-6">The usual way</p>
               <ul className="space-y-4">
                 {[
-                  'Invoiced in dollars — you do the forex math',
+                  'Invoiced in dollars, you do the forex math',
                   'Support three time zones away, answered next week',
                   'You patch it, back it up, and hope',
                   '“Contact us for pricing,” then a slow quote',
@@ -467,7 +481,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="font-mono text-micro uppercase text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
                 {[
-                  'Billed in shillings — pay by M-Pesa or card',
+                  'Billed in shillings, pay by M-Pesa or card',
                   'Real people in Nairobi, replying the same day',
                   'Daily backups & security hardening, handled for you',
                   'See the price before you talk to anyone',

@@ -95,8 +95,8 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
       {isVerification && (
         <p className="mt-4 flex items-start gap-2 text-sm font-bold text-slate-500 leading-relaxed border-t border-murzak-border pt-4">
           <Info size={16} className="text-murzak-accent shrink-0 mt-0.5" />
-          This is a one-time KES {chargeKes.toLocaleString()} verification charge to start your free trial —
-          it confirms your payment method is real. Your trial begins the moment it goes through.
+          This is a one-time KES {chargeKes.toLocaleString()} verification charge to start your free trial.
+          It confirms your payment method is real. Your trial begins the moment it goes through.
         </p>
       )}
     </div>
@@ -105,7 +105,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
   return (
     <div className="min-h-screen bg-transparent flex flex-col items-center justify-center py-20 lg:py-32 px-6 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-murzak-ink">
-        <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&w=1600&q=65" alt="" className="w-full h-full object-cover opacity-20 dark:opacity-40 grayscale" />
+        <img src="/images/checkout-flow-bg.webp" alt="" className="w-full h-full object-cover opacity-20 dark:opacity-15 grayscale" />
         <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
       <div className="max-w-4xl w-full relative z-10">
@@ -136,8 +136,8 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
           successContent={
             <p className="text-sm font-bold text-slate-500 leading-relaxed">
               {isVerification
-                ? "Your trial is starting now — head to your portal to begin exploring."
-                : "We're setting up your services. Instant services go live right away; managed setups (like Murzak ERP) are configured by our team within 24 hours — you can watch progress in your portal."}
+                ? "Your trial is starting now. Head to your portal to begin exploring."
+                : "We're setting up your services. Instant services go live right away; managed setups (like Murzak ERP) are configured by our team within 24 hours. You can watch progress in your portal."}
             </p>
           }
         />

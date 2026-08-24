@@ -132,12 +132,12 @@ const ResourceDetail: React.FC = () => {
                 {resourceAdminActive ? (
                   <>
                     You have <span className="font-black text-murzak-ink dark:text-slate-100">advanced controls</span> on this
-                    service — our Nairobi team still runs, secures and backs up the platform underneath it, but the
+                    service. Our Nairobi team still runs, secures and backs up the platform underneath it, but the
                     configuration you change below is yours. Need a hand? Message support any time.
                   </>
                 ) : (
                   <>
-                    This is a fully <span className="font-black text-murzak-ink dark:text-slate-100">managed</span> service — our Nairobi team
+                    This is a fully <span className="font-black text-murzak-ink dark:text-slate-100">managed</span> service. Our Nairobi team
                     runs, secures and backs it up for you. There’s no console to babysit. Need a change, a report or a hand?
                     Message support and we’ll take care of it.
                   </>
@@ -185,7 +185,7 @@ const ResourceDetail: React.FC = () => {
               <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
                 <p className="text-micro font-black uppercase text-red-500 mb-1">Deployment issue</p>
                 <p className="text-[13px] font-bold text-murzak-ink dark:text-slate-100">
-                  The last deployment didn't complete — our team has been notified and is on it.
+                  The last deployment didn't complete. Our team has been notified and is on it.
                 </p>
                 {cloudJob?.error && (
                   <p className="text-label font-mono text-slate-600 dark:text-slate-400 mt-2 break-words">{cloudJob.error}</p>
@@ -225,7 +225,7 @@ const ResourceDetail: React.FC = () => {
               <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">URL pending</p>
                 <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
-                  Your app is deployed and we're assigning its web address — check back shortly, or
+                  Your app is deployed and we're assigning its web address. Check back shortly, or
                   message support if this persists.
                 </p>
               </div>
@@ -379,7 +379,7 @@ const ResourceDetail: React.FC = () => {
                   <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
                     <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
-                      Own a domain already? Point an A record at our server, then connect it here — SSL is issued automatically.
+                      Own a domain already? Point an A record at our server, then connect it here. SSL is issued automatically.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-2">
                       <input
@@ -428,7 +428,7 @@ const ResourceDetail: React.FC = () => {
                 <AlertTriangle className="w-4 h-4" /> Danger zone
               </p>
               <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
-                These act on this service immediately. There's no undo from here — message support if you're not sure.
+                These act on this service immediately. There's no undo from here. Message support if you're not sure.
               </p>
               <div className="flex flex-wrap gap-2">
                 {isActive && (
@@ -464,7 +464,7 @@ const ResourceDetail: React.FC = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
-                    <span className="text-gray-300 text-xs truncate">Deployment {deployLogView.uuid.slice(0, 12)} — build log</span>
+                    <span className="text-gray-300 text-xs truncate">Deployment {deployLogView.uuid.slice(0, 12)}: build log</span>
                     <button className="text-gray-500 hover:text-white p-1" onClick={() => setDeployLogView(null)} aria-label="Close log">
                       ✕
                     </button>

@@ -44,7 +44,7 @@ export const LiveLinkStep: React.FC<Props> = ({ liveUrl }) => {
                 <ExternalLink className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1" />
               </a>
             ) : (
-              <p className="text-lg font-medium text-gray-500">URL pending — finishing up domain assignment.</p>
+              <p className="text-lg font-medium text-gray-500">URL pending. Finishing up domain assignment.</p>
             )}
           </div>
 

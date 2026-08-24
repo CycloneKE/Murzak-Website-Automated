@@ -55,6 +55,8 @@ async function reachable() {
     ok(!!h("content-security-policy"), "Content-Security-Policy header present");
     ok((h("content-security-policy") || "").includes("object-src 'none'"), "CSP sets object-src 'none'");
     ok((h("content-security-policy") || "").includes("frame-ancestors 'none'"), "CSP sets frame-ancestors 'none'");
+    ok(!(h("content-security-policy") || "").includes("script-src 'self' 'unsafe-inline'"), "CSP script-src no longer allows blanket unsafe-inline");
+    ok((h("content-security-policy") || "").includes("'sha256-"), "CSP script-src uses a hash allowlist");
     ok(h("x-content-type-options") === "nosniff", "X-Content-Type-Options: nosniff");
     ok(h("x-frame-options") === "SAMEORIGIN", "X-Frame-Options: SAMEORIGIN");
     ok(h("referrer-policy") === "no-referrer", "Referrer-Policy: no-referrer");

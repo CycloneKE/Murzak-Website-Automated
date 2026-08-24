@@ -31,8 +31,12 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
 
   return (
     <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero Section — real code-on-screen photo behind the headline */}
-      <section className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
+      {/* Hero Section — real code-on-screen photo behind the headline.
+          data-bg-surface="dark": unconditionally dark (photo + murzak-ink
+          overlay, no theme toggle) — see qa-marketing.spec.ts's MKT-01/01b
+          contrast check, which can't see a background painted by these
+          absolutely-positioned sibling layers on its own. */}
+      <section data-bg-surface="dark" className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/custom-software-hero.webp')" }} />
         <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
@@ -48,11 +52,11 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
             When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
           </h1>
           <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
-            We design and build the exact system your business needs. And unlike typical agencies, we don't just hand over the code and disappear — we host it and keep it running.
+            We design and build the exact system your business needs. Unlike typical agencies, we don't hand over the code and disappear. We host it and keep it running.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
             <Button onClick={() => setSalesOpen(true)}>
-              Start a Build — Get a Quote <ArrowRight size={18} />
+              Start a Build & Get a Quote <ArrowRight size={18} />
             </Button>
             <Button variant="outlineOnDark" onClick={() => onNavigate('products')}>
               View Ready-Made Products
@@ -105,7 +109,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
             <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Before it ships</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-5">We test it like it's our own business on the line.</h2>
             <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-              Every build goes through a real review pass — payment flows, edge cases, and the things that only break in production — before we hand you the keys. If it's not something we'd trust with our own operations, it doesn't ship.
+              Every build goes through a real review pass, covering payment flows, edge cases, and the things that only break in production, before we hand you the keys. If it's not something we'd trust with our own operations, it doesn't ship.
             </p>
           </div>
         </Section>
@@ -118,7 +122,11 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {whatWeBuild.map((w, i) => (
-              <div key={i} className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
+              // data-bg-surface="dark": card is unconditionally dark
+              // (bg-slate-900/50, no `dark:` pairing) with unconditional
+              // white/slate-400 text to match — see qa-marketing.spec.ts's
+              // MKT-01/01b contrast check.
+              <div key={i} data-bg-surface="dark" className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
                 <div className="text-murzak-accent mb-4">
                   {w.icon}
                 </div>
@@ -133,9 +141,9 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
              <div>
-                <h2 className="text-3xl font-[900] tracking-tight mb-5">Built on modern, robust technology.</h2>
+                <h2 className="text-3xl font-[900] tracking-tight mb-5">Built on modern technology.</h2>
                 <p className="text-slate-500 font-medium leading-relaxed mb-6">
-                   We don't use fragile drag-and-drop builders. We write clean, scalable code using industry-standard frameworks ensuring your application is fast, secure, and maintainable for years to come.
+                   We don't use fragile drag-and-drop builders. We write clean, scalable code using industry-standard frameworks, so your application stays secure and maintainable for years to come.
                 </p>
                 <div className="flex flex-wrap gap-2">
                    {['React', 'Node.js', 'Python', 'PostgreSQL', 'Flutter', 'Tailwind'].map(tech => (

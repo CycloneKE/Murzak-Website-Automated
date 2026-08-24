@@ -160,7 +160,10 @@ test.describe('PORT-06 — empty-state dashboard for a brand-new account', () =>
 
     await expect(page).toHaveURL(/\/portal/, { timeout: 15000 });
     await expect(page.locator('text=No Active Services')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator("text=You don't have any infrastructure running yet.")).toBeVisible();
+    // Copy updated (spec C3, 2026-08-23): the generic "no infrastructure yet"
+    // line was replaced with a concrete next-step description, and 2-3 real
+    // catalog-sourced suggestion chips now render alongside it.
+    await expect(page.locator("text=Your account is ready. Here's what you can add.")).toBeVisible();
 
     // The dark-mode contrast fix applies here too — this label used to render
     // as text-slate-600 with no dark: override.

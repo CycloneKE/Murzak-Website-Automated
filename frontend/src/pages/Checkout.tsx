@@ -321,9 +321,9 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     <div className="min-h-screen bg-transparent flex flex-col items-center justify-start sm:justify-center py-10 sm:py-20 lg:py-28 px-4 sm:px-6 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-murzak-ink">
         <img
-          src="https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&w=1600&q=65"
+          src="/images/checkout-flow-bg.webp"
           alt=""
-          className="w-full h-full object-cover opacity-20 dark:opacity-40 grayscale"
+          className="w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
@@ -383,7 +383,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         </div>
         {waitlisted ? (
           <p className="text-sm font-bold text-murzak-accent flex items-center gap-2">
-            You're on the list — we'll email you the moment a slot opens.
+            You're on the list. We'll email you the moment a slot opens.
           </p>
         ) : (
           <>
@@ -486,7 +486,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         <div className="glass-card rounded-3xl p-6 sm:p-8 space-y-4 text-center">
           <p className="font-black text-murzak-ink dark:text-slate-100">Your reservation has expired.</p>
           <p className="text-sm font-bold text-slate-500">
-            No worries — resume checkout and we'll try to hold your spot again.
+            No worries. Resume checkout and we'll try to hold your spot again.
           </p>
           {resumeError && (
             <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold flex items-start gap-2 text-left">
