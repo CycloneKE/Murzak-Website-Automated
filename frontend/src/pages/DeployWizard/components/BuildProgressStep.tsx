@@ -46,7 +46,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
         }
 
         if (job.status === 'needs_human' || job.status === 'failed') {
-          setError(job.error || 'The build needs attention — check your dashboard for details.');
+          setError(job.error || 'The build needs attention. Check your dashboard for details.');
           return;
         }
 
@@ -130,7 +130,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
           </div>
 
           <p className="mt-6 text-center text-xs text-gray-600">
-            Real builds can take a few minutes — this checks in every {Math.round(POLL_MS / 1000)}s.
+            Real builds can take a few minutes. This checks in every {Math.round(POLL_MS / 1000)}s.
           </p>
         </div>
       </div>
