@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, Plus, Square, Trash2 } from "lucide-react";
 import EmptyState from "../../../components/portal/EmptyState";
 import { usePortal } from "../PortalContext";
 import { type SelectedServiceView } from "../../../types";
@@ -39,7 +39,7 @@ const ResourceListTab: React.FC<Props> = ({
   emptyTitle,
   emptyDescription,
 }) => {
-  const { navigate, openAddonsModal } = usePortal();
+  const { navigate, openAddonsModal, handleServiceHealthAction, onRequestDelete, pendingServiceAction } = usePortal();
 
   const [jobsByService, setJobsByService] = useState<Record<string, ProvisioningActivityEntry>>({});
   const [loading, setLoading] = useState(true);
@@ -80,12 +80,21 @@ const ResourceListTab: React.FC<Props> = ({
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {services.map((s) => (
-            <button
+          {services.map((s) => {
+            const isPendingStop = pendingServiceAction?.id === s.serviceId && pendingServiceAction.action === "stop";
+            return (
+            <div
               key={s.serviceId}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`)}
-              className="text-left bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-6 shadow-lg hover:border-murzak-accent/40 transition group"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
+                }
+              }}
+              className="text-left bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-6 shadow-lg hover:border-murzak-accent/40 transition group cursor-pointer"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -106,11 +115,42 @@ const ResourceListTab: React.FC<Props> = ({
               <div className="mt-3">
                 <RealStateBadge svc={s} job={jobsByService[s.serviceId]} loading={loading} />
               </div>
-              <span className="mt-5 inline-flex items-center gap-2 text-micro font-black uppercase text-murzak-accent">
-                Manage <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </button>
-          ))}
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 text-micro font-black uppercase text-murzak-accent">
+                  Manage <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </span>
+                {/* Quick actions — same handlers ResourceDetail's Danger Zone
+                    already calls, surfaced here so stopping or deleting a
+                    resource doesn't require navigating in twice first. */}
+                <div
+                  className="flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  {s.status === "Active" && (
+                    <button
+                      type="button"
+                      title="Stop service"
+                      disabled={isPendingStop}
+                      onClick={() => handleServiceHealthAction("stop", s.serviceId)}
+                      className="p-2 rounded-xl border border-orange-500/30 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10 transition disabled:opacity-50"
+                    >
+                      <Square className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    title="Delete service"
+                    onClick={() => onRequestDelete(s, "overview")}
+                    className="p-2 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500/10 transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            );
+          })}
         </div>
       )}
     </div>
