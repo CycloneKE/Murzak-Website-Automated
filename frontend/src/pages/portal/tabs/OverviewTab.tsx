@@ -194,11 +194,11 @@ const OverviewTab: React.FC = () => {
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
               <Crown className="w-4 h-4 text-murzak-accent" />
-              <span className="text-micro font-black uppercase text-murzak-ink dark:text-slate-100">
+              <span className="text-micro font-black uppercase text-slate-100">
                 {user.plan} Plan
               </span>
             </div>
-            <p className="text-body font-bold text-murzak-ink dark:text-slate-100">
+            <p className="text-body font-bold text-slate-100">
               {selectedServices.length === 0
                 ? "No services deployed yet"
                 : hasDegradedService
