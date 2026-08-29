@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Terminal, ShieldCheck, Clock } from "lucide-react";
 import { fetchTerminalEligibility, acceptTerminalDisclosure, TerminalEligibility } from "../../services/terminal";
 import TerminalView from "./TerminalView";
+import { toUserMessage } from "../../services/errors";
 
 interface DeveloperTerminalPanelProps {
   serviceId: string;
@@ -76,7 +77,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
       }
     } catch (e: any) {
       if (initiatedServiceId === serviceId) {
-        setAcceptError(e?.message || "Failed to record acceptance.");
+        setAcceptError(toUserMessage(e, "Failed to record acceptance."));
       }
     } finally {
       if (initiatedServiceId === serviceId) {

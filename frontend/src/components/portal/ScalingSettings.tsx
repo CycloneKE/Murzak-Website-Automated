@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "../ui/Button";
+import { toUserMessage } from "../../services/errors";
 
 interface ScalingSettingsProps {
   serviceId: string;
@@ -36,7 +37,7 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
       setSuccess(true);
       setTimeout(onClose, 2000);
     } catch (e: any) {
-      setError(e.message);
+      setError(toUserMessage(e, "Failed to save scaling settings."));
     } finally {
       setLoading(false);
     }

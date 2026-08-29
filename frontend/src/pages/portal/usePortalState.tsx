@@ -44,6 +44,7 @@ import { normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 import { useCustomerDomains } from "./state/useCustomerDomains";
 import { useUploads } from "./state/useUploads";
+import { toUserMessage } from "../../services/errors";
 
 export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: PortalProps) {
   const navigate = useNavigate();
@@ -127,7 +128,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       if (!res.ok) throw new Error(data?.error || `Failed to ${action} this service.`);
       setServiceActionNotice({ type: "success", text: data?.message || `${action[0].toUpperCase()}${action.slice(1)} requested.` });
     } catch (e: any) {
-      setServiceActionNotice({ type: "error", text: e?.message || `Failed to ${action} this service.` });
+      setServiceActionNotice({ type: "error", text: toUserMessage(e, `Failed to ${action} this service.`) });
     } finally {
       setPendingServiceAction(null);
     }
@@ -197,7 +198,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       setPlanAttachBannerTone("success");
       setPlanAttachBanner("Developer access request submitted! Our team will follow up via the Support tab shortly.");
     } catch (e: any) {
-      setDeveloperUpsellError(e.message || "Something went wrong.");
+      setDeveloperUpsellError(toUserMessage(e, "Something went wrong."));
     } finally {
       setRequestingDeveloper(false);
     }
@@ -349,7 +350,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       setRedeployNote(r.message || "Redeploy started.");
       await refreshDeployments(cloudServiceId);
     } catch (e: any) {
-      setRedeployNote(e?.message || "Failed to start the redeploy.");
+      setRedeployNote(toUserMessage(e, "Failed to start the redeploy."));
     } finally {
       setRedeploying(false);
     }
@@ -362,7 +363,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       const r = await fetchDeploymentLog(cloudServiceId, uuid);
       setDeployLogView({ uuid, logs: r.logs || "(no log recorded for this deployment)", loading: false });
     } catch (e: any) {
-      setDeployLogView({ uuid, logs: e?.message || "Couldn't load this log.", loading: false });
+      setDeployLogView({ uuid, logs: toUserMessage(e, "Couldn't load this log."), loading: false });
     }
   };
 
@@ -392,7 +393,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       if (!res.ok) throw new Error(data?.error || "Failed to connect this domain.");
       setDomainResult({ type: "success", text: data?.message || "Domain connected." });
     } catch (e: any) {
-      setDomainResult({ type: "error", text: e?.message || "Failed to connect this domain." });
+      setDomainResult({ type: "error", text: toUserMessage(e, "Failed to connect this domain.") });
     } finally {
       setDomainSubmitting(false);
     }
@@ -803,7 +804,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       setDeleteTarget(null);
       setDeleteConfirmText("");
     } catch (e: any) {
-      setDeleteError(e?.message || "Delete failed.");
+      setDeleteError(toUserMessage(e, "Delete failed."));
     } finally {
       setDeleteLoading(false);
     }
@@ -1153,7 +1154,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       onUserUpdate({ ...user, sourceCode: data.sourceCode });
       setRepoMsg({ ok: true, text: "Saved. New App Hosting orders deploy from this repository." });
     } catch (e: any) {
-      setRepoMsg({ ok: false, text: e?.message || "Failed to save." });
+      setRepoMsg({ ok: false, text: toUserMessage(e, "Failed to save.") });
     } finally {
       setRepoSaving(false);
     }
@@ -1175,7 +1176,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       setProfileMsg({ ok: true, text: "Saved." });
       setProfileEditing(false);
     } catch (e: any) {
-      setProfileMsg({ ok: false, text: e?.message || "Failed to save." });
+      setProfileMsg({ ok: false, text: toUserMessage(e, "Failed to save.") });
     } finally {
       setProfileSaving(false);
     }

@@ -25,6 +25,7 @@ import Faq, { type FaqItem } from "../components/Faq";
 import PlanAdvisor from "../components/PlanAdvisor";
 import { PLAN_META, formatKes, planForService, type PlanCode } from "../config/serviceCatalog";
 import { Button } from "../components/ui/Button";
+import { toUserMessage } from "../services/errors";
 
 interface PricingProps {
   onNavigate: (page: Page | string) => void;
@@ -408,7 +409,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
             }
           } catch (e: any) {
             console.error("Failed to attach selection directly:", e);
-            alert(e.message || "Failed to attach selection.");
+            alert(toUserMessage(e, "Failed to attach selection."));
           }
         }}
         onProceedPortal={() => {

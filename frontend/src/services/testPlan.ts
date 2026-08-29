@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 
 export async function createTestPlan(payload: {
   fullName: string;
@@ -14,6 +15,6 @@ export async function createTestPlan(payload: {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to submit test plan.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to submit test plan."));
   return data as { ok: true; id: string };
 }

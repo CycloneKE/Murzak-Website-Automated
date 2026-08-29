@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 /** Database connection-details API client. */
 
 export interface DatabaseConnection {
@@ -12,7 +13,7 @@ export interface DatabaseConnection {
 
 async function handleJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage((data as any)?.error, "Request failed."));
   return data as T;
 }
 

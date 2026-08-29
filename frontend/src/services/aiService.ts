@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
@@ -39,13 +40,13 @@ export const aiService = {
       
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to send message');
+        throw new Error(toUserMessage(data.error, 'Failed to send message'));
       }
       
       return data.message;
     } catch (e: any) {
       console.error(e);
-      throw new Error(e.message || "Murzaker is currently unavailable.");
+      throw new Error(toUserMessage(e, "Murzaker is currently unavailable."));
     }
   }
 };

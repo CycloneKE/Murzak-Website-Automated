@@ -1,4 +1,5 @@
 import { Repository, StackDetails, DeploymentConfig } from '../pages/DeployWizard/types';
+import { toUserMessage } from './errors';
 
 async function handleJson<T>(res: Response): Promise<T> {
   const contentType = res.headers.get("content-type") || "";
@@ -13,7 +14,7 @@ async function handleJson<T>(res: Response): Promise<T> {
 
   const data = await res.json();
   if (!res.ok) {
-    const err = new Error(data?.error || "Request failed.") as Error & {
+    const err = new Error(toUserMessage(data?.error, "Request failed.")) as Error & {
       requiresPurchase?: boolean;
       serviceId?: string;
       status?: number;

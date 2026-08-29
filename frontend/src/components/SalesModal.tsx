@@ -6,6 +6,7 @@ import {
   User, Mail, Building, Send, ChevronLeft, AlertCircle
 } from 'lucide-react';
 import { createClientRequest } from "../services/requests";
+import { toUserMessage } from "../services/errors";
 
 interface SalesModalProps {
   isOpen: boolean;
@@ -103,7 +104,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
       console.error(err);
       setErrors((prev) => ({
         ...prev,
-        submit: err?.message || "Failed to submit request.",
+        submit: toUserMessage(err, "Failed to submit request."),
       }));
     } finally {
       setIsSubmitting(false);

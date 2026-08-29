@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Terminal, CheckCircle2, Loader2, Blocks } from 'lucide-react';
 import { Repository, StackDetails } from '../types';
 import { analyzeRepository } from '../../../services/byoa';
+import { toUserMessage } from '../../../services/errors';
 
 interface Props {
   repository: Repository;
@@ -31,7 +32,7 @@ export const StackAnalyzerStep: React.FC<Props> = ({ repository, onNext }) => {
       } catch (err) {
         if (!isMounted) return;
         setLogs(prev => [...prev, 'Error analyzing repository.']);
-        setError((err as Error).message);
+        setError(toUserMessage(err, "We couldn't analyze that repository. Check the URL and try again."));
       }
     };
 

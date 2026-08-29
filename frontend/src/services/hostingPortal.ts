@@ -1,5 +1,6 @@
 
 import type { CustomerDomain, HostingDashboardPayload } from "../types/hosting";
+import { toUserMessage } from "./errors";
 
 async function handleJson<T>(res: Response): Promise<T> {
   const contentType = res.headers.get("content-type") || "";
@@ -16,7 +17,7 @@ async function handleJson<T>(res: Response): Promise<T> {
   }
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Request failed."));
   return data;
 }
 

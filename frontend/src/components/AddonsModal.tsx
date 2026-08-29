@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState, useLayoutEffect } from "re
 import { createPortal } from "react-dom";
 import { X, Plus, AlertCircle, Loader2 } from "lucide-react";
 import type { ServiceItem } from "../config/serviceCatalog";
+import { toUserMessage } from "../services/errors";
 
 type Props = {
   isOpen: boolean;
@@ -155,7 +156,7 @@ useLayoutEffect(() => {
       onClose();
       setSelectedOrder([]);
     } catch (e: any) {
-      setErr(e?.message || "Failed to create add-on invoice.");
+      setErr(toUserMessage(e, "Failed to create add-on invoice."));
     } finally {
       setSubmitting(false);
     }

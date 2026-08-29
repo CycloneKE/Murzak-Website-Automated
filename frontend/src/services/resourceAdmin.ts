@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 /**
  * Resource-admin API client — environment variables and runtime logs for a
  * service the customer has been granted advanced control over.
@@ -28,7 +29,7 @@ export interface EnvVar {
 
 async function handleJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage((data as any)?.error, "Request failed."));
   return data as T;
 }
 

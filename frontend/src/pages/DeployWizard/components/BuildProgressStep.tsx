@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, CheckCircle2, Box, Cpu, Cloud, Shield } from 'lucide-react';
 import { fetchServiceActivity } from '../../../services/byoa';
+import { toUserMessage } from '../../../services/errors';
 
 const APP_HOSTING_SERVICE_ID = 'starter-app-hosting';
 const POLL_MS = 4000;
@@ -46,7 +47,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
         }
 
         if (job.status === 'needs_human' || job.status === 'failed') {
-          setError(job.error || 'The build needs attention — check your dashboard for details.');
+          setError(toUserMessage(job.error, 'The build needs attention — check your dashboard for details.'));
           return;
         }
 
@@ -61,7 +62,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
 
         setTimeout(poll, POLL_MS);
       } catch (err) {
-        setError((err as Error).message || 'Lost connection while checking build status.');
+        setError(toUserMessage(err, 'Lost connection while checking build status.'));
       }
     };
 

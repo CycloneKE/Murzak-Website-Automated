@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 // Admin provisioning API — typed wrappers around the /api/admin/provisioning/* endpoints.
 
 export type ReadinessLevel = "required" | "conditional" | "optional";
@@ -75,7 +76,7 @@ export interface InfraLinks {
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url, { credentials: "include" });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(toUserMessage(data?.error, `Request failed (${res.status})`));
   return data as T;
 }
 
@@ -86,7 +87,7 @@ async function post<T>(url: string): Promise<T> {
     headers: { "Content-Type": "application/json" },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new Error(toUserMessage(data?.error, `Request failed (${res.status})`));
   return data as T;
 }
 
@@ -109,7 +110,7 @@ export const resolveJob = (name: string, payload: { external_ref: string; access
     body: JSON.stringify(payload),
   }).then(async (res) => {
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(toUserMessage(data?.error, `Request failed (${res.status})`));
     return data;
   });
 };

@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 
 export async function getPayPalConfig() {
   const res = await fetch("/api/paypal/config", {
@@ -5,7 +6,7 @@ export async function getPayPalConfig() {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to load PayPal config.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to load PayPal config."));
   return data;
 }
 
@@ -18,7 +19,7 @@ export async function createPayPalOrder(invoiceDocName: string) {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to create PayPal order.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to create PayPal order."));
   return data.orderID;
 }
 
@@ -31,6 +32,6 @@ export async function capturePayPalOrder(invoiceDocName: string, orderID: string
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to capture PayPal order.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to capture PayPal order."));
   return data;
 }

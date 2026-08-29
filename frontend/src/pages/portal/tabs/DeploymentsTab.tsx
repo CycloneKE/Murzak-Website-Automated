@@ -3,6 +3,7 @@ import { AlertCircle, GitCommit, RefreshCw, Rocket } from "lucide-react";
 import EmptyState from "../../../components/portal/EmptyState";
 import { usePortal } from "../PortalContext";
 import { fetchServiceDeployments, type DeploymentEntry } from "../../../services/serviceActivity";
+import { toUserMessage } from "../../../services/errors";
 
 /**
  * Every deployment across every app, newest first.
@@ -74,7 +75,7 @@ const DeploymentsTab: React.FC = () => {
       flat.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
       setRows(flat);
     } catch (e: any) {
-      setError(e?.message || "Failed to load deployments.");
+      setError(toUserMessage(e, "Failed to load deployments."));
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 export async function createPortalThread(payload: any) {
   const res = await fetch("/api/portal/requests", {
     method: "POST",
@@ -6,7 +7,7 @@ export async function createPortalThread(payload: any) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Failed to create thread");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to create thread"));
   return data as { ok: true; id: string };
 }
 
@@ -15,7 +16,7 @@ export async function getPortalThread(id: string) {
     credentials: "include",
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Failed to load thread");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to load thread"));
   return data as { ok: true; data: any };
 }
 
@@ -27,6 +28,6 @@ export async function sendPortalMessage(id: string, payload: any) {
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "Failed to send message");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to send message"));
   return data as { ok: true; id: string };
 }
