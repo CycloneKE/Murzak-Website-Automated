@@ -3,9 +3,13 @@
 // Recurring billing for a subscription business that (until now) only had
 // one-shot invoices. A periodic sweep:
 //   1. finds each account's LATEST Paid Subscription invoice,
-//   2. when it is older than the billing cycle (default 30 days) and the
-//      account has no open Subscription invoice, creates the renewal invoice
-//      (Unpaid), logs a portal alert and emails the customer (best-effort),
+//   2. when it is older than the billing cycle FOR THAT ACCOUNT'S TERM (see
+//      billingTerm.js — "monthly" is 30 days by default, "annual" is 365
+//      days at a 20% prepay discount; an account with no `billing_term` at
+//      all is treated as monthly, which is every pre-existing customer) and
+//      the account has no open Subscription invoice, creates the renewal
+//      invoice (Unpaid), logs a portal alert and emails the customer
+//      (best-effort),
 //   3. optionally (RENEWAL_SUSPEND_ENABLED=true) suspends services when a
 //      renewal stays unpaid past the grace window.
 //
@@ -16,6 +20,12 @@
 
 const { sendMail } = require("../utils/mailer");
 const { sumSelectedServicesMonthlyKes, getServiceMeta } = require("./provisioning/catalog");
+const {
+  cycleDaysForTerm,
+  renewalAmountForTerm,
+  ANNUAL_CYCLE_DAYS,
+} = require("./billingTerm");
+const { readInvoiceBillingTerm } = require("./checkoutBillingTerm");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -75,14 +85,24 @@ function excludeDomainRegistrations(serviceRows) {
 }
 
 // rows: Paid Subscription invoices, any order. Returns Map<web_account, row>
-// keeping only the newest invoice_date per account.
+// keeping only the newest invoice_date per account. On a same-day tie,
+// breaks by `name` descending — the same tie-break
+// checkoutBillingTerm.js's findLastPaidSubscriptionInvoice applies via its
+// own order_by, so the two call sites can never disagree about which
+// invoice is "the" last paid one for an account.
 function latestPaidByAccount(rows) {
   const latest = new Map();
   for (const r of Array.isArray(rows) ? rows : []) {
     const acc = r?.web_account;
     if (!acc) continue;
     const prev = latest.get(acc);
-    if (!prev || String(r.invoice_date || "") > String(prev.invoice_date || "")) {
+    if (!prev) {
+      latest.set(acc, r);
+      continue;
+    }
+    const rDate = String(r.invoice_date || "");
+    const prevDate = String(prev.invoice_date || "");
+    if (rDate > prevDate || (rDate === prevDate && String(r.name || "") > String(prev.name || ""))) {
       latest.set(acc, r);
     }
   }
@@ -165,7 +185,13 @@ async function sweepRenewals(deps) {
         ]),
         fields: JSON.stringify(["name", "web_account", "plan", "amount", "invoice_date"]),
         limit_page_length: 500,
-        order_by: "invoice_date desc",
+        // Secondary tie-break so two paid Subscription invoices dated the
+        // same day for the same account can never resolve inconsistently
+        // between this bulk query and checkoutBillingTerm.js's
+        // findLastPaidSubscriptionInvoice, which applies the same
+        // name-desc tie-break — latestPaidByAccount below applies the same
+        // rule in its own JS-side comparison as a second line of defense.
+        order_by: "invoice_date desc, name desc",
       },
     });
 
@@ -173,7 +199,43 @@ async function sweepRenewals(deps) {
 
     for (const [webAccount, lastPaid] of latest) {
       try {
-        if (!isDueForRenewal(lastPaid.invoice_date, cfg.cycleDays)) continue;
+        // Cheap pre-filter using the SHORTEST cycle across every billing term
+        // (today: monthly 30d < annual 365d) — an account not yet due under
+        // the shortest possible cycle cannot be due under ANY term, so this
+        // is safe to run before we know the account's real term at all. This
+        // restores the old fetch volume (one Web Account GET only for
+        // accounts that could plausibly be due) instead of fetching every
+        // account with a paid Subscription invoice on every sweep.
+        // Math.min(...) IS THE POINT and is NOT the double-charge bug this
+        // file already fixed once (see the comment below) — it only ever
+        // makes the filter MORE permissive (checked against the shortest
+        // cycle), never causes an early bill. Do NOT "simplify" this to
+        // cfg.cycleDays alone — that would reject annual accounts here,
+        // before the real, term-aware due-check below ever runs.
+        if (!isDueForRenewal(lastPaid.invoice_date, Math.min(cfg.cycleDays, ANNUAL_CYCLE_DAYS))) continue;
+
+        // The billing term no longer lives on the account at all — it's read
+        // independently below via readInvoiceBillingTerm(client, lastPaid.name),
+        // a single-document GET on the last paid invoice itself. This account
+        // fetch exists only to get what invoice creation actually needs from
+        // the account record (plan, selected_services, account_holder_name,
+        // account_status) — it has no bearing on term correctness, so its
+        // position relative to the real due-check below is no longer
+        // load-bearing the way it once was.
+        const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
+        const account = accRes.data?.data;
+        if (!account) continue;
+
+        // The ONE safe read of this account's billing term: a
+        // single-document GET on the last paid Subscription invoice itself,
+        // never the bulk list query above (an unrecognized `billing_term`
+        // column there would fail the query for every account in the sweep
+        // — see C4). Used for BOTH the due-check cycle and the billed
+        // amount below — there is no second, independently-read term to
+        // disagree with it, which is what makes C2 structurally impossible
+        // here now.
+        const term = await readInvoiceBillingTerm(client, lastPaid.name);
+        if (!isDueForRenewal(lastPaid.invoice_date, cycleDaysForTerm(term, cfg.cycleDays))) continue;
 
         // Idempotency guard: never stack a second open Subscription invoice.
         const openRes = await client.get("/api/resource/Portal Invoice", {
@@ -188,10 +250,6 @@ async function sweepRenewals(deps) {
           },
         });
         if (openRes.data?.data?.[0]) continue;
-
-        const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccount)}`);
-        const account = accRes.data?.data;
-        if (!account) continue;
 
         const plan = account.plan || lastPaid.plan;
         const allServiceRows = (Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
@@ -213,8 +271,11 @@ async function sweepRenewals(deps) {
         // per-plan-tier rate. Test/Enterprise/None have no self-serve price
         // (their services aren't in the volume/premium catalog) — never
         // auto-bill them.
-        const amount = sumSelectedServicesMonthlyKes(serviceRows);
-        if (!(amount > 0)) continue;
+        const monthlySum = sumSelectedServicesMonthlyKes(serviceRows);
+        if (!(monthlySum > 0)) continue;
+        // Annual-term accounts pay the discounted year up front; monthly-term
+        // (and every legacy account with no billing_term) pay the monthly sum.
+        const amount = renewalAmountForTerm(term, monthlySum);
         if (String(account.account_status || "").toLowerCase() === "cancelled") continue;
 
         const today = new Date().toISOString().slice(0, 10);
@@ -227,6 +288,11 @@ async function sweepRenewals(deps) {
           type: "Subscription",
           plan,
           amount,
+          // Persisted so this invoice carries its own historical record of
+          // the term it was billed under — a later change to the account's
+          // CURRENT term (a future paid invoice with a different term) can
+          // never retroactively alter what this one was actually billed as.
+          billing_term: term,
           status: "Unpaid",
           invoice_date: today,
           [PORTAL_INVOICE_SERVICES_FIELD]: buildInvoiceServiceRows(serviceRows),

@@ -16,6 +16,8 @@ const {
   invoiceRowsIncludeNonDomainService,
 } = require("./addonEligibility");
 const { assertOrderWithinCapacity, assertFleetHasHeadroom } = require("./orderCapacity");
+const { daysRemainingInTerm, proRatedAddonKes } = require("./billingTerm");
+const { getCurrentBillingTerm } = require("./checkoutBillingTerm");
 
 // Web Account child-table field names, used only to read the tenant's
 // EXISTING services for the capacity guard below. Copied from their
@@ -38,6 +40,55 @@ const PAID_BILLING_INVOICE_TYPES = ["Subscription", "Add-on"];
 const PAID_INVOICE_SCAN_LIMIT = 12;
 
 const asArray = (v) => (Array.isArray(v) ? v : []);
+
+// Mirrors ONLY the "is this parseable at all" half of billingTerm.js's
+// daysRemainingInTerm — used to tell "the account's anchor date (the last
+// paid annual invoice's invoice_date) is missing/garbage" (corrupted invoice
+// data) apart from "the anchor date is a valid date that simply lands on or
+// past the term's last day" (a legitimate, if unusual, zero). Does NOT
+// duplicate the days-remaining math itself, and does not change
+// daysRemainingInTerm's own fail-safe contract — see FIX ROUND 1.
+function hasParsableTermStart(anchorDate) {
+  if (!anchorDate) return false;
+  const iso = String(anchorDate).slice(0, 10);
+  return Number.isFinite(Date.parse(`${iso}T00:00:00Z`));
+}
+
+// A corrupted annual account (billing_term: "annual" but a missing or
+// unparseable last paid invoice's invoice_date (anchorDate)) makes
+// daysRemainingInTerm fail safe to 0 (its documented, deliberate behavior —
+// see billingTerm.js), which pro-rates every add-on down to KES 0 regardless
+// of its real catalog price. Nothing downstream of this call site was
+// catching that free invoice, so guard it HERE rather than loosening the
+// helper's contract (other callers, e.g. the renewal sweep, may depend on
+// the 0 fail-safe as-is).
+//
+// Fires ONLY when: the account is on an annual term, EVERY service being
+// billed is a real catalog item with a positive monthly price (so this is
+// never mistaken for a legitimately-unpriced/unknown service), the computed
+// total is exactly 0, AND the last paid invoice's invoice_date (anchorDate)
+// itself is missing/unparseable — genuinely anomalous invoice data.
+// Deliberately does NOT fire when the last paid invoice's invoice_date
+// (anchorDate) is a valid date that just happens to put daysRemainingInTerm
+// at 0 (term's last day, or an already-elapsed term awaiting renewal) —
+// that 0 is a real, legitimate amount.
+function assertNotFreeAnnualAddonInvoice({ term, amount, anchorDate, serviceRows }) {
+  if (term !== "annual" || amount !== 0) return;
+  if (hasParsableTermStart(anchorDate)) return;
+
+  const rows = asArray(serviceRows).filter((s) => s?.serviceId);
+  const allRowsArePriced =
+    rows.length > 0 &&
+    rows.every((s) => Number(getServiceMeta(s.serviceId)?.monthlyKes) > 0);
+  if (!allRowsArePriced) return;
+
+  const err = new Error(
+    "Cannot invoice add-on(s): the account's last paid annual invoice has a missing or invalid invoice_date, which would otherwise produce a KES 0 invoice for a real service."
+  );
+  err.statusCode = 422;
+  err.code = "CORRUPTED_ANNUAL_TERM";
+  throw err;
+}
 
 /**
  * FIX ROUND 3, second signal: does this account have a PAID invoice
@@ -247,9 +298,31 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
   // invoice, so the amount matches the totalDueKes the checkout page showed
   // the customer (services/checkout/orderStore.js). It is deliberately NOT
   // part of sumSelectedServicesMonthlyKes — renewalService.js bills that
-  // monthly and would otherwise re-charge setup forever.
-  const amount =
-    sumSelectedServicesMonthlyKes(norm) + sumSelectedServicesSetupKes(norm);
+  // monthly and would otherwise re-charge setup forever — and it is never
+  // pro-rated by the annual-term branch below: a one-time setup cost doesn't
+  // shrink because a customer is mid-term.
+  //
+  // Annual-term accounts pay each add-on's recurring ANNUAL price pro-rated
+  // to the days left in their current term, so the whole account keeps
+  // renewing on one anniversary. Monthly-term accounts — and every legacy
+  // account with no billing_term — are billed the monthly sum exactly as
+  // before. recurringAmount (not the setup-fee-inclusive amount) is what the
+  // corrupted-annual-account guard below checks — see its own comment for
+  // why a nonzero setup fee must never mask a zeroed-out recurring charge.
+  const monthlySum = sumSelectedServicesMonthlyKes(norm);
+  const setupFee = sumSelectedServicesSetupKes(norm);
+  const { term, anchorDate } = await getCurrentBillingTerm(client, webAccountName);
+  const recurringAmount =
+    term === "annual"
+      ? norm.reduce((total, s) => {
+          const meta = getServiceMeta(s.serviceId);
+          return (
+            total +
+            proRatedAddonKes(Number(meta?.monthlyKes) || 0, daysRemainingInTerm(anchorDate))
+          );
+        }, 0)
+      : monthlySum;
+  const amount = recurringAmount + setupFee;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -303,12 +376,26 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     const mergedServices = Array.from(mergedMap.values());
 
     // For open unpaid add-on invoice, all rows are chargeable add-ons.
-    // Every row here is still unpaid, so none of them has had its one-time
-    // setup fee collected yet — bill setup for all of them, same as the
-    // new-invoice branch above.
-    const mergedAmount =
-      sumSelectedServicesMonthlyKes(mergedServices) +
-      sumSelectedServicesSetupKes(mergedServices);
+    // Same annual pro-ration as the fresh-invoice path above — otherwise an
+    // annual account whose second add-on merges into an open invoice would
+    // silently revert to monthly pricing. Every row here is still unpaid, so
+    // none of them has had its one-time setup fee collected yet either —
+    // bill setup for all of them, same as the new-invoice branch above (and,
+    // same as there, kept out of the recurring amount the corruption guard
+    // checks).
+    const mergedRecurringAmount =
+      term === "annual"
+        ? mergedServices.reduce((total, s) => {
+            const meta = getServiceMeta(s.serviceId);
+            return (
+              total +
+              proRatedAddonKes(Number(meta?.monthlyKes) || 0, daysRemainingInTerm(anchorDate))
+            );
+          }, 0)
+        : sumSelectedServicesMonthlyKes(mergedServices);
+    const mergedAmount = mergedRecurringAmount + sumSelectedServicesSetupKes(mergedServices);
+
+    assertNotFreeAnnualAddonInvoice({ term, amount: mergedRecurringAmount, anchorDate, serviceRows: mergedServices });
 
     const mergedRows = buildInvoiceServiceRows(
       mergedServices.map((s) => ({
@@ -328,6 +415,8 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     createdInvoiceId = open.name;
     invoiceAmountKes = mergedAmount;
   } else {
+    assertNotFreeAnnualAddonInvoice({ term, amount: recurringAmount, anchorDate, serviceRows: norm });
+
     const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
     const clientName = accRes.data?.data?.account_holder_name || "";
 

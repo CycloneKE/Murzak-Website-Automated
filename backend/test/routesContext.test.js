@@ -37,7 +37,16 @@ ok(routeFiles.length >= 5, `found route modules (${routeFiles.length})`);
 
 for (const file of routeFiles) {
   const src = fs.readFileSync(path.join(routesDir, file), "utf8");
-  const dm = src.match(/const \{([\s\S]*?)\} = ctx;/);
+  // Anchored to the actual ctx destructure: the character class excludes
+  // `{`/`}`, so a `const { ... }` block belonging to some OTHER assignment
+  // (e.g. a destructured require() placed above the real ctx destructure)
+  // can never be bridged across — that block's own closing `}` stops the
+  // match immediately, and since it isn't followed by `= ctx;` the attempt
+  // fails outright and the regex engine moves on to the next `const {` in
+  // the file, rather than the old [\s\S]*? swallowing everything up to the
+  // FIRST `} = ctx;` found anywhere later in the file regardless of what's
+  // in between.
+  const dm = src.match(/const \{([^{}]*?)\}\s*=\s*ctx;/);
   if (!dm) {
     // Module doesn't use the shared ctx (e.g. paypalRoutes takes explicit deps).
     console.log(`  ok: ${file} does not destructure ctx (skipped)`);

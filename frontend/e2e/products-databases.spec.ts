@@ -63,19 +63,43 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
     await expect(page.getByText('KES 2,000', { exact: false }).first()).toBeVisible();
     // Database engines are monthly-billed (not a domain-registration order),
     // so Checkout.tsx's isYearlyBilled() branch must show "/mo", not "/yr".
-    await expect(page.getByText('KES 2,000/mo', { exact: false })).toBeVisible();
+    // A brand-new account's first purchase is also eligible for the annual-
+    // prepay term selector, whose "Billed monthly" tile legitimately shows
+    // this exact same price text a second time — .first() scopes this back
+    // to the order-summary figure specifically, matching line 63 above.
+    await expect(page.getByText('KES 2,000/mo', { exact: false }).first()).toBeVisible();
+
+    // Cancel so this order's RAM reservation doesn't count against the
+    // shared-fleet capacity guard for whatever runs after this test — see
+    // the loop test below for the full explanation.
+    const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+    if (orderId) {
+      await page.request.post(`/api/orders/${orderId}/cancel`);
+    }
   });
 
   test('PostgreSQL, MongoDB, and Redis cards each deep-link to their own catalog id', async ({ page }) => {
-    await registerNewUser(page, 'others');
-
     const cases: Array<{ card: string; catalogName: string }> = [
       { card: 'PostgreSQL', catalogName: 'PostgreSQL Database' },
       { card: 'MongoDB', catalogName: 'MongoDB Database' },
       { card: 'Redis', catalogName: 'Redis Database' },
     ];
 
+    // A fresh account per iteration, not a shared one: sidesteps any
+    // per-account state (e.g. the account's own already-open-order check)
+    // that a reused account/page could otherwise carry between iterations.
+    //
+    // That alone is NOT enough, though — confirmed by re-running this in CI:
+    // createOrder's shared-fleet RAM reservation guard
+    // (orderStore.js's reservedDraftRamMb) sums Draft orders across EVERY
+    // account, not just this test's own, so three fresh-but-uncancelled
+    // Draft orders in a row still starve capacity exactly like three
+    // uncancelled orders on one shared account did. Cancel each order
+    // before the next iteration (both dimensions together — fresh account
+    // AND explicit cancellation — proved necessary; either alone still
+    // flaked in a live CI run).
     for (const { card, catalogName } of cases) {
+      await registerNewUser(page, `others_${card.toLowerCase()}`);
       await page.goto('/products');
       const dbSection = page.locator('section', { hasText: 'Managed databases' });
       await expect(dbSection.getByText(card, { exact: true })).toBeVisible();
@@ -90,6 +114,11 @@ test.describe('PRODDB-01 — database engine card launches checkout', () => {
       await expect(page).toHaveURL(/\/checkout\/CHK-/, { timeout: 15000 });
       await expect(page.getByText('Order summary')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText(catalogName)).toBeVisible();
+
+      const orderId = page.url().match(/\/checkout\/(CHK-[^/?#]+)/)?.[1];
+      if (orderId) {
+        await page.request.post(`/api/orders/${orderId}/cancel`);
+      }
     }
   });
 });

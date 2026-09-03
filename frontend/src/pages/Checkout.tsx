@@ -1,11 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck, ChevronLeft, AlertCircle, Clock3, Loader2, Info,
 } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
-import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
+import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
 
 interface CheckoutProps {
@@ -25,6 +25,7 @@ interface OrderView {
   reservationExpiresAt: string;
   invoiceDocName: string | null;
   config: Record<string, any>;
+  eligibleForTermChoice: boolean;
 }
 
 interface InvoicePricing {
@@ -67,6 +68,20 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [now, setNow] = useState(() => Date.now());
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState('');
+
+  // Billing-term choice — monthly (default) or annual-prepay at a discount.
+  // Only offered when the server says this order is eligible (see
+  // `order.eligibleForTermChoice`, computed server-side by
+  // isEligibleForTermChoice in services/checkoutBillingTerm.js — a genuinely
+  // new customer's first monthly-billed purchase); domains render their own
+  // yearly-only pricing and are never eligible.
+  const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
+  const [preparingPayment, setPreparingPayment] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // ---- /checkout/new?serviceId=<id> — create the draft order, then move to
   // /checkout/:orderId. Only runs when there's no orderId in the URL yet. ----
@@ -120,6 +135,46 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, deepLinkServiceId]);
 
+  const preparePaymentAndPrice = async (term?: 'monthly' | 'annual') => {
+    if (!orderId) return;
+    try {
+      setPreparingPayment(true);
+      const body: Record<string, any> = {};
+      if (term) body.billingTerm = term;
+      const prepRes = await fetch(`/api/orders/${encodeURIComponent(orderId)}/prepare-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      const prepData = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok || !prepData?.invoiceDocName) {
+        throw new Error(prepData?.error || 'Failed to prepare payment.');
+      }
+
+      const invRes = await fetch(`/api/billing/invoice/${encodeURIComponent(prepData.invoiceDocName)}`, {
+        credentials: 'include',
+      });
+      const invData = await invRes.json().catch(() => ({}));
+      if (!invRes.ok || !invData?.invoice) {
+        throw new Error(invData?.error || 'Failed to load invoice.');
+      }
+
+      if (!mountedRef.current) return;
+      setInvoice({
+        docName: prepData.invoiceDocName,
+        chargeKes: Number(invData.invoice.chargeKes ?? invData.invoice.amount ?? 0),
+        paypalAmountUsd: Number(invData.invoice.paypalAmountUsd || 0),
+      });
+    } catch (e: any) {
+      if (mountedRef.current) {
+        setError(toUserMessage(e, 'Something went wrong preparing your payment.'));
+      }
+    } finally {
+      if (mountedRef.current) setPreparingPayment(false);
+    }
+  };
+
   // ---- /checkout/:orderId — load the order, prepare the invoice, price it. ----
   useEffect(() => {
     if (!orderId) return;
@@ -152,32 +207,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           return;
         }
 
-        const prepRes = await fetch(
-          `/api/orders/${encodeURIComponent(orderId)}/prepare-payment`,
-          { method: 'POST', credentials: 'include' }
-        );
-        const prepData = await prepRes.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!prepRes.ok || !prepData?.invoiceDocName) {
-          throw new Error(prepData?.error || 'Failed to prepare payment.');
-        }
-
-        const invRes = await fetch(
-          `/api/billing/invoice/${encodeURIComponent(prepData.invoiceDocName)}`,
-          { credentials: 'include' }
-        );
-        const invData = await invRes.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!invRes.ok || !invData?.invoice) {
-          throw new Error(invData?.error || 'Failed to load invoice.');
-        }
-
-        setInvoice({
-          docName: prepData.invoiceDocName,
-          chargeKes: Number(invData.invoice.chargeKes ?? invData.invoice.amount ?? 0),
-          paypalAmountUsd: Number(invData.invoice.paypalAmountUsd || 0),
-        });
         setLoading(false);
+
+        // Eligible orders (a genuine first monthly-billed purchase) wait for
+        // the customer to confirm a term via the selector + "Continue to
+        // payment" button below before prepare-payment is ever called.
+        // Every other order (add-ons, domains, returning customers) is
+        // unaffected — prepare-payment fires immediately, exactly as before
+        // this feature existed.
+        if (!ord.eligibleForTermChoice) {
+          await preparePaymentAndPrice();
+        }
       } catch (e: any) {
         if (!cancelled) {
           setError(toUserMessage(e, 'Something went wrong loading your order.'));
@@ -189,6 +229,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, navigate]);
 
   // ---- Heartbeat: re-GET every 5 minutes while unpaid, to keep the reservation alive. ----
@@ -291,6 +332,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     } finally {
       setResuming(false);
     }
+  };
+
+  const handleConfirmTerm = () => {
+    preparePaymentAndPrice(billingTerm);
   };
 
   const handleJoinWaitlist = async () => {
@@ -451,8 +496,21 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               </p>
             ) : null}
           </div>
-          <span className="text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter whitespace-nowrap">
-            {formatKes(order.monthlyKes)}{period}
+          <span className="text-right whitespace-nowrap">
+            {period === "/yr" ? (
+              <>
+                <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
+                  {formatKes(monthlyEquivalentKes(order.monthlyKes))}/mo
+                </span>
+                <span className="block text-xs font-bold text-slate-600 dark:text-slate-400">
+                  billed annually at {formatKes(order.monthlyKes)}
+                </span>
+              </>
+            ) : (
+              <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
+                {formatKes(order.monthlyKes)}{period}
+              </span>
+            )}
           </span>
         </div>
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
@@ -468,6 +526,57 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           )}
         </div>
       </div>
+
+      {order.eligibleForTermChoice && !invoice && (
+        <div className="glass-card rounded-3xl p-6">
+          <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-3">
+            Billing
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setBillingTerm('monthly')}
+              className={`text-left rounded-2xl p-4 border transition-all ${
+                billingTerm === 'monthly'
+                  ? 'border-murzak-accent bg-murzak-accent/10'
+                  : 'border-murzak-border hover:border-murzak-accent/40'
+              }`}
+            >
+              <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
+                {formatKes(order.monthlyKes)}/mo
+              </span>
+              <span className="block text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">
+                Billed monthly
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingTerm('annual')}
+              className={`text-left rounded-2xl p-4 border transition-all ${
+                billingTerm === 'annual'
+                  ? 'border-murzak-accent bg-murzak-accent/10'
+                  : 'border-murzak-border hover:border-murzak-accent/40'
+              }`}
+            >
+              <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
+                {formatKes(annualPrepayKes(order.monthlyKes))}/yr
+              </span>
+              <span className="block text-xs font-bold text-murzak-accent mt-1">
+                Save {ANNUAL_DISCOUNT_PCT}% — paid once a year
+              </span>
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleConfirmTerm}
+            disabled={preparingPayment}
+            className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {preparingPayment ? <Loader2 size={16} className="animate-spin" /> : null}
+            Continue to payment
+          </button>
+        </div>
+      )}
 
       {/* What happens after payment */}
       <div className="glass-card rounded-3xl p-6 flex items-start gap-3">
@@ -511,7 +620,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           onSuccess={onSuccess}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
-      ) : (
+      ) : order.eligibleForTermChoice ? null : (
         <div className="glass-card rounded-3xl p-8 flex items-center gap-3 text-slate-600 dark:text-slate-400 font-bold">
           <Loader2 size={18} className="animate-spin text-murzak-accent" />
           Preparing payment…

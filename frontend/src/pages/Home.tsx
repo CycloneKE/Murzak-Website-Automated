@@ -93,7 +93,12 @@ function ConfigPeek() {
 /* Scroll-reveal wrapper — invisible until it crosses the viewport threshold,
    then plays the existing fade-in-up keyframe once. Delay is per-instance so
    callers can stagger items in a grid without each needing its own timer. */
-function Reveal({ children, className = '', delayMs = 0 }: { children: React.ReactNode; className?: string; delayMs?: number }) {
+interface RevealProps {
+  children: React.ReactNode;
+  className?: string;
+  delayMs?: number;
+}
+const Reveal: React.FC<RevealProps> = ({ children, className = '', delayMs = 0 }) => {
   const [ref, inView] = useInView<HTMLDivElement>();
   return (
     <div
@@ -104,13 +109,18 @@ function Reveal({ children, className = '', delayMs = 0 }: { children: React.Rea
       {children}
     </div>
   );
-}
+};
 
 /* Trust-strip stat — the one genuinely numeric value (99.9%) counts up on
    reveal; the rest ("< 1 day", "24/7", "KES") just render as-is, since
    forcing a tick animation onto non-numeric text would be a gimmick rather
    than a real count. */
-function AnimatedStat({ big, label, start }: { big: string; label: string; start: boolean }) {
+interface AnimatedStatProps {
+  big: string;
+  label: string;
+  start: boolean;
+}
+const AnimatedStat: React.FC<AnimatedStatProps> = ({ big, label, start }) => {
   const match = big.match(/^(\d+(?:\.\d+)?)(%?)$/);
   const target = match ? parseFloat(match[1]) : 0;
   const suffix = match ? match[2] : '';
@@ -123,7 +133,7 @@ function AnimatedStat({ big, label, start }: { big: string; label: string; start
       <div className="font-mono text-micro uppercase text-slate-400">{label}</div>
     </div>
   );
-}
+};
 
 function TrustStrip() {
   const [ref, inView] = useInView<HTMLElement>();

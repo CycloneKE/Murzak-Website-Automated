@@ -50,6 +50,24 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
     ok(meta?.ramMb === 0 && meta?.diskGb === 0, `${id} has zero server footprint`);
   }
 
+  section("monthly-equivalent domain pricing never understates");
+  // Mirror of frontend monthlyEquivalentKes (Math.ceil(yearly / 12)). The
+  // frontend function is the source of truth for display; this asserts the
+  // arithmetic property that matters commercially — a customer must never see
+  // a monthly figure that annualizes to LESS than what they'll actually be
+  // charged. Reuses domainPrices above (not a second hardcoded map) so a
+  // future price correction can't update one and silently leave the other
+  // stale, exactly as happened here on 2026-08-17.
+  const monthlyEquiv = (yearly) => Math.ceil(yearly / 12);
+  for (const [id, yearly] of Object.entries(domainPrices)) {
+    const meta = getServiceMeta(id);
+    ok(meta?.monthlyKes === yearly, `${id} yearly price is ${yearly}`);
+    ok(monthlyEquiv(yearly) * 12 >= yearly, `${id} monthly-equivalent never understates`);
+  }
+  ok(monthlyEquiv(4200) === 350, ".com -> 350/mo exactly");
+  ok(monthlyEquiv(2500) === 209, ".africa 2500/12 = 208.33 rounds UP to 209");
+  ok(monthlyEquiv(1200) === 100, ".co.ke -> 100/mo exactly");
+
   section("invariant: no SERVICE_ID_TO_PLAN id is a Domain Registration");
   // addonEligibility.js's isDomainRegistrationServiceId deliberately fails
   // OPEN on any id missing from the snapshot (an unknown id is treated as

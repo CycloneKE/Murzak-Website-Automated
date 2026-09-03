@@ -97,6 +97,7 @@ const {
   sumSelectedServicesSetupKes,
 } = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
+const { assertNotAnnualBeforePlanChange, getCurrentBillingTerm } = require("./services/checkoutBillingTerm");
 const { PAID_SERVICE_STATUSES } = require("./services/addonEligibility");
 
 // Which demo service seeds a trial sandbox (override per env). Used by the
@@ -1862,6 +1863,12 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
       return res.status(401).json({ error: "Not authenticated." });
     }
 
+    // An annual-term account's invoice must never be touched by this route's
+    // eventual applyPlanAndCreateInvoice call (it has no billing-term
+    // awareness) — refuse before any read/write happens. See
+    // assertNotAnnualBeforePlanChange's docblock in checkoutBillingTerm.js.
+    await assertNotAnnualBeforePlanChange(frappeClient(), webAccountName);
+
     const {
       planKey,
       selectedServices: incomingSelectedServices,
@@ -2074,8 +2081,11 @@ app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
 
     return res.json({ ok: true, user, invoices });
   } catch (err) {
-    console.error("ATTACH SELECTION ERROR:", err.response?.data || err.message);
-    return res.status(500).json({ error: "Failed to attach selection." });
+    const status = err.statusCode || 500;
+    const body = { error: status >= 500 ? "Failed to attach selection." : err.message };
+    if (err.code) body.code = err.code;
+    if (status >= 500) console.error("ATTACH SELECTION ERROR:", err.response?.data || err.message);
+    return res.status(status).json(body);
   }
 });
 
@@ -3407,6 +3417,8 @@ const routeContext = {
   findExistingUnpaidSubscriptionInvoice,
   findLatestPaidSubscriptionInvoice,
   applyPlanAndCreateInvoice,
+  assertNotAnnualBeforePlanChange,
+  getCurrentBillingTerm,
   setupTrialVerification,
   expireStaleTrials,
   fetchInvoicesForUser,
@@ -3463,7 +3475,8 @@ const routeContext = {
   createOrder,
   getOrder,
   cancelOrder,
-  linkInvoice
+  linkInvoice,
+  sumSelectedServicesMonthlyKes
 };
 
 app.use('/api/byoa', require('./routes/byoaRoutes')(routeContext));

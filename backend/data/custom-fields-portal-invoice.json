@@ -62,5 +62,15 @@
     "in_standard_filter": 1,
     "insert_after": "paypal_expected_usd",
     "description": "Set when a payment was captured but could NOT be applied to this invoice (amount or reference mismatch). Money has left the customer account and is owed back or owed application. Filter on this field to find payments needing manual resolution."
+  },
+  {
+    "doctype": "Custom Field",
+    "dt": "Portal Invoice",
+    "fieldname": "billing_term",
+    "label": "Billing Term",
+    "fieldtype": "Select",
+    "options": "\nmonthly\nannual",
+    "insert_after": "amount",
+    "description": "Set once, at invoice creation, from the customer's confirmed checkout choice or the renewal sweep. Absent means monthly — every pre-existing invoice is safe by construction. This is the SOLE source of an account's billing term; see backend/services/checkoutBillingTerm.js."
   }
 ]

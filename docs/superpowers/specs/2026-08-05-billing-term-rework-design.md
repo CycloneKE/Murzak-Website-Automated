@@ -42,11 +42,11 @@ The sweep computes `{ term, anchorDate } = currentBillingTerm(account)` once per
 
 The existing `Math.min(cfg.cycleDays, ANNUAL_CYCLE_DAYS)` pre-filter (added in the prior implementation to bound fetch volume) is retained unchanged — it is correct and unrelated to the bug.
 
-### Fail-open on an unimported field (fixes C4's severity)
+### Never put `billing_term` in the bulk list query at all (fixes C4's severity)
 
-The bulk query fetching paid Subscription invoices is the one query that runs for every customer on every sweep. It first attempts `fields` including `billing_term`. If that throws (the shape of a Frappe "unrecognized column" failure), it retries the identical query **without** that field and logs a loud warning naming the fixture file to import. Every account is then treated as monthly for that sweep run — exactly today's live behavior — instead of the sweep failing for the entire book.
+The bulk query fetching paid Subscription invoices is the one query that runs for every customer on every sweep. As shipped, its `fields` list never includes `billing_term` — it fetches only `name`, `web_account`, `plan`, `amount`, and `invoice_date`, exactly the columns that existed before this feature. `billing_term` is read separately, per-account, via a single-document GET on that account's own last paid invoice (`readInvoiceBillingTerm`) — the one query in this design that ever names the new column. This is simpler and safer than a fail-open-with-retry: an unimported `billing_term` column can never fail the bulk query, because the bulk query never asks for it, so there is no failure mode here to retry out of in the first place.
 
-This does not replace the standard fixture-import step (see below); it bounds the damage of forgetting it to "annual billing doesn't work yet" rather than "no renewals happen for anyone."
+This does not replace the standard fixture-import step (see below); it means the sweep's own bulk scan was never exposed to C4's failure mode to begin with, regardless of whether the fixture has been imported yet.
 
 ## Migration (fixes C4)
 
@@ -62,7 +62,7 @@ One field, following this codebase's own established pattern (see `backend/data/
 - **`eligibleForTermChoice === false`** — every add-on, every domain, every returning customer: unchanged from today. `prepare-payment` auto-calls on page load; the invoice appears instantly.
 - **`eligibleForTermChoice === true`** — a genuinely new customer's first monthly-billed purchase: the checkout page shows the monthly/annual selector with a "Continue to payment" confirmation **before** calling `prepare-payment`. That call happens exactly once, carries the chosen term, and creates the invoice already at the correct amount.
 
-There is no post-hoc invoice correction anywhere in this design. The order (Draft, RAM reservation) is still created the moment the customer lands on the checkout page, exactly as today — only the invoice-creating `prepare-payment` call is deferred, and only for the narrow case where a term choice is actually being made. The existing reservation-TTL countdown UI already covers a customer who pauses on this screen.
+There is no post-hoc invoice correction that happens as a *separate, later* call the way the prior implementation's C1 bug did. As shipped, the first-purchase branch does still perform one same-request correction: `applyPlanAndCreateInvoice` (a shared server.js primitive with no billing-term awareness at all, deliberately left unchanged) always creates the invoice at the plain monthly amount, so when the confirmed term is annual, `prepare-payment` immediately PUTs the annual-prepay amount and `billing_term: "annual"` onto that same invoice, within the same request/response cycle, unconditionally. This is a materially different shape from the old bug: it is not a distinct, skippable call that a short-circuit could route around, and it always runs synchronously before the response is returned. The order (Draft, RAM reservation) is still created the moment the customer lands on the checkout page, exactly as today — only the invoice-creating `prepare-payment` call is deferred, and only for the narrow case where a term choice is actually being made. The existing reservation-TTL countdown UI already covers a customer who pauses on this screen.
 
 This also structurally removes three Important findings from the prior review that existed only because of the post-hoc-correction pattern: picking the wrong open invoice to correct, the corrected invoice missing its own `billing_term`, and the frontend never re-fetching the true charged amount after a correction. None of that machinery exists in this design.
 
