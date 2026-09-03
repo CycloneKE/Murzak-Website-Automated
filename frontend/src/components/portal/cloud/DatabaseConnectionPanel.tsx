@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Database, Eye, EyeOff, Copy, RefreshCw } from "lucide-react";
 import { fetchDatabaseConnection, DatabaseConnection } from "../../../services/databaseConnection";
+import { toUserMessage } from "../../../services/errors";
 
 interface DatabaseConnectionPanelProps {
   serviceId: string;
@@ -59,7 +60,7 @@ const DatabaseConnectionPanel: React.FC<DatabaseConnectionPanelProps> = ({ servi
     setError("");
     return fetchDatabaseConnection(serviceId)
       .then(setConn)
-      .catch((e: any) => setError(e?.message || "Couldn't load connection details."))
+      .catch((e: any) => setError(toUserMessage(e, "Couldn't load connection details.")))
       .finally(() => setLoading(false));
   }, [serviceId]);
 

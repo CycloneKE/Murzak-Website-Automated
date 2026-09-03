@@ -4,6 +4,7 @@ import EmptyState from "../../../components/portal/EmptyState";
 import { deleteInvoice } from "../../../services/invoices";
 import { downloadInvoicePdf, downloadAllInvoicesZip } from "../../../services/invoicesDownload";
 import { usePortal } from "../PortalContext";
+import { toUserMessage } from "../../../services/errors";
 
 const BillingTab: React.FC = () => {
   const {
@@ -209,7 +210,7 @@ const BillingTab: React.FC = () => {
                     setDownloadingAll(true);
                     await downloadAllInvoicesZip();
                   } catch (e: any) {
-                    alert(e?.message || "Failed to download invoices.");
+                    alert(toUserMessage(e, "Failed to download invoices."));
                   } finally {
                     setDownloadingAll(false);
                   }
@@ -285,7 +286,7 @@ const BillingTab: React.FC = () => {
                             setDownloadingId(inv.id);
                             await downloadInvoicePdf(inv.docName);
                           } catch (e: any) {
-                            alert(e?.message || "Failed to download invoice.");
+                            alert(toUserMessage(e, "Failed to download invoice."));
                           } finally {
                             setDownloadingId(null);
                           }
@@ -317,7 +318,7 @@ const BillingTab: React.FC = () => {
                             await deleteInvoice(inv.id);
                           } catch (e: any) {
                             setLocalInvoices(prev);
-                            alert(e?.message || "Failed to delete invoice.");
+                            alert(toUserMessage(e, "Failed to delete invoice."));
                           } finally {
                             setDeletingId(null);
                           }

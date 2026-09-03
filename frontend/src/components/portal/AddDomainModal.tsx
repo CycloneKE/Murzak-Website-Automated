@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertCircle, ArrowLeft, Gift, Globe, Link2, Loader2, ShieldCheck, X } from "lucide-react";
+import { toUserMessage } from "../../services/errors";
 
 /**
  * Self-service domain onboarding — three intake endpoints already existed
@@ -122,7 +123,7 @@ export default function AddDomainModal({
       await fn();
       onClose();
     } catch (e: any) {
-      setErr(e?.message || "That didn't go through. Try again.");
+      setErr(toUserMessage(e, "That didn't go through. Try again."));
     } finally {
       setSubmitting(false);
     }

@@ -6,6 +6,7 @@ import {
 import { Page } from '../types';
 import { useParams } from "react-router-dom";
 import PaymentMethods from "../components/PaymentMethods";
+import { toUserMessage } from "../services/errors";
 
 interface PaymentProps {
   onNavigate: (page: Page) => void;
@@ -50,7 +51,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
 
         if (mounted) setInvoice(data.invoice);
       } catch (e: any) {
-        if (mounted) setInvoiceErr(e?.message || "Failed to load invoice.");
+        if (mounted) setInvoiceErr(toUserMessage(e, "Failed to load invoice."));
       } finally {
         if (mounted) setLoadingInvoice(false);
       }

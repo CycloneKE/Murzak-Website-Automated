@@ -5,6 +5,7 @@ import Logo from '../components/Logo';
 import { Page, User } from '../types';
 import { firebaseEnabled, getGoogleIdToken } from '../services/firebase';
 import { useLocation, useNavigate } from "react-router-dom";
+import { toUserMessage } from "../services/errors";
 
 interface LoginProps {
   onLogin: (user: User, returnTo?: string) => void;
@@ -332,7 +333,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           return;
         }
       } catch (e: any) {
-        const msg = e?.message || "Unable to start checkout for your selected resource.";
+        const msg = toUserMessage(e, "Unable to start checkout for your selected resource.");
         console.warn("Attach pending cloud launch failed:", msg);
         navigate("/portal/overview", { state: { attachError: msg } });
         onLogin(data.user, "/portal/overview");
@@ -346,7 +347,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           return;
         }
       } catch (e: any) {
-        const msg = e?.message || "Unable to attach your selected plan/services.";
+        const msg = toUserMessage(e, "Unable to attach your selected plan/services.");
         console.warn("Attach pending selection failed:", msg);
         // Navigate using react-router state so Portal can show it immediately
         navigate("/portal/overview", { state: { attachError: msg } });
@@ -397,7 +398,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         return;
       }
     } catch (e: any) {
-      const msg = e?.message || "Unable to start checkout for your selected resource.";
+      const msg = toUserMessage(e, "Unable to start checkout for your selected resource.");
       sessionStorage.setItem("murzak_pending_attach_error", msg);
       console.warn("Attach pending cloud launch failed:", msg);
       navigate("/portal/overview");
@@ -413,7 +414,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         return;
       }
     } catch (e: any) {
-      const msg = e?.message || "Unable to attach your selected plan/services.";
+      const msg = toUserMessage(e, "Unable to attach your selected plan/services.");
       sessionStorage.setItem("murzak_pending_attach_error", msg);
       console.warn("Attach pending selection failed:", msg);
 
@@ -425,7 +426,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     onLogin(data.user, returnTo);
   } catch (err: any) {
     console.error(err);
-    setError(err.message || "Request failed");
+    setError(toUserMessage(err, "Request failed"));
   } finally {
     setIsSubmitting(false);
   }
@@ -456,7 +457,7 @@ const handleGoogle = async () => {
         return;
       }
     } catch (e: any) {
-      const msg = e?.message || "Unable to start checkout for your selected resource.";
+      const msg = toUserMessage(e, "Unable to start checkout for your selected resource.");
       console.warn("Attach pending cloud launch failed:", msg);
       navigate("/portal/overview", { state: { attachError: msg } });
       onLogin(data.user, "/portal/overview");
@@ -470,7 +471,7 @@ const handleGoogle = async () => {
         return;
       }
     } catch (e: any) {
-      const msg = e?.message || "Unable to attach your selected plan/services.";
+      const msg = toUserMessage(e, "Unable to attach your selected plan/services.");
       console.warn("Attach pending selection failed:", msg);
       navigate("/portal/overview", { state: { attachError: msg } });
       onLogin(data.user, "/portal/overview");
@@ -485,7 +486,7 @@ const handleGoogle = async () => {
       return;
     }
     console.error(err);
-    setError(err?.message || "Google sign-in failed");
+    setError(toUserMessage(err, "Google sign-in failed"));
   } finally {
     setGoogleLoading(false);
   }
@@ -538,7 +539,7 @@ const handleReset = async (e: React.FormEvent) => {
     setFormData((p) => ({ ...p, password: "" }));
     navigate("/login", { replace: true });
   } catch (err: any) {
-    setError(err.message || "Could not reset password.");
+    setError(toUserMessage(err, "Could not reset password."));
   } finally {
     setIsSubmitting(false);
   }

@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
 
 export async function deleteInvoice(invoiceId: string) {
@@ -8,6 +9,6 @@ export async function deleteInvoice(invoiceId: string) {
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to delete invoice.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to delete invoice."));
   return data as { ok: true; deleted: string };
 }

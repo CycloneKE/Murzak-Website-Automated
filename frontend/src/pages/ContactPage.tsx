@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Page } from "../types";
 import { createClientRequest } from "../services/requests";
+import { toUserMessage } from "../services/errors";
 
 interface ContactPageProps {
   onNavigate?: (page: Page | string) => void;
@@ -53,7 +54,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
       setRefId(res?.id || "");
       setSuccess(true);
     } catch (err: any) {
-      setServerError(err?.message || "Something went wrong. Please email us directly.");
+      setServerError(toUserMessage(err, "Something went wrong. Please email us directly."));
     } finally {
       setSubmitting(false);
     }

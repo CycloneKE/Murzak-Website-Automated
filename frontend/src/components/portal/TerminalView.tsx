@@ -3,6 +3,7 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { mintTerminalSession } from "../../services/terminal";
+import { toUserMessage } from "../../services/errors";
 
 interface TerminalViewProps {
   serviceId: string;
@@ -96,7 +97,7 @@ const TerminalView: React.FC<TerminalViewProps> = ({ serviceId }) => {
       } catch (e: any) {
         if (!cancelled) {
           setState("error");
-          setMessage(e?.message || "Could not start a developer terminal session.");
+          setMessage(toUserMessage(e, "Could not start a developer terminal session."));
         }
       }
     };

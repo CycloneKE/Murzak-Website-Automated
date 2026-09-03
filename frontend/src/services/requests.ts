@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 // src/services/requests.ts
 export type RequestType = "Sales Inquiry" | "Demo Request";
 
@@ -26,7 +27,7 @@ export async function createClientRequest(payload: CreateRequestPayload) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(data?.error || "Failed to submit request.");
+    throw new Error(toUserMessage(data?.error, "Failed to submit request."));
   }
 
   return data as { ok: true; id: string };

@@ -6,6 +6,7 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled } from '../config/serviceCatalog';
+import { toUserMessage } from "../services/errors";
 
 interface CheckoutProps {
   onSuccess: (user?: any) => void;
@@ -107,7 +108,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         navigate(`/checkout/${data.order.id}`, { replace: true });
       } catch (e: any) {
         if (!cancelled) {
-          setError(e?.message || 'Failed to start checkout.');
+          setError(toUserMessage(e, 'Failed to start checkout.'));
           setLoading(false);
         }
       }
@@ -179,7 +180,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         setLoading(false);
       } catch (e: any) {
         if (!cancelled) {
-          setError(e?.message || 'Something went wrong loading your order.');
+          setError(toUserMessage(e, 'Something went wrong loading your order.'));
           setLoading(false);
         }
       }
@@ -286,7 +287,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       }
       navigate(`/checkout/${createData.order.id}`, { replace: true });
     } catch (e: any) {
-      setResumeError(e?.message || 'Failed to resume checkout.');
+      setResumeError(toUserMessage(e, 'Failed to resume checkout.'));
     } finally {
       setResuming(false);
     }
@@ -307,7 +308,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       if (!res.ok) throw new Error(data?.error || 'Failed to join the waitlist.');
       setWaitlisted(true);
     } catch (e: any) {
-      setWaitlistError(e?.message || 'Failed to join the waitlist.');
+      setWaitlistError(toUserMessage(e, 'Failed to join the waitlist.'));
     } finally {
       setWaitlistBusy(false);
     }

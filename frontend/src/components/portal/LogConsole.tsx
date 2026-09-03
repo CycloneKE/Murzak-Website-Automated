@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Terminal, X, Minimize2, Maximize2, RefreshCw } from 'lucide-react';
 import { SelectedServiceView } from '../../types';
 import { fetchServiceActivity, ProvisioningActivityEntry } from '../../services/serviceActivity';
+import { toUserMessage } from "../../services/errors";
 
 interface LogConsoleProps {
   serviceId: string | null;
@@ -61,7 +62,7 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
         setIsLive(jobs.some((j) => LIVE_STATUSES.has(j.status)));
       }
     } catch (e: any) {
-      setLoadError(e?.message || 'Failed to load activity.');
+      setLoadError(toUserMessage(e, 'Failed to load activity.'));
       setLogs([]);
       setIsLive(false);
     } finally {

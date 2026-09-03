@@ -15,6 +15,7 @@ import {
   createPayPalOrder,
   capturePayPalOrder,
 } from "../services/paypal";
+import { toUserMessage } from "../services/errors";
 
 interface PayPalCardSectionProps {
   invoiceDocName?: string;
@@ -52,7 +53,7 @@ const SubmitCardButton: React.FC<{
     } catch (e: any) {
       setErrors((prev) => ({
         ...prev,
-        payment: e?.message || "Card payment failed.",
+        payment: toUserMessage(e, "Card payment failed."),
       }));
       setStep("form");
       setSubmitting(false);
@@ -111,7 +112,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
         if (mounted) {
           setErrors((prev) => ({
             ...prev,
-            payment: e?.message || "Failed to load PayPal card fields.",
+            payment: toUserMessage(e, "Failed to load PayPal card fields."),
           }));
         }
       }
@@ -145,7 +146,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
           } catch (e: any) {
             setErrors((prev) => ({
               ...prev,
-              payment: e?.message || "Card capture failed.",
+              payment: toUserMessage(e, "Card capture failed."),
             }));
             setStep("form");
           }

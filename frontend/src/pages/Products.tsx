@@ -6,6 +6,7 @@ import { Section } from '../components/ui/Section';
 import { Page } from '../types';
 import { formatKes, serviceMonthlyKes, domainCatalogIdForTld } from '../config/serviceCatalog';
 import DomainSearch from '../components/DomainSearch';
+import { toUserMessage } from '../services/errors';
 
 interface Props {
   onNavigate: (page: Page | string) => void;
@@ -59,7 +60,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         return;
       }
       if (!res.ok || !data?.order) {
-        setDomainError(data?.error || "Failed to start checkout.");
+        setDomainError(toUserMessage(data?.error, "Failed to start checkout."));
         return;
       }
       onNavigate(`/checkout/${data.order.id}`);

@@ -1,10 +1,11 @@
+import { toUserMessage } from "./errors";
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
 
 async function downloadBlob(url: string, filename: string) {
   const res = await fetch(`${API_BASE}${url}`, { credentials: "include" });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error || "Download failed.");
+    throw new Error(toUserMessage(data?.error, "Download failed."));
   }
 
   const blob = await res.blob();

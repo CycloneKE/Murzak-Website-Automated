@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 /**
  * Mailbox API client — self-service for the "Email Hosting" product.
  *
@@ -34,7 +35,7 @@ export interface MailboxesResponse {
 
 async function handleJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage((data as any)?.error, "Request failed."));
   return data as T;
 }
 

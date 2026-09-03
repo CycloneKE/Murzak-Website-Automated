@@ -6,6 +6,7 @@ import {
   AdminDomain,
   DomainStatus,
 } from "../../services/adminChat";
+import { toUserMessage } from "../../services/errors";
 
 /**
  * The domain fulfilment queue.
@@ -89,7 +90,7 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
       setSummary(data.summary);
       setActionable(data.actionableCount);
     } catch (e: any) {
-      setError(e?.message || "Failed to load domains.");
+      setError(toUserMessage(e, "Failed to load domains."));
     } finally {
       setLoading(false);
     }
@@ -129,7 +130,7 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
       );
       await load();
     } catch (e: any) {
-      setError(e?.message || "Failed to update domain.");
+      setError(toUserMessage(e, "Failed to update domain."));
     } finally {
       setBusyId("");
     }

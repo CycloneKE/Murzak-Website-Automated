@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { toUserMessage } from "../../../services/errors";
 
 /**
  * Account-level file uploads. Server-backed (POST /api/portal/upload attaches
@@ -51,7 +52,7 @@ export function useUploads() {
 
       await fetchUploads();
     } catch (e: any) {
-      setUploadErr(e?.message || "Upload failed");
+      setUploadErr(toUserMessage(e, "Upload failed"));
     } finally {
       setUploading(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Bot, User, Loader2 } from 'lucide-react';
 import { aiService, ChatMessage } from '../services/aiService';
+import { toUserMessage } from '../services/errors';
 
 const ConciergeWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +59,10 @@ const ConciergeWidget: React.FC = () => {
       const responseMsg = await aiService.sendMessage(userMsg);
       setMessages(prev => [...prev, { role: 'assistant', content: responseMsg }]);
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message}` }]);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: toUserMessage(e, "I couldn't get a response just now. Please try again in a moment."),
+      }]);
     } finally {
       setIsLoading(false);
     }

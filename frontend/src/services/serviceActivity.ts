@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 
 export interface ProvisioningActivityEntry {
   id: string;
@@ -35,7 +36,7 @@ export interface DeploymentEntry {
 
 async function handleJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage((data as any)?.error, "Request failed."));
   return data as T;
 }
 

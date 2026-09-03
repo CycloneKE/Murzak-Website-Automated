@@ -11,6 +11,7 @@ import {
   ThreadDoc,
   ThreadSummary,
 } from "../../services/adminChat";
+import { toUserMessage } from "../../services/errors";
 
 function fmtTime(ts?: string) {
   if (!ts) return "";
@@ -142,7 +143,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
         if (first?.name) setSelectedId(first.name);
       }
     } catch (e: any) {
-      setError(e?.message || "Failed to load threads.");
+      setError(toUserMessage(e, "Failed to load threads."));
     } finally {
       setLoadingThreads(false);
     }
@@ -164,7 +165,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
       await adminMarkRead(id).catch(() => {});
       setThreads((prev) => prev.map((t) => (t.name === id ? { ...t, unread: false } : t)));
     } catch (e: any) {
-      setError(e?.message || "Failed to load thread.");
+      setError(toUserMessage(e, "Failed to load thread."));
     } finally {
       setLoadingThread(false);
     }
@@ -243,7 +244,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
       await loadThreads();
       scrollToBottom();
     } catch (e: any) {
-      setError(e?.message || "Failed to send reply.");
+      setError(toUserMessage(e, "Failed to send reply."));
     } finally {
       setSending(false);
     }
@@ -260,7 +261,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
       await adminApproveTerminalAccess(threadDoc.portal_user);
       setTerminalApproveNote("Developer access approved — the customer can now accept the disclosure and open a session.");
     } catch (e: any) {
-      setTerminalApproveNote(e?.message || "Failed to approve developer access.");
+      setTerminalApproveNote(toUserMessage(e, "Failed to approve developer access."));
     } finally {
       setApprovingTerminal(false);
     }
@@ -277,7 +278,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
       await adminApproveResourceAdmin(threadDoc.portal_user);
       setResourceAdminApproveNote("Advanced controls approved — the customer can now accept the disclosure and manage this service directly.");
     } catch (e: any) {
-      setResourceAdminApproveNote(e?.message || "Failed to approve advanced controls.");
+      setResourceAdminApproveNote(toUserMessage(e, "Failed to approve advanced controls."));
     } finally {
       setApprovingResourceAdmin(false);
     }
@@ -590,7 +591,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                     setUploadedUrl(upData.file_url || "");
                     setUploadedName(f.name);
                   } catch (err: any) {
-                    setError(err?.message || "Upload failed");
+                    setError(toUserMessage(err, "Upload failed"));
                     setFile(null);
                   } finally {
                     setUploading(false);

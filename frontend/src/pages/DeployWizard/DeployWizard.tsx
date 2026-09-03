@@ -8,6 +8,7 @@ import { LiveLinkStep } from './components/LiveLinkStep';
 import { WizardStep, DeploymentConfig, Repository, StackDetails } from './types';
 import { Rocket, Lock } from 'lucide-react';
 import { startDeployment } from '../../services/byoa';
+import { toUserMessage } from '../../services/errors';
 
 // Same catalog SKU the backend gates /api/byoa/deploy on — see byoaRoutes.js.
 const APP_HOSTING_SERVICE_ID = 'starter-app-hosting';
@@ -54,7 +55,7 @@ export const DeployWizard: React.FC = () => {
       if (err.requiresPurchase) {
         setPurchaseRequired(true);
       } else {
-        setDeployError(err.message);
+        setDeployError(toUserMessage(err, 'We couldn\'t start this deployment. Please try again.'));
       }
     } finally {
       setIsDeploying(false);

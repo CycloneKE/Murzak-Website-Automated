@@ -7,6 +7,7 @@ import {
   getReadiness, getQueueHealth, getCapacity, listJobs, runQueue, retryJob, resolveJob,
   Readiness, QueueHealth, Capacity, ProvisioningJob,
 } from "../../services/adminProvisioning";
+import { toUserMessage } from "../../services/errors";
 
 const JOB_STATUSES = ["all", "queued", "running", "active", "needs_human", "failed"] as const;
 
@@ -85,7 +86,7 @@ const AdminProvisioning: React.FC = () => {
       setNotice(`Runner pass complete — processed ${r.processed} job(s).`);
       await refresh();
     } catch (e: any) {
-      setError(e?.message || "Failed to run queue.");
+      setError(toUserMessage(e, "Failed to run queue."));
     } finally { setRunning(false); }
   };
 
@@ -96,7 +97,7 @@ const AdminProvisioning: React.FC = () => {
       setNotice(`Re-queued ${name}.`);
       await refresh();
     } catch (e: any) {
-      setError(e?.message || "Failed to re-queue job.");
+      setError(toUserMessage(e, "Failed to re-queue job."));
     } finally { setRetryingId(""); }
   };
 
@@ -114,7 +115,7 @@ const AdminProvisioning: React.FC = () => {
       setResolveModalJob("");
       await refresh();
     } catch (e: any) {
-      setError(e?.message || "Failed to resolve job.");
+      setError(toUserMessage(e, "Failed to resolve job."));
     } finally { setResolving(false); }
   };
 

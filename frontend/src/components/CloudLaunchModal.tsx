@@ -10,6 +10,7 @@ import {
   formatKes,
   planForService,
 } from "../config/serviceCatalog";
+import { toUserMessage } from "../services/errors";
 
 type Props = {
   isOpen: boolean;
@@ -154,7 +155,7 @@ export default function CloudLaunchModal({
       if (!res.ok) throw new Error(data?.error || "Failed to join the waitlist.");
       setWaitlistJoined(true);
     } catch (e: any) {
-      setErr(e?.message || "Failed to join the waitlist.");
+      setErr(toUserMessage(e, "Failed to join the waitlist."));
     } finally {
       setWaitlistSubmitting(false);
     }
@@ -216,7 +217,7 @@ export default function CloudLaunchModal({
       setSubmitting(true);
       await launchLoggedIn();
     } catch (e: any) {
-      setErr(e?.message || "Failed to launch resource.");
+      setErr(toUserMessage(e, "Failed to launch resource."));
     } finally {
       setSubmitting(false);
     }

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import PayPalWalletSection from "./PayPalWalletSection";
 import PayPalCardSection from "./PayPalCardSection";
+import { toUserMessage } from "../services/errors";
 
 export interface PaymentMethodsProps {
   invoiceDocName: string;
@@ -119,7 +120,7 @@ export default function PaymentMethods({
 
       await finalizePaid();
     } catch (e: any) {
-      setErrors((prev) => ({ ...prev, payment: e?.message || "Payment failed." }));
+      setErrors((prev) => ({ ...prev, payment: toUserMessage(e, "Payment failed.") }));
       setStep("form");
     } finally {
       setIsProcessing(false);
@@ -141,7 +142,7 @@ export default function PaymentMethods({
         }));
       }
     } catch (e: any) {
-      setErrors((prev) => ({ ...prev, payment: e?.message || "Could not check status." }));
+      setErrors((prev) => ({ ...prev, payment: toUserMessage(e, "Could not check status.") }));
     } finally {
       setCheckingStatus(false);
     }
@@ -175,7 +176,7 @@ export default function PaymentMethods({
       setStep("success");
       onSuccess(data.user);
     } catch (e: any) {
-      setErrors((prev) => ({ ...prev, payment: e?.message || "Mock payment failed." }));
+      setErrors((prev) => ({ ...prev, payment: toUserMessage(e, "Mock payment failed.") }));
       setStep("form");
     } finally {
       setIsProcessing(false);

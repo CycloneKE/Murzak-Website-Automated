@@ -37,6 +37,7 @@ import type {
 } from "../../../../types/hosting";
 import ResourceUtilizationCard from "../../ResourceUtilizationCard";
 import ServiceHealthCard from "../../ServiceHealthCard";
+import { toUserMessage } from "../../../../services/errors";
 
 type SetupTab = "overview" | "setup" | "requests";
 type LiveTab = "overview" | "files" | "deployments" | "subdomains" | "requests" | "activity";
@@ -323,7 +324,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       const data = await fetchHostingDashboard();
       setPayload(data);
     } catch (err: any) {
-      setPageError(err?.message || "Failed to load Website Hosting dashboard.");
+      setPageError(toUserMessage(err, "Failed to load Website Hosting dashboard."));
     } finally {
       setLoading(false);
     }
@@ -437,7 +438,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       setBannerSuccess("");
       await fn();
     } catch (err: any) {
-      setBannerError(err?.message || "Action failed.");
+      setBannerError(toUserMessage(err, "Action failed."));
     } finally {
       setActionLoading(null);
     }

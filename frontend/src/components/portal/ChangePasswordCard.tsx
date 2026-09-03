@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Lock, RefreshCw, ShieldCheck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { toUserMessage } from "../../services/errors";
 
 const ChangePasswordCard: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -43,7 +44,7 @@ const ChangePasswordCard: React.FC = () => {
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      setError(err?.message || "Could not update password.");
+      setError(toUserMessage(err, "Could not update password."));
     } finally {
       setSubmitting(false);
     }

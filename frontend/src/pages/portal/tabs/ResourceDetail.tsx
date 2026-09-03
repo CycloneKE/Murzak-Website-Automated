@@ -6,6 +6,7 @@ import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrow
 import MailboxManager from "../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import { usePortal } from "../PortalContext";
+import { toUserMessage } from "../../../services/errors";
 
 // Same enum SecurityOverviewCard reads from the account-wide aggregate — this
 // renders the per-resource value straight off the Provisioning Job record
@@ -188,7 +189,7 @@ const ResourceDetail: React.FC = () => {
                   The last deployment didn't complete. Our team has been notified and is on it.
                 </p>
                 {cloudJob?.error && (
-                  <p className="text-label font-mono text-slate-600 dark:text-slate-400 mt-2 break-words">{cloudJob.error}</p>
+                  <p className="text-label text-slate-600 dark:text-slate-400 mt-2 break-words">{toUserMessage(cloudJob.error, "Our team is reviewing the deployment logs.")}</p>
                 )}
                 <button
                   type="button"

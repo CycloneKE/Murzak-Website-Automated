@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Send, RefreshCw, MessageSquare, AlertCircle } from "lucide-react";
+import { toUserMessage } from "../services/errors";
 
 interface ContactProps {
   isOpen: boolean;
@@ -195,7 +196,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
       setUploadedName("");
       setErrors((prev) => ({ ...prev, draft: "" }));
     } catch (err: any) {
-      setErrors((prev) => ({...prev, submit: err?.message || "Couldn't send your message. Please try again.",
+      setErrors((prev) => ({...prev, submit: toUserMessage(err, "Couldn't send your message. Please try again."),
     }));
     } finally {
       setIsSubmitting(false);
@@ -402,7 +403,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                 setUploadedUrl(upData.file_url || "");
                 setUploadedName(f.name);
               } catch (err: any) {
-                setErrors((prev) => ({ ...prev, submit: err?.message || "Upload failed" }));
+                setErrors((prev) => ({ ...prev, submit: toUserMessage(err, "Upload failed") }));
                 setFile(null);
               } finally {
                 setUploading(false);

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { Wallet } from "lucide-react";
 import { getPayPalConfig, createPayPalOrder, capturePayPalOrder } from "../services/paypal";
+import { toUserMessage } from "../services/errors";
 
 interface PayPalWalletSectionProps {
   invoiceDocName?: string;
@@ -42,7 +43,7 @@ const PayPalWalletSection: React.FC<PayPalWalletSectionProps> = ({
         if (mounted) {
           setErrors((prev) => ({
             ...prev,
-            payment: e?.message || "Failed to load PayPal.",
+            payment: toUserMessage(e, "Failed to load PayPal."),
           }));
         }
       }
@@ -90,7 +91,7 @@ const PayPalWalletSection: React.FC<PayPalWalletSectionProps> = ({
                 } catch (e: any) {
                   setErrors((prev) => ({
                     ...prev,
-                    payment: e?.message || "PayPal capture failed.",
+                    payment: toUserMessage(e, "PayPal capture failed."),
                   }));
                   setStep("form");
                 }

@@ -13,6 +13,7 @@ import {
   EnvVar,
 } from "../../../services/resourceAdmin";
 import { createPortalThread } from "../../../services/portalChat";
+import { toUserMessage } from "../../../services/errors";
 
 interface ResourceAdminPanelProps {
   serviceId: string;
@@ -112,7 +113,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
     setEnvsError("");
     fetchEnvVars(serviceId)
       .then(setEnvs)
-      .catch((e: any) => { setEnvs([]); setEnvsError(e?.message || "Couldn't load variables."); });
+      .catch((e: any) => { setEnvs([]); setEnvsError(toUserMessage(e, "Couldn't load variables.")); });
   }, [serviceId]);
 
   useEffect(() => {
@@ -133,7 +134,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       });
       setAccessRequestSent(true);
     } catch (e: any) {
-      setAccessRequestError(e?.message || "Couldn't send that request.");
+      setAccessRequestError(toUserMessage(e, "Couldn't send that request."));
     } finally {
       setRequestingAccess(false);
     }
@@ -146,7 +147,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       await acceptResourceAdminDisclosure();
       await loadEligibility();
     } catch (e: any) {
-      setError(e?.message || "Failed to record acceptance.");
+      setError(toUserMessage(e, "Failed to record acceptance."));
     } finally {
       setAccepting(false);
     }
@@ -168,7 +169,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       setDraftValue("");
       loadEnvs();
     } catch (e: any) {
-      setEnvsError(e?.message || "Couldn't save that variable.");
+      setEnvsError(toUserMessage(e, "Couldn't save that variable."));
     } finally {
       setSavingEnv(false);
     }
@@ -184,7 +185,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       setRestartNeeded(true);
       loadEnvs();
     } catch (e: any) {
-      setEnvsError(e?.message || "Couldn't remove that variable.");
+      setEnvsError(toUserMessage(e, "Couldn't remove that variable."));
     } finally {
       setDeletingEnvUuid(null);
     }
@@ -197,7 +198,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       setNotice(res.message);
       setRestartNeeded(false);
     } catch (e: any) {
-      setEnvsError(e?.message || "Couldn't restart the service.");
+      setEnvsError(toUserMessage(e, "Couldn't restart the service."));
     } finally {
       setRestarting(false);
     }
@@ -210,7 +211,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       const res = await fetchRuntimeLogs(serviceId, logLines);
       setLogs(res.logs || "");
     } catch (e: any) {
-      setLogsError(e?.message || "Couldn't fetch logs.");
+      setLogsError(toUserMessage(e, "Couldn't fetch logs."));
     } finally {
       setLogsLoading(false);
     }
@@ -229,7 +230,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       setRequestTopic("");
       setRequestDetail("");
     } catch (e: any) {
-      setError(e?.message || "Couldn't send that request.");
+      setError(toUserMessage(e, "Couldn't send that request."));
     } finally {
       setRequestSending(false);
     }

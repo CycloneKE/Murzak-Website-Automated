@@ -8,6 +8,7 @@ import {
   Mailbox,
   MailboxSettings,
 } from "../../../services/mailboxes";
+import { toUserMessage } from "../../../services/errors";
 
 interface MailboxManagerProps {
   serviceId: string;
@@ -60,7 +61,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
         setImap(data.imap || null);
         setSmtp(data.smtp || null);
       })
-      .catch((e: any) => setError(e?.message || "Couldn't load your mailboxes."))
+      .catch((e: any) => setError(toUserMessage(e, "Couldn't load your mailboxes.")))
       .finally(() => setLoading(false));
   }, [serviceId]);
 
@@ -89,7 +90,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       setShowForm(false);
       await load();
     } catch (err: any) {
-      setError(err?.message || "Couldn't create that mailbox.");
+      setError(toUserMessage(err, "Couldn't create that mailbox."));
     } finally {
       setCreating(false);
     }
@@ -104,7 +105,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       await changeMailboxPassword(serviceId, mb.id, pw);
       setNotice("Password updated.");
     } catch (err: any) {
-      setError(err?.message || "Couldn't update that password.");
+      setError(toUserMessage(err, "Couldn't update that password."));
     } finally {
       setBusyId(null);
     }
@@ -127,7 +128,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       setNotice(`${label} deleted.`);
       await load();
     } catch (err: any) {
-      setError(err?.message || "Couldn't delete that mailbox.");
+      setError(toUserMessage(err, "Couldn't delete that mailbox."));
     } finally {
       setBusyId(null);
     }

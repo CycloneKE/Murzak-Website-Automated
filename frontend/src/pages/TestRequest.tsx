@@ -7,6 +7,7 @@ import {
 import { Page } from '../types';
 import { logLeadToCRM, generateReferenceId } from '../services/erpnext';
 import { createTestPlan } from "../services/testPlan";
+import { toUserMessage } from "../services/errors";
 
 interface TestRequestProps {
   onNavigate: (page: Page) => void;
@@ -78,7 +79,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
       setSubmitted(true);
     } catch (err: any) {
       console.error(err);
-      setErrors((prev) => ({ ...prev, submit: err?.message || "Submission failed" }));
+      setErrors((prev) => ({ ...prev, submit: toUserMessage(err, "Submission failed") }));
     } finally {
       setIsSubmitting(false);
     }

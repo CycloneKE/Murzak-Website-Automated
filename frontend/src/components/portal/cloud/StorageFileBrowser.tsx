@@ -8,6 +8,7 @@ import {
   deleteStorageFile,
   StorageFile,
 } from "../../../services/storageFiles";
+import { toUserMessage } from "../../../services/errors";
 
 interface StorageFileBrowserProps {
   serviceId: string;
@@ -55,7 +56,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
         setUsedBytes(data.usedBytes);
         setQuotaBytes(data.quotaBytes);
       })
-      .catch((e: any) => setError(e?.message || "Couldn't load your files."))
+      .catch((e: any) => setError(toUserMessage(e, "Couldn't load your files.")))
       .finally(() => setLoading(false));
   }, [serviceId]);
 
@@ -85,7 +86,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
       setNotice(`${file.name} uploaded.`);
       await load();
     } catch (e: any) {
-      setError(e?.message || "Upload failed.");
+      setError(toUserMessage(e, "Upload failed."));
     } finally {
       setUploading(false);
     }
@@ -98,7 +99,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
       const { downloadUrl } = await requestDownloadUrl(serviceId, file.name);
       window.open(downloadUrl, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      setError(e?.message || "Couldn't prepare that download.");
+      setError(toUserMessage(e, "Couldn't prepare that download."));
     } finally {
       setBusyName(null);
     }
@@ -113,7 +114,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
       setNotice(`${file.name} deleted.`);
       await load();
     } catch (e: any) {
-      setError(e?.message || "Couldn't delete that file.");
+      setError(toUserMessage(e, "Couldn't delete that file."));
     } finally {
       setBusyName(null);
     }

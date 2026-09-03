@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 // src/services/adminChat.ts
 export type SenderType = "User" | "Admin";
 
@@ -39,7 +40,7 @@ async function safeJson(res: Response) {
 export async function adminListThreads(): Promise<ThreadSummary[]> {
   const res = await fetch("/api/admin/threads", { credentials: "include" });
   const data = await safeJson(res);
-  if (!res.ok) throw new Error(data?.error || "Failed to load threads.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to load threads."));
   return data?.data || [];
 }
 
@@ -47,7 +48,7 @@ export async function adminListThreads(): Promise<ThreadSummary[]> {
 export async function adminUnreadCount(): Promise<number> {
   const res = await fetch("/api/admin/threads/unread-count", { credentials: "include" });
   const data = await safeJson(res);
-  if (!res.ok) throw new Error(data?.error || "Failed to fetch unread count.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to fetch unread count."));
   return Number(data?.count || 0);
 }
 
@@ -59,7 +60,7 @@ export async function adminMarkRead(threadId: string): Promise<void> {
   });
   if (!res.ok) {
     const data = await safeJson(res);
-    throw new Error(data?.error || "Failed to mark thread read.");
+    throw new Error(toUserMessage(data?.error, "Failed to mark thread read."));
   }
 }
 
@@ -68,7 +69,7 @@ export async function adminGetThread(id: string): Promise<ThreadDoc> {
     credentials: "include",
   });
   const data = await safeJson(res);
-  if (!res.ok) throw new Error(data?.error || "Failed to load thread.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to load thread."));
   const doc = data?.data || null;
   if (doc && !Array.isArray(doc.messages)) doc.messages = [];
   return doc;
@@ -86,7 +87,7 @@ export async function adminReply(threadId: string, message: string, attachments?
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to reply");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to reply"));
   return data;
 }
 
@@ -119,7 +120,7 @@ export type AdminDomainsResponse = {
 export async function adminListDomains(): Promise<AdminDomainsResponse> {
   const res = await fetch("/api/admin/domains", { credentials: "include" });
   const data = await safeJson(res);
-  if (!res.ok) throw new Error(data?.error || "Failed to load domains.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to load domains."));
   return {
     domains: data?.domains || [],
     summary: data?.summary || {},
@@ -140,7 +141,7 @@ export async function adminSetDomainStatus(
     body: JSON.stringify({ status, ...(extra || {}) }),
   });
   const data = await safeJson(res);
-  if (!res.ok) throw new Error(data?.error || "Failed to update domain.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to update domain."));
   return { status: data.status, intakeSynced: !!data.intakeSynced };
 }
 
@@ -150,7 +151,7 @@ export async function adminApproveTerminalAccess(webAccount: string): Promise<{ 
     credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to approve developer access.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to approve developer access."));
   return data;
 }
 
@@ -160,6 +161,6 @@ export async function adminApproveResourceAdmin(webAccount: string): Promise<{ a
     credentials: "include",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Failed to approve advanced controls.");
+  if (!res.ok) throw new Error(toUserMessage(data?.error, "Failed to approve advanced controls."));
   return data;
 }

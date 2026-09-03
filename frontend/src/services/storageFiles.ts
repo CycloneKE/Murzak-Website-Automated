@@ -1,3 +1,4 @@
+import { toUserMessage } from "./errors";
 /**
  * File Storage API client — list/upload/download/delete for a customer's
  * shared-bucket, prefix-isolated storage. Uploads/downloads use presigned
@@ -21,7 +22,7 @@ export interface StorageFilesResponse {
 
 async function handleJson<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as any)?.error || "Request failed.");
+  if (!res.ok) throw new Error(toUserMessage((data as any)?.error, "Request failed."));
   return data as T;
 }
 
