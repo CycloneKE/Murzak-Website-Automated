@@ -1,0 +1,59 @@
+# /etc/nginx/sites-available/murzaktech.tech
+#
+# The main site: murzaktech.tech + www.murzaktech.tech -> the Coolify
+# container that serves the SPA and the portal API.
+#
+# This is the apex counterpart to sites-available/apps.murzaktech.tech (which
+# handles *.apps.murzaktech.tech, the provisioned customer apps). Same box,
+# same Traefik, different names -- kept in separate files so a change to the
+# public site can never break customer app routing, or the reverse.
+#
+# Why this file has to exist at all: with no server block claiming these two
+# names, nginx falls back to the box's default_server, which belongs to
+# mystylecarhire.com. Before this file, https://murzaktech.tech answered with
+# mystylecarhire.com's certificate and a 301 to that site, and plain http
+# answered 404. An exact server_name always beats a default_server, so adding
+# this block fixes that without touching any other vhost on the box.
+#
+# $murzak_apps_connection_upgrade is defined in conf.d/00-murzak-apps-map.conf
+# (installed already for the apps vhosts) -- the WebSocket upgrade map is
+# shared, not apps-specific.
+
+server {
+    listen      80;
+    listen      [::]:80;
+    server_name murzaktech.tech www.murzaktech.tech;
+
+    # ^~ so this beats any regex location and is never handed to the redirect.
+    # Required for certbot's HTTP-01 renewals once the cert is issued.
+    location ^~ /.well-known/acme-challenge/ {
+        root         /var/www/certbot;
+        default_type "text/plain";
+        try_files    $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen      443 ssl http2;
+    listen      [::]:443 ssl http2;
+    server_name murzaktech.tech www.murzaktech.tech;
+
+    ssl_certificate     /etc/letsencrypt/live/murzaktech.tech/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/murzaktech.tech/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Same proxy body the customer app vhosts use: it is host-agnostic
+    # (proxy_ssl_name is $host), so Traefik receives murzaktech.tech as SNI
+    # and routes on the Host header exactly as it does for an apps host.
+    #
+    # Traefik only has a route for this name once the domain is attached to
+    # the application in Coolify. Until then this vhost is correct and Traefik
+    # answers 503 -- if you see a 503 here with a valid certificate, the
+    # missing piece is the Coolify domain attach, not this file.
+    include /etc/nginx/snippets/murzak-app-proxy.conf;
+}
