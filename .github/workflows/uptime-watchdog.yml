@@ -1,0 +1,198 @@
+# External uptime watchdog for murzaktech.tech
+#
+# WHY THIS EXISTS: between roughly 2026-07-03 and 2026-09-04 the public apex
+# was unreachable and nobody noticed. Every piece of monitoring that existed
+# ran ON the VPS (Coolify, Sentinel), so none of it could report that the box
+# or its DNS was the thing that was broken. This job runs on GitHub's
+# infrastructure instead -- off the box, off its DNS, off its network.
+#
+# WHAT IT CATCHES (the three real historical failures, plus the near-miss):
+#   1. DNS repointed or lost        -> the apex A-record assertion
+#   2. Certificate expired          -> the TLS expiry-days check
+#   3. Container down / 502         -> the HTTP status checks
+#   4. Domain silently parked       -> the body-marker check (a parking page
+#                                      can return HTTP 200, so status alone
+#                                      is not enough -- that is exactly how
+#                                      the apex looked "fine" to a naive ping)
+#
+# WHAT IT DOES NOT CATCH: /api/health is a pure liveness probe
+# (`res.json({ok:true})`), so a healthy response means Node is up and routing
+# and nothing more. It will NOT tell you Frappe, Redis or the DB are down and
+# checkout is failing. Treat a green run as "the site is reachable", not
+# "the site is working".
+#
+# LIMITS -- read before trusting this as a pager:
+#   - GitHub cron is best-effort. Runs are commonly 5-15 minutes late and are
+#     dropped entirely under platform load. This is a safety net, not an SLA.
+#   - GitHub DISABLES scheduled workflows after 60 days with no repo activity.
+#     On a quiet repo this watchdog switches itself off silently. Re-enable it
+#     from the Actions tab, and treat the workflow_dispatch button as the way
+#     to confirm it is still alive.
+#   - Notification is GitHub's own "scheduled workflow failed" email to the
+#     repo owner, plus the issue opened below. Nobody gets an SMS at 3am.
+# For real paging, put a hosted monitor in front of this as well -- see
+# docs/uptime-monitoring.md.
+
+name: uptime-watchdog
+
+on:
+  schedule:
+    # Every 10 minutes. Finer than this is wasted: GitHub's own jitter is
+    # larger than the interval would be.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Never let a slow run pile up behind a slower one.
+  group: uptime-watchdog
+  cancel-in-progress: false
+
+env:
+  APEX: murzaktech.tech
+  EXPECTED_IP: 187.124.217.78
+  # Present in the served HTML of the real app; absent from a parking page,
+  # a default-vhost page, or another tenant's site on the same box.
+  BODY_MARKER: Murzak Technologies
+  # Fail outright below this many days of certificate life. The renewal cron
+  # on the box attempts at 30 days, so 7 means "renewal has been failing
+  # silently for three weeks" -- worth waking someone for.
+  CERT_MIN_DAYS: 7
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check DNS, HTTP, content and TLS
+        id: probe
+        shell: bash
+        run: |
+          set -uo pipefail
+          fail() { echo "FAIL: $*" >> /tmp/failures.txt; echo "::error::$*"; }
+          : > /tmp/failures.txt
+
+          # ---- 1. DNS: the apex must still point at the VPS ----------------
+          # Asserting the address, not merely that it resolves. A domain that
+          # lapses to a parking IP resolves perfectly well.
+          # dig ships on ubuntu-latest today, but this job's whole job is to
+          # be the thing that still works, so fall back to glibc's resolver
+          # rather than depend on one package staying in the runner image.
+          if command -v dig >/dev/null 2>&1; then
+            got=$(dig +short "$APEX" A | grep -E '^[0-9.]+$' | head -1)
+          else
+            got=$(getent ahostsv4 "$APEX" | awk '{print $1; exit}')
+          fi
+          if [ -z "$got" ]; then
+            fail "$APEX does not resolve at all (NXDOMAIN or resolver failure)"
+          elif [ "$got" != "$EXPECTED_IP" ]; then
+            fail "$APEX resolves to $got, expected $EXPECTED_IP -- DNS repointed or the domain lapsed"
+          else
+            echo "ok: DNS $APEX -> $got"
+          fi
+
+          # ---- 2/3. HTTP status + real-content marker ----------------------
+          for host in "$APEX" "www.$APEX" "website.$APEX"; do
+            # No `|| echo 000` here: curl already emits 000 via -w on a
+            # connection failure, so the fallback would concatenate into
+            # "000000" and get reported as a bogus HTTP status instead of as
+            # the connection failure it actually is.
+            code=$(curl -sS -o /tmp/body.html -w '%{http_code}' --max-time 25 "https://$host" 2>/dev/null)
+            code=${code:-000}
+            if [ "$code" = "000" ]; then
+              fail "https://$host - connection or TLS failure (no HTTP response)"
+            elif [ "$code" != "200" ]; then
+              fail "https://$host returned HTTP $code"
+            elif ! grep -qF "$BODY_MARKER" /tmp/body.html; then
+              # 200 from something that is not our app: parking page, default
+              # vhost, or another tenant catching the hostname.
+              fail "https://$host returned 200 but the body is not the Murzak app (marker '$BODY_MARKER' missing)"
+            else
+              echo "ok: https://$host 200 + content marker"
+            fi
+          done
+
+          # ---- 4. Liveness endpoint ---------------------------------------
+          hb=$(curl -sS --max-time 25 "https://$APEX/api/health" 2>/dev/null || echo '')
+          if ! printf '%s' "$hb" | grep -q '"ok":[[:space:]]*true'; then
+            fail "/api/health did not return ok:true (got: ${hb:-<no response>})"
+          else
+            echo "ok: /api/health ok:true"
+          fi
+
+          # ---- 5. Certificate expiry --------------------------------------
+          # The failure that took the site down before was a cert nobody was
+          # counting down. Count it down.
+          end=$(echo | openssl s_client -servername "$APEX" -connect "$APEX:443" 2>/dev/null \
+                | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+          if [ -z "$end" ]; then
+            fail "could not read the TLS certificate for $APEX"
+          else
+            days=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
+            echo "cert expires in $days day(s) ($end)"
+            if [ "$days" -lt "$CERT_MIN_DAYS" ]; then
+              fail "TLS certificate for $APEX expires in $days day(s) -- automatic renewal is not working"
+            elif [ "$days" -lt 21 ]; then
+              echo "::warning::cert has $days days left; renewal should have run by now"
+            fi
+          fi
+
+          # ---- verdict ----------------------------------------------------
+          if [ -s /tmp/failures.txt ]; then
+            {
+              echo "summary<<WATCHDOG_EOF"
+              cat /tmp/failures.txt
+              echo "WATCHDOG_EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo; echo "=== WATCHDOG FAILED ==="; cat /tmp/failures.txt
+            exit 1
+          fi
+          echo; echo "=== all checks passed ==="
+
+      - name: Open or update the alert issue
+        # Runs only when a probe failed. Kept in one issue with a fixed title
+        # so a sustained outage does not open 144 issues a day.
+        if: failure()
+        uses: actions/github-script@v7
+        env:
+          SUMMARY: ${{ steps.probe.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const TITLE = '🔴 Uptime watchdog: murzaktech.tech is failing checks';
+            const body = [
+              '**The external uptime watchdog failed.**',
+              '',
+              '```',
+              (process.env.SUMMARY || 'see the run log').trim(),
+              '```',
+              '',
+              `Run: ${process.env.RUN_URL}`,
+              `Checked at: ${new Date().toISOString()}`,
+              '',
+              '<sub>Re-runs update this issue rather than opening new ones. ' +
+              'Close it once the site is healthy — the next failure reopens one.</sub>',
+            ].join('\n');
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const hit = existing.data.find(i => i.title === TITLE);
+
+            if (hit) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: hit.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body,
+              });
+            }
