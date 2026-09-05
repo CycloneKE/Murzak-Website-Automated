@@ -20,9 +20,10 @@ same outage it is supposed to report does not count.
 | 2. Hosted monitor | Third party | Same, faster, every 5 min | Yes — push/SMS |
 | 3. Coolify notifications | The VPS | Container crash, failed deploy | Only if the box is alive |
 
-Layer 1 is **in this repo and running**. Layer 2 is **partly configured** —
-an UptimeRobot monitor covers `website.murzaktech.tech`, but not yet the apex,
-and not yet as a keyword check. Layer 3 is not configured.
+Layers 1 and 2 are **running**: the watchdog is in this repo, and UptimeRobot
+has keyword monitors on the apex and the health endpoint. Layer 3 is not
+configured, and **no alert path has been tested end to end yet** — see
+*Prove it works before trusting it*.
 
 ---
 
@@ -64,10 +65,10 @@ issue rather than 144.
 
 ## Layer 2 — a hosted monitor (partly done)
 
-This is the layer that actually wakes someone. An **UptimeRobot** account
-exists and a monitor on `website.murzaktech.tech` is live and confirmed
-delivering mail. Two gaps remain: **the apex is not monitored**, and the
-existing monitor is a plain HTTP/S check rather than a keyword check.
+This is the layer that actually wakes someone. **UptimeRobot** is set up, with
+keyword monitors live on the apex and on `/api/health`, and mail delivery
+confirmed. One gap remains: the older `website.murzaktech.tech` monitor is
+still a plain HTTP/S check and should be converted to keyword.
 
 ### Use keyword checks, not plain HTTP — this is measured, not theoretical
 
@@ -91,10 +92,20 @@ Configure three monitors — all keyword, all free tier:
 
 | Monitor | Type | Target | Alert when | Status |
 |---|---|---|---|---|
-| Apex | HTTPS **keyword** | `https://murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | **missing — add this first** |
-| Health | HTTPS **keyword** | `https://murzaktech.tech/api/health` | keyword `"ok":true` absent | missing |
+| Apex | HTTPS **keyword** | `https://murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | ✅ live |
+| Health | HTTPS **keyword** | `https://murzaktech.tech/api/health` | keyword `"ok":true` absent | ✅ live |
 | Portal host | HTTPS **keyword** | `https://website.murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | exists, but as plain HTTP/S — convert it |
 | Certificate | — | — | — | **don't add** — Layer 1 covers expiry free, see below |
+
+> **Get the alert condition the right way round.** UptimeRobot's dropdown
+> defaults to *"Start incident when keyword exists"*, which is backwards for
+> this purpose: it would page you while the site is healthy and stay silent
+> while it is parked or broken. You want **"when keyword does not exist"**.
+> Sanity check after saving — with the site healthy, the monitor must read
+> **Up**. If a fresh monitor immediately reads Down, the condition is inverted.
+>
+> Keyword matching is literal: `/api/health` returns exactly `{"ok":true}` with
+> no whitespace, so `"ok": true` (with a space) would never match.
 
 Set alert contacts to a channel someone reads outside work hours, and set
 "alert after 2 consecutive failures" to avoid paging on a single blip — the
