@@ -36,6 +36,34 @@ sudo systemctl enable --now murzak-app-sync.timer
 ## Prerequisites on the box
 
 - `/var/www/certbot/.well-known/acme-challenge/` exists (ACME webroot).
+- **A 2 GB swapfile at `/swapfile`, with `vm.swappiness=10`.** Added
+  2026-09-05; the box ran with zero swap until then. It is a cushion, not
+  capacity: with ~3.5 GB genuinely free and a capacity gate willing to commit
+  5.4 GB (see below), an overshoot without swap is not slowness — it is the
+  OOM killer picking a container to destroy, possibly a paying customer's.
+  Swappiness is lowered from the default 60 so the kernel reclaims cache
+  before it pages, keeping swap for real pressure rather than routine use.
+
+  ```bash
+  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+  sudo mkswap /swapfile && sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-murzak-swappiness.conf
+  sudo systemctl daemon-reload   # else systemd keeps the stale fstab view
+  ```
+
+  Verify persistence without rebooting — `swapon -a` reads fstab, so this
+  proves the reboot path rather than assuming it:
+
+  ```bash
+  sudo swapoff /swapfile && sudo swapon -a && sudo swapon --show
+  ```
+
+  **This does not fix the capacity accounting.** `sellableRamMb: 6400` in the
+  catalog reserves ~1.8 GB for overhead, but the box actually carries ~4.3 GB
+  of non-sellable load (OSRM 887 MB, tileserver 453 MB, the Coolify stack,
+  minio, other tenants). Measured 2026-09-05: 7,941 MB total, ~3,500 MB free.
+  That constant still needs a decision.
 - `server_names_hash_bucket_size 128;` is set in `nginx.conf` — the default 64
   is too small for the ~64-character hostnames the provisioner generates.
 - A wildcard DNS record `*.apps.murzaktech.tech A -> 187.124.217.78`.
