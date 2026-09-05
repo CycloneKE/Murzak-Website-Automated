@@ -13,7 +13,7 @@ Frappe 15.95.0 / ERPNext 15.94.1 (version-15).
 |---|---|---|
 | `frappe` / `erpnext` | 15.95 / 15.94 | Core platform and ERP |
 | `hrms` | 15.63.4 (version-15) | Payroll, salary structures, attendance, leave |
-| `csf_ke` | 16.7.2 (develop) | Kenya statutory: PAYE (P9A/P10), NSSF, SHIF, Housing Levy, HELB, withholding tax |
+| `csf_ke` | **v16.12.0 (pinned tag)** | Kenya statutory: PAYE (P9A/P10), NSSF, SHIF, Housing Levy, HELB, withholding tax |
 | `kenya_compliance` | 0.8.2 (develop) | KRA eTIMS via OSCU — the `Navari KRA eTims Settings` doctype |
 | `techsavanna_pos` | 0.0.1 | POS. **Third-party**, remote `Shavia-bit/savanna_pos_tech` |
 | `murzak_custom` | 0.0.1 | Murzak/customer customisations |
@@ -71,9 +71,12 @@ customer's site had none since 2026-06-21.
 
 ## Open
 
-- `csf_ke` is on `develop` at 16.7.2 while the bench is v15. It installed and
-  runs, but that is a major-version mismatch — pin it to a v15-compatible tag
-  if one exists before relying on it in production.
+- `csf_ke` is pinned to tag **v16.12.0** (detached HEAD). Note its numbering is
+  the app's **own semver**, not a Frappe version — v16.12.0 does not mean
+  "for Frappe v16", and there is no v15/v14 line. Its only branch is `develop`.
+  It was previously sitting on an untagged `develop` commit (`8f543b3`), which
+  meant `bench update` could move it arbitrarily; the pin stops that. Rolling
+  back means `git checkout 8f543b3` in `apps/csf_ke`, then migrate and restart.
 - `techsavanna_pos` had an undeclared dependency on `kenya_compliance`; a local
   patch adds it to `required_apps`, but that app is third-party and **the edit
   is lost on the next pull**. It belongs upstream.
