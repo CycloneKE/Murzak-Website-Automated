@@ -17,11 +17,12 @@ same outage it is supposed to report does not count.
 | Layer | Runs on | Catches | Wakes someone? |
 |---|---|---|---|
 | 1. GitHub Actions watchdog | GitHub | DNS, TLS, HTTP, wrong-content | Email only, best-effort |
-| 2. Hosted monitor | Third party | Same, faster + from many regions | Yes — push/SMS |
+| 2. Hosted monitor | Third party | Same, faster, every 5 min | Yes — push/SMS |
 | 3. Coolify notifications | The VPS | Container crash, failed deploy | Only if the box is alive |
 
-Layer 1 is **in this repo and running**. Layers 2 and 3 need a human with
-account access — see below.
+Layer 1 is **in this repo and running**. Layer 2 is **partly configured** —
+an UptimeRobot monitor covers `website.murzaktech.tech`, but not yet the apex,
+and not yet as a keyword check. Layer 3 is not configured.
 
 ---
 
@@ -61,27 +62,52 @@ issue rather than 144.
 
 ---
 
-## Layer 2 — a hosted monitor (TODO: needs an account)
+## Layer 2 — a hosted monitor (partly done)
 
-This is the layer that actually wakes someone, and it needs a human to create
-the account. Free tiers are sufficient; **UptimeRobot** (50 monitors, 5-minute
-interval) or **Better Stack** (10 monitors, 3-minute, better alerting) both
-cover this.
+This is the layer that actually wakes someone. An **UptimeRobot** account
+exists and a monitor on `website.murzaktech.tech` is live and confirmed
+delivering mail. Two gaps remain: **the apex is not monitored**, and the
+existing monitor is a plain HTTP/S check rather than a keyword check.
 
-Configure four monitors:
+### Use keyword checks, not plain HTTP — this is measured, not theoretical
 
-| Monitor | Type | Target | Alert when |
-|---|---|---|---|
-| Apex | HTTPS keyword | `https://murzaktech.tech` | keyword `Murzak Technologies` **absent**, or non-200 |
-| Health | HTTPS keyword | `https://murzaktech.tech/api/health` | keyword `"ok":true` absent |
-| Portal host | HTTPS | `https://website.murzaktech.tech` | non-200 |
-| Certificate | SSL expiry | `murzaktech.tech` | fewer than 21 days remain |
+A plain HTTP/S monitor asks "did I get a 200?". Hostinger's parked-domain page
+answers **yes**. Verified 2026-09-04 against the parking IP the apex used to
+point at, with the apex Host header:
 
-Use the **keyword** check type, not plain HTTP. A plain check would have
-reported the parked apex as up.
+```console
+$ curl -o /dev/null -w '%{http_code}\n' --resolve murzaktech.tech:443:2.57.91.91 https://murzaktech.tech
+200
+$ curl -o /dev/null -w '%{http_code}\n' --resolve murzaktech.tech:80:2.57.91.91 http://murzaktech.tech
+200
+```
+
+**A plain HTTP monitor on the apex would have reported "up" for the entire
+two-month outage.** Status codes cannot distinguish "our app" from "someone
+else's placeholder holding our domain" — only content can. Every monitor below
+that fronts a customer-facing URL is therefore a *keyword* monitor.
+
+Configure three monitors — all keyword, all free tier:
+
+| Monitor | Type | Target | Alert when | Status |
+|---|---|---|---|---|
+| Apex | HTTPS **keyword** | `https://murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | **missing — add this first** |
+| Health | HTTPS **keyword** | `https://murzaktech.tech/api/health` | keyword `"ok":true` absent | missing |
+| Portal host | HTTPS **keyword** | `https://website.murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | exists, but as plain HTTP/S — convert it |
+| Certificate | — | — | — | **don't add** — Layer 1 covers expiry free, see below |
 
 Set alert contacts to a channel someone reads outside work hours, and set
-"alert after 2 consecutive failures" to avoid paging on a single blip.
+"alert after 2 consecutive failures" to avoid paging on a single blip — the
+free tier checks from **one region only** (North America), so a regional
+network blip is otherwise indistinguishable from an outage.
+
+### Don't pay for the SSL/domain expiry add-on
+
+UptimeRobot's free plan shows "Domain valid until" and "SSL certificate valid
+until" as locked upsells. **Layer 1 already covers certificate expiry** — it
+reads the live certificate every 10 minutes, warns under 21 days and fails
+under 7. The two layers are deliberately complementary: the hosted monitor
+pages fast, the watchdog checks the things the free tier withholds.
 
 ## Layer 3 — Coolify notifications (TODO: needs dashboard access)
 
