@@ -507,11 +507,17 @@ const deps = {
     // Mirrors a row that started "Setting up" and got silently collapsed to
     // "Awaiting Payment" by the pre-fix ordersRoutes.js round-trip — the
     // account's OWN paid invoice still proves it was real.
-    // biz-accounting (demoted+paid) + biz-webapps (new purchase) = 3072MB/40GB —
-    // both Medium-tier (the only tier Business plan is eligible for), and the
-    // smallest such pair that still fits the real KVM 2's 3200MB/40GB self-serve
-    // cap. biz-pos-inventory (2048MB) used before this resize, but paired with
-    // ANY other Medium-tier premium item it now exceeds the cap alone.
+    // biz-accounting (demoted+paid, 1536MB) + addon-staging (new purchase,
+    // 512MB) = 2048MB, exactly the self-serve cap.
+    //
+    // This pair used to be biz-accounting + biz-webapps = 3072MB. That is no
+    // longer servable at all: sellableRamMb was corrected 6400 -> 3000 on
+    // 2026-09-05 to match measured free RAM, and 3072 exceeds the entire pool.
+    // Since the smallest Medium-tier items are 1536MB each and everything at
+    // or below 1024MB is Light/Demo tier, NO pair of Medium-tier services fits
+    // any more — a Business account can self-serve exactly one of them.
+    // That is a real product constraint, not a test detail; it is called out
+    // in docs and the capacity block in serviceCatalog.ts.
     const client = makeClient({
       account: {
         plan: "Business",
@@ -521,7 +527,7 @@ const deps = {
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "biz-webapps" }],
+      services: [{ serviceId: "addon-staging" }],
     });
     ok(!!res.invoiceDocName, "a demoted row is rescued by the invoice signal, not permanently blocked");
   }
@@ -619,18 +625,23 @@ const deps = {
 
   section("FIX ROUND 3 — the fallback runs AT MOST ONCE per order, even with multiple services");
   {
-    // biz-accounting + biz-webapps = 3072MB/40GB — both Medium-tier, the
-    // smallest pair that fits the real KVM 2's 3200MB/40GB self-serve cap
-    // (biz-crm-helpdesk in the original pairing pushed this to 3584MB, over
-    // the cap after the resize — swapped, not weakened: still two premium,
-    // non-volume services in one order, still needs the P-fallback for both).
+    // biz-accounting (1536MB) + addon-staging (512MB) = 2048MB, exactly the
+    // self-serve cap.
+    //
+    // This IS weakened, and deliberately so — say it rather than hide it. The
+    // scenario wants two *premium* services in one order, but the smallest
+    // premium pair is 3072MB and sellableRamMb is now 3000 (corrected from
+    // 6400 on 2026-09-05 to match measured free RAM). Two premium services in
+    // one order is no longer expressible on this box at any coherent cap.
+    // What still holds, and is what this test actually asserts: a multi-service
+    // order scans the paid-invoice history exactly once, not once per service.
     const client = makeClient({
       account: { plan: "Business", selected_services: [] },
       paidInvoices: [{ name: "PINV-1", services: [{ service_id: "biz-pos-inventory" }] }],
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "biz-accounting" }, { serviceId: "biz-webapps" }],
+      services: [{ serviceId: "biz-accounting" }, { serviceId: "addon-staging" }],
     });
     ok(!!res.invoiceDocName, "multi-service order with a rescuable history succeeds");
     ok(client.listCalls.length === 1, "the paid-invoice list scan ran exactly once for the whole order, not once per service");
@@ -844,21 +855,32 @@ const deps = {
 
   section("FLEET CAPACITY — an add-on is refused when the box is full");
   {
-    // 5000MB already committed fleet-wide; biz-erp-light is 2048MB, and the
-    // threshold is 85% of 6400 = 5440. Before the fleet gate reached this
-    // path, only the per-order 3200MB cap applied — so an unlimited number of
-    // customers could each buy a 2048MB service onto a box with room for three.
+    // 2000MB already committed fleet-wide; the threshold is 85% of
+    // sellableRamMb = 85% of 3000 = 2550. Adding starter-db-light (768MB)
+    // crosses it -> 409.
+    //
+    // Numbers rescaled with sellableRamMb 6400 -> 3000 (2026-09-05). The
+    // shapes had to change, not just the constants: the old scenario bought
+    // biz-erp-light (2048MB) on top of an active starter-app-hosting
+    // (1024MB), which now sums to 3072MB and trips the 2048MB per-order cap
+    // with a 422 BEFORE the fleet gate is ever consulted — testing the wrong
+    // guard. The footprint is kept under the per-order cap so that this
+    // exercises the fleet gate specifically, which is the point of the case.
+    //
+    // The original point still stands: without the fleet gate, only the
+    // per-order cap would apply, so unlimited customers could each buy onto a
+    // box with room for a couple.
     const client = makeClient({
       account: {
         plan: "Business",
         selected_services: [{ service_id: "starter-app-hosting", status: "Active" }],
       },
-      fleetReservedMb: 5000,
+      fleetReservedMb: 2000,
     });
     await throws(
       () => createAddonInvoice({
         client, webAccountName: "acct-1", deps,
-        services: [{ serviceId: "biz-erp-light" }],
+        services: [{ serviceId: "starter-db-light" }],
       }),
       409, "add-on purchase on a full box is refused"
     );

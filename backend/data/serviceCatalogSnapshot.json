@@ -7,9 +7,9 @@
     "totalDiskGb": 100,
     "vcpu": 2,
     "bandwidthTb": 8,
-    "sellableRamMb": 6400,
-    "sellableDiskGb": 80,
-    "selfServeOrderRamCapMb": 3200,
+    "sellableRamMb": 3000,
+    "sellableDiskGb": 45,
+    "selfServeOrderRamCapMb": 2048,
     "selfServeOrderDiskCapGb": 40
   },
   "items": {

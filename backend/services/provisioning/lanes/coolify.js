@@ -25,7 +25,26 @@ const appDomain = require("../appDomain");
 // Fallbacks match the box we sell today so this never divides by zero if the
 // snapshot is missing a field.
 const BOX_VCPU = Number(CAPACITY?.vcpu) > 0 ? Number(CAPACITY.vcpu) : 2;
-const BOX_SELLABLE_RAM_MB = Number(CAPACITY?.sellableRamMb) > 0 ? Number(CAPACITY.sellableRamMb) : 6400;
+
+// CPU quotas are proportioned against THIS figure, deliberately NOT
+// sellableRamMb.
+//
+// They used to be the same number, which coupled two unrelated things. When
+// sellableRamMb was corrected 6400 -> 3000 on 2026-09-05 to match measured
+// free RAM, that coupling would have roughly DOUBLED every container's CPU
+// ceiling as a side effect: a 1536MB tenant would jump from 0.48 to 1.02 of
+// the box's 2 vCPU. On a box that also runs a live map product (OSRM +
+// tileserver), handing tenants twice the CPU headroom is a good way to starve
+// it — and nothing about correcting a RAM figure should change CPU policy.
+//
+// The RAM pool shrank because non-sellable workloads consume it. Those same
+// workloads consume CPU too, so the sellable RAM pool is the wrong
+// denominator for a CPU share of the whole box.
+//
+// Pinned at 6400 to preserve the behaviour these quotas were tuned for.
+// Changing it is a deliberate CPU-policy decision — make it on purpose, with
+// measurements, not as a side effect of a RAM edit.
+const CPU_QUOTA_DENOMINATOR_MB = 6400;
 
 const DEFAULT_RAM_MB = 256;
 const MIN_CPUS = 0.25; // never starve a container below a quarter-core
@@ -56,7 +75,7 @@ function resourceLimits(job) {
   const ramMb = Math.max(Number(job?.ram_mb) || DEFAULT_RAM_MB, DEFAULT_RAM_MB);
   const diskGb = Number(job?.disk_gb) > 0 ? Number(job.disk_gb) : 0;
 
-  const rawCpus = (ramMb / BOX_SELLABLE_RAM_MB) * BOX_VCPU;
+  const rawCpus = (ramMb / CPU_QUOTA_DENOMINATOR_MB) * BOX_VCPU;
   const cpus = Math.round(clamp(rawCpus, MIN_CPUS, BOX_VCPU) * 100) / 100;
 
   const envPids = Number(process.env.COOLIFY_PIDS_LIMIT);
