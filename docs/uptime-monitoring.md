@@ -146,6 +146,36 @@ Record who got the alert and how long it took. If nobody got one, the
 monitoring is decorative. This is the Week 4 go/no-go item — do it before
 launch, not after the first real outage.
 
+### Result of the 2026-09-05 test — passed
+
+The container was stopped deliberately and every layer fired.
+
+| Time (UTC) | Event |
+|---|---|
+| ~09:33 | container stopped on purpose |
+| 09:34:08 | outage confirmed externally — all four URLs `503`, keyword absent |
+| 09:34:36 | Layer 1 filed issue #17, naming each failing host |
+| ~09:37 | Layer 2 email: `website.murzaktech.tech` DOWN |
+| ~09:38 | Layer 2 email: `Keyword on murzaktech.tech` DOWN |
+| ~09:43 | container restarted |
+| 09:44:15 | all four URLs `200`, keywords present |
+
+**Detection latency: 4–5 minutes** on the paging layer, consistent with the
+free tier's 5-minute interval. Alerts reached the account owner's inbox.
+
+Two details worth keeping:
+
+- The watchdog's **DNS check correctly stayed green** while the HTTP checks
+  failed. The checks discriminate rather than collapsing together, so the
+  alert says *"the container is down"* and not merely *"something is wrong"*.
+- It captured Traefik's upstream text, `no available server`, which
+  distinguishes "route exists, no healthy backend" from a routing or DNS
+  fault. That distinction is the difference between a two-minute fix and an
+  hour of guessing.
+
+Re-run this after any change to the alerting setup. A monitoring stack that
+has not alerted recently is an untested one.
+
 ## Recovering from a watchdog alert
 
 1. Is it real? `curl -sSI https://murzaktech.tech` from your own machine.
