@@ -44,8 +44,28 @@ export type CapacityClass = "volume" | "premium" | "scalable" | "dedicated";
  * hPanel 2026-08-15; an earlier "KVM 4" figure here was wrong on every axis
  * by exactly 2x and went uncaught until an infra audit compared it against
  * the actual server).
- * `sellable*` = what's left after OS + control plane + backups overhead
- * (kept at the same ~78%/80% fraction of the box the original sizing used).
+ * `sellable*` = what is ACTUALLY free on the box, measured — not a fraction.
+ *
+ * These were previously derived by keeping "the same ~78%/80% fraction of the
+ * box the original sizing used". That is how they went wrong: the fraction was
+ * inherited from the KVM 4 sizing and rescaled, while nobody checked what the
+ * box had free. It reserved ~1.8GB for overhead when the real non-sellable
+ * load is ~4.3GB, so the gate would commit ~2GB more RAM than existed — and
+ * with no swap that is the OOM killer, not slowness.
+ *
+ * Measured on the box 2026-09-05 (`free -m`, `df -h`, `docker stats`):
+ *   RAM   7,941MB total, ~4,300MB consumed, ~3,500MB free
+ *         consumers: OSRM 887MB, tileserver 453MB, Coolify stack ~450MB,
+ *         minio, other tenants. The Murzak app itself is only ~71MB.
+ *   Disk  96GB total, 40GB used, 57GB free
+ *
+ * The figures below sit deliberately BELOW measured-free, leaving headroom:
+ * the provisioning gate auto-commits 85% of sellableRamMb by default, so
+ * 3,000 commits up to 2,550 against ~3,500 free.
+ *
+ * Re-measure before raising these. Growing capacity means moving the map
+ * stack (OSRM + tileserver, ~1.34GB, a live product on maps./shipstack.) off
+ * this box, or a bigger node — NOT editing these numbers upward.
  * Used for internal capacity tracking so we don't oversell beyond the hardware.
  * NOTE: white-label — never surface the upstream provider name to customers.
  */
@@ -55,9 +75,9 @@ export const SERVER_CAPACITY = {
   totalDiskGb: 100,
   vcpu: 2,
   bandwidthTb: 8,
-  // ~1.8GB RAM and ~20GB disk reserved for OS/panel/proxy/backups
-  sellableRamMb: 6400,
-  sellableDiskGb: 80,
+  // Measured-free minus headroom (see above), NOT a fraction of the total.
+  sellableRamMb: 3000,
+  sellableDiskGb: 45,
   // Approx wholesale cost to cover (KES/mo) — used to sanity-check margin.
   // NOT re-verified against the KVM 2's actual price during this resize —
   // confirm with Hostinger billing before trusting margin math against this.
@@ -1363,14 +1383,27 @@ export function cloudLaunchCatalog(): Record<CloudLaunchCategory, ServiceItem[]>
 // =====================================================================
 
 // A single self-serve tenant shouldn't eat more than ~half the sellable box.
-// NOTE: on the real KVM 2 (see SERVER_CAPACITY), this halves what it was
-// calibrated for on the previously-assumed KVM 4. biz-erp-configured and
-// biz-db-medium (4096MB each) now individually exceed this cap alone —
-// they can no longer be self-served as a single line item on this box.
-// That's a pricing/product call (shrink their footprint, make them
-// quote-only like the ent-* dedicated tier, or upgrade the box), not
-// something this file should decide silently.
-export const SELF_SERVE_ORDER_RAM_CAP_MB = 3200; // 3.2 GB
+//
+// That rule and the product no longer both fit, and this constant is where
+// the conflict shows up. When sellableRamMb was corrected 6400 -> 3000 to
+// match measured free RAM (2026-09-05), the old 3200 cap became incoherent:
+// one order could claim MORE than the entire sellable pool. But applying the
+// "half" rule literally would mean 1500MB, which pushes 13 of 35 services off
+// self-serve — including biz-erp-light, biz-pos-inventory, biz-crm-helpdesk,
+// biz-accounting and biz-web-hosting. That is gutting the catalog, not sizing
+// it.
+//
+// 2048 is the compromise: coherent (below sellableRamMb, so a single order can
+// never exceed the pool) and product-neutral (the same two services exceed it
+// as before — biz-erp-configured and biz-db-medium at 4096MB each). The cost
+// is that one tenant can now take ~68% of the box rather than ~50%.
+//
+// This is a real trade-off, not a settled answer: on a box this small you
+// cannot have both "no tenant takes half" and "the business products stay
+// self-serve". Resolving it properly means shrinking those footprints, making
+// them quote-only like the ent-* dedicated tier, or getting a bigger box —
+// a pricing/product call, not something this file should decide silently.
+export const SELF_SERVE_ORDER_RAM_CAP_MB = 2048; // 2 GB
 export const SELF_SERVE_ORDER_DISK_CAP_GB = 40; // 40 GB
 
 export function serviceFootprint(svc: ServiceItem): { ramMb: number; diskGb: number } {

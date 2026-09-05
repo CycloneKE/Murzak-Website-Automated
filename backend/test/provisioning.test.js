@@ -117,7 +117,7 @@ const okLane = {
   ok(catalog.laneFor(catalog.getServiceMeta("addon-priority-support")) === "manual", "zero-footprint addon -> manual lane, not a fake coolify build");
   ok(catalog.laneFor(catalog.getServiceMeta("starter-web-hosting")) === "coolify", "real-footprint volume product still routes to coolify (no regression)");
   ok(catalog.laneFor(catalog.getServiceMeta("starter-storage")) === "objectStorage", "File Storage -> objectStorage lane, not coolify (no fake container)");
-  ok(capacity.thresholdMb() === 5440, "RAM threshold = 5440MB (85% of 6400)");
+  ok(capacity.thresholdMb() === 2550, "RAM threshold = 2550MB (85% of 3000)");
 
   // The whole E2E suite shares one backend process/mock capacity pool, and
   // unpaid Draft checkout orders reserve RAM for 30 minutes with nothing
@@ -132,7 +132,7 @@ const okLane = {
     ok(capacity.thresholdMb() === Infinity, "E2E_TEST=true -> capacity gate disabled outright");
     ok(capacity.gateExceeded({ reserved: 999999, ramMb: 999999 }) === false, "…so gateExceeded never trips, no matter how much is reserved");
     if (prevE2E === undefined) delete process.env.E2E_TEST; else process.env.E2E_TEST = prevE2E;
-    ok(capacity.thresholdMb() === 5440, "restoring the env afterward restores the real threshold (no leakage into later tests)");
+    ok(capacity.thresholdMb() === 2550, "restoring the env afterward restores the real threshold (no leakage into later tests)");
   }
 
   section("runner state machine");
