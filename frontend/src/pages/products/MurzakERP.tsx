@@ -22,7 +22,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       bullets: [
         "Auto-generated general ledger from every sale, purchase, and journal entry, so you can drill down to trace any transaction",
         "Multi-currency, multi-branch chart of accounts with consolidated reporting",
-        "VAT/PAYE-ready tax ledgers, plus KRA eTIMS integration",
+        "VAT/PAYE-ready tax ledgers, with KRA eTIMS available once your business is registered with KRA",
         "Real-time Balance Sheet, P&L, Trial Balance, and Cash Flow reports",
       ],
     },
@@ -78,7 +78,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   const faqs: FaqItem[] = [
-    { q: "Is it compliant with Kenyan tax laws?", a: "Yes. Murzak ERP is configured for Kenyan VAT, PAYE, NSSF, NHIF, and can be integrated with KRA eTIMS." },
+    { q: "Is it compliant with Kenyan tax laws?", a: "Murzak ERP is configured for Kenyan VAT, PAYE and statutory payroll deductions. KRA eTIMS is supported through the Navari eTIMS integration, which we set up for you — note that KRA issues the branch ID and device credentials to your business directly, so eTIMS goes live once that registration is complete. We'll guide you through it." },
     { q: "How long does implementation take?", a: "A basic setup takes a few days. Full implementation with data migration and training typically takes 2-4 weeks depending on complexity." },
     { q: "Can we migrate our data from spreadsheets?", a: "Yes. Our implementation team handles data migration from Excel, CSV, or legacy systems like QuickBooks and Sage." },
     { q: "Who owns our data?", a: "You do. You can export your data at any time, and we never lock you in." },
@@ -201,7 +201,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               </div>
               <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
                 <span className="font-bold text-slate-100">KRA eTIMS Integration</span>
-                <span className="text-murzak-accent text-sm">Configured</span>
+                <span className="text-murzak-accent text-sm">Set up on request</span>
               </div>
               <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl">
                 <span className="font-bold text-slate-100">PAYE & NHIF Rates</span>
@@ -212,7 +212,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
           <div className="order-1 lg:order-2">
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Built for Kenyan compliance.</h2>
             <p className="text-slate-500 font-medium leading-relaxed mb-6">
-              Forget clunky workarounds. Murzak ERP comes pre-configured with Kenyan tax laws, statutory deductions for payroll, and supports eTIMS API integrations out of the box.
+              Forget clunky workarounds. Murzak ERP comes pre-configured with Kenyan tax rules and statutory payroll deductions, and we handle the KRA eTIMS integration setup with you — KRA issues your branch and device credentials, and we take it from there.
             </p>
           </div>
         </div>
