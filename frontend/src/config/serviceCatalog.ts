@@ -78,10 +78,24 @@ export const SERVER_CAPACITY = {
   // Measured-free minus headroom (see above), NOT a fraction of the total.
   sellableRamMb: 3000,
   sellableDiskGb: 45,
-  // Approx wholesale cost to cover (KES/mo) — used to sanity-check margin.
-  // NOT re-verified against the KVM 2's actual price during this resize —
-  // confirm with Hostinger billing before trusting margin math against this.
-  wholesaleKesPerMonth: 3000,
+  // Wholesale cost to cover (KES/mo) — used to sanity-check margin.
+  //
+  // VERIFIED 2026-09-05 against Hostinger's billing API, not estimated:
+  // GET /api/billing/v1/subscriptions returns the KVM 2 subscription
+  // (id AzqNfXVJ9a0T93BFJ) at USD 203.88/year, auto-renewing at the same
+  // price, next billed 2027-04-25. That is USD 16.99/mo, and at the app's
+  // configured KES_TO_USD_RATE of 0.00775 (1 USD = 129.03 KES) it is
+  // KES 2,192/mo.
+  //
+  // The previous value of 3000 was a placeholder carrying an explicit
+  // "not re-verified" warning; it overstated cost by ~27%, so every margin
+  // figure checked against it was pessimistic.
+  //
+  // FX EXPOSURE, worth knowing: the box is billed in USD while revenue is in
+  // KES, and KES_TO_USD_RATE is a static env value with no live feed. A
+  // weakening shilling raises this cost in KES terms while retail prices stay
+  // fixed. Re-check this figure whenever that rate is updated.
+  wholesaleKesPerMonth: 2192,
 } as const;
 
 export type ServiceOption = {
