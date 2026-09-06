@@ -35,6 +35,19 @@ function pull(block, key) {
   return m[2] !== undefined ? m[2] : Number(m[3]);
 }
 
+// matches  key: ["a", "b"]  — string arrays, order preserved.
+// Separate from pull() because that only handles scalars; benchApps is a list
+// and its ORDER is meaningful (apps install in sequence, dependencies first).
+function pullArray(block, key) {
+  const m = block.match(new RegExp(`${key}\\s*:\\s*\\[([^\\]]*)\\]`));
+  if (!m) return undefined;
+  const items = m[1]
+    .split(",")
+    .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+    .filter(Boolean);
+  return items.length ? items : undefined;
+}
+
 // matches  export const NAME = 1234  (top-level numeric constant)
 function pullConst(text, name) {
   const m = text.match(new RegExp(`${name}\\s*=\\s*([0-9]+)`));
@@ -79,6 +92,8 @@ function main() {
     // deploy the customer's own repo — provisioning needs this to attach the
     // repo URL to the job.
     const requiresRepo = /requiresRepo\s*:\s*true/.test(block);
+    // Bench lane: which Frappe apps this tenant's site needs, in install order.
+    const benchApps = pullArray(block, "benchApps");
 
     // Skip anything that isn't a real catalog service (must at least name itself).
     if (!name || !category || !capacityClass) continue;
@@ -95,6 +110,7 @@ function main() {
       monthlyKes: monthlyKes == null ? 0 : Number(monthlyKes),
       setupKes: setupKes == null ? 0 : Number(setupKes),
       requiresRepo,
+      ...(benchApps ? { benchApps } : {}),
       ...(mailboxes == null ? {} : { mailboxes: Number(mailboxes) }),
     };
   }
