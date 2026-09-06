@@ -128,6 +128,29 @@ export type ServiceOption = {
   };
 
   /**
+   * Bench lane only — the Frappe apps this product's tenant site needs, in
+   * install order (erpnext first; app dependencies before dependents).
+   *
+   * Exists because the provisioning script has to know what to install and the
+   * catalogue previously declared only RAM. Without it, `bench new-site` would
+   * have to hardcode a product->app map somewhere outside the catalogue, which
+   * is how the techsavanna_pos / kenya_compliance dependency went unnoticed
+   * (see that app's hooks.py).
+   *
+   * Every app named here MUST already exist on the bench — the bench app set is
+   * the menu, a per-site install is the order. Adding a NEW app to the bench
+   * requires a restart that briefly interrupts every existing tenant, so
+   * introducing an app here is a scheduled operation, not a catalogue edit.
+   *
+   * Deliberately absent on biz-webapps and biz-db-medium: both route to the
+   * bench lane via capacityClass "premium", but neither is a Frappe product
+   * (generic web-app hosting and dedicated database hosting respectively).
+   * Leaving this undefined makes provisioning escalate rather than build a
+   * meaningless ERPNext site — see the lane-routing note in provisioning.
+   */
+  benchApps?: string[];
+
+  /**
    * Email Hosting only — mailboxes this product entitles the account to, so the
    * portal can ENFORCE the allowance. The "Up to 5 mailboxes" highlight is
    * marketing copy and can't be enforced; this can.
@@ -322,6 +345,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "15GB NVMe", cpu: "1 vCPU", bandwidth: "Fair-use", backups: "Daily snapshot", sla: "Best effort" },
       resources: { ramMb: 2048, diskGb: 15 },
+      benchApps: ["erpnext"],
       pricing: { model: "included", monthlyKes: 0 },
       highlights: ["Sample company data", "All core modules", "Reset anytime"],
       sortOrder: 20,
@@ -335,6 +359,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "1GB", storage: "10GB NVMe", cpu: "1 vCPU", bandwidth: "Fair-use", backups: "None", sla: "Best effort" },
       resources: { ramMb: 1024, diskGb: 10 },
+      benchApps: ["erpnext"],
       pricing: { model: "included", monthlyKes: 0 },
       sortOrder: 30,
     },
@@ -556,6 +581,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "15GB NVMe", cpu: "1 vCPU", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
       resources: { ramMb: 1536, diskGb: 15 },
+      benchApps: ["erpnext", "hrms", "csf_ke"],
       pricing: { model: "addon", monthlyKes: 3000, setupKes: 1500 },
       highlights: ["Payroll runs", "Leave & attendance", "Managed updates"],
       sortOrder: 60,
@@ -577,6 +603,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "20GB NVMe", cpu: "1–2 vCPU", bandwidth: "Generous", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 20 },
+      benchApps: ["erpnext", "hrms", "csf_ke"],
       pricing: { model: "addon", monthlyKes: 6000, setupKes: 5000 },
       highlights: ["Managed Murzak ERP", "Daily backups", "SSL + custom domain", "Email support"],
       sortOrder: 10,
@@ -590,6 +617,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "4GB", storage: "40GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 4096, diskGb: 40 },
+      benchApps: ["erpnext", "hrms", "csf_ke"],
       pricing: { model: "addon", monthlyKes: 12000, setupKes: 12000 },
       highlights: ["Configured to your workflows", "Data migration included", "KE tax & compliance", "Priority support"],
       sortOrder: 20,
@@ -603,6 +631,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 25 },
+      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
       pricing: { model: "addon", monthlyKes: 4500, setupKes: 3000 },
       highlights: ["Touch POS", "Stock tracking", "Receipts & reports", "M-Pesa-ready"],
       sortOrder: 30,
@@ -616,6 +645,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "20GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 20 },
+      benchApps: ["erpnext"],
       pricing: { model: "addon", monthlyKes: 4000, setupKes: 3000 },
       highlights: ["Pipeline & deals", "Ticketing", "Email integration"],
       sortOrder: 40,
@@ -629,6 +659,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "20GB NVMe", cpu: "1–2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 1536, diskGb: 20 },
+      benchApps: ["erpnext", "csf_ke"],
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Invoicing & ledgers", "Tax reports", "Managed backups"],
       sortOrder: 50,
@@ -682,6 +713,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "1.5GB", storage: "30GB NVMe", cpu: "1–2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 1536, diskGb: 30 },
+      benchApps: ["erpnext"],
       pricing: { model: "addon", monthlyKes: 3500, setupKes: 2000 },
       highlights: ["Versioning", "Access control", "Full-text search"],
       sortOrder: 70,

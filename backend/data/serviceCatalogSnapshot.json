@@ -37,7 +37,10 @@
       "pricingModel": "included",
       "monthlyKes": 0,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext"
+      ]
     },
     "test-crm-demo": {
       "id": "test-crm-demo",
@@ -50,7 +53,10 @@
       "pricingModel": "included",
       "monthlyKes": 0,
       "setupKes": 0,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext"
+      ]
     },
     "starter-web-hosting": {
       "id": "starter-web-hosting",
@@ -246,7 +252,12 @@
       "pricingModel": "addon",
       "monthlyKes": 3000,
       "setupKes": 1500,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "hrms",
+        "csf_ke"
+      ]
     },
     "biz-erp-light": {
       "id": "biz-erp-light",
@@ -259,7 +270,12 @@
       "pricingModel": "addon",
       "monthlyKes": 6000,
       "setupKes": 5000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "hrms",
+        "csf_ke"
+      ]
     },
     "biz-erp-configured": {
       "id": "biz-erp-configured",
@@ -272,7 +288,12 @@
       "pricingModel": "addon",
       "monthlyKes": 12000,
       "setupKes": 12000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "hrms",
+        "csf_ke"
+      ]
     },
     "biz-pos-inventory": {
       "id": "biz-pos-inventory",
@@ -285,7 +306,12 @@
       "pricingModel": "addon",
       "monthlyKes": 4500,
       "setupKes": 3000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "techsavanna_pos",
+        "kenya_compliance"
+      ]
     },
     "biz-crm-helpdesk": {
       "id": "biz-crm-helpdesk",
@@ -298,7 +324,10 @@
       "pricingModel": "addon",
       "monthlyKes": 4000,
       "setupKes": 3000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext"
+      ]
     },
     "biz-accounting": {
       "id": "biz-accounting",
@@ -311,7 +340,11 @@
       "pricingModel": "addon",
       "monthlyKes": 3500,
       "setupKes": 2000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "csf_ke"
+      ]
     },
     "biz-webapps": {
       "id": "biz-webapps",
@@ -350,7 +383,10 @@
       "pricingModel": "addon",
       "monthlyKes": 3500,
       "setupKes": 2000,
-      "requiresRepo": false
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext"
+      ]
     },
     "biz-db-medium": {
       "id": "biz-db-medium",
