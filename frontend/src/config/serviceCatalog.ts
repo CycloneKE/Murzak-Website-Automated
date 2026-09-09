@@ -78,6 +78,28 @@ export const SERVER_CAPACITY = {
   // Measured-free minus headroom (see above), NOT a fraction of the total.
   sellableRamMb: 3000,
   sellableDiskGb: 45,
+
+  // What ONE bench-lane tenant actually costs the shared box.
+  //
+  // Bench tenants are Frappe sites, not containers: they share nine gunicorn/
+  // worker processes and one MariaDB. Measured 2026-09-05 with PSS (shared
+  // pages counted once): the whole Frappe stack was ~1,030MB serving SEVEN
+  // sites — 516MB Python + 416MB MariaDB + redis/socketio. The Python half is
+  // fixed regardless of tenant count, so a new tenant costs roughly its
+  // database: measured 51–148MB on disk, plus 1–5MB of site files.
+  //
+  // The catalogue's per-product ramMb (1,536–4,096) describes CONTAINER
+  // isolation. That is right for the Coolify lane and wrong here by ~10x, and
+  // it was rationing the highest-margin products using the cheapest lane's
+  // economics — one premium tenant fit on the whole box.
+  //
+  // 480MB is the measured ~120MB with 4x headroom, because these seven sites
+  // are near-idle and real tenants add worker memory and DB working set. It
+  // yields ~5 premium tenants against the auto-commit threshold rather than 1.
+  // Override with BENCH_TENANT_RAM_MB / BENCH_TENANT_DISK_GB to retune without
+  // a deploy; re-measure under real load before lowering it.
+  benchTenantRamMb: 480,
+  benchTenantDiskGb: 1,
   // Wholesale cost to cover (KES/mo) — used to sanity-check margin.
   //
   // VERIFIED 2026-09-05 against Hostinger's billing API, not estimated:

@@ -14,6 +14,57 @@ function sellableRamMb() {
   return Number(CAPACITY.sellableRamMb) || 0;
 }
 
+/**
+ * What ONE tenant of this service actually costs the shared box.
+ *
+ * A catalogue item's `ramMb`/`diskGb` describe the product as SOLD — the spec
+ * a customer sees, and an accurate cost for the Coolify lane, where the tenant
+ * really does get its own container.
+ *
+ * The bench lane does not work that way. Its tenants are Frappe sites sharing
+ * nine gunicorn/worker processes and one MariaDB, so a new tenant costs roughly
+ * its own database, not a whole container. Measured 2026-09-05: the entire
+ * Frappe stack was ~1,030MB serving seven sites. Charging those tenants their
+ * declared 1,536–4,096MB overstated them by ~10x and let exactly ONE premium
+ * tenant onto the box — rationing the highest-margin products with the
+ * cheapest lane's economics.
+ *
+ * Keeping the two apart matters: `ramMb` stays the honest customer-facing spec
+ * while the gate charges what the box actually loses. Conflating them is what
+ * produced the original error.
+ */
+function benchTenantRamMb() {
+  const env = Number(process.env.BENCH_TENANT_RAM_MB);
+  if (Number.isFinite(env) && env > 0) return env;
+  return Number(CAPACITY.benchTenantRamMb) || 480;
+}
+
+function benchTenantDiskGb() {
+  const env = Number(process.env.BENCH_TENANT_DISK_GB);
+  if (Number.isFinite(env) && env > 0) return env;
+  return Number(CAPACITY.benchTenantDiskGb) || 1;
+}
+
+/** True when this service is fulfilled as a Frappe site on the shared bench. */
+function isBenchLane(meta) {
+  return meta?.capacityClass === "premium";
+}
+
+/**
+ * Cost charged against the shared box for one unit of this service.
+ * Falls back to the declared footprint for every non-bench lane.
+ */
+function effectiveFootprint(meta) {
+  if (!meta) return { ramMb: 0, diskGb: 0 };
+  if (isBenchLane(meta)) {
+    return { ramMb: benchTenantRamMb(), diskGb: benchTenantDiskGb() };
+  }
+  return {
+    ramMb: Number(meta.ramMb || 0),
+    diskGb: Number(meta.diskGb || 0),
+  };
+}
+
 /** Fraction of sellable RAM we allow to be auto-committed (default 85%). */
 function thresholdPct() {
   const pct = Number(process.env.PROVISIONING_RAM_THRESHOLD_PCT);
@@ -67,4 +118,14 @@ function summary({ reserved, ramMb }) {
   };
 }
 
-module.exports = { sellableRamMb, thresholdPct, thresholdMb, gateExceeded, summary };
+module.exports = {
+  sellableRamMb,
+  thresholdPct,
+  thresholdMb,
+  gateExceeded,
+  summary,
+  benchTenantRamMb,
+  benchTenantDiskGb,
+  isBenchLane,
+  effectiveFootprint,
+};
