@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+#
+# murzak-bench-provision
+#
+# Creates one Frappe tenant site for a paid Provisioning Job. This is the
+# script BENCH_PROVISION_CMD points at — lane B (backend/services/provisioning/
+# lanes/bench.js) execs it with the job in the environment and reads the last
+# line of stdout as JSON.
+#
+# Runs ON THE VPS, as a user that can sudo to the bench owner. The Murzak app
+# runs in a Coolify container and cannot reach /home/murzakerp/frappe-bench
+# directly, so BENCH_PROVISION_CMD inside the container must point at the SSH
+# wrapper (murzak-bench-provision-remote) which calls this. See DEPLOYMENT.
+#
+# CONTRACT WITH THE LANE
+#   in  (env)  JOB_WEB_ACCOUNT   account this tenant belongs to (required)
+#              JOB_SERVICE_ID    catalogue id, e.g. biz-erp-light (required)
+#              JOB_BENCH_APPS    comma-separated apps, install order (required)
+#              JOB_SERVICE_NAME  human label, logging only
+#              JOB_INVOICE       invoice ref, logging only
+#   out (stdout, LAST LINE) {"site":"...","url":"...","admin":"..."}
+#   log (stderr)            everything else
+#
+#   Only the JSON goes to stdout. The lane takes the last stdout line, so a
+#   stray echo would be parsed as the result — every diagnostic below is >&2.
+#
+# IDEMPOTENT. The runner retries, and a half-finished retry must converge:
+# an existing site is adopted rather than recreated, and apps already present
+# are skipped. Re-running for the same account+service is a no-op that still
+# prints the same JSON.
+#
+# Exit codes: 0 ok
+#             2 bad input / missing prerequisite — do NOT retry, escalate
+#             1 operational failure — retryable
+#
+# Deliberately NOT here: DNS and TLS. Tenants live under a wildcard
+# (*.erp.murzaktech.tech) exactly like *.apps.murzaktech.tech, so a new tenant
+# needs no per-site DNS record or certificate. The script VERIFIES the wildcard
+# resolves and refuses if it does not, rather than handing back a URL nobody
+# can reach.
+
+set -euo pipefail
+
+BENCH_DIR="${BENCH_DIR:-/home/murzakerp/frappe-bench}"
+BENCH_USER="${BENCH_USER:-murzakerp}"
+SITE_SUFFIX="${BENCH_SITE_SUFFIX:-erp.murzaktech.tech}"
+
+log()  { printf '%s %s\n' "[$(date -u +%H:%M:%S)]" "$*" >&2; }
+die()  { log "ERROR: $*"; exit "${2:-1}"; }
+# Refusals the runner must not retry: missing config, unknown app, bad input.
+# Retrying these burns the attempt budget and ends in the same place.
+refuse() { log "REFUSED: $*"; exit 2; }
+
+# ---- 1. inputs -------------------------------------------------------------
+[ -n "${JOB_WEB_ACCOUNT:-}" ] || refuse "JOB_WEB_ACCOUNT is empty"
+[ -n "${JOB_SERVICE_ID:-}" ]  || refuse "JOB_SERVICE_ID is empty"
+
+# An empty app set means the catalogue never declared benchApps for this
+# product. That is true of biz-webapps and biz-db-medium, which reach this lane
+# because laneFor() routes every capacityClass "premium" product here even
+# though neither is a Frappe product. Escalate instead of building an ERPNext
+# site for someone who bought a database.
+[ -n "${JOB_BENCH_APPS:-}" ] || refuse \
+  "no benchApps declared for ${JOB_SERVICE_ID} — this product is not a Frappe site; route it off the bench lane"
+
+# ---- 2. site name ----------------------------------------------------------
+# Frappe site names are hostnames: lowercase, alnum and hyphen, no leading or
+# trailing hyphen. Account ids are not guaranteed to be any of that.
+slug="$(printf '%s' "$JOB_WEB_ACCOUNT" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -e 's/[^a-z0-9-]/-/g' -e 's/-\{2,\}/-/g' -e 's/^-//' -e 's/-$//' \
+  | cut -c1-40)"
+[ -n "$slug" ] || refuse "JOB_WEB_ACCOUNT '${JOB_WEB_ACCOUNT}' has no usable hostname characters"
+SITE="${slug}.${SITE_SUFFIX}"
+log "account=${JOB_WEB_ACCOUNT} service=${JOB_SERVICE_ID} -> site=${SITE}"
+
+# ---- 3. prerequisites ------------------------------------------------------
+[ -d "$BENCH_DIR" ] || refuse "bench directory ${BENCH_DIR} not found"
+
+# bench new-site needs the MariaDB root credential. Socket auth is NOT enabled
+# on this box (verified 2026-09-05: `sudo mysql` fails with access denied), so
+# the password must be supplied. Refuse loudly rather than let bench sit on an
+# interactive prompt until the runner's 10-minute timeout kills it.
+[ -n "${BENCH_DB_ROOT_PASSWORD:-}" ] || refuse \
+  "BENCH_DB_ROOT_PASSWORD is unset and MariaDB has no socket auth — bench new-site cannot create a database"
+
+# The wildcard must resolve or the tenant gets a URL that goes nowhere.
+if command -v getent >/dev/null 2>&1; then
+  probe="prov-check.${SITE_SUFFIX}"
+  getent ahostsv4 "$probe" >/dev/null 2>&1 || refuse \
+    "*.${SITE_SUFFIX} does not resolve (probed ${probe}) — add the wildcard A record before selling bench tenants"
+fi
+
+benchctl() { sudo -u "$BENCH_USER" bash -lc "cd '$BENCH_DIR' && $*"; }
+
+# Every requested app must already be on the bench. Adding one is a scheduled
+# operation, not something to do mid-provision: `bench get-app` pip-installs
+# into the shared virtualenv and the new app is not importable until the
+# workers restart, which briefly 500s EVERY existing tenant (observed
+# 2026-09-05 installing hrms). So refuse, and let a human schedule it.
+IFS=',' read -r -a APPS <<< "$JOB_BENCH_APPS"
+for app in "${APPS[@]}"; do
+  [ -n "$app" ] || continue
+  [ -d "${BENCH_DIR}/apps/${app}" ] || refuse \
+    "app '${app}' is not installed on this bench — installing it needs a worker restart that interrupts every tenant; schedule it, then re-run"
+done
+
+# ---- 4. create the site (idempotent) ---------------------------------------
+ADMIN_PASSWORD=""
+if benchctl "ls sites/'$SITE'/site_config.json" >/dev/null 2>&1; then
+  log "site already exists — adopting it, not recreating"
+else
+  # Generated per tenant; returned in the JSON so the portal can surface it
+  # once. Never logged.
+  ADMIN_PASSWORD="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | cut -c1-16)"
+  log "creating site"
+  # --no-mariadb-socket keeps bench on password auth, matching this box.
+  # Password is passed through the environment, never on the command line,
+  # so it cannot appear in ps output or the runner's captured log.
+  if ! BENCH_ADMIN_PW="$ADMIN_PASSWORD" DBRP="$BENCH_DB_ROOT_PASSWORD" \
+       sudo -u "$BENCH_USER" --preserve-env=BENCH_ADMIN_PW,DBRP bash -lc \
+       "cd '$BENCH_DIR' && bench new-site '$SITE' \
+          --db-root-password \"\$DBRP\" \
+          --admin-password \"\$BENCH_ADMIN_PW\" \
+          --no-mariadb-socket" >&2; then
+    die "bench new-site failed for ${SITE} (retryable)"
+  fi
+fi
+
+# ---- 5. install apps, in order, skipping any already present ---------------
+installed="$(benchctl "bench --site '$SITE' list-apps" 2>/dev/null | awk '{print $1}' || true)"
+for app in "${APPS[@]}"; do
+  [ -n "$app" ] || continue
+  if printf '%s\n' "$installed" | grep -qx "$app"; then
+    log "app ${app} already installed — skipping"
+    continue
+  fi
+  log "installing ${app}"
+  benchctl "bench --site '$SITE' install-app '$app'" >&2 \
+    || die "install-app ${app} failed on ${SITE} (retryable)"
+done
+
+# ---- 6. verify before claiming success -------------------------------------
+final="$(benchctl "bench --site '$SITE' list-apps" 2>/dev/null | awk '{print $1}' || true)"
+for app in "${APPS[@]}"; do
+  [ -n "$app" ] || continue
+  printf '%s\n' "$final" | grep -qx "$app" \
+    || die "post-check: ${app} still missing from ${SITE} after install (retryable)"
+done
+log "verified apps on ${SITE}: $(printf '%s' "$final" | tr '\n' ' ')"
+
+# ---- 7. result -------------------------------------------------------------
+# THE only stdout line. admin is empty on an adopted site — we do not know the
+# existing password and must not invent one.
+printf '{"site":"%s","url":"https://%s","admin":"%s"}\n' \
+  "$SITE" "$SITE" "$ADMIN_PASSWORD"
