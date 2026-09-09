@@ -16,6 +16,7 @@
  */
 
 const { execFile } = require("child_process");
+const { getServiceMeta } = require("../catalog");
 
 function cmdFor(opts) {
   // Additional boxes carry their own benchCmd in PROVISIONING_TARGETS; box-1
@@ -49,6 +50,14 @@ function provision(job, opts) {
       JOB_RAM_MB: String(job.ram_mb || ""),
       JOB_DISK_GB: String(job.disk_gb || ""),
       JOB_TARGET: String(opts?.target?.id || "box-1"),
+      // Which Frappe apps this product's site needs, comma-separated and in
+      // install order. Resolved here rather than on the box so the catalogue
+      // stays the single source of truth — shipping a second copy of the
+      // snapshot to the VPS would drift the moment either side changed.
+      // Empty for a product with no declared app set, which the script treats
+      // as "escalate", not "install nothing" (see biz-webapps / biz-db-medium,
+      // which reach this lane via capacityClass but are not Frappe products).
+      JOB_BENCH_APPS: (getServiceMeta(String(job.service_id || ""))?.benchApps || []).join(","),
     };
 
     execFile(
