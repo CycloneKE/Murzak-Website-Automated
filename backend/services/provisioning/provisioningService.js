@@ -16,6 +16,7 @@
  */
 
 const { getServiceMeta, laneFor, CAPACITY } = require("./catalog");
+const { effectiveFootprint } = require("./capacity");
 const { JOB_DOCTYPE } = require("./constants");
 const { isValidRepoUrl } = require("../../utils/repoUrl");
 const dbPortAllocator = require("./dbPortAllocator");
@@ -170,8 +171,12 @@ function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
     lane,
     status: "queued",
     attempts: 0,
-    ram_mb: meta?.ramMb || 0,
-    disk_gb: meta?.diskGb || 0,
+    // What this tenant costs the box, not what the catalogue advertises.
+    // getReservedRamMb sums these rows for the fleet gate, so writing the
+    // declared (container-sized) figure for a bench tenant would reserve ~10x
+    // the RAM it actually uses — the read and write sides must agree.
+    ram_mb: effectiveFootprint(meta).ramMb,
+    disk_gb: effectiveFootprint(meta).diskGb,
     target: "box-1",
     backup_status: "pending",
     ...unknownService,

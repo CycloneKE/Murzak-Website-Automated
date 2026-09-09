@@ -7,6 +7,9 @@
 // uses. Fleet-level oversell across tenants is gated separately at provisioning.
 
 const { getServiceMeta, CAPACITY } = require("./provisioning/catalog");
+// Safe at top level: capacity.js requires only ./catalog (a leaf), unlike
+// provisioningService below which is required lazily to avoid a cycle.
+const { effectiveFootprint } = require("./provisioning/capacity");
 
 // Cap precedence: env override → catalog snapshot (single source of truth,
 // generated from serviceCatalog.ts) → hardcoded fallback. Reading the snapshot
@@ -26,8 +29,14 @@ function capDiskGb() {
   return 40; // 40 GB
 }
 
-// Sum the real RAM/disk footprint of a selection. Unknown ids contribute 0
+// Sum what a selection actually costs the shared box. Unknown ids contribute 0
 // (they carry no measurable footprint in the snapshot).
+//
+// Uses effectiveFootprint, NOT the raw ramMb/diskGb: bench-lane tenants share
+// processes and one MariaDB, so charging them the container-sized figure the
+// catalogue advertises overstated them by ~10x and capped the box at a single
+// premium tenant. Coolify-lane items are unaffected — for them the declared
+// footprint IS the cost.
 function orderFootprint(selectedServices = []) {
   let ramMb = 0;
   let diskGb = 0;
@@ -35,8 +44,9 @@ function orderFootprint(selectedServices = []) {
     const id = typeof s === "string" ? s : s?.serviceId || s?.service_id;
     const meta = id ? getServiceMeta(String(id)) : null;
     if (meta) {
-      ramMb += Number(meta.ramMb || 0);
-      diskGb += Number(meta.diskGb || 0);
+      const eff = effectiveFootprint(meta);
+      ramMb += eff.ramMb;
+      diskGb += eff.diskGb;
     }
   }
   return { ramMb, diskGb };
