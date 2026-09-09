@@ -1395,7 +1395,8 @@ export type CloudLaunchCategory =
   | "Database Hosting"
   | "Storage"
   | "E-Signature"
-  | "Invoicing";
+  | "Invoicing"
+  | "Scheduling";
 
 export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Website Hosting",
@@ -1404,6 +1405,14 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Storage",
   "E-Signature",
   "Invoicing",
+  // Scheduling (Cal.com) shipped as a catalog product on 2026-08-17 without
+  // being added here, so until now it was purchasable ONLY through the plan
+  // configurator and never appeared on the instant-checkout storefront
+  // beside E-Signature and Invoicing — the two products it is identical to
+  // in shape (volume class, addon pricing, a curated app the coolify lane
+  // builds end-to-end). Adding a curated-app product to the catalog means
+  // adding its category here too, or the storefront silently can't sell it.
+  "Scheduling",
 ];
 
 /** Every self-serve, instantly-provisioned resource, grouped by category. */
