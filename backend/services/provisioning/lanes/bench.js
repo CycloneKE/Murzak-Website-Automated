@@ -7,7 +7,13 @@
  * via environment variables and must:
  *   - be idempotent (safe to re-run for the same site), and
  *   - print a final JSON line like {"site":"acme.erp.murzak…","url":"…","admin":"…"}
- *     on success.
+ *     on success, and
+ *   - signal retryability through its EXIT CODE (see below).
+ *
+ * Exit-code contract, as declared by deploy/vps/bin/murzak-bench-provision:
+ *   0  success
+ *   2  bad input / missing prerequisite — do NOT retry, escalate to a human
+ *   1  operational failure — retryable
  *
  * Required env:
  *   BENCH_PROVISION_CMD   absolute path to the script/playbook wrapper to run
@@ -32,6 +38,21 @@ function configError(opts) {
   if (isConfigured(opts)) return null;
   const where = opts?.target?.id ? ` for target ${opts.target.id}` : "";
   return `Bench lane not configured${where} (missing: BENCH_PROVISION_CMD)`;
+}
+
+/**
+ * Exit code the script uses for "bad input / missing prerequisite — do NOT
+ * retry, escalate". Its refuse() helper exits with this for every condition a
+ * re-run cannot change: a product with no benchApps declared, an app that
+ * isn't on the bench yet, a missing JOB_WEB_ACCOUNT, a wildcard DNS record
+ * that doesn't resolve.
+ */
+const EXIT_DO_NOT_RETRY = 2;
+
+function permanent(message) {
+  const err = new Error(message);
+  err.permanent = true;
+  return err;
 }
 
 /**
@@ -77,8 +98,21 @@ function provision(job, opts) {
           } else if (err.code === "ENOBUFS") {
             reason = "process output exceeded 4MB buffer limit (ENOBUFS)";
           }
+          const message = `bench provision failed: ${reason} ${String(stderr || "").slice(-500)}`.trim();
+          // Honour the script's exit-code contract. Without this every refusal
+          // is retryable, so a job the script has ALREADY said is unfixable —
+          // biz-db-medium having no benchApps, an app not yet on the bench —
+          // burns the full PROVISIONING_MAX_ATTEMPTS budget with exponential
+          // backoff (up to 30 min a round) before a human ever sees it, and
+          // lands in exactly the same needs_human state it would have reached
+          // immediately. The script goes to the trouble of distinguishing
+          // exit 2 from exit 1; the lane has to read it for that to mean
+          // anything.
+          //
+          // err.killed is checked first because a timeout kill leaves code
+          // null and signal set, never 2 — a timeout is genuinely retryable.
           return reject(
-            new Error(`bench provision failed: ${reason} ${String(stderr || "").slice(-500)}`.trim())
+            !err.killed && err.code === EXIT_DO_NOT_RETRY ? permanent(message) : new Error(message)
           );
         }
         // The last JSON line is the machine-readable result; tolerate its absence.
