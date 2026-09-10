@@ -15,6 +15,7 @@ the design and the reasoning behind it.
 | `nginx/00-murzak-apps-map.conf` | `/etc/nginx/conf.d/00-murzak-apps-map.conf` | 0644 root:root |
 | `nginx/apps.murzaktech.tech` | `/etc/nginx/sites-available/apps.murzaktech.tech` | 0644 root:root |
 | `nginx/murzaktech.tech` | `/etc/nginx/sites-available/murzaktech.tech` | 0644 root:root |
+| `bin/murzak-bench-provision` | `/usr/local/bin/murzak-bench-provision` | 0755 root:root |
 | `nginx/murzak-app-proxy.conf` | `/etc/nginx/snippets/murzak-app-proxy.conf` | 0644 root:root |
 | `bin/murzak-app-vhost` | `/usr/local/bin/murzak-app-vhost` | 0755 root:root |
 | `bin/murzak-app-vhost-remove` | `/usr/local/bin/murzak-app-vhost-remove` | 0755 root:root |
@@ -138,6 +139,68 @@ APP_BASE_URL=https://murzaktech.tech
 FREE_SUBDOMAIN_ROOT_DOMAIN=murzaktech.tech
 APP_DOMAIN_BASE=apps.murzaktech.tech
 ```
+
+## Provisioning bench tenants
+
+`bin/murzak-bench-provision` is what `BENCH_PROVISION_CMD` points at. Without
+it the bench lane is enabled-but-unconfigured, and **every premium sale — ERP,
+POS, CRM, the KES 6,000–12,000/mo tier — fails with "Bench lane not
+configured"**. The four sites on the box today were all created by hand.
+
+It runs on the VPS. The app runs in a Coolify container and cannot reach
+`/home/murzakerp/frappe-bench`, so the container-side `BENCH_PROVISION_CMD`
+points at `bin/murzak-bench-provision-remote`, which forwards the job over SSH
+to the host script. Two files, one for each side of that gap.
+
+### Before it can run
+
+Three prerequisites, each of which the script checks and refuses on rather
+than producing a broken tenant:
+
+1. **`BENCH_DB_ROOT_PASSWORD`.** `bench new-site` needs the MariaDB root
+   credential and **socket auth is not enabled on this box** — verified
+   2026-09-05, `sudo mysql` fails with access denied. The password is not in
+   `sites/common_site_config.json` either. **This is the live blocker**: until
+   someone recovers it, no tenant can be created by hand or by script.
+2. **A wildcard DNS record**, `*.erp.murzaktech.tech A -> 187.124.217.78`,
+   plus a matching wildcard certificate and vhost — the same pattern as
+   `*.apps.murzaktech.tech`. Tenants get no per-site DNS or cert; the script
+   probes the wildcard and refuses if it does not resolve.
+3. **Every app in the product's `benchApps` already on the bench.** Adding one
+   mid-provision is not safe: `bench get-app` pip-installs into the shared
+   virtualenv and the app is not importable until the workers restart, which
+   briefly 500s *every* tenant (observed 2026-09-05 installing `hrms`). The
+   script refuses so a human can schedule it.
+
+### Configuring it
+
+On the VPS:
+
+```bash
+sudo install -m 0755 bin/murzak-bench-provision /usr/local/bin/
+```
+
+In the Coolify environment panel for the app, then redeploy:
+
+```
+BENCH_PROVISION_CMD=/usr/local/bin/murzak-bench-provision-remote
+BENCH_SSH_HOST=provisioner@187.124.217.78
+BENCH_SSH_KEY=/run/secrets/bench_provision_key
+BENCH_DB_ROOT_PASSWORD=...
+```
+
+### Contract
+
+The lane execs the script with the job in the environment and **parses the last
+line of stdout as JSON**, so the script writes only its result there and sends
+every diagnostic to stderr. Exit 2 means "do not retry, escalate"; exit 1 is
+retryable; the runner's timeout is `BENCH_PROVISION_TIMEOUT_MS` (default 10
+minutes).
+
+It is idempotent by design, because the runner retries: an existing site is
+adopted rather than recreated, and apps already installed are skipped. The
+`admin` field is empty for an adopted site — the existing password is unknown
+and inventing one would be worse than returning nothing.
 
 ## Deploying a change
 

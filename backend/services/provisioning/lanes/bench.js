@@ -13,9 +13,6 @@
  *   BENCH_PROVISION_CMD   absolute path to the script/playbook wrapper to run
  * Optional:
  *   BENCH_PROVISION_TIMEOUT_MS (default 600000)
- *
- * The script is told WHICH Frappe apps to install via JOB_BENCH_APPS — see
- * benchAppsFor() below.
  */
 
 const { execFile } = require("child_process");
@@ -37,80 +34,11 @@ function configError(opts) {
   return `Bench lane not configured${where} (missing: BENCH_PROVISION_CMD)`;
 }
 
-function permanent(message) {
-  const err = new Error(message);
-  err.permanent = true;
-  return err;
-}
-
-/**
- * Which Frappe apps this tenant's site needs, in install order.
- *
- * Read from the catalog snapshot at dispatch time rather than carried on the
- * Provisioning Job doctype. Both are defensible, but the doctype route is the
- * one with a live incident behind it: every field the runner claims must exist
- * on the INSTALLED doctype or Frappe 417s the whole GET and the runner goes
- * silently dead on every tick, for every job (see CLAIMABLE_JOB_FIELDS in
- * runner.js — that is exactly how repo_url/deployment_history killed
- * provisioning for two days in August). Reading it here needs no doctype
- * migration and cannot take the runner down. It also matches what
- * processJob() already does one frame up the stack: it re-derives `lane` and
- * `capacityClass` from getServiceMeta() at run time.
- *
- * The list is ORDERED — erpnext first, dependencies before dependents — so it
- * is passed through as a comma-separated string, not a set.
- */
-function benchAppsFor(job) {
-  const meta = getServiceMeta(job?.service_id);
-  const apps = Array.isArray(meta?.benchApps) ? meta.benchApps.filter(Boolean) : [];
-  return apps;
-}
-
-/**
- * A bench job with no declared app set is escalated, never built.
- *
- * laneFor() routes on capacityClass alone, so "premium" products that are not
- * Frappe products at all still land here — biz-db-medium (dedicated database
- * hosting) today, biz-webapps (generic web-app hosting) before it was
- * deprecated. Without this check the script would be handed a site to create
- * with no app list and would either fail confusingly or install a bare ERPNext
- * site for a customer who bought a database.
- *
- * The catalog comment on ServiceOption.benchApps has always promised this
- * behaviour ("leaving this undefined makes provisioning escalate rather than
- * build a meaningless ERPNext site") — until now nothing enforced it. Routing
- * by capacityClass is still too coarse; this makes the coarseness safe rather
- * than fixing it.
- *
- * Permanent (not retryable): a re-run cannot conjure an app list, so burning
- * three attempts and 30 minutes of backoff before a human sees it is pure
- * delay.
- */
-function requireBenchApps(job) {
-  const apps = benchAppsFor(job);
-  if (apps.length) return apps;
-  throw permanent(
-    `bench: ${job?.service_id || "(no service id)"} declares no benchApps in the catalog, so there is ` +
-      `nothing to install — refusing to build a bare Frappe site for it. Either this product does not ` +
-      `belong on the bench lane (it is routed here by capacityClass "premium", which is coarser than the ` +
-      `delivery model), or its catalog entry needs a benchApps list. Provision it by hand meanwhile.`
-  );
-}
-
 /**
  * @returns {Promise<{externalRef:string, access:object, log:string}>}
  * @throws when the command exits non-zero (runner converts to retry/escalate).
  */
 function provision(job, opts) {
-  // Resolved BEFORE the promise so a missing app set rejects synchronously
-  // with the permanent flag intact, rather than after a 10-minute exec.
-  let apps;
-  try {
-    apps = requireBenchApps(job);
-  } catch (e) {
-    return Promise.reject(e);
-  }
-
   return new Promise((resolve, reject) => {
     const cmd = cmdFor(opts);
     const env = {
@@ -122,12 +50,14 @@ function provision(job, opts) {
       JOB_RAM_MB: String(job.ram_mb || ""),
       JOB_DISK_GB: String(job.disk_gb || ""),
       JOB_TARGET: String(opts?.target?.id || "box-1"),
-      // Comma-separated, install order preserved. The script must install
-      // these in the order given (erpnext first, dependencies before
-      // dependents) — see docs/frappe-bench-apps.md for the per-app traps,
-      // notably that hrms needs a user-type limit set before it will install
-      // and that every install needs a worker restart to stop the site 500ing.
-      JOB_BENCH_APPS: apps.join(","),
+      // Which Frappe apps this product's site needs, comma-separated and in
+      // install order. Resolved here rather than on the box so the catalogue
+      // stays the single source of truth — shipping a second copy of the
+      // snapshot to the VPS would drift the moment either side changed.
+      // Empty for a product with no declared app set, which the script treats
+      // as "escalate", not "install nothing" (see biz-webapps / biz-db-medium,
+      // which reach this lane via capacityClass but are not Frappe products).
+      JOB_BENCH_APPS: (getServiceMeta(String(job.service_id || ""))?.benchApps || []).join(","),
     };
 
     execFile(
@@ -169,12 +99,4 @@ function provision(job, opts) {
   });
 }
 
-module.exports = {
-  lane: "bench",
-  isConfigured,
-  configError,
-  provision,
-  // Exported for the test suite and for anyone writing the provisioning
-  // script: this is the exact list the script will receive in JOB_BENCH_APPS.
-  benchAppsFor,
-};
+module.exports = { lane: "bench", isConfigured, configError, provision };

@@ -9,6 +9,8 @@
     "bandwidthTb": 8,
     "sellableRamMb": 3000,
     "sellableDiskGb": 45,
+    "benchTenantRamMb": 480,
+    "benchTenantDiskGb": 1,
     "selfServeOrderRamCapMb": 2048,
     "selfServeOrderDiskCapGb": 40
   },

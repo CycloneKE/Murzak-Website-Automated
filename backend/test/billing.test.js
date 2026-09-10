@@ -209,28 +209,55 @@ function baseArgs(extra) {
 
   section("server-side per-order capacity guard");
   {
-    // biz-erp-configured (4096MB) + biz-db-medium (4096MB) = 8192MB > 3200 cap
-    // (each of these now exceeds the cap alone on the real KVM 2 box — this
-    // pairing was already over-cap before the resize too, so the assertion
-    // below is unchanged; it's just no longer the tightest example).
+    // Premium items are BENCH-lane tenants: Frappe sites sharing nine worker
+    // processes and one MariaDB, not containers. They are charged their
+    // measured marginal cost (benchTenantRamMb, 480MB) rather than the
+    // container-sized ramMb the catalogue advertises. Two of them cost
+    // 2 x 480 = 960MB, not the 8192MB the declared figures would suggest.
+    //
+    // This is the fix for a real mispricing: charging the declared figure let
+    // exactly ONE premium tenant onto the box and rationed the highest-margin
+    // products using the Coolify lane's economics. Measured 2026-09-05, the
+    // whole Frappe stack was ~1,030MB serving seven sites.
     const fp = orderFootprint([{ serviceId: "biz-erp-configured" }, { serviceId: "biz-db-medium" }]);
-    ok(fp.ramMb === 8192, `two 4GB premium apps sum to 8192MB (got ${fp.ramMb})`);
+    ok(fp.ramMb === 960, `two premium tenants are charged 2 x 480MB (got ${fp.ramMb})`);
+
+    // ...and consequently a single premium item is now BUYABLE. It was not
+    // before: biz-erp-configured declares 4096MB and was rejected against the
+    // 2048MB cap, which made the KES 12,000/mo flagship unsellable on a box
+    // that could comfortably host it.
+    let singlePremiumOk = true;
+    try {
+      assertOrderWithinCapacity([{ serviceId: "biz-erp-configured" }]);
+    } catch { singlePremiumOk = false; }
+    ok(singlePremiumOk, "a single biz-erp-configured order is accepted (charged 480MB, not 4096MB)");
+
+    // The cap must still bite, or this change would have removed the guard
+    // rather than corrected it. Five premium tenants in ONE order cost
+    // 5 x 480 = 2400MB, over the 2048MB per-order cap.
     await throws(
       () => Promise.resolve().then(() =>
-        assertOrderWithinCapacity([{ serviceId: "biz-erp-configured" }, { serviceId: "biz-db-medium" }])
+        assertOrderWithinCapacity([
+          { serviceId: "biz-erp-configured" }, { serviceId: "biz-erp-light" },
+          { serviceId: "biz-pos-inventory" }, { serviceId: "biz-crm-helpdesk" },
+          { serviceId: "biz-accounting" },
+        ])
       ),
       422,
-      "over-cap order is rejected"
+      "five bench tenants in one order still exceed the per-order cap"
     );
-    // Real consequence of the KVM 2 resize: a SINGLE premium item, on its
-    // own, now exceeds the self-serve cap (4096MB > 3200MB) — it could not
-    // before (4096MB < the old 6144MB cap). Locking this in so a future
-    // capacity resize can't silently widen the cap back past what a lone
-    // premium tenant needs without someone noticing this assertion break.
+
+    // And it still bites on the Coolify lane, where the declared footprint IS
+    // the real cost — 3 x 768MB = 2304MB, over the cap. Proves the change is
+    // lane-aware rather than a blanket discount.
     await throws(
-      () => Promise.resolve().then(() => assertOrderWithinCapacity([{ serviceId: "biz-erp-configured" }])),
+      () => Promise.resolve().then(() =>
+        assertOrderWithinCapacity([
+          { serviceId: "starter-web-hosting" }, { serviceId: "db-postgres" }, { serviceId: "db-mysql" },
+        ])
+      ),
       422,
-      "a single biz-erp-configured order alone is rejected on the real box"
+      "container-lane services are still charged in full and can exceed the cap"
     );
 
     // A single light bundle is well within the cap.
