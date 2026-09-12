@@ -131,9 +131,16 @@ function persistedError(e) {
       // script: it log()s per step and pipes bench's own output to stderr.
       // The verdict is therefore LAST, which is exactly what the runner's
       // head-truncation used to cut off.
+      // The lines are deliberately LONG (240 chars, like a real bench
+      // traceback). An earlier version of this fixture used ~70-char lines and
+      // passed against a lane that still lost the verdict: three short lines
+      // fit inside the 500-char budget by luck, so the assertion proved
+      // nothing. Two 240-char lines are enough to push a chronologically
+      // ordered verdict past the cut.
+      const pad = "x".repeat(240);
       const noisy = scriptWith(
         'i=0\nwhile [ $i -lt 40 ]; do\n' +
-        '  echo "[08:0$i:00] bench: step $i — bench --site acme.erp.murzaktech.tech install-app erpnext" >&2\n' +
+        `  echo "[08:0\$i:00] bench: step \$i ${pad}" >&2\n` +
         '  i=$((i+1))\ndone\n' +
         'echo "REFUSED: app \'hrms\' is not installed on this bench — schedule it, then re-run" >&2\n' +
         'exit 2\n'
@@ -150,8 +157,31 @@ function persistedError(e) {
         "and names the specific app, so a human knows what to schedule");
       ok(!/Command failed:/.test(stored),
         "job.error is not Node's err.message, which would spend the budget on 'Command failed' plus build noise");
-      ok(typeof r.error?.logTail === "string" && r.error.logTail.includes("step 0"),
+      ok(typeof r.error?.logTail === "string" && r.error.logTail.includes("step 3"),
         "the full stderr rides along as logTail, so job.log carries the build log on failure");
+    }
+
+    section("the message stays bounded, and carriage-return progress output cannot inflate it");
+    {
+      // runner.js truncates the job's error FIELD but hands the whole reason
+      // to createEscalationTicket unbounded, where an oversized body fails
+      // silently and the customer is never told a human is needed. bench and
+      // Frappe redraw progress with bare \r, which /\r?\n/ does not split.
+      const frames = scriptWith(
+        'i=0\nwhile [ $i -lt 400 ]; do\n' +
+        '  printf "Updating DocTypes for erpnext: [====] %d%%\\r" "$i" >&2\n' +
+        '  i=$((i+1))\ndone\n' +
+        'printf "\\nREFUSED: no benchApps declared\\n" >&2\n' +
+        'exit 2\n'
+      );
+      const r = await settle(frames);
+      ok(!r.ok && r.error, "still rejects");
+      ok((r.error?.message || "").length < 500,
+        `message stays bounded (${(r.error?.message || "").length} chars) — 400 redraw frames used to yield ~17,000`);
+      ok(!/[\r]/.test(r.error?.message || ""),
+        "no raw carriage returns reach the message, which would garble job.error in Frappe");
+      ok(/REFUSED/.test(persistedError(r.error)),
+        "and the verdict still survives, because \\r is split like a newline");
     }
 
     section("a command that cannot be executed is PERMANENT (string codes, never 2)");
@@ -190,11 +220,20 @@ function persistedError(e) {
       ok(/timed out/.test(t.error?.message || ""), "and says it timed out");
     }
   } finally {
-    // Runs even if an assertion block throws, so the summary below is always
-    // reached and no fixtures are left behind in os.tmpdir().
+    // Cleanup AND the summary both live here. With the summary outside the
+    // finally, a throw inside the try (catalog shape drift, an EPERM writing a
+    // fixture) propagated as an unhandled rejection: fixtures were removed but
+    // Node printed a bare stack trace, so whoever was debugging lost the list
+    // of which assertions had failed — on precisely the runs that need it.
     for (const p of scripts) { try { fs.unlinkSync(p); } catch { /* already gone */ } }
+    console.log(`\n${passed} passed, ${failed} failed`);
+    if (failed) fails.forEach((f) => console.error(" -", f));
   }
-
-  console.log(`\n${passed} passed, ${failed} failed`);
-  if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
-})();
+  if (failed) process.exit(1);
+})().catch((e) => {
+  // A throw escaping the blocks above is itself a failure, not a crash to
+  // shrug at: report it on the same channel and exit non-zero so `npm test`
+  // stops rather than continuing to the next file.
+  console.error("\nbenchLaneApps: aborted before completing —", e && e.stack ? e.stack : e);
+  process.exit(1);
+});

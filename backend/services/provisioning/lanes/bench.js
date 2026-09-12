@@ -70,30 +70,41 @@ const UNFIXABLE_SPAWN_CODES = new Set(["ENOENT", "EACCES", "EPERM", "ENOTDIR", "
 /** Node's maxBuffer overrun code, plus its pre-Node-12 spelling. */
 const MAXBUFFER_CODES = new Set(["ERR_CHILD_PROCESS_STDIO_MAXBUFFER", "ENOBUFS"]);
 
-function permanent(message, extra = {}) {
-  const err = new Error(message);
-  err.permanent = true;
-  return Object.assign(err, extra);
-}
+/**
+ * Hard cap on the verdict we splice into the error message.
+ *
+ * There must be one. runner.js truncates the job's `error` FIELD, but passes
+ * the whole reason to createEscalationTicket() unbounded — which POSTs it into
+ * a Frappe message and swallows any failure into a console.error, so an
+ * oversized body means the customer is silently never told their build needs a
+ * human. Measured before this cap: 400 bench progress frames produced a
+ * 17,150-char message.
+ */
+const VERDICT_MAX_CHARS = 300;
 
 /**
- * The last few non-empty stderr lines — the part a human needs.
+ * The script's VERDICT: its final non-empty stderr line, capped.
  *
- * The script logs a timestamped line per step and pipes all of `bench
- * new-site` / `install-app` through stderr, so its actual verdict is at the
- * END of potentially kilobytes of progress output. runner.js truncates the
- * job's error field from the HEAD (`reason.slice(0, 500)`), so anything built
- * from Node's own err.message — which embeds the whole of stderr after
- * "Command failed: <cmd>" — buries the verdict past the cut and shows the
- * operator four lines of build noise instead. Verified against a 40-line
- * fixture: the persisted error contained no "REFUSED:" at all.
+ * Only the last line, deliberately. The script's refuse()/die() message is
+ * always the last thing it writes, and runner.js truncates the job's error
+ * field from the HEAD (`reason.slice(0, 500)`). Including preceding context
+ * here pushes the verdict toward that cut — an earlier attempt kept the last
+ * three lines in chronological order and still lost "REFUSED:" entirely once
+ * two bench traceback lines ran 250 chars each. The surrounding build output
+ * is not discarded; it rides along as logTail into job.log, which is where a
+ * full log belongs. job.error answers "why", job.log answers "what happened".
+ *
+ * Splits on bare \r as well as \n: bench and Frappe redraw progress on one
+ * line ("Updating DocTypes for erpnext: [====] 42%\r"), which /\r?\n/ does not
+ * split at all, so hundreds of frames coalesce into a single enormous "line"
+ * and carry raw control characters into the Frappe UI.
  */
-function stderrVerdict(stderr, maxLines = 3) {
+function stderrVerdict(stderr) {
   const lines = String(stderr || "")
-    .split(/\r?\n/)
+    .split(/\r\n|[\r\n]/)
     .map((l) => l.trim())
     .filter(Boolean);
-  return lines.slice(-maxLines).join(" | ");
+  return (lines[lines.length - 1] || "").slice(0, VERDICT_MAX_CHARS);
 }
 
 /**
@@ -142,7 +153,12 @@ function provision(job, opts) {
           if (err.killed) {
             reason = `process timed out (killed by runner after ${process.env.BENCH_PROVISION_TIMEOUT_MS || 600000}ms)`;
           } else if (MAXBUFFER_CODES.has(err.code)) {
-            reason = "process output exceeded the 4MB buffer limit";
+            // Deterministic, not transient: the output volume is a property of
+            // the script and the site, so every attempt overruns identically.
+            // Node also kills the child mid-run, leaving a half-built site for
+            // the next attempt to adopt. Same argument as the spawn codes.
+            reason = `"${cmd}" produced more than the 4MB output buffer allows`;
+            unfixable = true;
           } else if (UNFIXABLE_SPAWN_CODES.has(err.code)) {
             reason = `could not execute "${cmd}" (${err.code}) — check BENCH_PROVISION_CMD points at an executable file`;
             unfixable = true;
@@ -150,7 +166,16 @@ function provision(job, opts) {
             reason = `"${cmd}" exited 127 (command not found) — the script is likely missing on the target box, not in this container`;
             unfixable = true;
           } else {
-            reason = `exited with code ${err.code}`;
+            // Name the command and any signal. cmdFor() resolves per box
+            // (opts.target.benchCmd for extra boxes), so without cmd a
+            // multi-box fleet cannot tell which wrapper failed. And an
+            // OOM-killed `bench new-site` — a first-class failure mode on a
+            // box whose binding constraint is RAM — leaves code null with
+            // killed false, which would otherwise read "exited with code
+            // null" and never mention SIGKILL.
+            reason =
+              `"${cmd}" exited with code ${err.code}` +
+              (err.signal ? ` (signal ${err.signal})` : "");
           }
           const verdict = stderrVerdict(stderr);
           const message = `bench provision failed: ${reason}${verdict ? ` — ${verdict}` : ""}`.trim();
@@ -172,10 +197,12 @@ function provision(job, opts) {
           // err.killed is checked first because a timeout kill leaves code
           // null and signal set, never 2 — a timeout is genuinely retryable,
           // as is a plain exit 1 (the script's "operational failure").
-          const isPermanent = !err.killed && (err.code === EXIT_DO_NOT_RETRY || unfixable);
-          return reject(
-            isPermanent ? permanent(message, { logTail }) : Object.assign(new Error(message), { logTail })
-          );
+          const failure = new Error(message);
+          failure.logTail = logTail;
+          if (!err.killed && (err.code === EXIT_DO_NOT_RETRY || unfixable)) {
+            failure.permanent = true;
+          }
+          return reject(failure);
         }
         // The last JSON line is the machine-readable result; tolerate its absence.
         let access = { lane: "bench" };
