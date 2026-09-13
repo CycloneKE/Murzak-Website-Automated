@@ -96,6 +96,67 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     409, "over-threshold create is a 409 CAPACITY"
   );
 
+  section("capacity: premium (bench-lane) products are charged their EFFECTIVE footprint, not the declared spec");
+  {
+    // biz-erp-configured declares 4096MB — bigger than the whole 3000MB
+    // sellable pool, so charging the raw catalogue figure here rejects it on
+    // a completely EMPTY box with 409 CAPACITY. This is the exact bug: the
+    // fleet gate elsewhere (getReservedRamMb / assertFleetHasHeadroom) already
+    // charges a bench tenant its real ~480MB marginal cost, so createOrder
+    // must agree or the flagship product is unbuyable regardless of how empty
+    // the box is.
+    const client = makeClient();
+    const order = await createOrder({
+      client, webAccountName: "acct-erp", serviceId: "biz-erp-configured",
+      config: {}, fleetReservedRamMb: 0, nowMs: T0,
+    });
+    ok(order.status === "Draft", "an empty box accepts biz-erp-configured (4096MB declared, 480MB effective)");
+
+    // The Draft row itself must persist the EFFECTIVE figure too, or a second
+    // premium order sums the wrong number back out of reservedDraftRamMb —
+    // the read (fleet Job rows, already lane-aware) and write (this Draft
+    // row) sides have to agree.
+    const reserved = await reservedDraftRamMb(client, T0);
+    ok(reserved === 480, `the draft reserves the effective 480MB, not the declared 4096MB (got ${reserved})`);
+  }
+
+  section("capacity: a non-Frappe 'premium' product keeps its REAL declared footprint");
+  {
+    // biz-db-medium is capacityClass "premium" (so laneFor() routes it to the
+    // bench lane) but is NOT a Frappe site — it has no benchApps, and
+    // deploy/vps/bin/murzak-bench-provision refuses to build it. It is
+    // fulfilled as a real dedicated resource, so it must NOT get the cheap
+    // bench-tenant discount: undercharging it at 480MB let FOUR fit on this
+    // box (1,920MB of a 2,550MB threshold), where its real 4,096MB footprint
+    // allows exactly zero — the same situation biz-erp-configured is in, and
+    // for the same reason (both are bigger than the whole sellable pool).
+    //
+    // This restores the pre-lane-aware-capacity behavior verified at
+    // 146ec6e, before "premium" was ever conflated with "cheap bench
+    // tenant": a single biz-db-medium order was rejected there too.
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "acct-db", serviceId: "biz-db-medium",
+        config: {}, fleetReservedRamMb: 0, nowMs: T0,
+      }),
+      409, "a single biz-db-medium order is refused even on an EMPTY box — its real 4096MB cannot fit the 2550MB threshold"
+    );
+  }
+
+  section("capacity: a lone premium order still refuses once it would tip the (effective) threshold");
+  {
+    // Confirms the fix does not just always pass premium orders through — the
+    // gate still bites, just at the EFFECTIVE size (480MB), not the declared
+    // one. thresholdMb() is 85% of sellableRamMb (3000MB) = 2550MB.
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "biz-erp-configured",
+        config: {}, fleetReservedRamMb: 2400, nowMs: T0, // 2400 + 480 = 2880 > 2550
+      }),
+      409, "a premium order can still be refused once effective usage exceeds threshold"
+    );
+  }
+
   section("getOrder: ownership, renewal heartbeat, paid derivation");
   {
     const invoices = { "PINV-1": { name: "PINV-1", status: "Paid" } };

@@ -45,9 +45,29 @@ function benchTenantDiskGb() {
   return Number(CAPACITY.benchTenantDiskGb) || 1;
 }
 
-/** True when this service is fulfilled as a Frappe site on the shared bench. */
+/**
+ * True when this service is fulfilled as a Frappe site on the shared bench.
+ *
+ * capacityClass "premium" alone is too coarse a signal: catalog.js's laneFor()
+ * routes EVERY premium product to the bench lane, but biz-db-medium (dedicated
+ * database hosting) and biz-webapps (generic web-app hosting) are not Frappe
+ * products at all -- deploy/vps/bin/murzak-bench-provision refuses to build
+ * either ("this product is not a Frappe site; route it off the bench lane")
+ * and they are fulfilled by hand as real dedicated resources instead.
+ *
+ * Before this fix both were still charged the cheap bench-tenant marginal
+ * cost here (480MB), undercharging biz-db-medium by ~8.5x on RAM and ~40x on
+ * disk against its declared 4096MB/40GB. That let FOUR of them fit where the
+ * box can really only hold one, and the fleet gate exists specifically to
+ * prevent that kind of oversell. `benchApps` (declared per product in the
+ * catalogue -- see ServiceOption.benchApps, and read by lanes/bench.js to
+ * populate JOB_BENCH_APPS) is the one signal that actually distinguishes a
+ * real Frappe tenant from a "premium" product mis-routed here by
+ * capacityClass alone; checking it here is the same distinction, applied a
+ * second time on the cost side rather than the build side.
+ */
 function isBenchLane(meta) {
-  return meta?.capacityClass === "premium";
+  return meta?.capacityClass === "premium" && Array.isArray(meta?.benchApps) && meta.benchApps.length > 0;
 }
 
 /**

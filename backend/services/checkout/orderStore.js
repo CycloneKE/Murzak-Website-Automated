@@ -27,7 +27,7 @@
 //    "Paid" and its RAM stops counting toward the reservation total for good.
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
-const { thresholdMb } = require("../provisioning/capacity");
+const { thresholdMb, effectiveFootprint } = require("../provisioning/capacity");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -251,7 +251,18 @@ async function createOrder({
     const dup = findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs });
     if (dup) return toApiOrder(dup);
 
-    const ramMb = Number(meta.ramMb) || 0;
+    // What this order actually costs the shared box, not what the catalogue
+    // advertises as the product spec. getReservedRamMb (provisioningService.js)
+    // sums Provisioning Job rows using this SAME effectiveFootprint, so a
+    // premium tenant is charged its real ~480MB there; charging it the raw
+    // 1,536-4,096MB catalogue figure here would (a) reject the order outright
+    // against a threshold sized for the effective figures, and (b) once
+    // accepted, mean the same tenant is booked at two different sizes
+    // depending on whether its Draft or its Job row is doing the counting.
+    // See provisioningService.js buildJobPayload's identical comment: the
+    // read and write sides must agree.
+    const footprint = effectiveFootprint(meta);
+    const ramMb = footprint.ramMb;
     const reserved = sumReservedFromRows(rows, nowMs);
     if ((Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) {
       const err = new Error(
@@ -272,7 +283,7 @@ async function createOrder({
       monthly_kes: Number(meta.monthlyKes) || 0,
       setup_kes: Number(meta.setupKes) || 0,
       ram_mb: ramMb,
-      disk_gb: Number(meta.diskGb) || 0,
+      disk_gb: footprint.diskGb,
       plan_key: planKey || "",
       config_json: configJson,
       reservation_expires_at: mysqlDatetime(nowMs + RESERVATION_TTL_MS),
