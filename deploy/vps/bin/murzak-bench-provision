@@ -127,6 +127,26 @@ else
   fi
 fi
 
+# ---- 4b. per-app site config that must exist BEFORE install ----------------
+# hrms's after_install creates a non-standard user type ("Employee Self
+# Service"), and Frappe refuses unless user_type_doctype_limit is already in
+# the site config:
+#   ValidationError: The limit has not set for the user type Employee Self
+#   Service in the site config file.
+# A fresh site never has that key, so without this every biz-erp-light and
+# starter-hrpay sale fails at `install-app hrms`. Found by the end-to-end test
+# on 2026-09-13. The value 50 matches erp.murzaktech.tech, where hrms was
+# installed by hand with this set and nobody wrote it down.
+#
+# set-config is idempotent, so a retry re-applying it is harmless.
+for app in "${APPS[@]}"; do
+  if [ "$app" = "hrms" ]; then
+    log "setting user_type_doctype_limit for hrms (required before install)"
+    benchctl "bench --site '$SITE' set-config -p user_type_doctype_limit '{\"employee_self_service\": 50}'" >&2 \
+      || die "could not set user_type_doctype_limit on ${SITE} (retryable)"
+  fi
+done
+
 # ---- 5. install apps, in order, skipping any already present ---------------
 installed="$(benchctl "bench --site '$SITE' list-apps" 2>/dev/null | awk '{print $1}' || true)"
 for app in "${APPS[@]}"; do
@@ -148,6 +168,39 @@ for app in "${APPS[@]}"; do
     || die "post-check: ${app} still missing from ${SITE} after install (retryable)"
 done
 log "verified apps on ${SITE}: $(printf '%s' "$final" | tr '\n' ' ')"
+
+# ---- 6b. repair a half-finished hrms setup ---------------------------------
+# "installed" does not mean "set up". Frappe registers an app as installed
+# BEFORE running its after_install hook, so if that hook aborts, the app is
+# listed as installed while its setup never completed -- and the skip logic
+# in step 5 would then trust it forever, making a retry useless.
+#
+# This is not hypothetical. hrms's after_install runs nine steps and aborted
+# at step 6 (add_non_standard_user_types) on BOTH erp.murzaktech.tech and the
+# 2026-09-13 end-to-end test site, because user_type_doctype_limit was unset.
+# Steps 6-9 never ran on either: no Employee Self Service user type, no single
+# defaults, no default role profiles, no post-install patches. Core payroll
+# still worked, which is why nobody noticed; employee self-service did not.
+#
+# Step 4b now prevents the abort on fresh installs. This repairs sites where
+# it already happened. Gated on the ESS user type being ABSENT -- the exact
+# fingerprint of an abort at step 6 -- so a healthy site is never re-set-up.
+# Only steps 6-9 run; 1-5 completed before any abort and re-running them
+# risks duplicates.
+if printf '%s\n' "$final" | grep -qx "hrms"; then
+  db="$(python3 -c "import json;print(json.load(open('${BENCH_DIR}/sites/${SITE}/site_config.json'))['db_name'])" 2>/dev/null || true)"
+  ess="$(mysql -N -e "SELECT COUNT(*) FROM \`${db}\`.\`tabUser Type\` WHERE name='Employee Self Service'" 2>/dev/null || echo "?")"
+  if [ "$ess" = "0" ]; then
+    log "hrms setup incomplete (no Employee Self Service user type) — running the steps that never executed"
+    for fn in add_non_standard_user_types set_single_defaults create_default_role_profiles run_post_install_patches; do
+      benchctl "bench --site '$SITE' execute hrms.setup.$fn" >&2 \
+        || die "hrms repair step ${fn} failed on ${SITE} (retryable)"
+    done
+    log "hrms setup repaired"
+  elif [ "$ess" = "?" ]; then
+    log "WARNING: could not check hrms setup state on ${SITE}; not repairing blind"
+  fi
+fi
 
 # ---- 7. result -------------------------------------------------------------
 # THE only stdout line. admin is empty on an adopted site — we do not know the
