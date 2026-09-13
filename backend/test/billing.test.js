@@ -209,18 +209,34 @@ function baseArgs(extra) {
 
   section("server-side per-order capacity guard");
   {
-    // Premium items are BENCH-lane tenants: Frappe sites sharing nine worker
-    // processes and one MariaDB, not containers. They are charged their
-    // measured marginal cost (benchTenantRamMb, 480MB) rather than the
-    // container-sized ramMb the catalogue advertises. Two of them cost
-    // 2 x 480 = 960MB, not the 8192MB the declared figures would suggest.
+    // Premium items that are REAL Frappe bench tenants (declare benchApps in
+    // the catalogue) are charged their measured marginal cost
+    // (benchTenantRamMb, 480MB) rather than the container-sized ramMb the
+    // catalogue advertises. Two of them cost 2 x 480 = 960MB, not the
+    // 8192MB the declared figures would suggest.
+    //
+    // Deliberately NOT biz-db-medium here, even though it is also
+    // capacityClass "premium": it declares no benchApps (it is dedicated
+    // database hosting, not a Frappe site — murzak-bench-provision refuses
+    // to build it), so isBenchLane() correctly excludes it from this
+    // discount and it is charged its real declared 4096MB instead. An
+    // earlier version of this test used biz-db-medium here and asserted
+    // 960MB, which was itself the bug: it was passing only because
+    // isBenchLane() keyed on capacityClass alone and mis-classified it as a
+    // cheap bench tenant too.
     //
     // This is the fix for a real mispricing: charging the declared figure let
     // exactly ONE premium tenant onto the box and rationed the highest-margin
     // products using the Coolify lane's economics. Measured 2026-09-05, the
     // whole Frappe stack was ~1,030MB serving seven sites.
-    const fp = orderFootprint([{ serviceId: "biz-erp-configured" }, { serviceId: "biz-db-medium" }]);
-    ok(fp.ramMb === 960, `two premium tenants are charged 2 x 480MB (got ${fp.ramMb})`);
+    const fp = orderFootprint([{ serviceId: "biz-erp-configured" }, { serviceId: "biz-crm-helpdesk" }]);
+    ok(fp.ramMb === 960, `two real bench tenants are charged 2 x 480MB (got ${fp.ramMb})`);
+
+    // biz-db-medium keeps its full declared cost precisely because it is not
+    // a bench tenant — undercharging it would have let four of them fit
+    // where its real footprint allows none (see capacity.js isBenchLane).
+    const dbFp = orderFootprint([{ serviceId: "biz-db-medium" }]);
+    ok(dbFp.ramMb === 4096, `biz-db-medium is charged its real 4096MB, not the bench-tenant discount (got ${dbFp.ramMb})`);
 
     // ...and consequently a single premium item is now BUYABLE. It was not
     // before: biz-erp-configured declares 4096MB and was rejected against the
