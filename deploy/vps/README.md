@@ -183,21 +183,47 @@ than producing a broken tenant:
    briefly 500s *every* tenant (observed 2026-09-05 installing `hrms`). The
    script refuses so a human can schedule it.
 
-### Configuring it
+### Status: host script proven, container bridge rejected
 
-On the VPS:
+`murzak-bench-provision` is **installed** at `/usr/local/bin/` and **passed an
+end-to-end test on 2026-09-13**: it created a real tenant, installed
+`erpnext + hrms + csf_ke`, and the site served Frappe's login page at
+`https://<tenant>.erp.murzaktech.tech` over the wildcard certificate, with the
+API answering. Then it was dropped. Three runs, each proving something:
+
+| Run | Result | Proved |
+|---|---|---|
+| 1 | **exit 1** at `install-app hrms`, 133s | a real bug (below) — and that failure emits zero stdout and a retryable code, as the lane requires |
+| 2 | exit 0, 25s | idempotency: adopted the site, skipped installed apps, `admin` correctly empty |
+| 3 | exit 0 | the hrms repair gate does **not** fire on a healthy site |
+
+The bug run 1 caught — **every `biz-erp-light` and `starter-hrpay` sale
+would have failed**: `hrms`'s `after_install` refuses unless
+`user_type_doctype_limit` is set in site config, and a fresh site never has
+it. Worse, Frappe marks an app installed *before* its post-install hook runs,
+so the abort left `hrms` listed as installed with four setup steps never
+executed — and a naive retry skips it forever. The script now sets the config
+first (4b) and repairs an aborted setup (6b). **`erp.murzaktech.tech` has this
+same half-installed `hrms`** and has not been repaired.
+
+**Do not deploy `murzak-bench-provision-remote`.** It puts an SSH key for a
+sudo-capable host user inside the internet-facing app container, so a
+remote-code-execution bug in the app becomes host compromise — MariaDB root,
+the zone-wide DNS token, every tenant. `murzak-app-sync` was built as a
+host-side reconciler precisely to avoid handing SSH credentials to the
+container, and the bench lane should follow it: a systemd timer that pulls
+queued bench jobs from Provisioning Job and runs this script locally. (The
+bridge also cannot run as-is — the image is Alpine with no `ssh`, and
+`deploy/` is not shipped into it.)
+
+Until that reconciler exists, `BENCH_PROVISION_CMD` stays unset and bench jobs
+still fail with "not configured". Provisioning a tenant by hand works today:
 
 ```bash
-sudo install -m 0755 bin/murzak-bench-provision /usr/local/bin/
-```
-
-In the Coolify environment panel for the app, then redeploy:
-
-```
-BENCH_PROVISION_CMD=/usr/local/bin/murzak-bench-provision-remote
-BENCH_SSH_HOST=provisioner@187.124.217.78
-BENCH_SSH_KEY=/run/secrets/bench_provision_key
-BENCH_DB_ROOT_PASSWORD=...
+sudo JOB_WEB_ACCOUNT=<account> JOB_SERVICE_ID=<service> \
+     JOB_BENCH_APPS=<apps from the catalog> \
+     BENCH_DB_ROOT_PASSWORD="$(sudo cat /root/.murzak-db-root-password)" \
+     /usr/local/bin/murzak-bench-provision
 ```
 
 ### Contract

@@ -1,5 +1,29 @@
 #!/usr/bin/env bash
 #
+# ============================================================================
+#  DO NOT DEPLOY THIS AS WRITTEN. Kept as a record of a rejected design.
+# ============================================================================
+#
+#  It works by putting an SSH private key for a sudo-capable host user INSIDE
+#  the Murzak app container -- the internet-facing web application. That turns
+#  any remote-code-execution bug in the app into full host compromise: the
+#  MariaDB root password, the Hostinger DNS token that can rewrite the whole
+#  zone, and every tenant's data, including paying customers.
+#
+#  This codebase already rejected exactly this. deploy/vps/bin/murzak-app-sync
+#  is a host-side reconciler "rather than a provisioning hook" precisely so it
+#  needs "no SSH credential handed to the app container". The bench lane
+#  should follow the same pattern: a systemd timer on the host that pulls
+#  queued bench jobs from the Provisioning Job doctype and runs
+#  murzak-bench-provision locally. The container never gets host access.
+#
+#  It also cannot run as-is: verified 2026-09-13, the app image is Alpine with
+#  no ssh client, and deploy/ is not shipped into it.
+#
+#  murzak-bench-provision itself (the host-side half) is sound, installed, and
+#  passed an end-to-end test. Only this bridge is the problem.
+# ============================================================================
+#
 # murzak-bench-provision-remote
 #
 # The container-side half of the bench lane. BENCH_PROVISION_CMD inside the
