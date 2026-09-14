@@ -6,13 +6,11 @@ import {
 import { Page } from "../types";
 import { createClientRequest } from "../services/requests";
 import { toUserMessage } from "../services/errors";
+import { SUPPORT_EMAIL } from "../config/contact";
 
 interface ContactPageProps {
   onNavigate?: (page: Page | string) => void;
 }
-
-// Central place to update public contact details.
-const SUPPORT_EMAIL = "support@murzaktech.com";
 
 const ContactPage: React.FC<ContactPageProps> = () => {
   const [form, setForm] = useState({ name: "", email: "", company: "", message: "" });

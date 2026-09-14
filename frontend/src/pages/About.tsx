@@ -3,8 +3,7 @@ import React from 'react';
 import { ArrowRight, MapPin, Heart, Wrench, Phone, Mail, Clock, Server, Boxes, Code2, ArrowUpRight, Users, Truck, ShoppingCart, FileSignature, PackageSearch } from 'lucide-react';
 import { NavProps } from '../types';
 import { Button } from '../components/ui/Button';
-
-const SUPPORT_EMAIL = 'support@murzaktech.com';
+import { SUPPORT_EMAIL } from '../config/contact';
 
 const About: React.FC<NavProps> = ({ onNavigate }) => {
   const values = [

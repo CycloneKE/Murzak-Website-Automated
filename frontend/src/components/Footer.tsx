@@ -3,12 +3,11 @@ import React from 'react';
 import { Linkedin, Twitter, Instagram, Activity, Mail, MapPin, Clock, ArrowUpRight } from 'lucide-react';
 import { Page } from '../types';
 import Logo from './Logo';
+import { SUPPORT_EMAIL } from '../config/contact';
 
 interface FooterProps {
   onNavigate: (page: Page) => void;
 }
-
-const SUPPORT_EMAIL = 'support@murzaktech.com';
 
 const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const linkCls = 'hover:text-white transition-colors text-left';
