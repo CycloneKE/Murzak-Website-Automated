@@ -147,7 +147,7 @@ async function claimJob(client, name, runnerId, targetId) {
   return true;
 }
 
-async function createEscalationTicket(client, job, reason) {
+async function createEscalationTicket(client, job, reason, lane) {
   if (!job.web_account) return;
   try {
     let email = job.web_account;
@@ -156,16 +156,26 @@ async function createEscalationTicket(client, job, reason) {
       if (res.data?.data?.user_email) email = res.data.data.user_email;
     } catch (e) { /* best-effort */ }
 
+    const label = job.service_name || job.service_id || job.name;
+    // Bench-lane jobs land in needs_human because BENCH_PROVISION_CMD is
+    // deliberately unset in this container (see murzak-bench-runner in
+    // deploy/vps) — the VPS's own systemd timer picks these up within
+    // ~90s-few min without a human. Ticket copy must not claim an engineer is
+    // already on it, since usually none is; only sustained failure past the
+    // retry cap actually needs one.
+    const isBench = lane === "bench";
     const payload = {
       portal_user: job.web_account,
       email: email,
-      subject: `Provisioning Delayed: ${job.service_name || job.service_id || job.name}`,
+      subject: isBench ? `Provisioning: ${label} finishing setup` : `Provisioning Delayed: ${label}`,
       status: "Waiting on Admin",
       source: "Portal",
       messages: [{
         sender_type: "Admin",
         sender: "System Automation",
-        message: `Provisioning for ${job.service_name || job.service_id || job.name} requires human intervention. Our engineers have been notified and are actively working on it.\n\nInternal diagnostic: ${reason}`
+        message: isBench
+          ? `Provisioning for ${label} is being completed by our automated setup process, which typically finishes within a few minutes. Our team is only paged if it doesn't complete after several attempts.\n\nInternal diagnostic: ${reason}`
+          : `Provisioning for ${label} requires human intervention. Our engineers have been notified and are actively working on it.\n\nInternal diagnostic: ${reason}`
       }]
     };
     await client.post("/api/resource/Portal Users Requests", payload);
@@ -174,9 +184,9 @@ async function createEscalationTicket(client, job, reason) {
   }
 }
 
-async function escalate(client, job, reason) {
+async function escalate(client, job, reason, lane) {
   await updateJob(client, job.name, { status: "needs_human", error: String(reason).slice(0, 500) });
-  await createEscalationTicket(client, job, reason);
+  await createEscalationTicket(client, job, reason, lane);
   return { name: job.name, outcome: "needs_human", reason };
 }
 
@@ -306,7 +316,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT
     const lane = job.lane || laneFor(meta);
 
     if (lane === "manual") {
-      return await escalate(client, job, "Manual/dedicated lane — provision out of band");
+      return await escalate(client, job, "Manual/dedicated lane — provision out of band", lane);
     }
 
     // Placement + capacity (premium tenants only; volume slices are light and
@@ -322,7 +332,8 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT
       return await escalate(
         client,
         job,
-        `Capacity: no box has RAM headroom — scale-out ${scaleOut.deduped ? "already requested" : "requested"} (${scaleOut.request || "no doctype"})`
+        `Capacity: no box has RAM headroom — scale-out ${scaleOut.deduped ? "already requested" : "requested"} (${scaleOut.request || "no doctype"})`,
+        lane
       );
     }
     const targetId = placement.target || targets.PRIMARY_ID;
@@ -331,7 +342,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT
     const adapter = lanes[lane];
     if (!adapter || !adapter.isConfigured({ target })) {
       const why = adapter?.configError ? adapter.configError({ target }) : `Lane "${lane}" not available`;
-      return await escalate(client, job, why);
+      return await escalate(client, job, why, lane);
     }
 
     // Verified claim (records the chosen box). If we lost the race, back off.
@@ -411,7 +422,7 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT
               }
             : {}),
         });
-        await createEscalationTicket(client, job, reason);
+        await createEscalationTicket(client, job, reason, lane);
         return { name: job.name, outcome: "needs_human", attempts, reason: e.message };
       }
       const wait = backoffSec(attempts);

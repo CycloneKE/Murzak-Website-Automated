@@ -748,7 +748,7 @@ router.post("/api/portal/updates/bulk-delete", requireAuth, async (req, res) => 
 
 const PROVISIONING_ACTIVITY_FIELDS = [
   "name", "service_id", "status", "log", "backup_status", "edge_status", "error",
-  "attempts", "access", "creation", "modified", "target",
+  "attempts", "access", "creation", "modified", "target", "lane",
 ];
 
 // Shared by both the per-service and the account-wide activity routes so the
@@ -774,9 +774,18 @@ function mapProvisioningJobRow(j) {
   // state instead of an empty dashboard.
   let statusDetail = "";
   if (j.status === "needs_human") {
-    statusDetail = /no repository URL/i.test(j.error || "")
-      ? "waiting_on_repo"
-      : "needs_attention";
+    // Bench-lane needs_human is the normal, expected handoff point from the
+    // container's runner to the VPS's own murzak-bench-runner timer (see
+    // deploy/vps/README.md) — it resolves automatically within minutes for
+    // the vast majority of jobs, so it must not read as an alarm the way a
+    // genuinely stuck coolify/k8s job does.
+    if (j.lane === "bench") {
+      statusDetail = "finishing_setup";
+    } else {
+      statusDetail = /no repository URL/i.test(j.error || "")
+        ? "waiting_on_repo"
+        : "needs_attention";
+    }
   } else if (j.status === "active" && !accessUrl) {
     statusDetail = "url_pending";
   }

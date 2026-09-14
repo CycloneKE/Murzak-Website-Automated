@@ -811,7 +811,7 @@ export default function PlanServicesModal({
 
                     {selectedSvcItems.some(isManagedSetup) && (
                       <p className="text-micro font-bold text-amber-500 leading-relaxed mt-3 text-center flex items-center justify-center gap-1.5">
-                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured by our team and go live within a short setup window, not instantly.
+                        <Server size={12} /> Managed apps (ERP / POS / CRM) are configured automatically and go live within a few minutes, not instantly.
                       </p>
                     )}
 

@@ -1333,7 +1333,7 @@ export const GENERIC_POST_PURCHASE_COPY =
  */
 export function postPurchaseCopy(svc: ServiceItem): string {
   if (isManagedSetup(svc)) {
-    return "Our team configures your system and hands it over within 24 hours. You can watch progress in your portal.";
+    return "Your system is configured automatically, usually within a few minutes. You can watch progress in your portal.";
   }
   if (svc.requiresRepo) {
     return "We deploy straight from your repository. Your app is typically live in about 10 minutes.";

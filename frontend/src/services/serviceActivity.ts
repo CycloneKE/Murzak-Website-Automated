@@ -5,11 +5,14 @@ export interface ProvisioningActivityEntry {
   serviceId: string;
   status: string;
   // Server-derived honest state:
-  //   "waiting_on_repo" — BYOA job parked because no repository URL is on file
-  //   "needs_attention" — build/provisioning failed; staff have been notified
-  //   "url_pending"     — active, but no customer URL assigned yet
-  //   ""                — nothing special
-  statusDetail: "" | "waiting_on_repo" | "needs_attention" | "url_pending";
+  //   "waiting_on_repo"  — BYOA job parked because no repository URL is on file
+  //   "needs_attention"  — build/provisioning failed; staff have been notified
+  //   "finishing_setup"  — bench-lane (ERP/POS/CRM) job handed to the VPS's
+  //                        automated timer; resolves within minutes, no human
+  //                        involved unless it keeps failing
+  //   "url_pending"      — active, but no customer URL assigned yet
+  //   ""                 — nothing special
+  statusDetail: "" | "waiting_on_repo" | "needs_attention" | "finishing_setup" | "url_pending";
   log: string;
   backupStatus: string;
   edgeStatus: string;

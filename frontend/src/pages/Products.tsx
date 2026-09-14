@@ -125,7 +125,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
         <Section className="relative z-10 border-t border-murzak-border/50">
           <div className="max-w-2xl mb-12">
              <h2 className="text-3xl font-[900] tracking-tight mb-4">Ready-Made Systems</h2>
-             <p className="text-slate-500 dark:text-slate-400 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in 24 hours.</p>
+             <p className="text-slate-500 dark:text-slate-400 font-medium">Enterprise-grade tools, managed and hosted for you. Deployed in minutes.</p>
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
              {businessSystems.map((item, idx) => (
