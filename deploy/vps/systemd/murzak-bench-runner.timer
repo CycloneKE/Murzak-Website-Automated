@@ -1,0 +1,18 @@
+[Unit]
+Description=Periodically complete escalated premium bench provisioning jobs
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/deploy/vps/README.md
+
+[Timer]
+# OnUnitActiveSec schedules the NEXT run this long after the PREVIOUS one
+# FINISHED, not on a fixed wall-clock cadence -- a run that takes several
+# minutes (multiple heavy hrms/erpnext installs in one batch) cannot overlap
+# itself. 90s keeps premium fulfilment reasonably prompt without polling
+# Frappe aggressively; there is no external rate limit to respect here (unlike
+# murzak-app-sync's Let's Encrypt budget), so this is tunable freely.
+OnBootSec=3min
+OnUnitActiveSec=90s
+AccuracySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

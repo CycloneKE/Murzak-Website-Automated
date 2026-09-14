@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+#
+# murzak-bench-runner
+#
+# Host-side completion of the bench lane. Finds premium (ERP/POS/CRM) jobs the
+# in-container runner has already given up on, and finishes them by running
+# murzak-bench-provision locally.
+#
+# WHY THIS EXISTS, AND WHY IT WORKS ON "needs_human" NOT "queued"
+#   backend/services/provisioning/runner.js polls Provisioning Job or lane
+#   "bench" and, finding BENCH_PROVISION_CMD unset inside the app container
+#   (deliberately -- see below), escalates every one to status=needs_human
+#   within its normal poll interval, files a "delayed, engineers notified"
+#   ticket, and never touches it again. That escalation is fast and automatic,
+#   which is exactly why this script does NOT compete for status=queued: by
+#   the time any reasonable timer here would look, the container has already
+#   moved the job to needs_human. This script is the thing the ticket's
+#   promise refers to.
+#
+#   The alternative design -- an SSH key for a host user living inside the
+#   internet-facing app container so IT could run the script directly -- was
+#   written, reviewed, and rejected (see the removed
+#   murzak-bench-provision-remote): an RCE in the app would become full host
+#   compromise. This script inverts that: it runs ON the host, reaches OUT to
+#   Frappe over HTTPS with a scoped API key, and the container never holds a
+#   credential that can touch this box.
+#
+# CONCURRENCY, mirroring runner.js's own claim
+#   Fetch is scoped server-side to status=needs_human, lane=bench,
+#   attempts<MAX. Each job is claimed by writing status=running + runner_id,
+#   then re-read to confirm the write stuck (last-write-wins optimistic lock --
+#   the same two-step runner.js's claimJob() uses, so a second overlapping
+#   instance of this script backs off instead of double-building). A job left
+#   "running" too long (this script killed mid-run: OOM, reboot, lost SSH) is
+#   reclaimed back to needs_human at the top of the NEXT run, so a crash never
+#   strands a job silently.
+#
+# EXIT-CODE CONTRACT with murzak-bench-provision (unchanged, see that script):
+#   0  success             -> job goes active, Web Account row flips to Active
+#   2  do not retry        -> attempts pinned at MAX so this script stops
+#                             looking at it; stays needs_human for a human
+#   1  retryable           -> attempts+1; picked up again next run if still
+#                             under MAX (this run's own interval IS the backoff)
+#
+# CONFIG (root-only, never in this script or its git history):
+#   /etc/murzak/frappe-api.env   FRAPPE_BASE_URL, FRAPPE_API_KEY, FRAPPE_API_SECRET
+#   /root/.murzak-db-root-password
+#   /etc/murzak/bench-catalog-snapshot.json
+#                                 copy of backend/data/serviceCatalogSnapshot.json --
+#                                 reference data only, no secrets; update it by
+#                                 hand (scp) whenever the catalogue's benchApps
+#                                 change, same as every other deploy/vps/bin script.
+#
+# Run by murzak-bench-runner.timer. Safe to run by hand.
+
+set -euo pipefail
+
+FRAPPE_ENV="${MURZAK_FRAPPE_ENV:-/etc/murzak/frappe-api.env}"
+DBPW_FILE="${MURZAK_DB_ROOT_PW_FILE:-/root/.murzak-db-root-password}"
+SNAPSHOT="${MURZAK_CATALOG_SNAPSHOT:-/etc/murzak/bench-catalog-snapshot.json}"
+JOB_DOCTYPE="Provisioning Job"
+WEB_ACCOUNT_DOCTYPE="Web Account"
+MAX_ATTEMPTS="${PROVISIONING_MAX_ATTEMPTS:-3}"
+FETCH_LIMIT="${MURZAK_BENCH_RUNNER_BATCH:-5}"
+RUNNER_ID="host-bench-runner-$(hostname -s 2>/dev/null || echo vps)-$$"
+STALE_RUNNING_SEC="${MURZAK_BENCH_RUNNER_STALE_SEC:-900}"  # > BENCH_PROVISION_TIMEOUT_MS default (600s)
+
+log() { printf '%s %s\n' "[$(date -u +%H:%M:%S)]" "$*" >&2; }
+die() { log "FATAL: $*"; exit 1; }
+
+[ -r "$FRAPPE_ENV" ]  || die "cannot read $FRAPPE_ENV (root only, by design)"
+[ -r "$DBPW_FILE" ]   || die "cannot read $DBPW_FILE"
+[ -r "$SNAPSHOT" ]    || die "cannot read $SNAPSHOT — scp backend/data/serviceCatalogSnapshot.json here first"
+command -v jq >/dev/null 2>&1 || die "jq is required"
+[ -x /usr/local/bin/murzak-bench-provision ] || die "/usr/local/bin/murzak-bench-provision not installed"
+
+set -a; . "$FRAPPE_ENV"; set +a
+[ -n "${FRAPPE_BASE_URL:-}" ] && [ -n "${FRAPPE_API_KEY:-}" ] && [ -n "${FRAPPE_API_SECRET:-}" ] \
+  || die "$FRAPPE_ENV is missing FRAPPE_BASE_URL / FRAPPE_API_KEY / FRAPPE_API_SECRET"
+AUTH="token ${FRAPPE_API_KEY}:${FRAPPE_API_SECRET}"
+DB_ROOT_PW="$(cat "$DBPW_FILE")"
+BASE="${FRAPPE_BASE_URL%/}"
+
+# ---- tiny Frappe REST helpers ----------------------------------------------
+# GET one doc by name. Prints its JSON to stdout, or nothing on 404.
+frappe_get() {
+  local doctype="$1" name="$2"
+  curl -sS --max-time 30 -H "Authorization: $AUTH" -H "Accept: application/json" \
+    "${BASE}/api/resource/$(jq -rn --arg d "$doctype" '$d|@uri')/$(jq -rn --arg n "$name" '$n|@uri')" \
+    | jq -e '.data // empty' 2>/dev/null
+}
+
+# PUT a JSON object (read from stdin) onto one doc. Silent on success.
+frappe_put() {
+  local doctype="$1" name="$2"
+  curl -sS --max-time 30 -o /dev/null -w '%{http_code}' -X PUT \
+    -H "Authorization: $AUTH" -H "Content-Type: application/json" \
+    "${BASE}/api/resource/$(jq -rn --arg d "$doctype" '$d|@uri')/$(jq -rn --arg n "$name" '$n|@uri')" \
+    -d @-
+}
+
+# ---- 0. reclaim anything this script abandoned mid-run last time ----------
+now_epoch=$(date -u +%s)
+reclaim_list="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+  "${BASE}/api/resource/${JOB_DOCTYPE// /%20}" \
+  --data-urlencode 'filters=[["status","=","running"],["lane","=","bench"]]' \
+  --data-urlencode 'fields=["name","runner_id","started_at"]' \
+  --data-urlencode 'limit_page_length=50' \
+  | jq -c '.data[]? // empty')" || reclaim_list=""
+
+if [ -n "$reclaim_list" ]; then
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    rname="$(jq -r '.name' <<<"$row")"
+    rid="$(jq -r '.runner_id // ""' <<<"$row")"
+    started="$(jq -r '.started_at // ""' <<<"$row")"
+    # Only touch jobs THIS script's runner family owns (prefix match) — never
+    # steal a job the in-container runner is legitimately mid-build on.
+    case "$rid" in
+      host-bench-runner-*) ;;
+      *) continue ;;
+    esac
+    started_epoch="$(date -u -d "$started" +%s 2>/dev/null || echo 0)"
+    age=$(( now_epoch - started_epoch ))
+    if [ "$started_epoch" -eq 0 ] || [ "$age" -gt "$STALE_RUNNING_SEC" ]; then
+      log "reclaiming stale running job $rname (age ${age}s, was $rid)"
+      jq -n '{status:"needs_human", runner_id:"", error:"host-bench-runner: reclaimed after being left running (crash or timeout in a previous run)"}' \
+        | frappe_put "$JOB_DOCTYPE" "$rname" >/dev/null || true
+    fi
+  done <<< "$reclaim_list"
+fi
+
+# ---- 1. fetch claimable jobs -----------------------------------------------
+jobs_json="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+  "${BASE}/api/resource/${JOB_DOCTYPE// /%20}" \
+  --data-urlencode 'filters=[["status","=","needs_human"],["lane","=","bench"],["attempts","<",'"$MAX_ATTEMPTS"']]' \
+  --data-urlencode 'fields=["name","web_account","invoice","service_id","service_name","attempts"]' \
+  --data-urlencode "limit_page_length=${FETCH_LIMIT}" \
+  --data-urlencode 'order_by=modified asc')"
+
+job_count="$(jq '.data | length' <<<"$jobs_json" 2>/dev/null || echo 0)"
+log "found ${job_count} bench job(s) eligible for this run"
+[ "$job_count" -gt 0 ] || exit 0
+
+echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
+  name="$(jq -r '.name' <<<"$job")"
+  web_account="$(jq -r '.web_account // ""' <<<"$job")"
+  invoice="$(jq -r '.invoice // ""' <<<"$job")"
+  service_id="$(jq -r '.service_id // ""' <<<"$job")"
+  service_name="$(jq -r '.service_name // ""' <<<"$job")"
+  attempts="$(jq -r '.attempts // 0' <<<"$job")"
+
+  log "--- job $name (account=$web_account service=$service_id attempts=$attempts) ---"
+
+  # Idempotent pre-check: still needs_human? (a manual admin action or a
+  # previous claimant may have moved it since the list fetch above)
+  fresh="$(frappe_get "$JOB_DOCTYPE" "$name" || true)"
+  if [ -z "$fresh" ] || [ "$(jq -r '.status // ""' <<<"$fresh")" != "needs_human" ]; then
+    log "  skip: no longer needs_human"
+    continue
+  fi
+
+  # Claim: write, then re-read to confirm OUR write stuck.
+  jq -n --arg rid "$RUNNER_ID" '{status:"running", runner_id:$rid, started_at:(now|strftime("%Y-%m-%d %H:%M:%S"))}' \
+    | frappe_put "$JOB_DOCTYPE" "$name" >/dev/null
+  claimed="$(frappe_get "$JOB_DOCTYPE" "$name" || true)"
+  if [ "$(jq -r '.runner_id // ""' <<<"$claimed")" != "$RUNNER_ID" ]; then
+    log "  skip: lost the claim to another runner"
+    continue
+  fi
+
+  # Resolve which Frappe apps this product needs. A premium product with none
+  # declared reaches the bench lane via capacityClass alone but is not a real
+  # Frappe site (biz-webapps, biz-db-medium) -- permanent, matches
+  # murzak-bench-provision's own refusal for the same condition.
+  bench_apps="$(jq -r --arg id "$service_id" '.items[$id].benchApps // [] | join(",")' "$SNAPSHOT")"
+  if [ -z "$bench_apps" ]; then
+    log "  permanent: no benchApps declared for ${service_id} — not a Frappe product"
+    jq -n --arg err "host-bench-runner: no benchApps declared for ${service_id} — this product does not belong on the bench lane" \
+      '{status:"needs_human", runner_id:"", attempts:'"$MAX_ATTEMPTS"', error:$err}' \
+      | frappe_put "$JOB_DOCTYPE" "$name" >/dev/null
+    continue
+  fi
+
+  set +e
+  out="$(JOB_WEB_ACCOUNT="$web_account" JOB_SERVICE_ID="$service_id" \
+         JOB_SERVICE_NAME="$service_name" JOB_INVOICE="$invoice" \
+         JOB_BENCH_APPS="$bench_apps" BENCH_DB_ROOT_PASSWORD="$DB_ROOT_PW" \
+         /usr/local/bin/murzak-bench-provision 2>/tmp/murzak-bench-runner-$$-stderr)"
+  rc=$?
+  set -e
+  verdict="$(grep -E '^\[' "/tmp/murzak-bench-runner-$$-stderr" 2>/dev/null | tail -1 | cut -c1-450)"
+  rm -f "/tmp/murzak-bench-runner-$$-stderr"
+
+  if [ "$rc" -eq 0 ] && printf '%s' "$out" | tail -1 | jq -e . >/dev/null 2>&1; then
+    site="$(printf '%s' "$out" | tail -1 | jq -r '.site // ""')"
+    log "  success: site=${site}"
+    jq -n --arg ref "$site" --argjson access "$(printf '%s' "$out" | tail -1 | jq -c '.')" \
+      '{status:"active", external_ref:($ref|.[0:140]), access:($access|tojson|.[0:1000]), error:""}' \
+      | frappe_put "$JOB_DOCTYPE" "$name" >/dev/null
+
+    # Flip the Web Account row Setting up -> Active (markAccountServiceActive,
+    # reimplemented here since this script has no Node runtime to call it from).
+    if [ -n "$web_account" ]; then
+      acc="$(frappe_get "$WEB_ACCOUNT_DOCTYPE" "$web_account" || true)"
+      if [ -n "$acc" ]; then
+        updated_services="$(jq -c --arg sid "$service_id" \
+          '[.selected_services[]? | if .service_id == $sid and .status == "Setting up" then .status = "Active" else . end]' \
+          <<<"$acc")"
+        changed="$(jq -c --arg sid "$service_id" \
+          '[.selected_services[]? | select(.service_id == $sid and .status == "Setting up")] | length > 0' \
+          <<<"$acc")"
+        if [ "$changed" = "true" ]; then
+          jq -n --argjson svc "$updated_services" '{selected_services:$svc}' \
+            | frappe_put "$WEB_ACCOUNT_DOCTYPE" "$web_account" >/dev/null
+          log "  flipped ${service_id} to Active on ${web_account}"
+        fi
+      fi
+    fi
+
+  elif [ "$rc" -eq 2 ]; then
+    log "  permanent (exit 2): ${verdict}"
+    jq -n --arg err "host-bench-runner: ${verdict}" \
+      '{status:"needs_human", runner_id:"", attempts:'"$MAX_ATTEMPTS"', error:($err|.[0:500])}' \
+      | frappe_put "$JOB_DOCTYPE" "$name" >/dev/null
+
+  else
+    new_attempts=$(( attempts + 1 ))
+    log "  retryable (exit ${rc}), attempt ${new_attempts}/${MAX_ATTEMPTS}: ${verdict}"
+    jq -n --arg err "host-bench-runner: exit ${rc} — ${verdict}" \
+      '{status:"needs_human", runner_id:"", attempts:'"$new_attempts"', error:($err|.[0:500])}' \
+      | frappe_put "$JOB_DOCTYPE" "$name" >/dev/null
+  fi
+done
+
+log "run complete"

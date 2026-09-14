@@ -1,0 +1,18 @@
+[Unit]
+Description=Complete premium (ERP/POS/CRM) bench provisioning jobs the app container escalated
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/deploy/vps/README.md
+After=network-online.target mariadb.service
+Wants=network-online.target mariadb.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/murzak-bench-runner
+
+# Needs root: reads /root/.murzak-db-root-password and /etc/murzak/*, and
+# murzak-bench-provision itself needs root to sudo into the bench user and
+# reach MariaDB. ProtectHome is read-only (not the default "yes"/inaccessible)
+# because the DB root password file lives under /root.
+User=root
+PrivateTmp=true
+ProtectHome=read-only
+NoNewPrivileges=true
