@@ -17,6 +17,9 @@ the design and the reasoning behind it.
 | `nginx/murzaktech.tech` | `/etc/nginx/sites-available/murzaktech.tech` | 0644 root:root |
 | `nginx/erp-tenants-wildcard` | `/etc/nginx/sites-available/erp-tenants-wildcard` | 0644 root:root |
 | `bin/murzak-bench-provision` | `/usr/local/bin/murzak-bench-provision` | 0755 root:root |
+| `bin/murzak-bench-runner` | `/usr/local/bin/murzak-bench-runner` | 0755 root:root |
+| `systemd/murzak-bench-runner.service` | `/etc/systemd/system/murzak-bench-runner.service` | 0644 root:root |
+| `systemd/murzak-bench-runner.timer` | `/etc/systemd/system/murzak-bench-runner.timer` | 0644 root:root |
 | `nginx/murzak-app-proxy.conf` | `/etc/nginx/snippets/murzak-app-proxy.conf` | 0644 root:root |
 | `bin/murzak-app-vhost` | `/usr/local/bin/murzak-app-vhost` | 0755 root:root |
 | `bin/murzak-app-vhost-remove` | `/usr/local/bin/murzak-app-vhost-remove` | 0755 root:root |
@@ -149,9 +152,9 @@ POS, CRM, the KES 6,000–12,000/mo tier — fails with "Bench lane not
 configured"**. The four sites on the box today were all created by hand.
 
 It runs on the VPS. The app runs in a Coolify container and cannot reach
-`/home/murzakerp/frappe-bench`, so the container-side `BENCH_PROVISION_CMD`
-points at `bin/murzak-bench-provision-remote`, which forwards the job over SSH
-to the host script. Two files, one for each side of that gap.
+`/home/murzakerp/frappe-bench`, so `BENCH_PROVISION_CMD` is **never set in the
+container** — that is deliberate, not an oversight, see "How the container
+gap is actually closed" below.
 
 ### Before it can run
 
@@ -183,7 +186,7 @@ than producing a broken tenant:
    briefly 500s *every* tenant (observed 2026-09-05 installing `hrms`). The
    script refuses so a human can schedule it.
 
-### Status: host script proven, container bridge rejected
+### Status: host script proven end-to-end, automated 2026-09-14
 
 `murzak-bench-provision` is **installed** at `/usr/local/bin/` and **passed an
 end-to-end test on 2026-09-13**: it created a real tenant, installed
@@ -206,18 +209,82 @@ executed — and a naive retry skips it forever. The script now sets the config
 first (4b) and repairs an aborted setup (6b). **`erp.murzaktech.tech` has this
 same half-installed `hrms`** and has not been repaired.
 
-**Do not deploy `murzak-bench-provision-remote`.** It puts an SSH key for a
-sudo-capable host user inside the internet-facing app container, so a
-remote-code-execution bug in the app becomes host compromise — MariaDB root,
-the zone-wide DNS token, every tenant. `murzak-app-sync` was built as a
-host-side reconciler precisely to avoid handing SSH credentials to the
-container, and the bench lane should follow it: a systemd timer that pulls
-queued bench jobs from Provisioning Job and runs this script locally. (The
-bridge also cannot run as-is — the image is Alpine with no `ssh`, and
-`deploy/` is not shipped into it.)
+### How the container gap is actually closed: `murzak-bench-runner`
 
-Until that reconciler exists, `BENCH_PROVISION_CMD` stays unset and bench jobs
-still fail with "not configured". Provisioning a tenant by hand works today:
+An earlier design (`murzak-bench-provision-remote`, removed) put an SSH key
+for a sudo-capable host user inside the internet-facing app container so IT
+could reach across and run the script. Rejected before it was ever installed:
+a remote-code-execution bug in the app would become full host compromise —
+MariaDB root, the zone-wide DNS token, every tenant's data.
+
+`murzak-bench-runner` (`bin/murzak-bench-runner`) inverts the direction
+instead. The container **never gets host access, ever**. Here is why that is
+possible without racing the container's own runner:
+
+`backend/services/provisioning/runner.js` polls for `status=queued` jobs and,
+finding `BENCH_PROVISION_CMD` unset in the container (which it now always
+will be — this is deliberate, not a gap to fill), escalates every bench job to
+`status=needs_human` within its normal poll interval and files a "delayed,
+engineers notified" ticket. That happens fast and unconditionally. So
+`murzak-bench-runner` does not compete for `queued` at all — by the time any
+reasonable host timer looks, the job is already sitting at `needs_human`,
+untouched by anything else. The host script polls **that** state instead,
+which means:
+
+- No claim race with the live container runner — it already moved on.
+- The host script needs its own lock only against **itself** (two overlapping
+  runs of the timer), which it does the same way `runner.js`'s `claimJob` does:
+  write `status=running` + a runner id, re-read to confirm the write stuck.
+- If the host script is killed mid-run (reboot, lost SSH, OOM), the *next* run
+  reclaims anything left `running` under its own runner-id prefix back to
+  `needs_human` before fetching new work, so a crash never strands a job.
+
+It talks to Frappe directly over HTTPS with a scoped API key (bash + curl +
+jq — this box has no Node runtime outside the bench's own venv, and shipping
+one just for this felt like the wrong trade against a 260-line script). Exit
+codes from `murzak-bench-provision` are honoured exactly as the Node lane
+would: `0` → job goes `active` and the Web Account row flips `Setting up` →
+`Active`; `2` → permanent, `attempts` is pinned at the max so the job is never
+refetched (still visible to a human, who can reset `attempts` via the existing
+retry button to try again after fixing the cause); `1` → `attempts+1`, retried
+on a later run while still under the cap.
+
+**Installing it:**
+
+```bash
+sudo install -m 0755 bin/murzak-bench-runner /usr/local/bin/
+sudo install -d -m 0700 /etc/murzak
+```
+
+Two files it needs, both root-only and **never committed**:
+
+```bash
+# /etc/murzak/frappe-api.env — same credential the app container already
+# holds; the host is at least as trusted (it already has the DB root
+# password), so this reuses rather than mints a second secret.
+FRAPPE_BASE_URL=https://erp.murzaktech.tech/
+FRAPPE_API_KEY=...
+FRAPPE_API_SECRET=...
+```
+
+```bash
+# /etc/murzak/bench-catalog-snapshot.json — a copy of
+# backend/data/serviceCatalogSnapshot.json. Reference data only, no secrets.
+# Update it by hand after any catalogue change that touches benchApps, same
+# manual-scp discipline as every other file in this directory.
+sudo cp backend/data/serviceCatalogSnapshot.json /etc/murzak/bench-catalog-snapshot.json
+```
+
+Then the timer:
+
+```bash
+sudo install -m 0644 systemd/murzak-bench-runner.service /etc/systemd/system/
+sudo install -m 0644 systemd/murzak-bench-runner.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now murzak-bench-runner.timer
+```
+
+Provisioning a tenant by hand still works and is unaffected:
 
 ```bash
 sudo JOB_WEB_ACCOUNT=<account> JOB_SERVICE_ID=<service> \
