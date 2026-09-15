@@ -199,7 +199,7 @@ export default function PaymentMethods({
               <button key={m.id} onClick={() => { setMethod(m.id as PaymentMethod); setErrors({}); }} className={`w-full p-6 rounded-3xl flex items-center gap-4 transition-all border-2 text-left ${method === m.id ? 'glass-card border-murzak-accent shadow-[0_0_15px_rgba(0,189,252,0.2)]' : 'bg-transparent border-transparent hover:bg-black/5'}`}>
                 <div className={`${method === m.id ? 'text-murzak-accent' : 'text-slate-500'}`}>{m.icon}</div>
                 <div>
-                  <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-ink' : 'text-slate-500'}`}>{m.label}</span>
+                  <span className={`block text-sm font-black tracking-tight ${method === m.id ? 'text-murzak-ink dark:text-slate-100' : 'text-slate-500'}`}>{m.label}</span>
                   <span className="text-label font-bold text-slate-600 dark:text-slate-400">{m.sub}</span>
                 </div>
               </button>

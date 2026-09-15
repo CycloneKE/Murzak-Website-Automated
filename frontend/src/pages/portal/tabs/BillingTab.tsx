@@ -146,7 +146,7 @@ const BillingTab: React.FC = () => {
                           }}
                           className={`text-left text-sm font-black ${
                             s.status === "Active" ? "hover:text-murzak-accent" : "cursor-not-allowed"
-                          } text-murzak-ink transition-colors`}
+                          } text-murzak-ink dark:text-slate-100 transition-colors`}
                         >
                           {s.name}
                         </button>

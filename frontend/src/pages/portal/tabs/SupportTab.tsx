@@ -38,7 +38,7 @@ const SupportTab: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-7 shadow-lg">
+        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-7 shadow-lg">
           <div className="p-3 w-fit rounded-2xl bg-murzak-accent/10 text-murzak-accent">
             <MessageSquare className="w-5 h-5" />
           </div>
@@ -56,7 +56,7 @@ const SupportTab: React.FC = () => {
           </button>
         </div>
 
-        <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-7 shadow-lg">
+        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-7 shadow-lg">
           <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100">
             What your {user.plan || "current"} plan promises
           </h3>

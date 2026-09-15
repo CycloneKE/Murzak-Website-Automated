@@ -8,7 +8,6 @@ interface ThemeContextValue {
   effective: EffectiveTheme;
   setTheme: (theme: ThemePreference) => void;
   toggle: () => void;
-  setForceLight: (force: boolean) => void;
 }
 
 const STORAGE_KEY = "murzak-theme";
@@ -31,11 +30,6 @@ function systemPrefersDark(): boolean {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemePreference>(readStoredTheme);
   const [systemDark, setSystemDark] = useState(systemPrefersDark);
-  // Set by routes (the client portal) that must never render in dark mode,
-  // regardless of the site-wide preference — overrides `effective` for the
-  // <html> class without touching the stored preference, so leaving the
-  // route restores whatever theme the user had picked.
-  const [forceLight, setForceLight] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -45,13 +39,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const effective: EffectiveTheme = theme === "system" ? (systemDark ? "dark" : "light") : theme;
-  const applied: EffectiveTheme = forceLight ? "light" : effective;
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", applied === "dark");
+    document.documentElement.classList.toggle("dark", effective === "dark");
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", applied === "dark" ? "#090C10" : "#0B3C5D");
-  }, [applied]);
+    if (meta) meta.setAttribute("content", effective === "dark" ? "#090C10" : "#0B3C5D");
+  }, [effective]);
 
   const setTheme = (next: ThemePreference) => {
     setThemeState(next);
@@ -65,8 +58,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggle = () => setTheme(effective === "dark" ? "light" : "dark");
 
   const value = useMemo(
-    () => ({ theme, effective: applied, setTheme, toggle, setForceLight }),
-    [theme, applied]
+    () => ({ theme, effective, setTheme, toggle }),
+    [theme, effective]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

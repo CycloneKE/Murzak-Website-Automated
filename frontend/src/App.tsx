@@ -38,7 +38,6 @@ import ForServices from "./pages/for/ForServices";
 
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
-import { useTheme } from "./context/ThemeContext";
 import { safeReturnTo } from "./utils/safeReturnTo";
 
 // Only exact non-nested pages belong here
@@ -346,14 +345,6 @@ const App: React.FC = () => {
   const isPortalRoute = location.pathname.startsWith("/portal");
   const isPaymentRoute = location.pathname === "/payment";
   const hideChrome = isPortalRoute || location.pathname === "/login" || isPaymentRoute;
-
-  // The client portal is light-mode only — dark mode there has enough
-  // unstyled surfaces that it isn't a supported experience yet.
-  const { setForceLight } = useTheme();
-  useEffect(() => {
-    setForceLight(isPortalRoute);
-    return () => setForceLight(false);
-  }, [isPortalRoute, setForceLight]);
 
   if (booting) {
     return (

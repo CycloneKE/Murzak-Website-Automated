@@ -51,7 +51,7 @@ const ChangePasswordCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
+    <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
       <h3 className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-8 flex items-center gap-2">
         <Lock size={14} className="text-murzak-accent" /> Security · Change Password
       </h3>
@@ -113,7 +113,7 @@ const ChangePasswordCard: React.FC = () => {
         <button
           type="submit"
           disabled={submitting || !currentPassword || !newPassword}
-          className="w-full bg-murzak-accent text-murzak-ink dark:text-white py-3.5 rounded-2xl font-black text-micro uppercase hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          className="w-full bg-murzak-accent text-murzak-ink py-3.5 rounded-2xl font-black text-micro uppercase hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {submitting ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
           {submitting ? "Updating..." : "Update Password"}

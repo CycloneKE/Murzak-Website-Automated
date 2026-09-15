@@ -259,7 +259,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
             <button
               type="submit"
               disabled={creating}
-              className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
             >
               {creating ? "Creating…" : "Create mailbox"}
             </button>
@@ -278,7 +278,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
           onClick={() => setShowForm(true)}
           disabled={!canCreate}
           title={canCreate ? undefined : "You've used every mailbox on your plan."}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center gap-1"
+          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" /> Add mailbox
         </button>

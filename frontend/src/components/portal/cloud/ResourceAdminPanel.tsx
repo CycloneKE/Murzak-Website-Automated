@@ -260,7 +260,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
         <button
           type="button"
           onClick={onRequestUpgrade}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition"
+          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition"
         >
           Request Upgrade
         </button>
@@ -285,7 +285,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             type="button"
             onClick={handleRequestAccess}
             disabled={requestingAccess}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
           >
             {requestingAccess ? "Sending…" : "Request advanced access"}
           </button>
@@ -317,7 +317,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
           type="button"
           onClick={handleAccept}
           disabled={accepting}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
         >
           {accepting ? "Saving…" : "I understand and agree"}
         </button>
@@ -423,7 +423,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             type="button"
             onClick={handleAddEnv}
             disabled={savingEnv || !draftKey.trim()}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center justify-center gap-1"
+            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center justify-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" /> {savingEnv ? "Saving…" : "Save"}
           </button>
@@ -479,7 +479,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               title={t.hint}
               className={`px-3 py-1.5 rounded-lg text-micro font-bold uppercase transition border ${
                 requestTopic === t.id
-                  ? "bg-murzak-accent text-murzak-ink dark:text-white border-transparent"
+                  ? "bg-murzak-accent text-murzak-ink border-transparent"
                   : "border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-300 hover:border-murzak-accent"
               }`}
             >
@@ -500,7 +500,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               type="button"
               onClick={handleSendRequest}
               disabled={requestSending || !requestDetail.trim()}
-              className="mt-2 px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              className="mt-2 px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
             >
               {requestSending ? "Sending…" : "Send request"}
             </button>

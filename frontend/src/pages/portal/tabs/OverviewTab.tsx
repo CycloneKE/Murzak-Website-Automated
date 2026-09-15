@@ -254,7 +254,7 @@ const OverviewTab: React.FC = () => {
                 <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">System Health</h3>
                 <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Live status of your active infrastructure</p>
               </div>
-              <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink transition-colors p-2">
+              <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink dark:hover:text-slate-100 transition-colors p-2">
                 <ArrowRight size={20} />
               </button>
             </div>

@@ -148,7 +148,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </p>
               <button
                 onClick={next}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
               >
                 Let’s go <ArrowRight size={16} />
               </button>
@@ -178,7 +178,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                         : "border-slate-200 dark:border-murzak-border hover:border-murzak-accent/50"
                     }`}
                   >
-                    <span className={`inline-flex p-2.5 rounded-xl mb-3 ${goal === g.id ? "bg-murzak-accent text-murzak-ink dark:text-white" : "bg-murzak-accent/10 text-murzak-accent"}`}>{g.icon}</span>
+                    <span className={`inline-flex p-2.5 rounded-xl mb-3 ${goal === g.id ? "bg-murzak-accent text-murzak-ink" : "bg-murzak-accent/10 text-murzak-accent"}`}>{g.icon}</span>
                     <div className="text-sm font-black text-murzak-ink dark:text-white">{g.label}</div>
                     <div className="text-label font-bold text-slate-600 dark:text-slate-400">{g.sub}</div>
                   </button>
@@ -190,7 +190,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
                 >
                   Continue <ArrowRight size={16} />
                 </button>
@@ -216,7 +216,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                     }`}
                   >
                     <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
-                      c.done ? "bg-murzak-accent text-murzak-ink dark:text-white" : "bg-slate-100 dark:bg-black/5 text-slate-500"
+                      c.done ? "bg-murzak-accent text-murzak-ink" : "bg-slate-100 dark:bg-black/5 text-slate-500"
                     }`}>
                       {c.done ? <Check size={16} /> : c.icon}
                     </span>
@@ -226,7 +226,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                     {!c.done && c.action && (
                       <button
                         onClick={() => { c.action!(); onClose(); }}
-                        className="shrink-0 px-3.5 py-2 rounded-xl bg-black/5 text-murzak-ink dark:text-white font-black text-micro uppercase hover:bg-murzak-accent hover:text-murzak-ink dark:text-white transition-all"
+                        className="shrink-0 px-3.5 py-2 rounded-xl bg-black/5 text-murzak-ink dark:text-white font-black text-micro uppercase hover:bg-murzak-accent hover:text-murzak-ink dark:hover:text-murzak-ink transition-all"
                       >
                         {c.cta}
                       </button>
@@ -240,7 +240,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
                 >
                   Looks good <ArrowRight size={16} />
                 </button>
@@ -275,7 +275,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               </p>
               <button
                 onClick={onClose}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
               >
                 Explore my portal <ArrowRight size={16} />
               </button>

@@ -169,7 +169,7 @@ const DomainsTab: React.FC = () => {
             return (
               <div
                 key={d.id}
-                className="bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-5 sm:p-6 shadow-lg"
+                className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-5 sm:p-6 shadow-lg"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   <div className="min-w-0 flex-grow">

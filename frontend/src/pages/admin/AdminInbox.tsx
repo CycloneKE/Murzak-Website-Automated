@@ -301,7 +301,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Left: Threads */}
-        <div className="lg:col-span-2 bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
+        <div className="lg:col-span-2 bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">
@@ -337,7 +337,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, email, company..."
                 className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl sm:rounded-2xl pl-11 pr-4 py-2.5 sm:py-3
-                            text-sm font-bold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"/>
+                            text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"/>
             </div>
           </div>
 
@@ -393,7 +393,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
         </div>
 
         {/* Right: Thread */}
-        <div className="lg:col-span-3 bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
+        <div className="lg:col-span-3 bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
           <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">

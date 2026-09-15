@@ -94,7 +94,7 @@ const ResourceListTab: React.FC<Props> = ({
                   navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
                 }
               }}
-              className="text-left bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-6 shadow-lg hover:border-murzak-accent/40 transition group cursor-pointer"
+              className="text-left bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-6 shadow-lg hover:border-murzak-accent/40 transition group cursor-pointer"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">

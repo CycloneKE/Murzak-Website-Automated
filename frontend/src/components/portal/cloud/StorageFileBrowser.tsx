@@ -194,7 +194,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
         type="button"
         onClick={handleUploadClick}
         disabled={uploading}
-        className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink dark:text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center gap-1"
+        className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center gap-1"
       >
         <Upload className="w-3.5 h-3.5" /> {uploading ? "Uploading…" : "Upload file"}
       </button>

@@ -8,9 +8,11 @@ import {
   Database,
   LogOut,
   Menu,
+  Moon,
   Receipt,
   Settings,
   Shield,
+  Sun,
   Terminal,
   Timer,
   X,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 
 import Logo from "../../components/Logo";
+import { useTheme } from "../../context/ThemeContext";
 import Contact from "../Contact";
 import AddonsModal from "../../components/AddonsModal";
 import AdminTabs from "../admin/AdminTabs";
@@ -57,6 +60,7 @@ const PortalShell: React.FC = () => {
     showOnboarding, stopConfirmService, trialActive, trialEndStr, trialExpired,
     trialVerifyInvoice, upgradePromptOpen, user,
   } = usePortal();
+  const { effective: theme, toggle: toggleTheme } = useTheme();
 
   return (
     <div className="h-[100dvh] bg-transparent flex overflow-hidden">
@@ -112,7 +116,7 @@ const PortalShell: React.FC = () => {
                   className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-micro sm:text-label font-black uppercase transition-all ${
                     activeTab === item.id
                       ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
-                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
                   }`}
                 >
                   <span className="shrink-0">{item.icon}</span>
@@ -141,7 +145,7 @@ const PortalShell: React.FC = () => {
                   className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-micro sm:text-label font-black uppercase transition-all ${
                     activeTab === item.id
                       ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
-                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
                   }`}
                 >
                   <span className="shrink-0">{item.icon}</span>
@@ -167,7 +171,7 @@ const PortalShell: React.FC = () => {
                         title={s.status !== "Active" ? `${s.name}: ${s.status || "pending"}` : s.name}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-micro font-bold text-left tracking-wide truncate transition-colors ${
                           s.status === "Active"
-                            ? "text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink"
+                            ? "text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
                             : "text-slate-300 cursor-not-allowed"
                         }`}
                       >
@@ -194,6 +198,15 @@ const PortalShell: React.FC = () => {
               title="Log out"
             >
               <LogOut className="w-4 h-4" /> Log out
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="shrink-0 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-murzak-border
+                text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40 transition-all"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
           </div>
       </aside>

@@ -199,7 +199,7 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
         <div className="mb-4 text-micro font-black uppercase text-murzak-accent">{note}</div>
       )}
 
-      <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg overflow-hidden">
+      <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg overflow-hidden">
         {visible.length === 0 ? (
           <div className="p-12 text-center">
             <Globe className="w-6 h-6 mx-auto text-slate-400 mb-3" />

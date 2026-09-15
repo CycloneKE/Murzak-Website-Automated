@@ -127,7 +127,7 @@ const DeploymentsTab: React.FC = () => {
           onAction={() => navigate("/portal/cloud")}
         />
       ) : (
-        <div className="bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] shadow-lg overflow-hidden">
+        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] shadow-lg overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-murzak-border">
             {rows.map((d) => (
               <div key={`${d.serviceId}-${d.uuid}`} className="p-5 flex flex-wrap items-center gap-4">

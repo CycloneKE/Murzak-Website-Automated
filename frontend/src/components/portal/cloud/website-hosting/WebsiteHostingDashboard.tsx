@@ -52,7 +52,7 @@ const textareaClass =
   "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const primaryBtnClass =
-  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink dark:text-white font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
+  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
 
 const secondaryBtnClass =
   "px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-700 dark:text-slate-100 font-black uppercase text-micro transition-all hover:border-murzak-accent/50 disabled:opacity-50 disabled:cursor-not-allowed";
@@ -60,7 +60,7 @@ const secondaryBtnClass =
 const tabClass = (active: boolean) =>
   `px-4 py-2.5 rounded-2xl text-micro font-black uppercase border transition-all ${
     active
-      ? "bg-murzak-accent text-murzak-ink dark:text-white border-murzak-accent shadow-sm"
+      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-sm"
       : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-400 hover:border-murzak-accent/50"
   }`;
 

@@ -29,7 +29,7 @@ function Dot({ ok }: { ok: boolean }) {
 }
 
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/80 dark:bg-white/60 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+  <div className={`bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );
@@ -404,7 +404,7 @@ const AdminProvisioning: React.FC = () => {
                   {consoleJob.status || "unknown"}
                 </span>
               </div>
-              <button className="text-gray-500 hover:text-murzak-ink transition-colors p-1 shrink-0" onClick={() => setConsoleJob(null)}>
+              <button className="text-gray-500 hover:text-white transition-colors p-1 shrink-0" onClick={() => setConsoleJob(null)}>
                 <X className="w-4 h-4" />
               </button>
             </div>

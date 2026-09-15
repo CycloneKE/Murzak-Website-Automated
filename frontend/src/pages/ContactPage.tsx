@@ -112,7 +112,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
 
         {/* Form / success */}
         <div className="lg:col-span-3">
-          <div className="bg-white/80 dark:bg-white/60 backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-10 rounded-[2.5rem] shadow-xl">
+          <div className="bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-10 rounded-[2.5rem] shadow-xl">
             {success ? (
               <div className="text-center py-10 animate-fade-in">
                 <CheckCircle2 size={56} className="text-emerald-500 mx-auto mb-6" />
