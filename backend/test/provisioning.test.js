@@ -293,14 +293,14 @@ const okLane = {
 
   section("enqueue path (payment-time) capacity gate");
   s = makeStore([]);
-  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV", serviceIds: ["biz-pos-inventory", "starter-web-hosting"] });
-  const pos = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
+  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV", serviceIds: ["biz-erp-light", "starter-web-hosting"] });
+  const pos = Object.values(PJ(s)).find((d) => d.service_id === "biz-erp-light");
   const web = Object.values(PJ(s)).find((d) => d.service_id === "starter-web-hosting");
   ok(pos.status === "queued" && pos.target === "box-1" && !pos.gated, "enqueue premium under-cap -> queued on box-1");
   ok(web.status === "queued" && !web.gated, "enqueue volume -> queued");
   s = makeStore([{ name: "ACT", service_id: "big", status: "active", ram_mb: 10500, target: "box-1", capacity_class: "premium" }]);
-  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV2", serviceIds: ["biz-pos-inventory"] });
-  const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
+  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV2", serviceIds: ["biz-erp-light"] });
+  const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-erp-light");
   ok(gated.status === "needs_human" && gated.gated === 1, "enqueue premium over-cap -> needs_human + gated");
   ok(Object.values(CR(s)).length === 1, "enqueue fired one scale-out request");
 
@@ -816,11 +816,51 @@ const okLane = {
     const nonJobs = Object.values(PJ(sNon));
     ok(nonJobs.length === 1 && nonJobs.every((j) => !("site_slug" in j)), "non-app jobs never get a site_slug");
 
+    // Unresolved address: the buyer chose a name we can't find. Building under
+    // the account-derived name would silently hand them a different address, so
+    // the job is held (needs_human, attempts pinned at MAX so murzak-bench-runner
+    // won't claim it) until staff set site_slug and release it.
+    const MAX = Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
+    const quietly = async (fn) => {
+      const orig = console.error; const calls = [];
+      console.error = (...a) => calls.push(a.join(" "));
+      try { return { result: await fn(), calls }; } finally { console.error = orig; }
+    };
+    const throwingClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return store.get(url, opts); } });
+    const emptyClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) return { data: { data: [] } }; return store.get(url, opts); } });
+    const isHeld = (j) => j && j.status === "needs_human" && j.attempts >= MAX && !("site_slug" in j) && /PINV-1/.test(j.error || "") && j.error.length <= 500;
+
     const sFail = makeStore([]);
-    const failingClient = { ...sFail, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return sFail.get(url, opts); } };
-    const eqFail = await svc.enqueueProvisioningForInvoice({ client: failingClient, webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
-    const failJob = Object.values(PJ(sFail))[0];
-    ok(eqFail.created.length === 1 && failJob && !("site_slug" in failJob), "slug lookup failure still provisions, under the account-derived name");
+    const failRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: throwingClient(sFail), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const failJob = Object.values(PJ(sFail)).find((d) => d.service_id === "biz-pos-duka");
+    ok(isHeld(failJob), "slug lookup failure holds the POS job (needs_human, attempts>=MAX, error names invoice, no site_slug) instead of building under the account-derived name");
+    ok(/lookup failed: boom/.test(failJob?.error || "") && /set this job's site_slug/.test(failJob?.error || ""), "held job error carries the reason and the release instructions");
+    ok(failRun.calls.length >= 1 && /A/.test(failRun.calls[0]) && /PINV-1/.test(failRun.calls[0]) && /biz-pos-duka/.test(failRun.calls[0]), "lookup failure is logged with console.error (account, invoice, service)");
+
+    const sNull = makeStore([]);
+    const nullRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: emptyClient(sNull), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const nullJob = Object.values(PJ(sNull)).find((d) => d.service_id === "biz-pos-duka");
+    ok(isHeld(nullJob) && /no Tenant Slug linked/.test(nullJob.error), "no Tenant Slug linked to the invoice holds the POS job too");
+    ok(nullRun.calls.length >= 1 && /A/.test(nullRun.calls[0]) && /PINV-1/.test(nullRun.calls[0]) && /biz-pos-duka/.test(nullRun.calls[0]), "null lookup is logged with console.error (account, invoice, service)");
+
+    // Baseline: what an ERP-only batch looks like in this store.
+    const sBase = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: sBase, webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-erp-light"] });
+    const baseErp = Object.values(PJ(sBase)).find((d) => d.service_id === "biz-erp-light");
+
+    const sMixOk = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sMixOk), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] });
+    const mixOkPos = Object.values(PJ(sMixOk)).find((d) => d.service_id === "biz-pos-duka");
+    const mixOkErp = Object.values(PJ(sMixOk)).find((d) => d.service_id === "biz-erp-light");
+    ok(mixOkPos?.site_slug === "mamanjeri" && mixOkPos.status === "queued", "mixed batch, slug resolved: POS job carries site_slug and is queued");
+    ok(mixOkErp && !("site_slug" in mixOkErp) && mixOkErp.status === baseErp.status && mixOkErp.attempts === baseErp.attempts, "mixed batch, slug resolved: ERP job has no site_slug and matches the ERP-only baseline");
+
+    const sMixBad = makeStore([]);
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: throwingClient(sMixBad), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] }));
+    const mixBadPos = Object.values(PJ(sMixBad)).find((d) => d.service_id === "biz-pos-duka");
+    const mixBadErp = Object.values(PJ(sMixBad)).find((d) => d.service_id === "biz-erp-light");
+    ok(isHeld(mixBadPos), "mixed batch, slug unresolved: POS job is held");
+    ok(mixBadErp && !("site_slug" in mixBadErp) && mixBadErp.status === baseErp.status && mixBadErp.attempts === baseErp.attempts && mixBadErp.error === baseErp.error, "mixed batch, slug unresolved: ERP job is unaffected (matches the ERP-only baseline)");
   }
 
   // ---- tally ----

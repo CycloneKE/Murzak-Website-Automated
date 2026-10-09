@@ -225,17 +225,33 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   // App tiers (Murzak POS): the address the buyer chose rides on the job.
   // Looked up once per invoice — one app order, one invoice, one slug.
   // Activating it here (payment confirmed) makes the name theirs for good.
+  // If it can't be resolved (lookup threw, or no Tenant Slug is linked — expired,
+  // released, never linked) the job must NOT build under a guessed name: the
+  // buyer paid for the address they chose. appSlugProblem holds the reason and
+  // the app-tier jobs below are held for staff.
   let appSiteSlug = null;
+  let appSlugProblem = null;
   if (ids.some((id) => getServiceMeta(id)?.app)) {
     try {
       // Lazy: tenantSlugStore -> orderStore -> provisioning/capacity would
       // otherwise risk a load-time require cycle.
       const tenantSlugs = require("../apps/tenantSlugStore");
       appSiteSlug = await tenantSlugs.activateSlugForInvoice(client, invoiceDocName);
+      if (!appSiteSlug) appSlugProblem = "no Tenant Slug linked";
     } catch (e) {
-      console.warn(`[provisioning] Tenant Slug lookup failed for ${invoiceDocName}: ${e.message}`);
+      appSlugProblem = `lookup failed: ${e.message}`;
     }
   }
+  // Born needs_human with attempts pinned at the runner's max, so neither the
+  // container runner nor murzak-bench-runner (claims attempts < MAX) builds it.
+  const holdUnresolvedAddress = (payload) => {
+    payload.status = "needs_human";
+    payload.attempts = Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
+    payload.error = (
+      `Customer's chosen shop address could not be resolved for invoice ${invoiceDocName} (${appSlugProblem}). ` +
+      `Find their Tenant Slug, set this job's site_slug, reset attempts to 0 and status to needs_human to release it.`
+    ).slice(0, 500);
+  };
 
   const reservedPortsThisBatch = new Set();
   for (const { serviceId, domainChoice } of services) {
@@ -246,8 +262,15 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       repoUrl: accountRepoUrl,
       appPort: accountAppPort,
     });
-    if (appSiteSlug && getServiceMeta(serviceId)?.app) payload.site_slug = appSiteSlug;
     const meta = getServiceMeta(serviceId);
+    const holdForAddress = Boolean(meta?.app && !appSiteSlug);
+    if (meta?.app && appSiteSlug) payload.site_slug = appSiteSlug;
+    if (holdForAddress) {
+      console.error(
+        `[provisioning] app order held — chosen address unresolved (${appSlugProblem}): account=${webAccount} invoice=${invoiceDocName} service=${serviceId}`
+      );
+      holdUnresolvedAddress(payload);
+    }
 
     // Phase 2: Database Hosting jobs get a real external port so a customer
     // can connect with their own SQL client. Only for jobs that are actually
@@ -282,6 +305,8 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
         };
       }
     }
+    // The capacity gate above may have rewritten the error; the hold wins.
+    if (holdForAddress) holdUnresolvedAddress(payload);
     try {
       const existing = await findExistingJob(client, invoiceDocName, serviceId);
       if (existing?.name) {
