@@ -5,10 +5,9 @@
 
 const { getServiceMeta } = require("../provisioning/catalog");
 const { checkSlug } = require("./shopAddress");
+const { PAID_SERVICE_STATUSES } = require("../addonEligibility");
 
 const APP_ADDRESS_SUFFIX = { pos: "pos.murzaktech.tech" };
-// A row in any of these states is a shop that exists (or is being built).
-const LIVE_SERVICE_STATUSES = new Set(["Active", "Setting up", "Suspended"]);
 
 function coded(code, message, statusCode) {
   const err = new Error(message);
@@ -37,8 +36,9 @@ function validateAppOrder({ serviceId, config, existingServiceRows }) {
 
   // Second shops need per-shop billing rows (phase 3); until then one live
   // shop per app per account, and the page sends the owner to the portal.
+  // A row in any of these states is a shop that exists (or is being built).
   const hasLiveShop = (existingServiceRows || []).some(
-    (r) => getServiceMeta(r.serviceId)?.app === app && LIVE_SERVICE_STATUSES.has(r.status)
+    (r) => getServiceMeta(r.serviceId)?.app === app && PAID_SERVICE_STATUSES.has(r.status)
   );
   if (hasLiveShop) {
     throw coded("APP_EXISTS", "You already have a shop on this account — manage it from your portal.", 409);

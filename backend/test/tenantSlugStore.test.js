@@ -58,6 +58,21 @@ const MIN = 60 * 1000;
     ok(c.docs.mamanjeri.web_account === "B", "an expired reservation can be taken over");
   }
 
+section("isSlugAvailableTo — a buyer's own hold is not a lock-out");
+  {
+    const c = makeClient();
+    await store.reserveSlug(c, { slug: "own1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    ok(typeof store.isSlugAvailableTo === "function", "isSlugAvailableTo is exported");
+    ok(await store.isSlugAvailableTo(c, "own1", "A", T0 + 5 * MIN), "own live reservation is available to its holder");
+    ok(!(await store.isSlugAvailableTo(c, "own1", "B", T0 + 5 * MIN)), "another account's live reservation is not available");
+    ok(await store.isSlugAvailableTo(c, "own1", "A", T0 + store.SLUG_RESERVATION_TTL_MS + 1), "own expired reservation is available to its holder");
+    ok(await store.isSlugAvailableTo(c, "own1", "B", T0 + store.SLUG_RESERVATION_TTL_MS + 1), "an expired reservation is available to anyone");
+    ok(await store.isSlugAvailableTo(c, "never-seen", "A", T0), "unknown slug is available");
+    c.docs.own1.status = "active";
+    ok(!(await store.isSlugAvailableTo(c, "own1", "A", T0 + 5 * MIN)), "an active slug is not available even to its own account");
+    ok(!(await store.isSlugAvailableTo(c, "own1", "B", T0 + 5 * MIN)), "an active slug is not available to others");
+  }
+
   section("heartbeat keeps a reservation alive");
   {
     const c = makeClient();

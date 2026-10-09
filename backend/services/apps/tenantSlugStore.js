@@ -66,6 +66,16 @@ async function isSlugAvailable(client, slug, nowMs) {
   return !isLive(await getSlugDoc(client, slug), nowMs);
 }
 
+// Like isSlugAvailable, but a buyer's OWN reservation (live or lapsed) counts as
+// free for them: reserveSlug lets the same account re-reserve, so an
+// availability check must not lock them out of their own address on a retry.
+// An `active` (paid) slug is never available to anyone.
+async function isSlugAvailableTo(client, slug, webAccount, nowMs) {
+  const doc = await getSlugDoc(client, slug);
+  if (!isLive(doc, nowMs)) return true;
+  return doc.status === "reserved" && !!webAccount && doc.web_account === webAccount;
+}
+
 async function reserveSlug(client, { slug, app, webAccount, orderId, nowMs }) {
   if (!checkSlug(slug).ok) throw slugError("slug_invalid", "That shop address isn't allowed.", 400);
   return serialize(async () => {
@@ -161,6 +171,7 @@ module.exports = {
   SLUG_RESERVATION_TTL_MS,
   SLUG_PAYMENT_GRACE_MS,
   isSlugAvailable,
+  isSlugAvailableTo,
   reserveSlug,
   touchSlug,
   linkSlugInvoice,

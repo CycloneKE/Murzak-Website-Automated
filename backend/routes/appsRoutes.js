@@ -14,7 +14,7 @@ module.exports = function (ctx) {
   const router = express.Router();
 
   router.get("/api/apps/:app/address", async (req, res) => {
-    if (!appOrder.APP_ADDRESS_SUFFIX[req.params.app]) {
+    if (!Object.prototype.hasOwnProperty.call(appOrder.APP_ADDRESS_SUFFIX, req.params.app)) {
       return res.status(404).json({ error: "Unknown app." });
     }
     const raw = String(req.query.name || "").slice(0, 120);
@@ -26,11 +26,17 @@ module.exports = function (ctx) {
     try {
       const client = frappeClient();
       const nowMs = Date.now();
-      const available = await tenantSlugs.isSlugAvailable(client, slug, nowMs);
+      // Optional: a signed-in buyer must not be told their own held address is
+      // taken. Anonymous visitors still get an answer (route stays public).
+      const webAccount = req.session?.webAccount || req.session?.user?.id;
+      const isFree = (s) => (webAccount
+        ? tenantSlugs.isSlugAvailableTo(client, s, webAccount, nowMs)
+        : tenantSlugs.isSlugAvailable(client, s, nowMs));
+      const available = await isFree(slug);
       let suggestions = [];
       if (!available) {
         for (const s of shopAddress.suggestSlugs(slug)) {
-          if (await tenantSlugs.isSlugAvailable(client, s, nowMs)) suggestions.push(s);
+          if (await isFree(s)) suggestions.push(s);
         }
       }
       return res.json({ ok: true, slug, available, ...(available ? {} : { reason: "taken" }), suggestions });

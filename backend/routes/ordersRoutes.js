@@ -148,7 +148,7 @@ module.exports = function (ctx) {
         throw e;
       }
       const nowMs = Date.now();
-      if (app && !(await tenantSlugs.isSlugAvailable(client, app.slug, nowMs))) {
+      if (app && !(await tenantSlugs.isSlugAvailableTo(client, app.slug, webAccountName, nowMs))) {
         return res.status(409).json({
           error: "That shop address was just taken.",
           code: "slug_taken",
@@ -286,6 +286,27 @@ module.exports = function (ctx) {
       }
 
       const record = await fetchWebAccount(client, webAccountName);
+
+      // App orders: re-assert the shop-address hold BEFORE anything is
+      // created. Idempotent for the same account (keeps invoice history,
+      // renews expiry); if the name was lost meanwhile this fails 409 here,
+      // not after a payable invoice already exists with no slug attached.
+      if (order.config?.app && order.config?.slug) {
+        try {
+          await tenantSlugs.reserveSlug(client, {
+            slug: order.config.slug, app: order.config.app, webAccount: webAccountName, orderId, nowMs,
+          });
+        } catch (e) {
+          if (e.code && e.statusCode) {
+            return res.status(e.statusCode).json({
+              error: e.message,
+              code: e.code,
+              ...(e.code === "slug_taken" ? { suggestions: suggestSlugs(order.config.slug) } : {}),
+            });
+          }
+          throw e;
+        }
+      }
       const planKey = record?.plan || "None";
       const hasPaidPlan = await hasPaidSubscriptionForPlan(client, webAccountName, planKey);
 

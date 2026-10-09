@@ -317,6 +317,18 @@ const domainCheckLimiter = rateLimit({
   skip: skipInE2E,
 });
 
+// Public "is this shop address free?" lookup behind the /get/:app setup page —
+// fired as the buyer types, so it is looser than the form limiters but still
+// capped per IP to stop scripted enumeration of taken addresses.
+const appAddressLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many address checks. Please slow down and try again shortly." },
+  skip: skipInE2E,
+});
+
 // Front-end error reporting — no auth (must work for logged-out visitors and
 // during the boot sequence itself), tight per-IP cap since it's an unauthenticated
 // write endpoint, and a small manual body cap on top of the global 1mb bodyParser
@@ -3488,6 +3500,7 @@ app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/ordersRoutes')(routeContext));
+app.use("/api/apps/", appAddressLimiter);
 app.use(require('./routes/appsRoutes')(routeContext));
 app.use(require('./routes/adminRoutes')(routeContext));
 
