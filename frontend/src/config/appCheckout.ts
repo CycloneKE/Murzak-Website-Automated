@@ -28,7 +28,7 @@ export const APP_CHECKOUT: Record<AppId, AppCheckoutInfo> = {
 
 /** /get/:app route segment → known app, or null. */
 export function appIdFromRoute(param: string | undefined): AppId | null {
-  return param && param in APP_CHECKOUT ? (param as AppId) : null;
+  return param && Object.prototype.hasOwnProperty.call(APP_CHECKOUT, param) ? (param as AppId) : null;
 }
 
 /**
