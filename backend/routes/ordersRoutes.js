@@ -20,6 +20,11 @@ const annualPrepayKes = require("../services/billingTerm").annualPrepayKes;
 // second statement (not merged into one destructure) so the static wiring
 // check's regex still finds its target unambiguously.
 const isEligibleForTermChoice = require("../services/checkoutBillingTerm").isEligibleForTermChoice;
+// Plain-assignment requires again (same static-wiring-check rationale).
+const validateAppOrder = require("../services/apps/appOrder").validateAppOrder;
+const isAppService = require("../services/apps/appOrder").isAppService;
+const tenantSlugs = require("../services/apps/tenantSlugStore");
+const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 
 // Shared by POST /api/orders (order-creation, purely informational — the
 // order's own stored config.billingTerm is never read back by
@@ -117,20 +122,75 @@ module.exports = function (ctx) {
       assertOrderWithinCapacity([{ serviceId }]);
 
       const client = frappeClient();
-      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
 
+      // App orders (Murzak POS tiers): validate the shop address and enforce
+      // one live shop per app before reserving anything.
+      let app = null;
+      try {
+        // Only app tiers need the account's existing services, so every other
+        // order skips this read and behaves exactly as before. A missing
+        // account (404) just means no existing shop.
+        let acct = null;
+        if (isAppService(serviceId)) {
+          try {
+            acct = await fetchWebAccount(client, webAccountName);
+          } catch (fe) {
+            if (fe.response?.status !== 404) throw fe;
+          }
+        }
+        app = validateAppOrder({
+          serviceId,
+          config,
+          existingServiceRows: normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD])),
+        });
+      } catch (e) {
+        if (e.code && e.statusCode) return res.status(e.statusCode).json({ error: e.message, code: e.code });
+        throw e;
+      }
+      const nowMs = Date.now();
+      if (app && !(await tenantSlugs.isSlugAvailable(client, app.slug, nowMs))) {
+        return res.status(409).json({
+          error: "That shop address was just taken.",
+          code: "slug_taken",
+          suggestions: suggestSlugs(app.slug),
+        });
+      }
+
+      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
       const normalizedTerm = normalizeBillingTerm(billingTerm);
+      const storedConfig = {
+        ...(config || {}),
+        billingTerm: normalizedTerm,
+        ...(app ? { app: app.app, slug: app.slug, shopName: app.shopName } : {}),
+      };
 
       const order = await createOrder({
         client,
         webAccountName,
         serviceId,
-        config: { ...(config || {}), billingTerm: normalizedTerm },
+        config: storedConfig,
         planKey,
         source,
         fleetReservedRamMb,
-        nowMs: Date.now(),
+        nowMs,
       });
+
+      if (app) {
+        try {
+          await tenantSlugs.reserveSlug(client, {
+            slug: app.slug, app: app.app, webAccount: webAccountName, orderId: order.id, nowMs,
+          });
+        } catch (e) {
+          // Lost the race for the name after the order was minted — release the
+          // order's RAM reservation too, so a failed attempt holds nothing.
+          await cancelOrder({ client, webAccountName, orderId: order.id }).catch(() => {});
+          if (e.code === "slug_taken") {
+            return res.status(409).json({ error: e.message, code: e.code, suggestions: suggestSlugs(app.slug) });
+          }
+          throw e;
+        }
+      }
+
       return res.json({ ok: true, order: { ...order, billingTerm: normalizedTerm } });
     } catch (err) {
       return sendError(res, err, "Failed to create order.", "CREATE ORDER");
@@ -152,6 +212,9 @@ module.exports = function (ctx) {
         nowMs: Date.now(),
         renew: true,
       });
+      if (order.status === "Draft" && order.config?.app && order.config?.slug) {
+        await tenantSlugs.touchSlug(client, { slug: order.config.slug, webAccount: webAccountName, nowMs: Date.now() });
+      }
 
       // Fails safe to false (never true) on error — the risk direction here
       // is showing an inappropriate term choice to an existing customer
@@ -347,6 +410,11 @@ module.exports = function (ctx) {
       }
 
       await linkInvoice({ client, orderId, invoiceDocName });
+      if (order.config?.app && order.config?.slug) {
+        await tenantSlugs.linkSlugInvoice(client, {
+          slug: order.config.slug, webAccount: webAccountName, invoiceDocName, nowMs,
+        });
+      }
       return res.json({ ok: true, invoiceDocName });
     } catch (err) {
       return sendError(res, err, "Failed to prepare payment.", "PREPARE PAYMENT");

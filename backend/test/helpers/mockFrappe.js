@@ -58,6 +58,18 @@ function makeMockFrappe(seed = {}) {
     post: async (url, body) => {
       const { doctype } = parseUrl(url);
       if (!store[doctype]) store[doctype] = {};
+      // Tenant Slug is autonamed by its slug (field:slug), so the name IS the
+      // uniqueness guarantee — mirror Frappe's 409 on a duplicate.
+      if (doctype === "Tenant Slug") {
+        if (store[doctype][body.slug]) {
+          const e = new Error("DuplicateEntryError");
+          e.response = { status: 409 };
+          throw e;
+        }
+        store[doctype][body.slug] = { name: body.slug, ...body };
+        posts.push({ url, body });
+        return { data: { data: store[doctype][body.slug] } };
+      }
       const name = `${prefixFor(doctype)}-${++seq}`;
       const doc = { name, ...body };
       store[doctype][name] = doc;

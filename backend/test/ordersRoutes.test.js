@@ -871,6 +871,48 @@ function baseCtx(client, overrides = {}) {
     ok(res3.body?.order?.billingTerm === "monthly", "unknown term falls back to monthly, never errors");
   }
 
+  section("POST /api/orders — POS tier reserves the shop address");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+
+    const res = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-1" },
+      body: { serviceId: "biz-pos-duka", billingTerm: "monthly", planKey: "Business", source: "app-checkout",
+              config: { shopName: "Mama Njeri", slug: "mamanjeri" } },
+    }, res);
+    ok(res.statusCode === 200, "POS order created");
+    ok(res.body?.order?.monthlyKes === 2500, "priced server-side from the Duka tier");
+    ok(res.body?.order?.config?.app === "pos" && res.body?.order?.config?.slug === "mamanjeri", "order carries app + slug");
+    const slugDoc = client.store["Tenant Slug"]?.mamanjeri;
+    ok(slugDoc?.status === "reserved" && slugDoc?.web_account === "acct-pos-1", "slug reserved for the buyer");
+
+    const res2 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-2" },
+      body: { serviceId: "biz-pos-chain", billingTerm: "monthly", planKey: "Business",
+              config: { shopName: "Other", slug: "mamanjeri" } },
+    }, res2);
+    ok(res2.statusCode === 409 && res2.body?.code === "slug_taken", "a second account is refused the same address");
+    ok(Array.isArray(res2.body?.suggestions) && res2.body.suggestions.length > 0, "with suggestions");
+
+    const res3 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-3" },
+      body: { serviceId: "biz-pos-duka", config: { shopName: "X", slug: "api" } },
+    }, res3);
+    ok(res3.statusCode === 400 && res3.body?.code === "slug_invalid", "reserved address refused with 400");
+
+    const res4 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-4" },
+      body: { serviceId: "biz-pos-duka", amount: 1, monthlyKes: 1, config: { shopName: "Cheap", slug: "cheap-shop" } },
+    }, res4);
+    ok(res4.body?.order?.monthlyKes === 2500, "client-sent amounts are ignored");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
