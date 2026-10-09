@@ -483,4 +483,6 @@ module.exports = {
   reservedDraftRamMb,
   reconcileDraftOrders,
   toApiOrder,
+  mysqlDatetime,
+  parseMysqlDatetime,
 };

@@ -1,0 +1,95 @@
+/**
+ * Tenant Slug reservation store — node test/tenantSlugStore.test.js
+ */
+let passed = 0, failed = 0; const fails = [];
+function ok(c, m) { if (c) { passed++; console.log("  ok:", m); } else { failed++; fails.push(m); console.error("  FAIL:", m); } }
+function section(n) { console.log(`\n# ${n}`); }
+async function rejects(fn, code, msg) {
+  try { await fn(); ok(false, `${msg} (expected ${code})`); }
+  catch (e) { ok(e.code === code, `${msg} -> ${e.code}`); }
+}
+
+const store = require("../services/apps/tenantSlugStore");
+
+// Minimal Frappe double: docs keyed by name (= slug, per autoname field:slug).
+function makeClient() {
+  const docs = {};
+  const nameOf = (url) => decodeURIComponent(url.split("?")[0].split("/").pop());
+  return {
+    docs,
+    get: async (url, opts) => {
+      if (/\/Tenant(%20| )Slug$/.test(url)) {
+        const filters = JSON.parse(opts?.params?.filters || "[]");
+        const rows = Object.values(docs).filter((d) =>
+          filters.every(([f, op, v]) => (op === "=" ? d[f] === v : op === "in" ? v.includes(d[f]) : true)));
+        return { data: { data: rows } };
+      }
+      const n = nameOf(url);
+      if (!docs[n]) { const e = new Error("404"); e.response = { status: 404 }; throw e; }
+      return { data: { data: docs[n] } };
+    },
+    post: async (url, body) => {
+      if (docs[body.slug]) { const e = new Error("dup"); e.response = { status: 409 }; throw e; }
+      docs[body.slug] = { name: body.slug, ...body };
+      return { data: { data: docs[body.slug] } };
+    },
+    put: async (url, body) => { const n = nameOf(url); Object.assign(docs[n], body); return { data: { data: docs[n] } }; },
+  };
+}
+
+const T0 = 1_800_000_000_000;
+const MIN = 60 * 1000;
+
+(async () => {
+  section("reserve, availability, expiry");
+  {
+    const c = makeClient();
+    ok(await store.isSlugAvailable(c, "mamanjeri", T0), "unknown slug is available");
+    await store.reserveSlug(c, { slug: "mamanjeri", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    ok(c.docs.mamanjeri?.status === "reserved" && c.docs.mamanjeri.web_account === "A", "reserved for A");
+    ok(!(await store.isSlugAvailable(c, "mamanjeri", T0 + 5 * MIN)), "held while the reservation is live");
+    await rejects(
+      () => store.reserveSlug(c, { slug: "mamanjeri", app: "pos", webAccount: "B", orderId: "CHK-2", nowMs: T0 + 5 * MIN }),
+      "slug_taken", "another account cannot take a live reservation");
+    await store.reserveSlug(c, { slug: "mamanjeri", app: "pos", webAccount: "A", orderId: "CHK-3", nowMs: T0 + 5 * MIN });
+    ok(c.docs.mamanjeri.checkout_order === "CHK-3", "the holder can re-reserve for a fresh order");
+    ok(await store.isSlugAvailable(c, "mamanjeri", T0 + 5 * MIN + store.SLUG_RESERVATION_TTL_MS + 1), "free again once expired");
+    await store.reserveSlug(c, { slug: "mamanjeri", app: "pos", webAccount: "B", orderId: "CHK-4", nowMs: T0 + 5 * MIN + store.SLUG_RESERVATION_TTL_MS + 1 });
+    ok(c.docs.mamanjeri.web_account === "B", "an expired reservation can be taken over");
+  }
+
+  section("heartbeat keeps a reservation alive");
+  {
+    const c = makeClient();
+    await store.reserveSlug(c, { slug: "duka1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    await store.touchSlug(c, { slug: "duka1", webAccount: "A", nowMs: T0 + 25 * MIN });
+    ok(!(await store.isSlugAvailable(c, "duka1", T0 + 40 * MIN)), "touched reservation outlives its first TTL");
+    await store.touchSlug(c, { slug: "duka1", webAccount: "B", nowMs: T0 + 41 * MIN });
+    ok(await store.isSlugAvailable(c, "duka1", T0 + 25 * MIN + store.SLUG_RESERVATION_TTL_MS + 1), "a non-holder's touch does nothing");
+  }
+
+  section("invoice link and activation");
+  {
+    const c = makeClient();
+    await store.reserveSlug(c, { slug: "chain", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    await store.linkSlugInvoice(c, { slug: "chain", webAccount: "A", invoiceDocName: "PINV-9", nowMs: T0 + MIN });
+    ok(c.docs.chain.invoice === "PINV-9", "invoice linked");
+    ok(!(await store.isSlugAvailable(c, "chain", T0 + 20 * 60 * MIN)), "an invoiced reservation is held through the payment grace window");
+    ok((await store.activateSlugForInvoice(c, "PINV-9")) === "chain", "activation returns the slug");
+    ok(c.docs.chain.status === "active", "status active after payment");
+    ok(!(await store.isSlugAvailable(c, "chain", T0 + 365 * 24 * 60 * MIN)), "an active slug is never available again");
+    ok((await store.activateSlugForInvoice(c, "PINV-unknown")) === null, "no slug for an unrelated invoice");
+  }
+
+  section("bad input never reaches Frappe");
+  {
+    const c = makeClient();
+    await rejects(
+      () => store.reserveSlug(c, { slug: "api", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 }),
+      "slug_invalid", "reserved word refused");
+    ok(Object.keys(c.docs).length === 0, "nothing written");
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  if (failed) { console.error(fails.join("\n")); process.exit(1); }
+})();
