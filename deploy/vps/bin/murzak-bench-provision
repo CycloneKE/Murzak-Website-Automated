@@ -21,6 +21,8 @@
 #              JOB_OWNER_EMAIL   Web Account work_email (required when the
 #                                apps include techsavanna_pos)
 #              JOB_OWNER_NAME    Web Account holder name (optional)
+#              JOB_SITE_SLUG     customer-chosen address (optional); site
+#                                becomes <slug>.erp…, POS <slug>.pos…
 #   out (stdout, LAST LINE) {"site":"...","url":"...","admin":"..."}
 #                           plus deskUrl/product/posUser/posPassword for a POS
 #                           shop, where url is https://<slug>.pos.murzaktech.tech
@@ -71,10 +73,23 @@ refuse() { log "REFUSED: $*"; exit 2; }
 # ---- 2. site name ----------------------------------------------------------
 # Frappe site names are hostnames: lowercase, alnum and hyphen, no leading or
 # trailing hyphen. Account ids are not guaranteed to be any of that.
-slug="$(printf '%s' "$JOB_WEB_ACCOUNT" \
-  | tr '[:upper:]' '[:lower:]' \
-  | sed -e 's/[^a-z0-9-]/-/g' -e 's/-\{2,\}/-/g' -e 's/^-//' -e 's/-$//' \
-  | cut -c1-40)"
+if [ -n "${JOB_SITE_SLUG:-}" ]; then
+  # Chosen by the customer at checkout and already validated server-side
+  # (services/apps/shopAddress.js) — re-checked here because this script
+  # builds hostnames and shell command strings from it. Matched with bash's
+  # whole-string regex under the C locale: grep matches line by line, so
+  # "ok<newline>; evil" would pass it, and locale ranges can admit accents.
+  slug="$JOB_SITE_SLUG"
+  slug_re='^[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])$'
+  ( export LC_ALL=C; [[ "$slug" =~ $slug_re ]] ) \
+    || refuse "JOB_SITE_SLUG is not a valid site name (3-40 chars: a-z, 0-9, hyphen; no leading or trailing hyphen)"
+else
+  slug="$(printf '%s' "$JOB_WEB_ACCOUNT" \
+    | tr '[:upper:]' '[:lower:]' \
+    | tr '\n' '-' \
+    | sed -e 's/[^a-z0-9-]/-/g' -e 's/-\{2,\}/-/g' -e 's/^-//' -e 's/-$//' \
+    | cut -c1-40)"
+fi
 [ -n "$slug" ] || refuse "JOB_WEB_ACCOUNT '${JOB_WEB_ACCOUNT}' has no usable hostname characters"
 SITE="${slug}.${SITE_SUFFIX}"
 log "account=${JOB_WEB_ACCOUNT} service=${JOB_SERVICE_ID} -> site=${SITE}"
@@ -113,6 +128,18 @@ done
 # ---- 4. create the site (idempotent) ---------------------------------------
 ADMIN_PASSWORD=""
 if benchctl "ls sites/'$SITE'/site_config.json" >/dev/null 2>&1; then
+  # Never adopt another customer's site. The owning account is read from the
+  # site's own config (via stdin, so no path or value is spliced into code)
+  # and compared as plain strings. A site made before this stamp existed has
+  # no key -> empty owner -> adoptable, as before. If the config cannot be
+  # read or parsed we cannot prove ownership, so fail closed (retryable).
+  if ! owner="$(benchctl "cat sites/'$SITE'/site_config.json" 2>/dev/null \
+      | python3 -c 'import json,sys; print(str(json.load(sys.stdin).get("murzak_web_account", "")))')"; then
+    die "could not read the owner of existing site ${SITE} (retryable)"
+  fi
+  if [ -n "$owner" ] && [ "$owner" != "$JOB_WEB_ACCOUNT" ]; then
+    refuse "site ${SITE} belongs to another account — never adopting another customer's site"
+  fi
   log "site already exists — adopting it, not recreating"
 else
   # Generated per tenant; returned in the JSON so the portal can surface it
@@ -130,6 +157,15 @@ else
           --no-mariadb-socket" >&2; then
     die "bench new-site failed for ${SITE} (retryable)"
   fi
+fi
+
+# Stamp the owning account on the site (idempotent). The value goes in through
+# the environment, not the command string: account ids are free text and must
+# not be able to break out of the quotes inside `bash -lc`.
+if ! MURZAK_ACCT="$JOB_WEB_ACCOUNT" \
+     sudo -u "$BENCH_USER" --preserve-env=MURZAK_ACCT bash -lc \
+     "cd '$BENCH_DIR' && bench --site '$SITE' set-config murzak_web_account \"\$MURZAK_ACCT\"" >&2; then
+  die "could not record the owning account on ${SITE} (retryable)"
 fi
 
 # ---- 4b. per-app site config that must exist BEFORE install ----------------
