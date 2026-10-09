@@ -56,6 +56,9 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
               Book a Demo
             </Button>
           </div>
+          <p className="mt-5 text-sm font-semibold text-slate-600 dark:text-slate-400">
+            Your own private POS, ready minutes after payment. Your sign-in is waiting in your Murzak portal.
+          </p>
         </div>
       </section>
 

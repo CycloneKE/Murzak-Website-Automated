@@ -8,7 +8,7 @@ interface DatabaseConnectionPanelProps {
   isActive: boolean;
 }
 
-function Row({ label, value, secret, revealed, onToggle }: {
+export function CredentialRow({ label, value, secret, revealed, onToggle }: {
   label: string;
   value: string;
   secret?: boolean;
@@ -97,12 +97,12 @@ const DatabaseConnectionPanel: React.FC<DatabaseConnectionPanelProps> = ({ servi
 
       {!loading && !error && conn?.password && (
         <div className="space-y-1.5">
-          <Row label="Engine" value={conn.engine || ""} />
-          <Row label="Host" value={conn.host || ""} />
-          <Row label="Port" value={String(conn.port ?? "")} />
-          {conn.database && <Row label="Database" value={conn.database} />}
-          {conn.username && <Row label="Username" value={conn.username} />}
-          <Row label="Password" value={conn.password} secret revealed={revealed} onToggle={() => setRevealed((r) => !r)} />
+          <CredentialRow label="Engine" value={conn.engine || ""} />
+          <CredentialRow label="Host" value={conn.host || ""} />
+          <CredentialRow label="Port" value={String(conn.port ?? "")} />
+          {conn.database && <CredentialRow label="Database" value={conn.database} />}
+          {conn.username && <CredentialRow label="Username" value={conn.username} />}
+          <CredentialRow label="Password" value={conn.password} secret revealed={revealed} onToggle={() => setRevealed((r) => !r)} />
         </div>
       )}
     </div>

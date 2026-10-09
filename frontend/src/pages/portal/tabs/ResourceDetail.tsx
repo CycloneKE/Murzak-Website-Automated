@@ -5,6 +5,7 @@ import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPa
 import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrowser";
 import MailboxManager from "../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
+import PosLoginPanel from "../../../components/portal/cloud/PosLoginPanel";
 import { usePortal } from "../PortalContext";
 import { toUserMessage } from "../../../services/errors";
 
@@ -162,6 +163,10 @@ const ResourceDetail: React.FC = () => {
                 </div>
                 <ArrowRight className="w-4 h-4 text-murzak-accent shrink-0 group-hover:translate-x-1 transition-transform" />
               </a>
+            )}
+
+            {isActive && cloudAccessUrl && cloudJob?.posLogin && (
+              <PosLoginPanel posUrl={cloudAccessUrl} login={cloudJob.posLogin} />
             )}
 
             {/* Honest provisioning states — a paid service must never look like

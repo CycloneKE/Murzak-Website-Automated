@@ -18,7 +18,12 @@
 #              JOB_BENCH_APPS    comma-separated apps, install order (required)
 #              JOB_SERVICE_NAME  human label, logging only
 #              JOB_INVOICE       invoice ref, logging only
+#              JOB_OWNER_EMAIL   Web Account work_email (required when the
+#                                apps include techsavanna_pos)
+#              JOB_OWNER_NAME    Web Account holder name (optional)
 #   out (stdout, LAST LINE) {"site":"...","url":"...","admin":"..."}
+#                           plus deskUrl/product/posUser/posPassword for a POS
+#                           shop, where url is https://<slug>.pos.murzaktech.tech
 #   log (stderr)            everything else
 #
 #   Only the JSON goes to stdout. The lane takes the last stdout line, so a
@@ -202,8 +207,96 @@ if printf '%s\n' "$final" | grep -qx "hrms"; then
   fi
 fi
 
+# ---- 6c. Murzak POS: owner account + the shop's own POS address ------------
+# A site with techsavanna_pos is a Murzak POS shop. The customer uses the POS
+# app at <slug>.pos.murzaktech.tech (nginx/pos-tenants-wildcard pins that host
+# to this site), never the ERPNext desk, so:
+#
+#   * the customer-facing url becomes the POS address, and the desk moves to
+#     deskUrl (staff-only, like admin);
+#   * the shop owner's POS login is created HERE, from the Web Account's own
+#     email. Public sign-up is closed on tenant front doors — otherwise the
+#     first stranger to find the URL would register as System Manager of
+#     someone else's shop.
+#
+# The owner is created through techsavanna_pos's own register_user, so roles,
+# API keys and the OAuth client are exactly what a self-signed-up owner gets.
+# Python is run directly (what `bench execute` does internally) so the
+# password travels by environment, never argv — same rule as step 4.
+#
+# Idempotent: an existing owner is left alone and posPassword is empty, since
+# the customer may already be using the one they were given (e.g. a CRM bought
+# after the POS re-runs this on the same site). This step runs last so a
+# failure between creating the user and printing the JSON is near-impossible.
+POS_SUFFIX="${BENCH_POS_SUFFIX:-pos.murzaktech.tech}"
+POS_HOST=""
+POS_USER=""
+POS_PASSWORD=""
+if printf '%s\n' "$final" | grep -qx "techsavanna_pos"; then
+  [ -n "${JOB_OWNER_EMAIL:-}" ] || refuse \
+    "JOB_OWNER_EMAIL is empty — a POS shop needs an owner login, and sign-up is closed on tenant POS hosts"
+  if command -v getent >/dev/null 2>&1; then
+    getent ahostsv4 "prov-check.${POS_SUFFIX}" >/dev/null 2>&1 || refuse \
+      "*.${POS_SUFFIX} does not resolve — add the wildcard A record before selling POS tenants"
+  fi
+  POS_HOST="${slug}.${POS_SUFFIX}"
+  POS_USER="$(printf '%s' "$JOB_OWNER_EMAIL" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+
+  # register_user's own strength rules: >=8 chars with upper, lower, digit and
+  # a symbol. The fixed suffix guarantees each class whatever base64 yields.
+  candidate="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | cut -c1-14)Aa7!"
+
+  owner_out="$(POS_OWNER_EMAIL="$POS_USER" POS_OWNER_NAME="${JOB_OWNER_NAME:-}" \
+    POS_OWNER_PW="$candidate" POS_SITE="$SITE" \
+    sudo -u "$BENCH_USER" --preserve-env=POS_OWNER_EMAIL,POS_OWNER_NAME,POS_OWNER_PW,POS_SITE \
+    bash -lc "cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+import json, os, frappe
+frappe.init(site=os.environ['POS_SITE'], sites_path='.')
+frappe.connect()
+try:
+    email = os.environ['POS_OWNER_EMAIL']
+    if frappe.db.exists('User', email):
+        print(json.dumps({'state': 'exists'}))
+    else:
+        parts = (os.environ.get('POS_OWNER_NAME') or '').split()
+        first = parts[0] if parts else 'Shop'
+        last = ' '.join(parts[1:]) or 'Owner'
+        from techsavanna_pos.api.auth_api import register_user
+        r = register_user(email=email, first_name=first, last_name=last,
+                          password=os.environ['POS_OWNER_PW'])
+        if isinstance(r, dict) and r.get('success') is False:
+            raise Exception('register_user refused: %s %s' % (r.get('code'), r.get('message')))
+        frappe.db.commit()
+        print(json.dumps({'state': 'created'}))
+finally:
+    frappe.destroy()
+PY" 2>&1)" || die "creating the POS owner on ${SITE} failed (retryable): $(printf '%s' "$owner_out" | tail -3 | tr '\n' ' ' | cut -c1-300)"
+
+  case "$(printf '%s\n' "$owner_out" | tail -1)" in
+    *'"created"'*) POS_PASSWORD="$candidate"; log "POS owner ${POS_USER} created" ;;
+    *'"exists"'*)  log "POS owner ${POS_USER} already exists — leaving their password alone" ;;
+    *) die "POS owner step gave no verdict on ${SITE} (retryable): $(printf '%s' "$owner_out" | tail -1 | cut -c1-200)" ;;
+  esac
+fi
+
 # ---- 7. result -------------------------------------------------------------
 # THE only stdout line. admin is empty on an adopted site — we do not know the
 # existing password and must not invent one.
-printf '{"site":"%s","url":"https://%s","admin":"%s"}\n' \
-  "$SITE" "$SITE" "$ADMIN_PASSWORD"
+#
+# url is what the portal shows the customer: the POS address for a POS shop,
+# otherwise the site itself. posUser/posPassword are the owner's POS login
+# (password only on the run that created it). JSON is built with python so an
+# email or password can never break the quoting.
+if [ -n "$POS_HOST" ]; then
+  SITE="$SITE" POS_HOST="$POS_HOST" ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+  POS_USER="$POS_USER" POS_PASSWORD="$POS_PASSWORD" python3 -c '
+import json, os
+e = os.environ
+print(json.dumps({"site": e["SITE"], "url": "https://" + e["POS_HOST"],
+                  "deskUrl": "https://" + e["SITE"], "admin": e["ADMIN_PASSWORD"],
+                  "product": "pos", "posUser": e["POS_USER"],
+                  "posPassword": e["POS_PASSWORD"]}, separators=(",", ":")))'
+else
+  printf '{"site":"%s","url":"https://%s","admin":"%s"}\n' \
+    "$SITE" "$SITE" "$ADMIN_PASSWORD"
+fi

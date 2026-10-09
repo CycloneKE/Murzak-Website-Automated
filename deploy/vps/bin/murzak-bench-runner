@@ -182,9 +182,22 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
     continue
   fi
 
+  # The account holder becomes the owner login of a POS shop (the provisioner
+  # only uses these when the apps include techsavanna_pos, and refuses — exit
+  # 2, not retried — if a POS shop has no email to give the owner).
+  owner_email=""
+  owner_name=""
+  if [ -n "$web_account" ]; then
+    owner_doc="$(frappe_get "$WEB_ACCOUNT_DOCTYPE" "$web_account" || true)"
+    [ -n "$owner_doc" ] || owner_doc='{}'
+    owner_email="$(jq -r '.work_email // ""' <<<"$owner_doc" 2>/dev/null || true)"
+    owner_name="$(jq -r '.account_holder_name // ""' <<<"$owner_doc" 2>/dev/null || true)"
+  fi
+
   set +e
   out="$(JOB_WEB_ACCOUNT="$web_account" JOB_SERVICE_ID="$service_id" \
          JOB_SERVICE_NAME="$service_name" JOB_INVOICE="$invoice" \
+         JOB_OWNER_EMAIL="$owner_email" JOB_OWNER_NAME="$owner_name" \
          JOB_BENCH_APPS="$bench_apps" BENCH_DB_ROOT_PASSWORD="$DB_ROOT_PW" \
          /usr/local/bin/murzak-bench-provision 2>/tmp/murzak-bench-runner-$$-stderr)"
   rc=$?
