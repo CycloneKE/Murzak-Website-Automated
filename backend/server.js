@@ -696,6 +696,8 @@ const SERVICE_ID_TO_PLAN = {
   "biz-db-medium": "Business",
   "biz-email-large": "Business",
   "biz-pos-inventory": "Business",
+  "biz-pos-duka": "Business",
+  "biz-pos-chain": "Business",
   "biz-webapps": "Business",
   "biz-docs": "Business",
 

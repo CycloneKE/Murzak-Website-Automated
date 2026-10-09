@@ -94,6 +94,10 @@ function main() {
     const requiresRepo = /requiresRepo\s*:\s*true/.test(block);
     // Bench lane: which Frappe apps this tenant's site needs, in install order.
     const benchApps = pullArray(block, "benchApps");
+    // Business-app grouping (Murzak POS tiers). Matched with a leading
+    // delimiter so "benchApps:" / "appPlan:" can never be mistaken for it.
+    const appMatch = block.match(/[\s{,]app\s*:\s*"([^"]+)"/);
+    const app = appMatch ? appMatch[1] : undefined;
 
     // Skip anything that isn't a real catalog service (must at least name itself).
     if (!name || !category || !capacityClass) continue;
@@ -111,6 +115,7 @@ function main() {
       setupKes: setupKes == null ? 0 : Number(setupKes),
       requiresRepo,
       ...(benchApps ? { benchApps } : {}),
+      ...(app ? { app } : {}),
       ...(mailboxes == null ? {} : { mailboxes: Number(mailboxes) }),
     };
   }

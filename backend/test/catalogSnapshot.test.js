@@ -119,6 +119,28 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
     }
   }
 
+  section("Murzak POS tiers resolve from the snapshot, priced by tier");
+  {
+    const expected = {
+      "biz-pos-duka": 2500,
+      "biz-pos-inventory": 4500, // Biashara — kept id so existing customers need no migration
+      "biz-pos-chain": 8500,
+    };
+    for (const [id, monthly] of Object.entries(expected)) {
+      const meta = getServiceMeta(id);
+      ok(!!meta, `${id} resolves`);
+      ok(meta?.app === "pos", `${id} is grouped under app "pos"`);
+      ok(meta?.monthlyKes === monthly, `${id} prices at KES ${monthly}/mo`);
+      ok(meta?.setupKes === 0, `${id} has no setup fee`);
+      ok(meta?.capacityClass === "premium" && meta?.ramMb === 2048, `${id} is a premium 2GB tenant`);
+      ok(
+        JSON.stringify(meta?.benchApps) === JSON.stringify(["erpnext", "techsavanna_pos", "kenya_compliance"]),
+        `${id} installs the POS bench apps in order`
+      );
+    }
+    ok(getServiceMeta("biz-erp-light")?.app === undefined, "non-app services carry no app key");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
