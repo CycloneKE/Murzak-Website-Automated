@@ -7,7 +7,10 @@
 // Lifecycle mirrors Checkout Order reservations (orderStore.js):
 //   reserved  held by an unpaid order until expires_at (30 min, renewed by
 //             the checkout page heartbeat; extended to 24h once an invoice
-//             exists, so a slow M-Pesa confirmation can't lose the name)
+//             exists, so a slow M-Pesa confirmation can't lose the name).
+//             `invoice` is a comma-separated history of every invoice raised
+//             for the slug: a buyer who retries the pay step gets a new
+//             invoice, and a late payment on the OLD one must still win.
 //   active    paid — owned for good
 //   released  free again (never written today: expiry alone frees a name,
 //             no sweeper needed, same as RAM reservations)
@@ -21,7 +24,10 @@ const SLUG_PAYMENT_GRACE_MS = 24 * 60 * 60 * 1000;
 const BASE = `/api/resource/${encodeURIComponent(TENANT_SLUG_DOCTYPE)}`;
 
 // Single Node process — same assumption orderStore.js's mutex makes. The
-// unique doc name still protects against a second process.
+// unique doc name (slug) protects ONLY the first insert across processes.
+// Re-reserving or taking over an existing doc is a read-then-write that
+// relies on this mutex; a second Node process would need an optimistic lock
+// on the doc's `modified` timestamp.
 let chain = Promise.resolve();
 function serialize(fn) {
   const p = chain.then(fn, fn);
@@ -40,6 +46,10 @@ function isLive(doc, nowMs) {
   if (!doc) return false;
   if (doc.status === "active") return true;
   return doc.status === "reserved" && parseMysqlDatetime(doc.expires_at) > nowMs;
+}
+
+function invoiceNames(list) {
+  return String(list || "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 async function getSlugDoc(client, slug) {
@@ -63,13 +73,23 @@ async function reserveSlug(client, { slug, app, webAccount, orderId, nowMs }) {
     const heldByOther = isLive(doc, nowMs) && !(doc.status === "reserved" && doc.web_account === webAccount);
     if (heldByOther) throw slugError("slug_taken", "That shop address was just taken.", 409);
 
+    const wanted = nowMs + SLUG_RESERVATION_TTL_MS;
+    if (doc && doc.status === "reserved" && doc.web_account === webAccount) {
+      // Same buyer retrying: keep the invoice history and never shorten an
+      // existing (possibly 24h payment-grace) hold.
+      await client.put(`${BASE}/${encodeURIComponent(slug)}`, {
+        checkout_order: orderId,
+        expires_at: mysqlDatetime(Math.max(wanted, parseMysqlDatetime(doc.expires_at) || 0)),
+      });
+      return;
+    }
     const fields = {
       app,
       web_account: webAccount,
       status: "reserved",
       checkout_order: orderId,
       invoice: "",
-      expires_at: mysqlDatetime(nowMs + SLUG_RESERVATION_TTL_MS),
+      expires_at: mysqlDatetime(wanted),
     };
     if (doc) {
       await client.put(`${BASE}/${encodeURIComponent(slug)}`, fields);
@@ -86,43 +106,54 @@ async function reserveSlug(client, { slug, app, webAccount, orderId, nowMs }) {
 }
 
 async function touchSlug(client, { slug, webAccount, nowMs }) {
+  // Best-effort heartbeat; the order's own heartbeat still runs if this fails.
   try {
-    const doc = await getSlugDoc(client, slug);
-    if (!doc || doc.status !== "reserved" || doc.web_account !== webAccount || doc.invoice) return;
-    if (parseMysqlDatetime(doc.expires_at) <= nowMs) return;
-    await client.put(`${BASE}/${encodeURIComponent(slug)}`, {
-      expires_at: mysqlDatetime(nowMs + SLUG_RESERVATION_TTL_MS),
+    await serialize(async () => {
+      const doc = await getSlugDoc(client, slug);
+      if (!doc || doc.status !== "reserved" || doc.web_account !== webAccount || doc.invoice) return;
+      if (parseMysqlDatetime(doc.expires_at) <= nowMs) return;
+      await client.put(`${BASE}/${encodeURIComponent(slug)}`, {
+        expires_at: mysqlDatetime(nowMs + SLUG_RESERVATION_TTL_MS),
+      });
     });
   } catch (e) {
-    // Heartbeat is best-effort; the order's own heartbeat still runs.
+    // swallowed on purpose
   }
 }
 
 async function linkSlugInvoice(client, { slug, webAccount, invoiceDocName, nowMs }) {
-  const doc = await getSlugDoc(client, slug);
-  if (!doc || doc.web_account !== webAccount) {
-    throw slugError("slug_taken", "That shop address is no longer reserved for you.", 409);
-  }
-  await client.put(`${BASE}/${encodeURIComponent(slug)}`, {
-    invoice: invoiceDocName,
-    expires_at: mysqlDatetime(nowMs + SLUG_PAYMENT_GRACE_MS),
+  return serialize(async () => {
+    const doc = await getSlugDoc(client, slug);
+    if (!doc || doc.web_account !== webAccount) {
+      throw slugError("slug_taken", "That shop address is no longer reserved for you.", 409);
+    }
+    const names = invoiceNames(doc.invoice);
+    if (!names.includes(invoiceDocName)) names.push(invoiceDocName);
+    await client.put(`${BASE}/${encodeURIComponent(slug)}`, {
+      invoice: names.join(","),
+      expires_at: mysqlDatetime(Math.max(nowMs + SLUG_PAYMENT_GRACE_MS, parseMysqlDatetime(doc.expires_at) || 0)),
+    });
   });
 }
 
 async function activateSlugForInvoice(client, invoiceDocName) {
-  const res = await client.get(BASE, {
-    params: {
-      filters: JSON.stringify([["invoice", "=", invoiceDocName], ["status", "in", ["reserved", "active"]]]),
-      fields: JSON.stringify(["name", "slug", "status"]),
-      limit_page_length: 1,
-    },
+  return serialize(async () => {
+    const res = await client.get(BASE, {
+      params: {
+        // LIKE is only a prefilter (PINV-1 also matches PINV-10); the exact
+        // membership test below is the authority.
+        filters: JSON.stringify([["invoice", "like", "%" + invoiceDocName + "%"], ["status", "in", ["reserved", "active"]]]),
+        fields: JSON.stringify(["name", "slug", "status", "invoice"]),
+        limit_page_length: 100,
+      },
+    });
+    const row = (res.data?.data || []).find((r) => invoiceNames(r.invoice).includes(invoiceDocName));
+    if (!row) return null;
+    if (row.status !== "active") {
+      await client.put(`${BASE}/${encodeURIComponent(row.name)}`, { status: "active" });
+    }
+    return row.slug || row.name;
   });
-  const row = res.data?.data?.[0];
-  if (!row) return null;
-  if (row.status !== "active") {
-    await client.put(`${BASE}/${encodeURIComponent(row.name)}`, { status: "active" });
-  }
-  return row.slug || row.name;
 }
 
 module.exports = {

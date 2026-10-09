@@ -81,6 +81,60 @@ const MIN = 60 * 1000;
     ok((await store.activateSlugForInvoice(c, "PINV-unknown")) === null, "no slug for an unrelated invoice");
   }
 
+  section("re-reserve keeps the invoice history and the 24h hold");
+  {
+    const c = makeClient();
+    await store.reserveSlug(c, { slug: "retry1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    await store.linkSlugInvoice(c, { slug: "retry1", webAccount: "A", invoiceDocName: "PINV-1", nowMs: T0 + MIN });
+    await store.reserveSlug(c, { slug: "retry1", app: "pos", webAccount: "A", orderId: "CHK-2", nowMs: T0 + 10 * MIN });
+    ok(c.docs.retry1.invoice === "PINV-1", "re-reserve leaves the invoice alone");
+    ok(c.docs.retry1.checkout_order === "CHK-2", "re-reserve points at the new order");
+    ok(c.docs.retry1.status === "reserved", "still reserved");
+    ok(!(await store.isSlugAvailable(c, "retry1", T0 + 20 * 60 * MIN)), "24h payment grace is not shortened by a retry");
+    await store.linkSlugInvoice(c, { slug: "retry1", webAccount: "A", invoiceDocName: "PINV-2", nowMs: T0 + 11 * MIN });
+    ok(c.docs.retry1.invoice === "PINV-1,PINV-2", "a second invoice is appended, not replaced");
+    ok((await store.activateSlugForInvoice(c, "PINV-1")) === "retry1", "the late-paid first invoice still activates the slug");
+    ok(c.docs.retry1.status === "active", "active after the first invoice is paid");
+    ok((await store.activateSlugForInvoice(c, "PINV-2")) === "retry1", "the second invoice also resolves the slug");
+  }
+
+  section("a later retry extends a short hold but never shortens a long one");
+  {
+    const c = makeClient();
+    await store.reserveSlug(c, { slug: "retry2", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    await store.reserveSlug(c, { slug: "retry2", app: "pos", webAccount: "A", orderId: "CHK-2", nowMs: T0 + 20 * MIN });
+    ok(!(await store.isSlugAvailable(c, "retry2", T0 + 20 * MIN + store.SLUG_RESERVATION_TTL_MS - MIN)), "retry extends a short hold");
+  }
+
+  section("invoice matching is exact, not a prefix");
+  {
+    const c = makeClient();
+    c.docs.longname = { name: "longname", slug: "longname", status: "reserved", invoice: "PINV-10" };
+    ok((await store.activateSlugForInvoice(c, "PINV-1")) === null, "PINV-1 does not match PINV-10");
+    ok(c.docs.longname.status === "reserved", "the PINV-10 slug was left untouched");
+  }
+
+  section("losing the insert race and refusing an owned slug");
+  {
+    const c = makeClient();
+    const realPost = c.post;
+    let once = true;
+    c.post = async (url, body) => {
+      if (once) { once = false; const e = new Error("dup"); e.response = { status: 409 }; throw e; }
+      return realPost(url, body);
+    };
+    await rejects(
+      () => store.reserveSlug(c, { slug: "race1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 }),
+      "slug_taken", "a 409 on insert becomes slug_taken");
+    const d = makeClient();
+    await store.reserveSlug(d, { slug: "owned1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    await store.linkSlugInvoice(d, { slug: "owned1", webAccount: "A", invoiceDocName: "PINV-5", nowMs: T0 + MIN });
+    await store.activateSlugForInvoice(d, "PINV-5");
+    await rejects(
+      () => store.reserveSlug(d, { slug: "owned1", app: "pos", webAccount: "A", orderId: "CHK-2", nowMs: T0 + 2 * MIN }),
+      "slug_taken", "an active slug cannot be re-reserved, even by its owner");
+  }
+
   section("bad input never reaches Frappe");
   {
     const c = makeClient();

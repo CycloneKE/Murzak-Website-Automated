@@ -16,7 +16,7 @@
     { "fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "reserved\nactive\nreleased", "default": "reserved", "in_list_view": 1, "in_standard_filter": 1, "description": "reserved = held by an unpaid order until expires_at; active = paid, owned for good; released = free again." },
     { "fieldname": "column_break_1", "fieldtype": "Column Break" },
     { "fieldname": "checkout_order", "fieldtype": "Data", "label": "Checkout Order" },
-    { "fieldname": "invoice", "fieldtype": "Data", "label": "Portal Invoice", "in_standard_filter": 1 },
+    { "fieldname": "invoice", "fieldtype": "Small Text", "label": "Portal Invoice", "in_standard_filter": 1, "description": "Comma-separated list of Portal Invoice names raised for this slug (a retried pay step adds a new one; any of them being paid activates the slug)." },
     { "fieldname": "expires_at", "fieldtype": "Datetime", "label": "Reservation Expires At" }
   ],
   "permissions": [
