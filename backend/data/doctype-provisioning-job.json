@@ -30,6 +30,7 @@
     { "fieldname": "backup_status", "fieldtype": "Select", "label": "Backup", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Off-site backup state set at create-time" },
     { "fieldname": "repo_url", "fieldtype": "Data", "label": "Repo URL", "description": "BYOA: customer Git repository this job deploys (optional #branch suffix)" },
     { "fieldname": "app_port", "fieldtype": "Int", "label": "App Port", "description": "BYOA: port the customer's app listens on inside the container (default 3000)" },
+    { "fieldname": "site_slug", "fieldtype": "Data", "label": "Site Slug", "description": "Customer-chosen app address (Murzak POS): the bench site becomes <site_slug>.erp.murzaktech.tech and the POS <site_slug>.pos.murzaktech.tech. Empty = derive from the account (pre-app-checkout behaviour). Read by murzak-bench-runner as JOB_SITE_SLUG." },
     { "fieldname": "edge_status", "fieldtype": "Select", "label": "Edge / WAF", "options": "pending\nconfigured\nskipped\nfailed", "default": "pending", "description": "Per-tenant edge/WAF state set at create-time" },
 
     { "fieldname": "section_status", "fieldtype": "Section Break", "label": "Status" },

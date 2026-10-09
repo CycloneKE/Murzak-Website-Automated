@@ -222,6 +222,21 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     }
   }
 
+  // App tiers (Murzak POS): the address the buyer chose rides on the job.
+  // Looked up once per invoice — one app order, one invoice, one slug.
+  // Activating it here (payment confirmed) makes the name theirs for good.
+  let appSiteSlug = null;
+  if (ids.some((id) => getServiceMeta(id)?.app)) {
+    try {
+      // Lazy: tenantSlugStore -> orderStore -> provisioning/capacity would
+      // otherwise risk a load-time require cycle.
+      const tenantSlugs = require("../apps/tenantSlugStore");
+      appSiteSlug = await tenantSlugs.activateSlugForInvoice(client, invoiceDocName);
+    } catch (e) {
+      console.warn(`[provisioning] Tenant Slug lookup failed for ${invoiceDocName}: ${e.message}`);
+    }
+  }
+
   const reservedPortsThisBatch = new Set();
   for (const { serviceId, domainChoice } of services) {
     const payload = buildJobPayload({
@@ -231,6 +246,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       repoUrl: accountRepoUrl,
       appPort: accountAppPort,
     });
+    if (appSiteSlug && getServiceMeta(serviceId)?.app) payload.site_slug = appSiteSlug;
     const meta = getServiceMeta(serviceId);
 
     // Phase 2: Database Hosting jobs get a real external port so a customer

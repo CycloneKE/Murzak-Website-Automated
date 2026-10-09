@@ -786,6 +786,43 @@ const okLane = {
     if (savedBase !== undefined) process.env.APP_DOMAIN_BASE = savedBase; else delete process.env.APP_DOMAIN_BASE;
   }
 
+  section("app tiers carry the customer-chosen address onto the job");
+  {
+    // Reuses the suite's store (capacity/scaling stubs) and layers a Tenant Slug
+    // endpoint on top. The row's `invoice` column is a comma-separated list; the
+    // lookup verifies membership in JS, so the stub returns it regardless of query.
+    const slugRows = [{ name: "mamanjeri", slug: "mamanjeri", status: "reserved", invoice: "PINV-1" }];
+    const slugPuts = [];
+    const withSlugs = (store) => ({
+      ...store,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: slugRows.map((r) => ({ ...r })) } };
+        return store.get(url, opts);
+      },
+      put: async (url, patch) => {
+        if (/Tenant(%20| )Slug/.test(url)) { slugPuts.push(patch); Object.assign(slugRows[0], patch); return { data: { data: slugRows[0] } }; }
+        return store.put(url, patch);
+      },
+    });
+
+    const sApp = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sApp), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    const posJob = Object.values(PJ(sApp)).find((d) => d.service_id === "biz-pos-duka");
+    ok(posJob?.site_slug === "mamanjeri", "POS job carries site_slug from the Tenant Slug linked to the invoice");
+    ok(slugPuts.some((p) => p.status === "active"), "enqueue activates the Tenant Slug (payment confirmed)");
+
+    const sNon = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sNon), webAccount: "A", invoiceDocName: "PINV-2", serviceIds: ["biz-erp-light"] });
+    const nonJobs = Object.values(PJ(sNon));
+    ok(nonJobs.length === 1 && nonJobs.every((j) => !("site_slug" in j)), "non-app jobs never get a site_slug");
+
+    const sFail = makeStore([]);
+    const failingClient = { ...sFail, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return sFail.get(url, opts); } };
+    const eqFail = await svc.enqueueProvisioningForInvoice({ client: failingClient, webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    const failJob = Object.values(PJ(sFail))[0];
+    ok(eqFail.created.length === 1 && failJob && !("site_slug" in failJob), "slug lookup failure still provisions, under the account-derived name");
+  }
+
   // ---- tally ----
   console.log(`\n${"=".repeat(48)}`);
   console.log(`PROVISIONING TESTS: ${passed} passed, ${failed} failed`);
