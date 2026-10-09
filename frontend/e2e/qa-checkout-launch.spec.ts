@@ -47,7 +47,7 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
     // Register + pay a Business plan first, mirroring cloud-launch.spec.ts's
     // logged-in launch path — POST /api/orders is the endpoint under test
     // here, exercised the way a returning, already-paid customer would.
-    await page.goto('/pricing?configure=biz-pos-inventory');
+    await page.goto('/pricing?configure=biz-crm-helpdesk');
     const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
     const domainInput = page.locator('input[placeholder="myshop"]');
@@ -170,7 +170,7 @@ test.describe('LNCH-07 — the capacity cap is enforced server-side, not just in
     const email = `test_lnch07_${suffix}@example.com`;
 
     // Establish a paid Business plan (mirrors cloud-launch.spec.ts).
-    await page.goto('/pricing?configure=biz-pos-inventory');
+    await page.goto('/pricing?configure=biz-crm-helpdesk');
     const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
     const domainInput = page.locator('input[placeholder="myshop"]');

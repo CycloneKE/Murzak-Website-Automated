@@ -1339,7 +1339,9 @@ export function domainCatalogIdForTld(tld: string): string | null {
 export function configuratorServices(planCode: PlanCode): ServiceItem[] {
   const base = SERVICE_CATALOG[planCode] ?? [];
   const pool = planCode === "Test" || planCode === "Enterprise" ? base : [...base, ...UNIVERSAL_ADDONS];
-  return pool.filter((s) => !s.deprecated);
+  // App tiers (Murzak POS) have their own checkout — selling them here would
+  // put RAM meters and domain choices in front of a shop owner.
+  return pool.filter((s) => !s.deprecated && !s.app);
 }
 
 // ---- Helpers ----

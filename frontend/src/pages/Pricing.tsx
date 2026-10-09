@@ -23,7 +23,8 @@ import PlanServicesModal from "../components/PlanServicesModal";
 import ManagedComparison from "../components/ManagedComparison";
 import Faq, { type FaqItem } from "../components/Faq";
 import PlanAdvisor from "../components/PlanAdvisor";
-import { PLAN_META, formatKes, planForService, type PlanCode } from "../config/serviceCatalog";
+import { PLAN_META, formatKes, getService, planForService, type PlanCode } from "../config/serviceCatalog";
+import { APP_CHECKOUT } from "../config/appCheckout";
 import { Button } from "../components/ui/Button";
 import { toSafeJsonLdString } from "../utils/jsonLd";
 import { toUserMessage } from "../services/errors";
@@ -80,6 +81,12 @@ const Pricing: React.FC<PricingProps> = ({ onNavigate, onSelectPlan, isLoading, 
     }
 
     if (!productId) return;
+    // App tiers are sold on their own page, not in the configurator.
+    const appTier = getService(productId);
+    if (appTier?.app) {
+      navigate(`${APP_CHECKOUT[appTier.app].productPath}#plans`, { replace: true });
+      return;
+    }
     const prodPlan = planForService(productId);
     if (prodPlan && prodPlan !== "Enterprise") {
       setPreselectIds([productId]);

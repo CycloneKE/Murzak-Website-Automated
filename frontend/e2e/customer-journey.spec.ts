@@ -16,7 +16,7 @@ test.describe('E2E Customer Journey - POS Purchase and Provisioning', () => {
     page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
     
     // 1. Visit Pricing Configurator directly for POS
-    await page.goto('/pricing?configure=biz-pos-inventory');
+    await page.goto('/pricing?configure=biz-crm-helpdesk');
 
     // 2. We should land on pricing and the modal should be open
     // The configurator modal should be visible
@@ -86,9 +86,9 @@ test.describe('E2E Customer Journey - POS Purchase and Provisioning', () => {
     });
     console.log("AUTH ME:", JSON.stringify(authRes, null, 2));
 
-    // The service actually bought at step 1 (biz-pos-inventory). Premium SKUs
+    // The service actually bought at step 1 (biz-crm-helpdesk). Premium SKUs
     // land in "Setting up" until the provisioning runner completes them.
-    const posService = page.locator('text=POS & Inventory').first();
+    const posService = page.locator('text=CRM + Helpdesk').first();
     await expect(posService).toBeVisible({ timeout: 5000 });
 
     // The paid invoice must no longer show as due.
