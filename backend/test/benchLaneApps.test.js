@@ -109,6 +109,10 @@ function persistedError(e) {
       const erp = await settle(cmd, { service_id: "biz-erp-light" });
       ok(erp.ok && erp.value.access.apps === "erpnext,hrms,csf_ke",
         "biz-erp-light -> erpnext,hrms,csf_ke, in install order (erpnext first, dependencies before dependents)");
+      // These two used to be asserted on the POS job; POS is now refused by this
+      // lane, so the same plumbing guarantees are pinned on a non-app product.
+      ok(erp.ok && erp.value.access.svc === "biz-erp-light", "the rest of the job context still reaches the script");
+      ok(erp.ok && erp.value.externalRef === "acme.erp.test", "the site from the script's JSON line is the external ref");
 
       const none = await settle(cmd, { service_id: "biz-db-medium" });
       ok(none.ok && none.value.access.apps === "",
