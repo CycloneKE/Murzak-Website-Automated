@@ -49,7 +49,7 @@ const AppPlans: React.FC<AppPlansProps> = ({ app, onChoose }) => {
                 }`}
               >
                 {t === "monthly" ? "Monthly" : (
-                  <>Annual <span className={`ml-1 ${term === t ? "text-murzak-ink" : "text-emerald-600 dark:text-emerald-400"}`}>Save {ANNUAL_DISCOUNT_PCT}%</span></>
+                  <>Annual <span className={`ml-1 ${term === t ? "text-murzak-ink" : "text-emerald-700 dark:text-emerald-400"}`}>Save {ANNUAL_DISCOUNT_PCT}%</span></>
                 )}
               </button>
             ))}
@@ -72,10 +72,10 @@ const AppPlans: React.FC<AppPlansProps> = ({ app, onChoose }) => {
                   </span>
                 )}
                 <h3 className="text-2xl font-black text-murzak-ink dark:text-slate-100">{s.appPlan}</h3>
-                <p className="text-slate-500 font-semibold">{s.appTagline}</p>
+                <p className="text-slate-500 dark:text-slate-400 font-semibold">{s.appTagline}</p>
                 <p className="mt-6">
                   <span className="text-4xl font-black text-murzak-ink dark:text-slate-100">{p.amount}</span>
-                  <span className="text-slate-500 font-bold">{p.per}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-bold">{p.per}</span>
                 </p>
                 <ul className="mt-6 space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-300 flex-1">
                   <li className="flex gap-2"><Check size={16} className="text-murzak-accent shrink-0 mt-0.5" />{limitLine(s.appLimits?.branches, "branch", "branches")}</li>
@@ -98,7 +98,7 @@ const AppPlans: React.FC<AppPlansProps> = ({ app, onChoose }) => {
             );
           })}
         </div>
-        <p className="mt-8 text-center text-sm font-semibold text-slate-500">
+        <p className="mt-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
           Your own private POS · 14-day money-back · Pay with M-Pesa · No setup fee
         </p>
       </div>
