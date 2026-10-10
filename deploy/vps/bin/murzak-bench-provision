@@ -133,6 +133,15 @@ if benchctl "ls sites/'$SITE'/site_config.json" >/dev/null 2>&1; then
   # and compared as plain strings. A site made before this stamp existed has
   # no key -> empty owner -> adoptable, as before. If the config cannot be
   # read or parsed we cannot prove ownership, so fail closed (retryable).
+  #
+  # KNOWN LIMIT, accepted on purpose (verified 2026-10-10): an UNSTAMPED site is
+  # adoptable by whichever account asks, so a customer-chosen slug that equals a
+  # pre-feature site's name would adopt it. That cannot happen today: no
+  # *.erp.murzaktech.tech tenant sites predate the stamp, and the names this
+  # script derives from account ids ("user-<digits>…") are reserved server-side
+  # (backend/services/apps/shopAddress.js), so no customer can pick one. Do not
+  # tighten this to "unstamped + custom slug => refuse": a retry after a failed
+  # stamp write would then be refused forever.
   if ! owner="$(benchctl "cat sites/'$SITE'/site_config.json" 2>/dev/null \
       | python3 -c 'import json,sys; print(str(json.load(sys.stdin).get("murzak_web_account", "")))')"; then
     die "could not read the owner of existing site ${SITE} (retryable)"
