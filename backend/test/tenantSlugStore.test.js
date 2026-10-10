@@ -174,6 +174,34 @@ section("isSlugAvailableTo — a buyer's own hold is not a lock-out");
     ok(threw && /frappe down/.test(threw.message), "a failed lookup throws instead of returning null");
   }
 
+  section("a hung Frappe call times out and never wedges the queue");
+  {
+    ok(store.SLUG_STORE_TIMEOUT_MS === 15000, "production timeout is 15 seconds");
+    store.setSlugStoreTimeoutMsForTests(60);
+    try {
+      const hung = { get: () => new Promise(() => {}), put: async () => ({}), post: async () => ({}) };
+      const t0 = Date.now();
+      let err = null;
+      try { await store.reserveSlug(hung, { slug: "hungshop", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 }); } catch (e) { err = e; }
+      ok(err && err.code === "slug_store_timeout" && err.statusCode === 503, `hung read rejects with slug_store_timeout / 503 (got ${err && err.code} ${err && err.statusCode})`);
+      ok(Date.now() - t0 < 2000, "and it did so promptly, not after the production timeout");
+
+      // The chain must still run: queue a healthy operation behind the hung one.
+      const c = makeClient();
+      let hungErr = null;
+      const first = store.linkSlugInvoice(hung, { slug: "hungshop", webAccount: "A", invoiceDocName: "PINV-1", nowMs: T0 }).catch((e) => { hungErr = e; });
+      const second = store.reserveSlug(c, { slug: "freeshop", app: "pos", webAccount: "A", orderId: "CHK-2", nowMs: T0 });
+      await first;
+      await second;
+      ok(hungErr && hungErr.code === "slug_store_timeout", "a second hung operation also times out");
+      ok(c.docs.freeshop?.status === "reserved", "a healthy operation queued behind a hung one still completes");
+      ok((await store.isSlugAvailable(c, "another-free", T0)) === true, "later operations keep working");
+
+    } finally {
+      store.setSlugStoreTimeoutMsForTests();
+    }
+  }
+
   section("bad input never reaches Frappe");
   {
     const c = makeClient();

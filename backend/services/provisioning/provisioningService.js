@@ -463,8 +463,14 @@ function jobLine(j) {
   // fulfilling a manually-provisioned order — most importantly a domain
   // registration — can actually see WHAT was bought, not just the SKU name.
   const domain = j.domainChoice ? ` · domain: ${j.domainChoice}` : "";
+  // A job held because the buyer's chosen shop address couldn't be resolved needs
+  // a specific action (set site_slug, then release it) — show staff the reason
+  // instead of a bare "needs human".
+  const heldForAddress = j.status === "needs_human" && String(j.error || "").startsWith("Customer's chosen shop address");
   const flag = j.gated
     ? " · ⚠ CAPACITY-GATED (needs KVM #2)"
+    : heldForAddress
+    ? ` · ⚠ needs human — ${String(j.error).slice(0, 200)}`
     : j.status === "needs_human"
     ? " · ⚠ needs human"
     : "";

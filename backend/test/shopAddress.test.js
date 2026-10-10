@@ -5,7 +5,7 @@ let passed = 0, failed = 0; const fails = [];
 function ok(c, m) { if (c) { passed++; console.log("  ok:", m); } else { failed++; fails.push(m); console.error("  FAIL:", m); } }
 function section(n) { console.log(`\n# ${n}`); }
 
-const { slugFromName, checkSlug, suggestSlugs } = require("../services/apps/shopAddress");
+const { RESERVED_SLUGS, slugFromName, checkSlug, suggestSlugs } = require("../services/apps/shopAddress");
 
 section("slugFromName");
 ok(slugFromName("Mama Njeri Stores") === "mama-njeri-stores", "spaces become hyphens, lowercased");
@@ -23,7 +23,8 @@ ok(checkSlug("-shop").reason === "invalid", "leading hyphen");
 ok(checkSlug("shop-").reason === "invalid", "trailing hyphen");
 ok(checkSlug("Shop").reason === "invalid", "uppercase rejected (caller must slugify)");
 ok(checkSlug("shop_1").reason === "invalid", "underscore rejected");
-for (const r of ["api", "www", "admin", "pos", "erp", "murzak", "status"]) ok(checkSlug(r).reason === "reserved", `${r} is reserved`);
+ok(RESERVED_SLUGS.size > 0, "there is a reserved list to check");
+for (const r of RESERVED_SLUGS) ok(checkSlug(r).reason === "reserved", `${r} is reserved`);
 ok(checkSlug("user-26-08-12-0001").reason === "reserved", "account-derived site names are reserved");
 ok(checkSlug("prov-check").reason === "reserved", "provisioner probe name is reserved");
 ok(checkSlug("user-friendly-shop").ok === true, "'user-' followed by a letter is fine");
@@ -32,7 +33,11 @@ section("suggestSlugs");
 const s = suggestSlugs("mamanjeri");
 ok(s.length === 3 && s.every((x) => checkSlug(x).ok), "three valid suggestions");
 ok(!s.includes("mamanjeri"), "never suggests the taken name itself");
-ok(suggestSlugs("x".repeat(40)).every((x) => x.length <= 40 && checkSlug(x).ok), "suggestions respect the length cap");
+{
+  const capped = suggestSlugs("x".repeat(40));
+  ok(capped.length === 3, "a 40-character taken name still gets exactly three suggestions");
+  ok(capped.every((x) => x.length <= 40 && checkSlug(x).ok), "suggestions respect the length cap");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.error(fails.join("\n")); process.exit(1); }

@@ -28,11 +28,19 @@ const BASE = `/api/resource/${encodeURIComponent(TENANT_SLUG_DOCTYPE)}`;
 // Re-reserving or taking over an existing doc is a read-then-write that
 // relies on this mutex; a second Node process would need an optimistic lock
 // on the doc's `modified` timestamp.
-let chain = Promise.resolve();
-function serialize(fn) {
-  const p = chain.then(fn, fn);
-  chain = p.catch(() => {});
-  return p;
+//
+// Every serialized operation is also time-boxed. One hung Frappe call (a socket
+// that never answers) would otherwise hold the head of the chain forever and
+// block every later slug operation for every buyer. On timeout the caller gets a
+// coded 503 and the chain moves on. The abandoned call is not cancelled (there is
+// no abort plumbed through the client), so it may still land its write late; that
+// is the same race a second process would have, which the slug doc's unique name
+// and the reserve/link re-reads already tolerate.
+const SLUG_STORE_TIMEOUT_MS = 15000;
+let opTimeoutMs = SLUG_STORE_TIMEOUT_MS;
+/** Test hook: shorten (or, with no argument, restore) the per-operation timeout. */
+function setSlugStoreTimeoutMsForTests(ms) {
+  opTimeoutMs = Number.isFinite(ms) && ms > 0 ? ms : SLUG_STORE_TIMEOUT_MS;
 }
 
 function slugError(code, message, statusCode) {
@@ -40,6 +48,29 @@ function slugError(code, message, statusCode) {
   err.code = code;
   err.statusCode = statusCode;
   return err;
+}
+
+function withTimeout(fn) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(slugError("slug_store_timeout", "The shop address service is taking too long — please try again.", 503)),
+      opTimeoutMs
+    );
+    Promise.resolve()
+      .then(fn)
+      .then(
+        (v) => { clearTimeout(timer); resolve(v); },
+        (e) => { clearTimeout(timer); reject(e); }
+      );
+  });
+}
+
+let chain = Promise.resolve();
+function serialize(fn) {
+  const run = () => withTimeout(fn);
+  const p = chain.then(run, run);
+  chain = p.catch(() => {});
+  return p;
 }
 
 function isLive(doc, nowMs) {
@@ -200,6 +231,8 @@ module.exports = {
   TENANT_SLUG_DOCTYPE,
   SLUG_RESERVATION_TTL_MS,
   SLUG_PAYMENT_GRACE_MS,
+  SLUG_STORE_TIMEOUT_MS,
+  setSlugStoreTimeoutMsForTests,
   isSlugAvailable,
   isSlugAvailableTo,
   reserveSlug,

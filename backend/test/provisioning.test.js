@@ -943,6 +943,28 @@ const okLane = {
     ok(isHeld(mixOrdPos), "mixed batch + checkout order: POS held");
     ok(mixOrdErp && !("site_slug" in mixOrdErp) && mixOrdErp.status === baseErp.status && mixOrdErp.attempts === baseErp.attempts && mixOrdErp.error === baseErp.error, "mixed batch + checkout order: ERP job unaffected");
 
+    // ---- staff email: a held job says WHY (so staff know to set site_slug) ----
+    {
+      const mailer = require("../utils/mailer");
+      const origSend = mailer.sendMail;
+      const savedAdmin = process.env.ADMIN_EMAILS;
+      process.env.ADMIN_EMAILS = "ops@murzaktech.test";
+      let heldText = null;
+      mailer.sendMail = async ({ text }) => { heldText = text; };
+      try {
+        const sHeld = makeStore([]);
+        const run = await quietly(() => svc.runProvisioningForInvoice({ client: withOrders(throwingClient(sHeld), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] }));
+        ok(run.result.ok === true && /needs human — Customer's chosen shop address could not be resolved/.test(heldText || ""), "staff email shows the held job's reason (address unresolved)");
+        const textLines = (heldText || "").split(/\r?\n/);
+        const heldLine = textLines.find((l) => /Customer's chosen shop address/.test(l)) || "";
+        ok(heldLine.length > 0 && heldLine.slice(heldLine.indexOf("needs human — ") + "needs human — ".length).length <= 200, "the reason is capped at 200 characters");
+        ok(textLines.filter((l) => /Customer's chosen shop address/.test(l)).length === 1, "only the held job's line carries the address reason (the ERP line does not)");
+      } finally {
+        mailer.sendMail = origSend;
+        if (savedAdmin === undefined) delete process.env.ADMIN_EMAILS; else process.env.ADMIN_EMAILS = savedAdmin;
+      }
+    }
+
     // ---- renewal invoices must adopt the account's own shop, never build a second ----
     // A REN-... invoice carries the account's service rows but has no Tenant Slug
     // linked to it and no Checkout Order. Without the account lookup that read as
