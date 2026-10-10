@@ -105,7 +105,8 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
     setWaitlisted(false);
     setError("");
     setNotice("");
-    setServerSuggestions([]);
+    // serverSuggestions are about the shop ADDRESS, not the tier: keep them so a
+    // rejected address stays marked as taken until the shop name changes.
   };
 
   const onCta = errorCode === "CAPACITY" ? joinWaitlist : submit;
