@@ -10,15 +10,21 @@ import { toUserMessage } from "../../services/errors";
 const POLL_MS = 5000;
 // Typical POS setup is ~2 minutes; after this, say so honestly.
 const SLOW_AFTER_MS = 6 * 60 * 1000;
+// Mirrors the server's PROVISIONING_MAX_ATTEMPTS default.
+const MAX_SETUP_ATTEMPTS = 3;
 
 type Stage = 0 | 1 | 2 | 3; // paid, creating, owner account, ready
+
+function safeUrlOf(job: ProvisioningActivityEntry | null): string {
+  return job?.accessUrl && /^https?:\/\//i.test(job.accessUrl) ? job.accessUrl : "";
+}
 
 // The order is Paid by the time this renders, so "paid" is always done and the
 // first thing in progress is creating the shop. A job that hasn't appeared yet
 // (or is queued / handed to the automated bench runner) is still stage 1.
 function stageOf(job: ProvisioningActivityEntry | null): Stage {
   if (!job) return 1;
-  if (job.status === "active" && job.accessUrl) return 3;
+  if (job.status === "active" && safeUrlOf(job)) return 3;
   if (job.status === "running") return 2;
   return 1;
 }
@@ -78,7 +84,8 @@ const AppWelcome: React.FC = () => {
       }
       if (stop) return;
       setNow(Date.now());
-      if (stageOf(latest) < 3) timer = setTimeout(tick, POLL_MS);
+      const terminal = latest?.status === "failed" || latest?.status === "deleted";
+      if (stageOf(latest) < 3 && !terminal) timer = setTimeout(tick, POLL_MS);
     };
     tick();
     return () => { stop = true; if (timer) clearTimeout(timer); };
@@ -117,7 +124,12 @@ const AppWelcome: React.FC = () => {
 
   const stage = stageOf(job);
   const slow = stage < 3 && now - startedAt > SLOW_AFTER_MS;
-  const stuck = job?.statusDetail === "needs_attention";
+  const safeUrl = safeUrlOf(job);
+  const stuck =
+    job?.statusDetail === "needs_attention" ||
+    job?.status === "failed" ||
+    (job?.status === "needs_human" && (job.attempts ?? 0) >= MAX_SETUP_ATTEMPTS && !!job.error) ||
+    !serviceId;
   const info = APP_CHECKOUT[app];
   const steps = ["Payment received", `Creating your private ${info?.productName || "app"}`, "Setting up your owner account", "Ready"];
 
@@ -126,7 +138,7 @@ const AppWelcome: React.FC = () => {
       <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-murzak-ink dark:text-slate-100">
         {stage === 3 ? "Your shop is ready" : "Your shop is getting ready"}
       </h1>
-      {stage < 3 && (
+      {stage < 3 && !stuck && (
         <p className="mt-2 font-medium text-slate-600 dark:text-slate-400">This usually takes about two minutes. You can stay here.</p>
       )}
 
@@ -157,29 +169,34 @@ const AppWelcome: React.FC = () => {
       </ol>
 
       {(slow || stuck) && (
-        <div className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-5">
+        <div role="status" className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-5">
           <p className="font-black text-murzak-ink dark:text-slate-100">Your payment is safe.</p>
           <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">
-            Setup is taking longer than usual and our team has been alerted. We'll finish it for you; your POS will also appear in your portal.
+            Setup is taking longer than usual. Message us and we'll check it right away — your POS will also appear in your portal as soon as it's ready.
           </p>
-          <button type="button" onClick={() => navigate("/portal/support")} className={`mt-3 inline-flex items-center gap-1.5 ${linkClass.replace(" underline underline-offset-2", "")}`}>
-            <LifeBuoy size={14} /> Message support
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <button type="button" onClick={() => navigate("/portal/support")} className={`inline-flex items-center gap-1.5 ${linkClass.replace(" underline underline-offset-2", "")}`}>
+              <LifeBuoy size={14} /> Message support
+            </button>
+            <button type="button" onClick={() => navigate("/portal/overview")} className={linkClass}>
+              Go to my portal
+            </button>
+          </div>
         </div>
       )}
 
-      {stage === 3 && job?.accessUrl && (
+      {stage === 3 && safeUrl && (
         <>
           {job.posLogin ? (
-            <PosLoginPanel posUrl={job.accessUrl} login={job.posLogin} />
+            <PosLoginPanel posUrl={safeUrl} login={job.posLogin} />
           ) : (
             <div className="mt-6 glass-card rounded-2xl p-5">
               <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Your POS address</p>
-              <p className="mt-1 font-bold break-all text-murzak-ink dark:text-slate-100">{job.accessUrl}</p>
+              <p className="mt-1 font-bold break-all text-murzak-ink dark:text-slate-100">{safeUrl}</p>
             </div>
           )}
           <a
-            href={job.accessUrl}
+            href={safeUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 w-full inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black bg-murzak-accent text-murzak-ink"
