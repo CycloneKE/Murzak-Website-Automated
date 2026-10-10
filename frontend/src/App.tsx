@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
+import AppSetup from "./pages/apps/AppSetup";
 import MurzakCRM from "./pages/products/MurzakCRM";
 import CustomSoftware from "./pages/products/CustomSoftware";
 
@@ -124,6 +125,8 @@ const App: React.FC = () => {
     // No distinct "checkout" Page key exists, so it shares payment's.
     if (location.pathname === "/payment" || location.pathname.startsWith("/payment/")) return "payment";
     if (location.pathname.startsWith("/checkout/")) return "payment";
+    // /get/:app is the app set-up page; it keeps the Products header state.
+    if (location.pathname.startsWith("/get/")) return "products";
     return pathToPage[location.pathname] || "home";
   }, [location.pathname]);
 
@@ -131,7 +134,7 @@ const App: React.FC = () => {
   // :orderId, or the nested /portal/* sub-routes) — pathToPage only has
   // exact-match entries, so these need their own check below or they'd
   // wrongly count as unmatched.
-  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/"];
+  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/"];
 
   // True only when the URL matched no real route (the catch-all renders
   // NotFound) — activePage still resolves to "home" above so the rest of
@@ -406,6 +409,7 @@ const App: React.FC = () => {
               <Route path="/sla" element={<SLA />} />
 
               <Route path="/products/pos" element={<MurzakPOS onNavigate={onNavigate} />} />
+              <Route path="/get/:app" element={<AppSetup user={user} onUserUpdate={handleUserUpdate} />} />
               <Route path="/products/erp" element={<MurzakERP onNavigate={onNavigate} />} />
               <Route path="/products/crm" element={<MurzakCRM onNavigate={onNavigate} />} />
               <Route path="/products/custom" element={<CustomSoftware onNavigate={onNavigate} />} />
