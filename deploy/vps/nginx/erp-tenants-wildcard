@@ -53,6 +53,13 @@ server {
 
     root /home/murzakerp/frappe-bench/sites;
 
+    # Every tenant here is a customer's private site, and POS buyers' sites
+    # carry techsavanna_pos, whose guest-callable methods would otherwise let
+    # anyone sign up as System Manager or write to the shop's books. See
+    # conf.d/00-murzak-pos-guard-map.conf. Sites without the app are
+    # unaffected: the rule only matches techsavanna_pos.* methods.
+    include snippets/murzak-pos-guard.conf;
+
     proxy_buffer_size       128k;
     proxy_buffers           4 256k;
     proxy_busy_buffers_size 256k;

@@ -21,6 +21,11 @@ export interface ProvisioningActivityEntry {
   // The CUSTOMER's live URL from the Provisioning Job's `access` field — only
   // populated once status is "active", and never an internal/admin URL.
   accessUrl: string;
+  // Murzak POS shops only: the owner's POS login, created at provisioning
+  // (public sign-up is closed on a shop's own POS). Only the per-service
+  // activity route returns it; password is empty when the owner account
+  // already existed before this provisioning run.
+  posLogin?: { user: string; password: string } | null;
   // Which Murzak box hosts this tenant (box-1, box-2, …).
   target: string;
   createdAt: string;

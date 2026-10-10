@@ -753,7 +753,11 @@ const PROVISIONING_ACTIVITY_FIELDS = [
 
 // Shared by both the per-service and the account-wide activity routes so the
 // two never drift into reporting different statuses for the same job.
-function mapProvisioningJobRow(j) {
+//
+// includeCredentials: only the single-service route (the resource page the
+// owner opens on purpose) passes true. The account-wide list is polled from
+// every portal page and has no reason to carry a password.
+function mapProvisioningJobRow(j, { includeCredentials = false } = {}) {
   // access is a JSON string (see doctype-provisioning-job.json) written by
   // whichever lane provisioned the service. Normalize to one field so the
   // frontend doesn't need to know the lane-specific shape. Only meaningful
@@ -762,10 +766,19 @@ function mapProvisioningJobRow(j) {
   // label leak AND the wrong link). No url yet => empty, and the frontend
   // shows "URL pending".
   let accessUrl = "";
+  // A Murzak POS shop (bench lane, techsavanna_pos): the owner's login for
+  // their POS, created by murzak-bench-provision because sign-up is closed on
+  // tenant POS hosts. password is only present on the provisioning run that
+  // created the account. access.admin / access.deskUrl are the Frappe
+  // Administrator and desk — staff only, never surfaced here.
+  let posLogin = null;
   if (j.status === "active" && j.access) {
     try {
       const parsed = JSON.parse(j.access);
       accessUrl = parsed?.url || "";
+      if (includeCredentials && parsed?.product === "pos" && parsed?.posUser) {
+        posLogin = { user: String(parsed.posUser), password: String(parsed.posPassword || "") };
+      }
     } catch {
       // malformed/truncated access JSON — degrade to no link, not a crash.
     }
@@ -800,6 +813,7 @@ function mapProvisioningJobRow(j) {
     error: j.error || "",
     attempts: Number(j.attempts || 0),
     accessUrl,
+    posLogin,
     // Which Murzak box hosts this tenant (box-1, box-2, …) — real
     // placement data from the runner, safe to show the customer.
     target: j.target || "",
@@ -831,7 +845,7 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
     });
 
     const rows = Array.isArray(resp.data?.data) ? resp.data.data : [];
-    return res.json({ ok: true, jobs: rows.map(mapProvisioningJobRow) });
+    return res.json({ ok: true, jobs: rows.map((r) => mapProvisioningJobRow(r, { includeCredentials: true })) });
   } catch (err) {
     // The Provisioning Job doctype may not be imported yet (see
     // services/provisioning/README.md) — degrade to an empty, honest result
