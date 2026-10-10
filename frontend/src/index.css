@@ -76,7 +76,27 @@ html.dark body { background-color: #090C10; color: #F1F5F9; }
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
   }
-  
+
+  /* Form-field surface. Was referenced by PaymentMethods / PayPalCardSection but
+     never defined, so the M-Pesa phone and card fields rendered unstyled. Text
+     colour is flipped in dark mode here because those callers only set
+     text-murzak-ink (a fixed near-black). */
+  .glass-input {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(223, 228, 247, 0.9);
+  }
+  .glass-input::placeholder {
+    color: #94a3b8;
+  }
+  html.dark .glass-input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #f1f5f9;
+  }
+  html.dark .glass-input::placeholder {
+    color: #64748b;
+  }
+
   /* Interactive Glass Hover */
   .glass-interactive {
     transition: all 0.3s ease;
