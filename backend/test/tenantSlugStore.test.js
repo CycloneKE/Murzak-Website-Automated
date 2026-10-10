@@ -150,6 +150,30 @@ section("isSlugAvailableTo — a buyer's own hold is not a lock-out");
       "slug_taken", "an active slug cannot be re-reserved, even by its owner");
   }
 
+  section("findActiveSlugForAccount — a renewal adopts the account's own shop");
+  {
+    const c = makeClient();
+    ok(typeof store.findActiveSlugForAccount === "function", "findActiveSlugForAccount is exported");
+    ok((await store.findActiveSlugForAccount(c, { webAccount: "A", app: "pos" })) === null, "no rows -> null");
+    await store.reserveSlug(c, { slug: "mine1", app: "pos", webAccount: "A", orderId: "CHK-1", nowMs: T0 });
+    ok((await store.findActiveSlugForAccount(c, { webAccount: "A", app: "pos" })) === null, "a merely reserved slug is not an active shop");
+    await store.linkSlugInvoice(c, { slug: "mine1", webAccount: "A", invoiceDocName: "PINV-1", nowMs: T0 + MIN });
+    await store.activateSlugForInvoice(c, "PINV-1");
+    ok((await store.findActiveSlugForAccount(c, { webAccount: "A", app: "pos" })) === "mine1", "returns the account's active slug");
+    ok((await store.findActiveSlugForAccount(c, { webAccount: "B", app: "pos" })) === null, "another account does not see it");
+    ok((await store.findActiveSlugForAccount(c, { webAccount: "A", app: "erp" })) === null, "another app does not match");
+
+    // A server that ignores the filters (or a mock) must not leak other rows: JS re-verifies.
+    const leaky = { ...c, get: async () => ({ data: { data: [{ name: "x", slug: "x", web_account: "B", app: "pos", status: "active" }, { name: "y", slug: "y", web_account: "A", app: "pos", status: "reserved" }] } }) };
+    ok((await store.findActiveSlugForAccount(leaky, { webAccount: "A", app: "pos" })) === null, "rows for another account / non-active rows returned by the server are ignored");
+
+    // A failed lookup propagates (the caller must treat it as unresolved, not as "no shop").
+    const down = { get: async () => { throw new Error("frappe down"); } };
+    let threw = null;
+    try { await store.findActiveSlugForAccount(down, { webAccount: "A", app: "pos" }); } catch (e) { threw = e; }
+    ok(threw && /frappe down/.test(threw.message), "a failed lookup throws instead of returning null");
+  }
+
   section("bad input never reaches Frappe");
   {
     const c = makeClient();

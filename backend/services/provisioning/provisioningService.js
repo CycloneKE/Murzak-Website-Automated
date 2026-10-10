@@ -231,13 +231,33 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
   // the app-tier jobs below are held for staff.
   let appSiteSlug = null;
   let appSlugProblem = null;
+  let appAccountLookupFailed = false;
   if (ids.some((id) => getServiceMeta(id)?.app)) {
     try {
       // Lazy: tenantSlugStore -> orderStore -> provisioning/capacity would
       // otherwise risk a load-time require cycle.
       const tenantSlugs = require("../apps/tenantSlugStore");
       appSiteSlug = await tenantSlugs.activateSlugForInvoice(client, invoiceDocName);
-      if (!appSiteSlug) appSlugProblem = "no Tenant Slug linked";
+      if (!appSiteSlug) {
+        appSlugProblem = "no Tenant Slug linked";
+        // Renewal invoices (REN-...) re-bill the account's service rows with no
+        // Tenant Slug linked to them and no Checkout Order. Adopt the account's
+        // own ACTIVE slug for this app: the provisioner then idempotently
+        // re-adopts the existing site instead of building a second, empty shop
+        // under an account-derived name. Only reached when the invoice lookup
+        // cleanly found nothing (a thrown lookup stays unresolved -> hold).
+        // One app per invoice, same assumption as the invoice slug above.
+        const appKey = ids.map((id) => getServiceMeta(id)?.app).find(Boolean);
+        try {
+          appSiteSlug = await tenantSlugs.findActiveSlugForAccount(client, { webAccount, app: appKey });
+        } catch (e) {
+          // Can't tell whether the account already has a shop: fail safe and hold
+          // even when no Checkout Order proves this came from the app checkout.
+          appSlugProblem = `account slug lookup failed: ${e.message}`;
+          appAccountLookupFailed = true;
+        }
+        if (appSiteSlug) appSlugProblem = null;
+      }
     } catch (e) {
       appSlugProblem = `lookup failed: ${e.message}`;
     }
@@ -306,7 +326,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     if (meta?.app && appSiteSlug) payload.site_slug = appSiteSlug;
     let holdForAddress = false;
     if (meta?.app && !appSiteSlug) {
-      const kind = await resolveProvenance();
+      const kind = appAccountLookupFailed ? "unknown" : await resolveProvenance();
       if (kind === "none") {
         // Not an app-checkout order (e.g. a portal add-on): there is no chosen
         // address to honour. Provision under the account-derived name, as before.
@@ -317,7 +337,7 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
         holdForAddress = true;
         const reason =
           kind === "unknown"
-            ? `${appSlugProblem}; could not confirm whether this order came from the app checkout: ${appProvenanceError}`
+            ? `${appSlugProblem}; could not confirm whether this order came from the app checkout${appProvenanceError ? `: ${appProvenanceError}` : ""}`
             : appSlugProblem;
         console.error(
           `[provisioning] app order held — chosen address unresolved (${reason}): account=${webAccount} invoice=${invoiceDocName} service=${serviceId}`

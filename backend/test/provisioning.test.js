@@ -934,6 +934,72 @@ const okLane = {
     const mixOrdErp = Object.values(PJ(sMixOrd)).find((d) => d.service_id === "biz-erp-light");
     ok(isHeld(mixOrdPos), "mixed batch + checkout order: POS held");
     ok(mixOrdErp && !("site_slug" in mixOrdErp) && mixOrdErp.status === baseErp.status && mixOrdErp.attempts === baseErp.attempts && mixOrdErp.error === baseErp.error, "mixed batch + checkout order: ERP job unaffected");
+
+    // ---- renewal invoices must adopt the account's own shop, never build a second ----
+    // A REN-... invoice carries the account's service rows but has no Tenant Slug
+    // linked to it and no Checkout Order. Without the account lookup that read as
+    // provenance "none" -> a job with no site_slug -> a second, empty shop.
+    // Tenant Slug stub that honours (web_account, app, status) filters like Frappe
+    // would, but ALSO returns everything for any filter shape the lookup under test
+    // might send wrong — the code re-verifies in JS, and so do we here via rows.
+    const slugStore = (rows) => (store) => ({
+      ...store,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: rows.map((r) => ({ ...r })) } };
+        return store.get(url, opts);
+      },
+      put: async (url, patch) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: {} } };
+        return store.put(url, patch);
+      },
+    });
+    const activeMine = { name: "mamanjeri", slug: "mamanjeri", web_account: "A", app: "pos", status: "active", invoice: "PINV-1" };
+
+    const sRen = makeStore([]);
+    orderGets.length = 0;
+    const renRun = await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(slugStore([activeMine])(sRen), []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] })));
+    const renJob = Object.values(PJ(sRen)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renJob && renJob.status === "queued" && renJob.attempts === 0 && renJob.site_slug === "mamanjeri" && !renJob.error, "renewal invoice (no linked slug, no order): POS job adopts the account's active slug as site_slug and is queued");
+    ok(orderGets.length === 0, "renewal with an active account slug: Checkout Order never queried");
+
+    // No active slug for the account and no order -> unchanged legacy behaviour.
+    const sRenNone = makeStore([]);
+    const renNoneRun = await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(slugStore([])(sRenNone), []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] })));
+    const renNoneJob = Object.values(PJ(sRenNone)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renNoneJob && renNoneJob.status === "queued" && !("site_slug" in renNoneJob) && renNoneRun.calls.length >= 1, "renewal, account has no active slug and no order: legacy queued job without site_slug, with a console.warn");
+
+    // Another account's active slug (or a different app / non-active row) never leaks.
+    const sRenLeak = makeStore([]);
+    await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({
+      client: withOrders(slugStore([
+        { ...activeMine, web_account: "B" },
+        { ...activeMine, slug: "other-app", name: "other-app", app: "erp" },
+        { ...activeMine, slug: "reservedone", name: "reservedone", status: "reserved" },
+      ])(sRenLeak), []),
+      webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"],
+    })));
+    const renLeakJob = Object.values(PJ(sRenLeak)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renLeakJob && renLeakJob.status === "queued" && !("site_slug" in renLeakJob), "another account's / another app's / non-active slug is never adopted");
+
+    // The account lookup throwing is an unresolved lookup: fail safe (hold), even
+    // though a renewal has no checkout order to prove it came from the app checkout.
+    const sRenErr = makeStore([]);
+    let slugGets = 0;
+    const flaky = {
+      ...sRenErr,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) { slugGets++; if (slugGets > 1) throw new Error("account lookup down"); return { data: { data: [] } }; }
+        return sRenErr.get(url, opts);
+      },
+    };
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(flaky, []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] }));
+    const renErrJob = Object.values(PJ(sRenErr)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renErrJob && renErrJob.status === "needs_human" && !("site_slug" in renErrJob) && /account lookup down/.test(renErrJob.error || ""), "account slug lookup throws: POS job is held, not built under a guessed name");
+
+    // A paid app checkout whose invoice-linked slug resolves keeps winning over the account lookup.
+    const sRenPrio = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sRenPrio), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    ok(Object.values(PJ(sRenPrio)).find((d) => d.service_id === "biz-pos-duka")?.site_slug === "mamanjeri", "slug linked to the invoice is still resolved first");
   }
 
   // ---- tally ----

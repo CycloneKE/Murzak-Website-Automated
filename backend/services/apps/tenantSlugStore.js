@@ -166,6 +166,36 @@ async function activateSlugForInvoice(client, invoiceDocName) {
   });
 }
 
+/**
+ * The slug of the account's own ACTIVE shop for `app`, or null.
+ *
+ * Renewal invoices (REN-...) re-bill the account's service rows but carry no
+ * Tenant Slug link and no Checkout Order, so activateSlugForInvoice finds
+ * nothing for them. Without this the provisioner would derive a fresh,
+ * account-based name and build a SECOND, empty shop. Adopting the account's
+ * existing slug lets the provisioner idempotently re-adopt the same site.
+ *
+ * Throws on a failed lookup on purpose: the caller must treat "couldn't ask" as
+ * unresolved (and hold), never as "this account has no shop".
+ */
+async function findActiveSlugForAccount(client, { webAccount, app }) {
+  if (!webAccount || !app) return null;
+  const res = await client.get(BASE, {
+    params: {
+      filters: JSON.stringify([["web_account", "=", webAccount], ["app", "=", app], ["status", "=", "active"]]),
+      fields: JSON.stringify(["name", "slug", "web_account", "app", "status"]),
+      limit_page_length: 5,
+    },
+  });
+  // Re-verify in JS: a mock (or a misconfigured server-side filter) may return
+  // other accounts' rows, and leaking another buyer's address would be far worse
+  // than finding nothing.
+  const row = (res.data?.data || []).find(
+    (r) => r && r.web_account === webAccount && r.app === app && r.status === "active"
+  );
+  return row ? row.slug || row.name || null : null;
+}
+
 module.exports = {
   TENANT_SLUG_DOCTYPE,
   SLUG_RESERVATION_TTL_MS,
@@ -176,4 +206,5 @@ module.exports = {
   touchSlug,
   linkSlugInvoice,
   activateSlugForInvoice,
+  findActiveSlugForAccount,
 };
