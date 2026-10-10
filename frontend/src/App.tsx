@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound";
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
 import AppSetup from "./pages/apps/AppSetup";
+import AppWelcome from "./pages/apps/AppWelcome";
 import MurzakCRM from "./pages/products/MurzakCRM";
 import CustomSoftware from "./pages/products/CustomSoftware";
 
@@ -127,6 +128,9 @@ const App: React.FC = () => {
     if (location.pathname.startsWith("/checkout/")) return "payment";
     // /get/:app is the app set-up page; it keeps the Products header state.
     if (location.pathname.startsWith("/get/")) return "products";
+    // /welcome/:orderId is the post-payment "your shop is getting ready" page;
+    // it shares thank-you's title/description.
+    if (location.pathname.startsWith("/welcome/")) return "thank-you";
     return pathToPage[location.pathname] || "home";
   }, [location.pathname]);
 
@@ -134,7 +138,7 @@ const App: React.FC = () => {
   // :orderId, or the nested /portal/* sub-routes) — pathToPage only has
   // exact-match entries, so these need their own check below or they'd
   // wrongly count as unmatched.
-  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/"];
+  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/", "/welcome/"];
 
   // True only when the URL matched no real route (the catch-all renders
   // NotFound) — activePage still resolves to "home" above so the rest of
@@ -463,6 +467,15 @@ const App: React.FC = () => {
                 element={
                   <RequireAuth user={user}>
                     <ThankYou onNavigate={onNavigate} />
+                  </RequireAuth>
+                }
+              />
+
+              <Route
+                path="/welcome/:orderId"
+                element={
+                  <RequireAuth user={user}>
+                    <AppWelcome />
                   </RequireAuth>
                 }
               />
