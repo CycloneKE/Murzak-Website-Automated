@@ -818,9 +818,8 @@ const okLane = {
 
     // Unresolved address: the buyer chose a name we can't find. Building under
     // the account-derived name would silently hand them a different address, so
-    // the job is held (needs_human, attempts pinned at MAX so murzak-bench-runner
-    // won't claim it) until staff set site_slug and release it.
-    const MAX = Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
+    // the job is held (needs_human, attempts pinned at the 999 sentinel so no runner
+    // claims it, whatever PROVISIONING_MAX_ATTEMPTS says) until staff set site_slug and release it.
     const quietly = async (fn) => {
       const orig = console.error; const calls = [];
       console.error = (...a) => calls.push(a.join(" "));
@@ -828,7 +827,7 @@ const okLane = {
     };
     const throwingClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return store.get(url, opts); } });
     const emptyClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) return { data: { data: [] } }; return store.get(url, opts); } });
-    const isHeld = (j) => j && j.status === "needs_human" && j.attempts >= MAX && !("site_slug" in j) && /PINV-1/.test(j.error || "") && j.error.length <= 500;
+    const isHeld = (j) => j && j.status === "needs_human" && j.attempts === 999 && !("site_slug" in j) && /PINV-1/.test(j.error || "") && j.error.length <= 500;
     // Provenance: only an invoice that came from the app checkout has a Checkout
     // Order (config.app set) pointing at it. Like the rest of this suite the stub
     // ignores filters, so the code under test must re-filter on invoice_doc_name.
@@ -855,9 +854,18 @@ const okLane = {
     const sFail = makeStore([]);
     const failRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(throwingClient(sFail), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
     const failJob = Object.values(PJ(sFail)).find((d) => d.service_id === "biz-pos-duka");
-    ok(isHeld(failJob), "slug lookup failure holds the POS job (needs_human, attempts>=MAX, error names invoice, no site_slug) instead of building under the account-derived name");
+    ok(isHeld(failJob), "slug lookup failure holds the POS job (needs_human, attempts===999 sentinel, error names invoice, no site_slug) instead of building under the account-derived name");
     ok(/lookup failed: boom/.test(failJob?.error || "") && /set this job's site_slug/.test(failJob?.error || ""), "held job error carries the reason and the release instructions");
     ok(failRun.calls.length >= 1 && /A/.test(failRun.calls[0]) && /PINV-1/.test(failRun.calls[0]) && /biz-pos-duka/.test(failRun.calls[0]), "lookup failure is logged with console.error (account, invoice, service)");
+
+    {
+      const saved = process.env.PROVISIONING_MAX_ATTEMPTS;
+      process.env.PROVISIONING_MAX_ATTEMPTS = "1";
+      const sLow = makeStore([]);
+      await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(throwingClient(sLow), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+      ok(Object.values(PJ(sLow)).find((d) => d.service_id === "biz-pos-duka")?.attempts === svc.HELD_JOB_ATTEMPTS, "held attempts do not follow the website's PROVISIONING_MAX_ATTEMPTS (even when it is 1)");
+      if (saved === undefined) delete process.env.PROVISIONING_MAX_ATTEMPTS; else process.env.PROVISIONING_MAX_ATTEMPTS = saved;
+    }
 
     const sNull = makeStore([]);
     const nullRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sNull), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));

@@ -158,8 +158,14 @@ module.exports = function (ctx) {
 
       const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
       const normalizedTerm = normalizeBillingTerm(billingTerm);
+      // app/slug/shopName are RESERVED: they decide who owns a shop address and
+      // whether prepare-payment reserves/links a Tenant Slug. They are set only
+      // from validateAppOrder's result (app tiers); whatever the client sent under
+      // those names is dropped first, so a non-app order can never carry them.
+      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, ...clientConfig } =
+        config && typeof config === "object" ? config : {};
       const storedConfig = {
-        ...(config || {}),
+        ...clientConfig,
         billingTerm: normalizedTerm,
         ...(app ? { app: app.app, slug: app.slug, shopName: app.shopName } : {}),
       };
@@ -430,12 +436,18 @@ module.exports = function (ctx) {
         }
       }
 
-      await linkInvoice({ client, orderId, invoiceDocName });
+      // Slug BEFORE order: once the order carries invoice_doc_name the early
+      // "already prepared" return above skips this whole block on every retry, so
+      // a failure between the two writes must never leave an invoiced order whose
+      // slug was not linked (the paid job would then lose the buyer's address).
+      // The reverse failure (slug linked, order not) is safe: a retry re-enters,
+      // raises another invoice and appends it to the slug's history.
       if (order.config?.app && order.config?.slug) {
         await tenantSlugs.linkSlugInvoice(client, {
           slug: order.config.slug, webAccount: webAccountName, invoiceDocName, nowMs,
         });
       }
+      await linkInvoice({ client, orderId, invoiceDocName });
       return res.json({ ok: true, invoiceDocName });
     } catch (err) {
       return sendError(res, err, "Failed to prepare payment.", "PREPARE PAYMENT");

@@ -1042,6 +1042,75 @@ function baseCtx(client, overrides = {}) {
     const doc = client.store["Tenant Slug"].linkedname;
     ok(String(doc.invoice || "").split(",").includes(res.body.invoiceDocName), "Tenant Slug.invoice contains the new invoice");
     ok(doc.status === "reserved" && doc.web_account === "acct-link", "slug still reserved for the buyer");
+    ok(client.store["Checkout Order"][c.body.order.id].invoice_doc_name === res.body.invoiceDocName, "the order's invoice_doc_name is set to the same invoice");
+  }
+
+  section("POST /api/orders — client-supplied app/slug/shopName are never trusted on a non-app order");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-forge": { name: "acct-forge", plan: "None", selected_services: [] } },
+    });
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-forge" },
+      body: { serviceId: "starter-web-hosting", planKey: "Starter", config: { domainChoice: "Use Murzak Subdomain", app: "pos", slug: "rival-shop", shopName: "X" } },
+    }, c);
+    ok(c.statusCode === 200, `non-app order created (got ${c.statusCode})`);
+    const cfg = c.body?.order?.config || {};
+    ok(!("app" in cfg) && !("slug" in cfg) && !("shopName" in cfg), "returned order.config has none of the reserved keys");
+    ok(cfg.domainChoice === "Use Murzak Subdomain", "ordinary client config keys are still kept");
+    const stored = client.store["Checkout Order"]?.[c.body.order.id];
+    ok(stored && !/rival-shop/.test(stored.config_json || "") && !/"app"/.test(stored.config_json || ""), "stored config_json has no app/slug");
+    ok(Object.keys(client.store["Tenant Slug"] || {}).length === 0, "no Tenant Slug doc was created at order time");
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-forge" }, params: { id: c.body.order.id } }, res);
+    ok(res.statusCode === 200 && !!res.body?.invoiceDocName, `prepare-payment succeeds (got ${res.statusCode})`);
+    ok(Object.keys(client.store["Tenant Slug"] || {}).length === 0, "no Tenant Slug doc exists after prepare-payment either");
+  }
+
+  section("POST /api/orders — an app order's reserved keys come only from the validated result");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-forge2" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "  Mama Njeri  ", slug: "MamaNjeri2", app: "erp" } },
+    }, c);
+    ok(c.statusCode === 200, `app order created (got ${c.statusCode})`);
+    ok(c.body?.order?.config?.app === "pos", "config.app is the server's value, not the client's");
+    ok(c.body?.order?.config?.slug === "mamanjeri2" && c.body?.order?.config?.shopName === "Mama Njeri", "slug/shopName are the normalized, validated values");
+  }
+
+  section("prepare-payment — the slug is linked to the invoice BEFORE the order is");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-m1": { name: "acct-m1", plan: "None", selected_services: [] } },
+    });
+    // linkInvoice dies after the invoice exists: the slug must already carry it.
+    const router = createOrdersRouter(baseCtx(client, {
+      linkInvoice: async () => { throw new Error("link blew up"); },
+    }));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-m1" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "M1", slug: "m1shop" } },
+    }, c);
+    const orig = console.error; console.error = () => {};
+    const res = makeRes();
+    try { await prep({ session: { webAccount: "acct-m1" }, params: { id: c.body.order.id } }, res); } finally { console.error = orig; }
+    ok(res.statusCode === 500, `prepare-payment reports the failure (got ${res.statusCode})`);
+    const invoiceNames = Object.keys(client.store["Portal Invoice"] || {});
+    ok(invoiceNames.length === 1 && String(client.store["Tenant Slug"].m1shop.invoice || "").split(",").includes(invoiceNames[0]), "the slug already carries the invoice although the order link failed");
+    ok(!client.store["Checkout Order"][c.body.order.id].invoice_doc_name, "the order is still un-invoiced (so a retry re-enters and cannot skip the slug link)");
   }
 
   section("GET /api/apps/:app/address");

@@ -185,6 +185,16 @@ function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
 }
 
 /**
+ * attempts value for a job held for staff (its shop address is unresolved).
+ * Deliberately NOT derived from PROVISIONING_MAX_ATTEMPTS: that env is read
+ * separately by the website and by the host runner (murzak-bench-runner claims
+ * attempts < ITS value). If the website's value were ever lower than the host's,
+ * a "pinned at MAX" job would be claimable and built under the wrong name. A
+ * fixed sentinel far above any sane max can't be undercut by either config.
+ */
+const HELD_JOB_ATTEMPTS = 999;
+
+/**
  * Create a queued Provisioning Job per service id (idempotent).
  * Returns { created:[], skipped:[], doctypeMissing:bool, error:string|null }.
  * Never throws.
@@ -302,11 +312,11 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     return provenance;
   };
   let appProvenanceError = "";
-  // Born needs_human with attempts pinned at the runner's max, so neither the
-  // container runner nor murzak-bench-runner (claims attempts < MAX) builds it.
+  // Born needs_human with attempts pinned at HELD_JOB_ATTEMPTS, so neither the
+  // container runner nor murzak-bench-runner (claims attempts < its MAX) builds it.
   const holdUnresolvedAddress = (payload, reason) => {
     payload.status = "needs_human";
-    payload.attempts = Math.max(1, Number(process.env.PROVISIONING_MAX_ATTEMPTS || 3));
+    payload.attempts = HELD_JOB_ATTEMPTS;
     payload.error = (
       `Customer's chosen shop address could not be resolved for invoice ${invoiceDocName} (${reason}). ` +
       `Find their Tenant Slug, set this job's site_slug, reset attempts to 0 and status to needs_human to release it.`
@@ -570,6 +580,7 @@ async function runProvisioningForInvoice({ client, webAccount, invoiceDocName, s
 
 module.exports = {
   JOB_DOCTYPE,
+  HELD_JOB_ATTEMPTS,
   isEnabled,
   buildJobPayload,
   enqueueProvisioningForInvoice,
