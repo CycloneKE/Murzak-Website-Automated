@@ -332,17 +332,18 @@ const App: React.FC = () => {
     navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
-  const handlePaymentSuccess = (freshUser?: User) => {
+  const handlePaymentSuccess = (freshUser?: User, nextPath?: string) => {
     if (freshUser) {
       setUser(freshUser);
     } else if (user) {
       setUser({ ...user, accountStatus: "Provisioning" as const });
     }
-    // Routes through /thank-you (a real, stable URL) rather than straight to
-    // the portal — ThankYou.tsx auto-continues there itself, but this gives
-    // conversion-tracking pixels an actual page to fire against, which the
-    // previous direct navigate() never provided.
-    navigate("/thank-you");
+    // App orders go to their live set-up screen (internal paths only);
+    // everything else routes through /thank-you (a real, stable URL) —
+    // ThankYou.tsx auto-continues to the portal itself, and this gives
+    // conversion-tracking pixels an actual page to fire against.
+    const safeNext = typeof nextPath === "string" && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : undefined;
+    navigate(safeNext || "/thank-you");
   };
 
   const isPortalRoute = location.pathname.startsWith("/portal");

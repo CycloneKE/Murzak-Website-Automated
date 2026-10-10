@@ -7,9 +7,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
+import { APP_CHECKOUT } from '../config/appCheckout';
+import { AppId } from '../config/serviceCatalog';
 
 interface CheckoutProps {
-  onSuccess: (user?: any) => void;
+  onSuccess: (user?: any, nextPath?: string) => void;
 }
 
 interface OrderView {
@@ -208,6 +210,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         }
 
         setLoading(false);
+
+        // App orders carry the buyer's term choice from /get/:app; start the
+        // selector there. Set before any prepare-payment call can happen.
+        if (ord.eligibleForTermChoice && ord.config?.billingTerm === "annual") setBillingTerm("annual");
 
         // Eligible orders (a genuine first monthly-billed purchase) wait for
         // the customer to confirm a term via the selector + "Continue to
@@ -488,11 +494,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             </p>
             <p className="text-sm font-bold text-slate-500 mt-1">
               {order.serviceName}
-              {order.tier ? <span className="text-slate-500 font-semibold"> · {order.tier}</span> : null}
+              {order.tier && !order.config?.app ? <span className="text-slate-500 font-semibold"> · {order.tier}</span> : null}
             </p>
             {order.config?.domain ? (
               <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1">
                 {order.config.domain}
+              </p>
+            ) : null}
+            {order.config?.app && order.config?.slug ? (
+              <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-all">
+                {order.config.shopName ? `${order.config.shopName} · ` : ""}
+                <span className="font-mono">{order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}</span>
               </p>
             ) : null}
           </div>
@@ -617,7 +629,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           invoiceDocName={invoice.docName}
           chargeKes={invoice.chargeKes}
           amountUsd={invoice.paypalAmountUsd}
-          onSuccess={onSuccess}
+          onSuccess={(u?: any) => onSuccess(u, order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined)}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
       ) : order.eligibleForTermChoice ? null : (
