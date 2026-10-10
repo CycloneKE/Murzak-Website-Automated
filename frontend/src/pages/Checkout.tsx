@@ -487,8 +487,8 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     <div className="space-y-4">
       {/* Order summary */}
       <div className="glass-card rounded-3xl p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
               Order summary
             </p>
@@ -502,13 +502,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               </p>
             ) : null}
             {order.config?.app && order.config?.slug ? (
-              <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-all">
-                {order.config.shopName ? `${order.config.shopName} · ` : ""}
-                <span className="font-mono">{order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}</span>
-              </p>
+              <>
+                {order.config.shopName ? (
+                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-words">{order.config.shopName}</p>
+                ) : null}
+                <p className="text-sm font-semibold font-mono text-slate-600 dark:text-slate-300 mt-0.5 break-all">
+                  {order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}
+                </p>
+              </>
             ) : null}
           </div>
-          <span className="text-right whitespace-nowrap">
+          <span className="text-left sm:text-right whitespace-nowrap">
             {period === "/yr" ? (
               <>
                 <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
