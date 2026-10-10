@@ -604,7 +604,16 @@ function frappeClient() {
                          doctype === 'Portal Invoice'   ? 'INV' :
                          doctype === 'Web Account'      ? 'WA'  :
                          doctype === 'Checkout Order'   ? 'CHK' : 'DOC';
-          const name = data?.name || `${prefix}-MOCK-${seq}`;
+          // Tenant Slug is autonamed by its slug in real Frappe (field:slug), so the
+          // name IS the uniqueness guarantee: mirror that, including the 409 on a
+          // duplicate insert, or reservation lookups-by-name never find anything.
+          if (doctype === 'Tenant Slug' && data?.slug) {
+            if (store[doctype].some(d => d.name === data.slug)) {
+              const err = new Error('DuplicateEntryError: Tenant Slug');
+              err.response = { status: 409, data: { _error_message: 'duplicate' } }; throw err;
+            }
+          }
+          const name = data?.name || (doctype === 'Tenant Slug' && data?.slug) || `${prefix}-MOCK-${seq}`;
           // Check unique job_key
           if (data?.job_key && store[doctype].some(d => d.job_key === data.job_key)) {
             const err = new Error('DuplicateEntryError: duplicate job_key');
