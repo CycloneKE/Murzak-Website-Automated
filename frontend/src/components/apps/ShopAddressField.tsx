@@ -64,6 +64,7 @@ const ShopAddressField: React.FC<ShopAddressFieldProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopName, app]);
 
+  const rejected = !!suggestionsFromServer?.length;
   const suggestions = suggestionsFromServer?.length ? suggestionsFromServer : check?.suggestions || [];
 
   return (
@@ -86,7 +87,12 @@ const ShopAddressField: React.FC<ShopAddressFieldProps> = ({
             <Loader2 size={14} className="animate-spin" /> Checking address…
           </span>
         )}
-        {!checking && check && check.slug && (
+        {!checking && rejected && (
+          <span className="text-red-600 dark:text-red-400 inline-flex items-center gap-1.5">
+            <AlertCircle size={14} /> That address was just taken — pick another.
+          </span>
+        )}
+        {!checking && !rejected && check && check.slug && (
           <span
             className={
               check.available

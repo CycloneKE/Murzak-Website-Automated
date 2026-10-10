@@ -35,6 +35,8 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
   const [errorCode, setErrorCode] = useState("");
   const [serverSuggestions, setServerSuggestions] = useState<string[]>([]);
   const [waitlisted, setWaitlisted] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const [notice, setNotice] = useState("");
 
   // All hooks above run on every render; this early return must stay below them.
   if (!app) return <Navigate to="/products" replace />;
@@ -76,6 +78,8 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
   // CAPACITY only happens at order creation, which requires a signed-in
   // account — so the existing account-scoped waitlist route always applies.
   const joinWaitlist = async () => {
+    if (joining) return;
+    setJoining(true);
     try {
       const res = await fetch("/api/orders/waitlist", {
         method: "POST",
@@ -86,22 +90,54 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || "Request failed");
       setWaitlisted(true);
-      setError("We're full right now — you're on the list and we'll message you as soon as a shop slot opens.");
+      setError("");
+      setNotice("We're full right now — you're on the list and we'll message you as soon as a shop slot opens.");
     } catch (e: any) {
       setError(toUserMessage(e, "We couldn't add you to the waitlist. Please try again."));
+    } finally {
+      setJoining(false);
     }
   };
 
+  const onTierChange = (id: string) => {
+    setServiceId(id);
+    setErrorCode("");
+    setWaitlisted(false);
+    setError("");
+    setNotice("");
+    setServerSuggestions([]);
+  };
+
   const onCta = errorCode === "CAPACITY" ? joinWaitlist : submit;
-  const ctaDisabled = waitlisted || (errorCode !== "CAPACITY" && !canContinue);
+  const ctaDisabled = waitlisted || joining || (errorCode !== "CAPACITY" && !canContinue);
   const ctaLabel = waitlisted
     ? "You're on the list"
     : errorCode === "CAPACITY"
       ? "Join the waitlist"
       : `Continue to payment · ${formatKes(total)}`;
+  const busy = submitting || joining;
+
+  // First unmet requirement, shown beside a disabled CTA.
+  const hint = !ctaDisabled || waitlisted || joining
+    ? ""
+    : !user
+      ? "Create your account or sign in to continue."
+      : !shopName.trim()
+        ? "Enter your shop's name."
+        : !slug
+          ? "Choose an available shop address."
+          : "";
+
+  const showError = !!error && errorCode !== "APP_EXISTS";
+  const messages = (extra: string) => (
+    <>
+      {showError && <p className={`${extra} text-sm font-bold text-red-600 dark:text-red-400`} role="alert">{error}</p>}
+      {notice && <p className={`${extra} text-sm font-bold text-emerald-700 dark:text-emerald-400`} role="status">{notice}</p>}
+    </>
+  );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-28 pb-40 lg:pb-16">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-28 pb-56 lg:pb-16">
       <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-murzak-ink dark:text-slate-100">Set up your shop</h1>
       <p className="mt-2 text-slate-600 dark:text-slate-400 font-medium">{info.productName}, ready about two minutes after payment.</p>
 
@@ -111,7 +147,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             <ShopAddressField
               app={app}
               shopName={shopName}
-              onShopNameChange={(n) => { setShopName(n); setServerSuggestions([]); }}
+              onShopNameChange={(n) => { setShopName(n); setServerSuggestions([]); setError(""); setErrorCode(""); }}
               onSlugChange={setSlug}
               suggestionsFromServer={serverSuggestions}
             />
@@ -142,7 +178,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             <select
               id="tier"
               value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
+              onChange={(e) => onTierChange(e.target.value)}
               className="w-full rounded-xl px-3 py-2 font-black bg-white/70 dark:bg-slate-800 border border-slate-300 dark:border-murzak-border text-murzak-ink dark:text-slate-100 dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-murzak-accent"
             >
               {tiers.map((t) => (
@@ -169,7 +205,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             ))}
           </div>
           {term === "annual" && (
-            <p className={`mt-2 text-xs font-semibold ${MUTED}`}>Annual billing is available on your first purchase.</p>
+            <p className={`mt-2 text-xs font-semibold ${MUTED}`}>Annual prepay is for first-time customers. The final amount is confirmed on the next screen.</p>
           )}
           {slug && (
             <p className="mt-4 text-sm font-semibold text-slate-600 dark:text-slate-400 break-all">
@@ -177,16 +213,14 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             </p>
           )}
           <div className="mt-5 pt-5 border-t border-slate-100 dark:border-murzak-border flex items-baseline justify-between">
-            <span className="font-black text-murzak-ink dark:text-slate-100">Due today</span>
+            <span className="font-black text-murzak-ink dark:text-slate-100">{term === "annual" ? "Due today (estimate)" : "Due today"}</span>
             <span className="text-2xl font-black text-murzak-ink dark:text-slate-100">{formatKes(total)}</span>
           </div>
           <p className={`mt-3 text-xs font-semibold flex items-center gap-1.5 ${MUTED}`}>
             <ShieldCheck size={14} className="text-murzak-accent shrink-0" /> 14-day money-back · Cancel anytime · Pay with M-Pesa
           </p>
 
-          {error && errorCode !== "APP_EXISTS" && (
-            <p className="mt-4 text-sm font-bold text-red-600 dark:text-red-400" role="alert">{error}</p>
-          )}
+          {messages("mt-4 hidden lg:block")}
 
           <button
             type="button"
@@ -194,23 +228,26 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             disabled={ctaDisabled}
             className="hidden lg:flex mt-5 w-full items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black text-sm bg-murzak-accent text-murzak-ink disabled:opacity-40"
           >
-            {submitting && <Loader2 size={16} className="animate-spin" />}
+            {busy && <Loader2 size={16} className="animate-spin" />}
             {ctaLabel} <ArrowRight size={16} />
           </button>
-          {!user && <p className={`hidden lg:block mt-2 text-xs font-semibold ${MUTED}`}>Create your account or sign in to continue.</p>}
+          {hint && <p className={`hidden lg:block mt-2 text-xs font-semibold ${MUTED}`}>{hint}</p>}
         </aside>
       </div>
 
       {/* Phone: sticky action bar */}
-      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-murzak-border backdrop-blur">
-        {!user && <p className={`mb-2 text-center text-xs font-semibold ${MUTED}`}>Create your account or sign in to continue.</p>}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-murzak-border backdrop-blur"
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      >
+        {messages("mb-2 text-center")}
+        {hint && <p className={`mb-2 text-center text-xs font-semibold ${MUTED}`}>{hint}</p>}
         <button
           type="button"
           onClick={onCta}
           disabled={ctaDisabled}
           className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black text-sm bg-murzak-accent text-murzak-ink disabled:opacity-40"
         >
-          {submitting && <Loader2 size={16} className="animate-spin" />}
+          {busy && <Loader2 size={16} className="animate-spin" />}
           {ctaLabel}
         </button>
       </div>
