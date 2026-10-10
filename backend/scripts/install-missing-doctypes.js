@@ -39,6 +39,9 @@ const DOCTYPE_PATHS = [
   // to add its customer_domain link (the merge path only ever APPENDS missing
   // fields, so the doctype's real shape is left alone).
   path.resolve(__dirname, "../data/doctype-hosting-site.json"),
+  // Customer-chosen app addresses (Murzak POS shops). See
+  // services/apps/tenantSlugStore.js.
+  path.resolve(__dirname, "../data/doctype-tenant-slug.json"),
 ];
 
 async function installOne(client, doctypePath) {

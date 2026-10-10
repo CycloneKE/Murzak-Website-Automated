@@ -293,14 +293,14 @@ const okLane = {
 
   section("enqueue path (payment-time) capacity gate");
   s = makeStore([]);
-  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV", serviceIds: ["biz-pos-inventory", "starter-web-hosting"] });
-  const pos = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
+  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV", serviceIds: ["biz-erp-light", "starter-web-hosting"] });
+  const pos = Object.values(PJ(s)).find((d) => d.service_id === "biz-erp-light");
   const web = Object.values(PJ(s)).find((d) => d.service_id === "starter-web-hosting");
   ok(pos.status === "queued" && pos.target === "box-1" && !pos.gated, "enqueue premium under-cap -> queued on box-1");
   ok(web.status === "queued" && !web.gated, "enqueue volume -> queued");
   s = makeStore([{ name: "ACT", service_id: "big", status: "active", ram_mb: 10500, target: "box-1", capacity_class: "premium" }]);
-  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV2", serviceIds: ["biz-pos-inventory"] });
-  const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-pos-inventory");
+  await svc.enqueueProvisioningForInvoice({ client: s, webAccount: "WA", invoiceDocName: "INV2", serviceIds: ["biz-erp-light"] });
+  const gated = Object.values(PJ(s)).find((d) => d.service_id === "biz-erp-light");
   ok(gated.status === "needs_human" && gated.gated === 1, "enqueue premium over-cap -> needs_human + gated");
   ok(Object.values(CR(s)).length === 1, "enqueue fired one scale-out request");
 
@@ -784,6 +784,252 @@ const okLane = {
     ok(s1.length <= 63, "suffixed slug stays a valid DNS label length");
 
     if (savedBase !== undefined) process.env.APP_DOMAIN_BASE = savedBase; else delete process.env.APP_DOMAIN_BASE;
+  }
+
+  section("app tiers carry the customer-chosen address onto the job");
+  {
+    // Reuses the suite's store (capacity/scaling stubs) and layers a Tenant Slug
+    // endpoint on top. The row's `invoice` column is a comma-separated list; the
+    // lookup verifies membership in JS, so the stub returns it regardless of query.
+    const slugRows = [{ name: "mamanjeri", slug: "mamanjeri", status: "reserved", invoice: "PINV-1" }];
+    const slugPuts = [];
+    const withSlugs = (store) => ({
+      ...store,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: slugRows.map((r) => ({ ...r })) } };
+        return store.get(url, opts);
+      },
+      put: async (url, patch) => {
+        if (/Tenant(%20| )Slug/.test(url)) { slugPuts.push(patch); Object.assign(slugRows[0], patch); return { data: { data: slugRows[0] } }; }
+        return store.put(url, patch);
+      },
+    });
+
+    const sApp = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sApp), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    const posJob = Object.values(PJ(sApp)).find((d) => d.service_id === "biz-pos-duka");
+    ok(posJob?.site_slug === "mamanjeri", "POS job carries site_slug from the Tenant Slug linked to the invoice");
+    ok(slugPuts.some((p) => p.status === "active"), "enqueue activates the Tenant Slug (payment confirmed)");
+
+    const sNon = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sNon), webAccount: "A", invoiceDocName: "PINV-2", serviceIds: ["biz-erp-light"] });
+    const nonJobs = Object.values(PJ(sNon));
+    ok(nonJobs.length === 1 && nonJobs.every((j) => !("site_slug" in j)), "non-app jobs never get a site_slug");
+
+    // Unresolved address: the buyer chose a name we can't find. Building under
+    // the account-derived name would silently hand them a different address, so
+    // the job is held (needs_human, attempts pinned at the 999 sentinel so no runner
+    // claims it, whatever PROVISIONING_MAX_ATTEMPTS says) until staff set site_slug and release it.
+    const quietly = async (fn) => {
+      const orig = console.error; const calls = [];
+      console.error = (...a) => calls.push(a.join(" "));
+      try { return { result: await fn(), calls }; } finally { console.error = orig; }
+    };
+    const throwingClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return store.get(url, opts); } });
+    const emptyClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) return { data: { data: [] } }; return store.get(url, opts); } });
+    const isHeld = (j) => j && j.status === "needs_human" && j.attempts === 999 && !("site_slug" in j) && /PINV-1/.test(j.error || "") && j.error.length <= 500;
+    // Provenance: only an invoice that came from the app checkout has a Checkout
+    // Order (config.app set) pointing at it. Like the rest of this suite the stub
+    // ignores filters, so the code under test must re-filter on invoice_doc_name.
+    // `orderGets` records every Checkout Order GET so "never queried" is assertable.
+    const orderGets = [];
+    const appOrder = (invoice, cfg = { app: "pos", slug: "x" }) => ({ name: `ORD-${invoice}`, invoice_doc_name: invoice, config_json: JSON.stringify(cfg) });
+    const withOrders = (client, rowsOrError) => ({
+      ...client,
+      get: async (url, opts) => {
+        if (/Checkout(%20| )Order/.test(url)) {
+          orderGets.push(url);
+          if (rowsOrError instanceof Error) throw rowsOrError;
+          return { data: { data: rowsOrError.map((r) => ({ ...r })) } };
+        }
+        return client.get(url, opts);
+      },
+    });
+    const warned = async (fn) => {
+      const orig = console.warn; const calls = [];
+      console.warn = (...a) => calls.push(a.join(" "));
+      try { return { result: await fn(), calls }; } finally { console.warn = orig; }
+    };
+
+    const sFail = makeStore([]);
+    const failRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(throwingClient(sFail), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const failJob = Object.values(PJ(sFail)).find((d) => d.service_id === "biz-pos-duka");
+    ok(isHeld(failJob), "slug lookup failure holds the POS job (needs_human, attempts===999 sentinel, error names invoice, no site_slug) instead of building under the account-derived name");
+    ok(/lookup failed: boom/.test(failJob?.error || "") && /set this job's site_slug/.test(failJob?.error || ""), "held job error carries the reason and the release instructions");
+    ok(failRun.calls.length >= 1 && /A/.test(failRun.calls[0]) && /PINV-1/.test(failRun.calls[0]) && /biz-pos-duka/.test(failRun.calls[0]), "lookup failure is logged with console.error (account, invoice, service)");
+
+    {
+      const saved = process.env.PROVISIONING_MAX_ATTEMPTS;
+      process.env.PROVISIONING_MAX_ATTEMPTS = "1";
+      const sLow = makeStore([]);
+      await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(throwingClient(sLow), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+      ok(Object.values(PJ(sLow)).find((d) => d.service_id === "biz-pos-duka")?.attempts === svc.HELD_JOB_ATTEMPTS, "held attempts do not follow the website's PROVISIONING_MAX_ATTEMPTS (even when it is 1)");
+      if (saved === undefined) delete process.env.PROVISIONING_MAX_ATTEMPTS; else process.env.PROVISIONING_MAX_ATTEMPTS = saved;
+    }
+
+    const sNull = makeStore([]);
+    const nullRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sNull), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const nullJob = Object.values(PJ(sNull)).find((d) => d.service_id === "biz-pos-duka");
+    ok(isHeld(nullJob) && /no Tenant Slug linked/.test(nullJob.error), "no Tenant Slug linked to the invoice holds the POS job too");
+    ok(nullRun.calls.length >= 1 && /A/.test(nullRun.calls[0]) && /PINV-1/.test(nullRun.calls[0]) && /biz-pos-duka/.test(nullRun.calls[0]), "null lookup is logged with console.error (account, invoice, service)");
+
+    // Baseline: what an ERP-only batch looks like in this store.
+    const sBase = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: sBase, webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-erp-light"] });
+    const baseErp = Object.values(PJ(sBase)).find((d) => d.service_id === "biz-erp-light");
+
+    const sMixOk = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sMixOk), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] });
+    const mixOkPos = Object.values(PJ(sMixOk)).find((d) => d.service_id === "biz-pos-duka");
+    const mixOkErp = Object.values(PJ(sMixOk)).find((d) => d.service_id === "biz-erp-light");
+    ok(mixOkPos?.site_slug === "mamanjeri" && mixOkPos.status === "queued", "mixed batch, slug resolved: POS job carries site_slug and is queued");
+    ok(mixOkErp && !("site_slug" in mixOkErp) && mixOkErp.status === baseErp.status && mixOkErp.attempts === baseErp.attempts, "mixed batch, slug resolved: ERP job has no site_slug and matches the ERP-only baseline");
+
+    const sMixBad = makeStore([]);
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(throwingClient(sMixBad), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] }));
+    const mixBadPos = Object.values(PJ(sMixBad)).find((d) => d.service_id === "biz-pos-duka");
+    const mixBadErp = Object.values(PJ(sMixBad)).find((d) => d.service_id === "biz-erp-light");
+    ok(isHeld(mixBadPos), "mixed batch, slug unresolved: POS job is held");
+    ok(mixBadErp && !("site_slug" in mixBadErp) && mixBadErp.status === baseErp.status && mixBadErp.attempts === baseErp.attempts && mixBadErp.error === baseErp.error, "mixed batch, slug unresolved: ERP job is unaffected (matches the ERP-only baseline)");
+
+    // ---- provenance: hold ONLY an invoice that really came from the app checkout ----
+    // Portal "Add services" can buy biz-pos-* with no checkout order and no Tenant
+    // Slug; holding that would strand a paying customer with an unactionable message.
+    const sPortal = makeStore([]);
+    orderGets.length = 0;
+    const portalRun = await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sPortal), []), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] })));
+    const portalJob = Object.values(PJ(sPortal)).find((d) => d.service_id === "biz-pos-duka");
+    ok(portalJob && portalJob.status === "queued" && portalJob.attempts === 0 && !("site_slug" in portalJob) && !portalJob.error, "unresolved slug + NO checkout order (portal add-on): POS job is a normal queued job without site_slug");
+    ok(orderGets.length === 1, "portal add-on: the Checkout Order lookup ran exactly once");
+    ok(portalRun.calls.length >= 1 && /A/.test(portalRun.calls[0]) && /PINV-1/.test(portalRun.calls[0]) && /biz-pos-duka/.test(portalRun.calls[0]), "portal add-on: console.warn names account, invoice and service");
+    ok(portalRun.result.calls.length === 0, "portal add-on: nothing logged with console.error");
+
+    // The list result is not filtered by the stub: an order for ANOTHER invoice, or
+    // one with no config.app (a plain cloud checkout), must not count.
+    const sOther = makeStore([]);
+    await warned(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sOther), [appOrder("PINV-9"), { name: "ORD-x", invoice_doc_name: "PINV-1", config_json: JSON.stringify({ domain: "a.com" }) }, { name: "ORD-y", invoice_doc_name: "PINV-1", config_json: "not json" }]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const otherJob = Object.values(PJ(sOther)).find((d) => d.service_id === "biz-pos-duka");
+    ok(otherJob && otherJob.status === "queued" && !("site_slug" in otherJob), "orders for another invoice / without config.app / with bad config_json do not trigger the hold");
+
+    const sProv = makeStore([]);
+    const provRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sProv), new Error("frappe down")), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] }));
+    const provJob = Object.values(PJ(sProv)).find((d) => d.service_id === "biz-pos-duka");
+    ok(isHeld(provJob), "Checkout Order lookup throws: POS job is held (unknown provenance fails safe)");
+    ok(/could not confirm whether this order came from the app checkout/.test(provJob?.error || ""), "held job error says provenance could not be confirmed");
+    ok(provRun.calls.length >= 1 && /PINV-1/.test(provRun.calls[0]) && /biz-pos-duka/.test(provRun.calls[0]), "provenance failure is logged with console.error");
+
+    const sResolved = makeStore([]);
+    orderGets.length = 0;
+    await svc.enqueueProvisioningForInvoice({ client: withOrders(withSlugs(sResolved), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    const resolvedJob = Object.values(PJ(sResolved)).find((d) => d.service_id === "biz-pos-duka");
+    ok(resolvedJob?.site_slug === "mamanjeri" && resolvedJob.status === "queued", "resolved slug: site_slug set, job queued");
+    ok(orderGets.length === 0, "resolved slug: Checkout Order is never queried");
+
+    const sNonApp = makeStore([]);
+    orderGets.length = 0;
+    await svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sNonApp), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-erp-light"] });
+    ok(orderGets.length === 0, "non-app batch: Checkout Order is never queried");
+
+    const sTwo = makeStore([]);
+    orderGets.length = 0;
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sTwo), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-pos-chain"] }));
+    ok(orderGets.length === 1 && Object.values(PJ(sTwo)).filter(isHeld).length === 2, "two app tiers, unresolved: both held and the order is looked up once per invoice");
+
+    // Mixed batch where the order exists: POS held, ERP normal.
+    const sMixOrd = makeStore([]);
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(emptyClient(sMixOrd), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] }));
+    const mixOrdPos = Object.values(PJ(sMixOrd)).find((d) => d.service_id === "biz-pos-duka");
+    const mixOrdErp = Object.values(PJ(sMixOrd)).find((d) => d.service_id === "biz-erp-light");
+    ok(isHeld(mixOrdPos), "mixed batch + checkout order: POS held");
+    ok(mixOrdErp && !("site_slug" in mixOrdErp) && mixOrdErp.status === baseErp.status && mixOrdErp.attempts === baseErp.attempts && mixOrdErp.error === baseErp.error, "mixed batch + checkout order: ERP job unaffected");
+
+    // ---- staff email: a held job says WHY (so staff know to set site_slug) ----
+    {
+      const mailer = require("../utils/mailer");
+      const origSend = mailer.sendMail;
+      const savedAdmin = process.env.ADMIN_EMAILS;
+      process.env.ADMIN_EMAILS = "ops@murzaktech.test";
+      let heldText = null;
+      mailer.sendMail = async ({ text }) => { heldText = text; };
+      try {
+        const sHeld = makeStore([]);
+        const run = await quietly(() => svc.runProvisioningForInvoice({ client: withOrders(throwingClient(sHeld), [appOrder("PINV-1")]), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka", "biz-erp-light"] }));
+        ok(run.result.ok === true && /needs human — Customer's chosen shop address could not be resolved/.test(heldText || ""), "staff email shows the held job's reason (address unresolved)");
+        const textLines = (heldText || "").split(/\r?\n/);
+        const heldLine = textLines.find((l) => /Customer's chosen shop address/.test(l)) || "";
+        ok(heldLine.length > 0 && heldLine.slice(heldLine.indexOf("needs human — ") + "needs human — ".length).length <= 200, "the reason is capped at 200 characters");
+        ok(textLines.filter((l) => /Customer's chosen shop address/.test(l)).length === 1, "only the held job's line carries the address reason (the ERP line does not)");
+      } finally {
+        mailer.sendMail = origSend;
+        if (savedAdmin === undefined) delete process.env.ADMIN_EMAILS; else process.env.ADMIN_EMAILS = savedAdmin;
+      }
+    }
+
+    // ---- renewal invoices must adopt the account's own shop, never build a second ----
+    // A REN-... invoice carries the account's service rows but has no Tenant Slug
+    // linked to it and no Checkout Order. Without the account lookup that read as
+    // provenance "none" -> a job with no site_slug -> a second, empty shop.
+    // Tenant Slug stub that honours (web_account, app, status) filters like Frappe
+    // would, but ALSO returns everything for any filter shape the lookup under test
+    // might send wrong — the code re-verifies in JS, and so do we here via rows.
+    const slugStore = (rows) => (store) => ({
+      ...store,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: rows.map((r) => ({ ...r })) } };
+        return store.get(url, opts);
+      },
+      put: async (url, patch) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: {} } };
+        return store.put(url, patch);
+      },
+    });
+    const activeMine = { name: "mamanjeri", slug: "mamanjeri", web_account: "A", app: "pos", status: "active", invoice: "PINV-1" };
+
+    const sRen = makeStore([]);
+    orderGets.length = 0;
+    const renRun = await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(slugStore([activeMine])(sRen), []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] })));
+    const renJob = Object.values(PJ(sRen)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renJob && renJob.status === "queued" && renJob.attempts === 0 && renJob.site_slug === "mamanjeri" && !renJob.error, "renewal invoice (no linked slug, no order): POS job adopts the account's active slug as site_slug and is queued");
+    ok(orderGets.length === 0, "renewal with an active account slug: Checkout Order never queried");
+
+    // No active slug for the account and no order -> unchanged legacy behaviour.
+    const sRenNone = makeStore([]);
+    const renNoneRun = await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(slugStore([])(sRenNone), []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] })));
+    const renNoneJob = Object.values(PJ(sRenNone)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renNoneJob && renNoneJob.status === "queued" && !("site_slug" in renNoneJob) && renNoneRun.calls.length >= 1, "renewal, account has no active slug and no order: legacy queued job without site_slug, with a console.warn");
+
+    // Another account's active slug (or a different app / non-active row) never leaks.
+    const sRenLeak = makeStore([]);
+    await warned(() => quietly(() => svc.enqueueProvisioningForInvoice({
+      client: withOrders(slugStore([
+        { ...activeMine, web_account: "B" },
+        { ...activeMine, slug: "other-app", name: "other-app", app: "erp" },
+        { ...activeMine, slug: "reservedone", name: "reservedone", status: "reserved" },
+      ])(sRenLeak), []),
+      webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"],
+    })));
+    const renLeakJob = Object.values(PJ(sRenLeak)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renLeakJob && renLeakJob.status === "queued" && !("site_slug" in renLeakJob), "another account's / another app's / non-active slug is never adopted");
+
+    // The account lookup throwing is an unresolved lookup: fail safe (hold), even
+    // though a renewal has no checkout order to prove it came from the app checkout.
+    const sRenErr = makeStore([]);
+    let slugGets = 0;
+    const flaky = {
+      ...sRenErr,
+      get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) { slugGets++; if (slugGets > 1) throw new Error("account lookup down"); return { data: { data: [] } }; }
+        return sRenErr.get(url, opts);
+      },
+    };
+    await quietly(() => svc.enqueueProvisioningForInvoice({ client: withOrders(flaky, []), webAccount: "A", invoiceDocName: "REN-1", serviceIds: ["biz-pos-duka"] }));
+    const renErrJob = Object.values(PJ(sRenErr)).find((d) => d.service_id === "biz-pos-duka");
+    ok(renErrJob && renErrJob.status === "needs_human" && !("site_slug" in renErrJob) && /account lookup down/.test(renErrJob.error || ""), "account slug lookup throws: POS job is held, not built under a guessed name");
+
+    // A paid app checkout whose invoice-linked slug resolves keeps winning over the account lookup.
+    const sRenPrio = makeStore([]);
+    await svc.enqueueProvisioningForInvoice({ client: withSlugs(sRenPrio), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["biz-pos-duka"] });
+    ok(Object.values(PJ(sRenPrio)).find((d) => d.service_id === "biz-pos-duka")?.site_slug === "mamanjeri", "slug linked to the invoice is still resolved first");
   }
 
   // ---- tally ----

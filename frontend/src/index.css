@@ -76,7 +76,35 @@ html.dark body { background-color: #090C10; color: #F1F5F9; }
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
   }
-  
+
+  /* Form-field surface. Was referenced by PaymentMethods / PayPalCardSection but
+     never defined, so the M-Pesa phone and card fields rendered unstyled. Text
+     colour is flipped in dark mode here because those callers only set
+     text-murzak-ink (a fixed near-black). */
+  .glass-input {
+    background: rgba(255, 255, 255, 0.7);
+    border-width: 1px;
+    border-style: solid;
+  }
+  .glass-input:not([class*="border-red"]) {
+    border-color: rgba(223, 228, 247, 0.9);
+  }
+  .glass-input::placeholder {
+    color: #94a3b8;
+  }
+  html.dark .glass-input {
+    background: rgba(255, 255, 255, 0.06);
+    color: #f1f5f9;
+  }
+  /* Border colour is skipped when a caller marks the field as errored with a
+     border-red utility — otherwise this selector's specificity would hide it. */
+  html.dark .glass-input:not([class*="border-red"]) {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+  html.dark .glass-input::placeholder {
+    color: #64748b;
+  }
+
   /* Interactive Glass Hover */
   .glass-interactive {
     transition: all 0.3s ease;

@@ -317,6 +317,18 @@ const domainCheckLimiter = rateLimit({
   skip: skipInE2E,
 });
 
+// Public "is this shop address free?" lookup behind the /get/:app setup page —
+// fired as the buyer types, so it is looser than the form limiters but still
+// capped per IP to stop scripted enumeration of taken addresses.
+const appAddressLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many address checks. Please slow down and try again shortly." },
+  skip: skipInE2E,
+});
+
 // Front-end error reporting — no auth (must work for logged-out visitors and
 // during the boot sequence itself), tight per-IP cap since it's an unauthenticated
 // write endpoint, and a small manual body cap on top of the global 1mb bodyParser
@@ -592,7 +604,16 @@ function frappeClient() {
                          doctype === 'Portal Invoice'   ? 'INV' :
                          doctype === 'Web Account'      ? 'WA'  :
                          doctype === 'Checkout Order'   ? 'CHK' : 'DOC';
-          const name = data?.name || `${prefix}-MOCK-${seq}`;
+          // Tenant Slug is autonamed by its slug in real Frappe (field:slug), so the
+          // name IS the uniqueness guarantee: mirror that, including the 409 on a
+          // duplicate insert, or reservation lookups-by-name never find anything.
+          if (doctype === 'Tenant Slug' && data?.slug) {
+            if (store[doctype].some(d => d.name === data.slug)) {
+              const err = new Error('DuplicateEntryError: Tenant Slug');
+              err.response = { status: 409, data: { _error_message: 'duplicate' } }; throw err;
+            }
+          }
+          const name = data?.name || (doctype === 'Tenant Slug' && data?.slug) || `${prefix}-MOCK-${seq}`;
           // Check unique job_key
           if (data?.job_key && store[doctype].some(d => d.job_key === data.job_key)) {
             const err = new Error('DuplicateEntryError: duplicate job_key');
@@ -696,6 +717,8 @@ const SERVICE_ID_TO_PLAN = {
   "biz-db-medium": "Business",
   "biz-email-large": "Business",
   "biz-pos-inventory": "Business",
+  "biz-pos-duka": "Business",
+  "biz-pos-chain": "Business",
   "biz-webapps": "Business",
   "biz-docs": "Business",
 
@@ -3486,6 +3509,8 @@ app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/ordersRoutes')(routeContext));
+app.use("/api/apps/", appAddressLimiter);
+app.use(require('./routes/appsRoutes')(routeContext));
 app.use(require('./routes/adminRoutes')(routeContext));
 
 // Unmatched API routes get a JSON 404, not the SPA's index.html — a wrong URL

@@ -90,7 +90,7 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     // Bootstrap: register + buy a Business-plan service first (mirrors
     // customer-journey.spec.ts's POS purchase), so this account already has
     // a PAID Business plan before we touch the cloud picker.
-    await page.goto('/pricing?configure=biz-pos-inventory');
+    await page.goto('/pricing?configure=biz-crm-helpdesk');
     const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
     const domainInput = page.locator('input[placeholder="myshop"]');

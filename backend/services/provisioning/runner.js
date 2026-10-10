@@ -291,6 +291,10 @@ const CLAIMABLE_JOB_FIELDS = [
   // sees an empty job.deployment_history every pass and the array never
   // actually accumulates past one entry.
   "repo_url", "app_port", "deployment_uuid", "deployment_history",
+  // App tiers (Murzak POS): the address the buyer chose. The bench lane passes
+  // it to the provisioner as JOB_SITE_SLUG — omitting it here would silently
+  // build the shop under an account-derived name.
+  "site_slug",
 ];
 
 /** Queued jobs whose backoff (next_run_at) has elapsed. */

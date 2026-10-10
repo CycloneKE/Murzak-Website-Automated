@@ -297,9 +297,28 @@
         "csf_ke"
       ]
     },
+    "biz-pos-duka": {
+      "id": "biz-pos-duka",
+      "name": "Murzak POS — Duka",
+      "category": "POS & Inventory",
+      "tier": "Medium",
+      "capacityClass": "premium",
+      "ramMb": 2048,
+      "diskGb": 25,
+      "pricingModel": "addon",
+      "monthlyKes": 2500,
+      "setupKes": 0,
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "techsavanna_pos",
+        "kenya_compliance"
+      ],
+      "app": "pos"
+    },
     "biz-pos-inventory": {
       "id": "biz-pos-inventory",
-      "name": "POS & Inventory",
+      "name": "Murzak POS — Biashara",
       "category": "POS & Inventory",
       "tier": "Medium",
       "capacityClass": "premium",
@@ -307,13 +326,33 @@
       "diskGb": 25,
       "pricingModel": "addon",
       "monthlyKes": 4500,
-      "setupKes": 3000,
+      "setupKes": 0,
       "requiresRepo": false,
       "benchApps": [
         "erpnext",
         "techsavanna_pos",
         "kenya_compliance"
-      ]
+      ],
+      "app": "pos"
+    },
+    "biz-pos-chain": {
+      "id": "biz-pos-chain",
+      "name": "Murzak POS — Chain",
+      "category": "POS & Inventory",
+      "tier": "Medium",
+      "capacityClass": "premium",
+      "ramMb": 2048,
+      "diskGb": 25,
+      "pricingModel": "addon",
+      "monthlyKes": 8500,
+      "setupKes": 0,
+      "requiresRepo": false,
+      "benchApps": [
+        "erpnext",
+        "techsavanna_pos",
+        "kenya_compliance"
+      ],
+      "app": "pos"
     },
     "biz-crm-helpdesk": {
       "id": "biz-crm-helpdesk",

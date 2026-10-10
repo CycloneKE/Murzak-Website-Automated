@@ -62,8 +62,8 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to upgrade your counters?</h2>
-          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo with full inventory features.</p>
-          <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
+          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-duka'))}/mo with full inventory features.</p>
+          <Button variant="primary" onClick={() => onNavigate('/products/pos#plans')}>
             Configure your retail stack <ArrowRight size={17} />
           </Button>
         </div>

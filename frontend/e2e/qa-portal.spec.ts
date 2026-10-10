@@ -13,7 +13,7 @@ async function registerAndPay(browser: Browser, tag: string) {
   const suffix = Math.floor(Math.random() * 100000);
   const email = `test_portal_${tag}_${suffix}@example.com`;
 
-  await page.goto('/pricing?configure=biz-pos-inventory');
+  await page.goto('/pricing?configure=biz-crm-helpdesk');
   const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
   await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
   const domainInput = page.locator('input[placeholder="myshop"]');

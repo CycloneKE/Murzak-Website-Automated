@@ -7,9 +7,11 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
+import { APP_CHECKOUT } from '../config/appCheckout';
+import { AppId } from '../config/serviceCatalog';
 
 interface CheckoutProps {
-  onSuccess: (user?: any) => void;
+  onSuccess: (user?: any, nextPath?: string) => void;
 }
 
 interface OrderView {
@@ -45,6 +47,15 @@ function formatCountdown(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Where someone goes when they open (or are bounced from) a checkout that is
+// already paid. App orders (Murzak POS) have a live set-up screen; everything
+// else goes to the portal as before.
+function paidDestination(order: { id?: string; config?: { app?: string } } | null | undefined): string {
+  return order?.config?.app && order?.id
+    ? `/welcome/${encodeURIComponent(order.id)}`
+    : '/portal/overview';
+}
+
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
@@ -55,6 +66,9 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [invoice, setInvoice] = useState<InvoicePricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Set when prepare-payment says the buyer's chosen shop address was taken or
+  // is no longer reserved for them — the fix is a new address, not a retry.
+  const [slugLost, setSlugLost] = useState(false);
 
   // Capacity waitlist — shown when POST /api/orders (the /checkout/new
   // deep-link) comes back 409 CAPACITY.
@@ -148,6 +162,13 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         body: JSON.stringify(body),
       });
       const prepData = await prepRes.json().catch(() => ({}));
+      if (prepRes.status === 409 && prepData?.code === 'slug_taken') {
+        if (mountedRef.current) {
+          setSlugLost(true);
+          setError(typeof prepData.error === 'string' && prepData.error ? prepData.error : 'That shop address is no longer available.');
+        }
+        return;
+      }
       if (!prepRes.ok || !prepData?.invoiceDocName) {
         throw new Error(prepData?.error || 'Failed to prepare payment.');
       }
@@ -198,7 +219,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         setOrder(ord);
 
         if (ord.status === 'Paid') {
-          navigate('/portal/overview', { replace: true });
+          navigate(paidDestination(ord), { replace: true });
           return;
         }
         if (ord.status === 'Cancelled') {
@@ -208,6 +229,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         }
 
         setLoading(false);
+
+        // App orders carry the buyer's term choice from /get/:app; start the
+        // selector there. Set before any prepare-payment call can happen.
+        if (ord.eligibleForTermChoice && ord.config?.billingTerm === "annual") setBillingTerm("annual");
 
         // Eligible orders (a genuine first monthly-billed purchase) wait for
         // the customer to confirm a term via the selector + "Continue to
@@ -247,7 +272,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         if (!res.ok || !data?.order) return;
         setOrder(data.order);
         if (data.order.status === 'Paid') {
-          navigate('/portal/overview', { replace: true });
+          navigate(paidDestination(data.order), { replace: true });
           return;
         }
         if (data.order.status === 'Cancelled') {
@@ -294,7 +319,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       setOrder(ord);
 
       if (ord.status === 'Paid') {
-        navigate('/portal/overview', { replace: true });
+        navigate(paidDestination(ord), { replace: true });
         return;
       }
       if (ord.status === 'Cancelled') {
@@ -455,9 +480,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   if (error) {
     return chrome(
       <div className="glass-card rounded-3xl p-6 sm:p-8">
-        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold flex items-start gap-2">
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-start gap-2">
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
+        {slugLost && order?.serviceId && (
+          <button
+            onClick={() => navigate(`/get/pos?service=${encodeURIComponent(order.serviceId)}${order.config?.billingTerm ? `&term=${encodeURIComponent(order.config.billingTerm)}` : ''}`)}
+            className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink"
+          >
+            Choose another address
+          </button>
+        )}
         <button
           onClick={() => navigate('/cloud')}
           className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent transition-colors"
@@ -481,22 +514,32 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     <div className="space-y-4">
       {/* Order summary */}
       <div className="glass-card rounded-3xl p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
               Order summary
             </p>
             <p className="text-sm font-bold text-slate-500 mt-1">
               {order.serviceName}
-              {order.tier ? <span className="text-slate-500 font-semibold"> · {order.tier}</span> : null}
+              {order.tier && !order.config?.app ? <span className="text-slate-500 font-semibold"> · {order.tier}</span> : null}
             </p>
             {order.config?.domain ? (
               <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1">
                 {order.config.domain}
               </p>
             ) : null}
+            {order.config?.app && order.config?.slug ? (
+              <>
+                {order.config.shopName ? (
+                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-words">{order.config.shopName}</p>
+                ) : null}
+                <p className="text-sm font-semibold font-mono text-slate-600 dark:text-slate-300 mt-0.5 break-all">
+                  {order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}
+                </p>
+              </>
+            ) : null}
           </div>
-          <span className="text-right whitespace-nowrap">
+          <span className="text-left sm:text-right whitespace-nowrap">
             {period === "/yr" ? (
               <>
                 <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
@@ -617,7 +660,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           invoiceDocName={invoice.docName}
           chargeKes={invoice.chargeKes}
           amountUsd={invoice.paypalAmountUsd}
-          onSuccess={onSuccess}
+          onSuccess={(u?: any) => onSuccess(u, order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined)}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
       ) : order.eligibleForTermChoice ? null : (

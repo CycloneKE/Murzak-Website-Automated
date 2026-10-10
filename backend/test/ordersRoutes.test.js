@@ -871,6 +871,288 @@ function baseCtx(client, overrides = {}) {
     ok(res3.body?.order?.billingTerm === "monthly", "unknown term falls back to monthly, never errors");
   }
 
+  section("POST /api/orders — POS tier reserves the shop address");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+
+    const res = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-1" },
+      body: { serviceId: "biz-pos-duka", billingTerm: "monthly", planKey: "Business", source: "app-checkout",
+              config: { shopName: "Mama Njeri", slug: "mamanjeri" } },
+    }, res);
+    ok(res.statusCode === 200, "POS order created");
+    ok(res.body?.order?.monthlyKes === 2500, "priced server-side from the Duka tier");
+    ok(res.body?.order?.config?.app === "pos" && res.body?.order?.config?.slug === "mamanjeri", "order carries app + slug");
+    const slugDoc = client.store["Tenant Slug"]?.mamanjeri;
+    ok(slugDoc?.status === "reserved" && slugDoc?.web_account === "acct-pos-1", "slug reserved for the buyer");
+
+    const res2 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-2" },
+      body: { serviceId: "biz-pos-chain", billingTerm: "monthly", planKey: "Business",
+              config: { shopName: "Other", slug: "mamanjeri" } },
+    }, res2);
+    ok(res2.statusCode === 409 && res2.body?.code === "slug_taken", "a second account is refused the same address");
+    ok(Array.isArray(res2.body?.suggestions) && res2.body.suggestions.length > 0, "with suggestions");
+
+    const res3 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-3" },
+      body: { serviceId: "biz-pos-duka", config: { shopName: "X", slug: "api" } },
+    }, res3);
+    ok(res3.statusCode === 400 && res3.body?.code === "slug_invalid", "reserved address refused with 400");
+
+    const res4 = makeRes();
+    await handler({
+      session: { webAccount: "acct-pos-4" },
+      body: { serviceId: "biz-pos-duka", amount: 1, monthlyKes: 1, config: { shopName: "Cheap", slug: "cheap-shop" } },
+    }, res4);
+    ok(res4.body?.order?.monthlyKes === 2500, "client-sent amounts are ignored");
+  }
+
+  section("POST /api/orders — a buyer can re-post their own shop address");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+    const body = (extra) => ({
+      serviceId: "biz-pos-duka", planKey: "Business",
+      config: { shopName: "Mama Njeri", slug: "ownretry", ...(extra || {}) },
+    });
+
+    const r1 = makeRes();
+    await handler({ session: { webAccount: "acct-own" }, body: body() }, r1);
+    ok(r1.statusCode === 200, "first post reserves the address");
+
+    // Identical config inside the dedup window.
+    const r2 = makeRes();
+    await handler({ session: { webAccount: "acct-own" }, body: body() }, r2);
+    ok(r2.statusCode === 200, `same account re-posting the same address is not told it was "just taken" (got ${r2.statusCode})`);
+
+    // Different config so the dedup cannot short-circuit: a genuine retry.
+    const r3 = makeRes();
+    await handler({ session: { webAccount: "acct-own" }, body: body({ note: "retry" }) }, r3);
+    ok(r3.statusCode === 200, `a retry with a fresh draft reuses the buyer's own hold (got ${r3.statusCode})`);
+    ok(client.store["Tenant Slug"].ownretry.web_account === "acct-own", "the address is still held by the buyer");
+    ok(client.store["Tenant Slug"].ownretry.checkout_order === r3.body?.order?.id, "hold now points at the newest order");
+
+    const other = makeRes();
+    await handler({ session: { webAccount: "acct-someone" }, body: body() }, other);
+    ok(other.statusCode === 409 && other.body?.code === "slug_taken", "another account is still refused");
+  }
+
+  section("POST /api/orders — APP_EXISTS through the route");
+  {
+    const client = makeMockFrappe({
+      "Web Account": {
+        "acct-has-shop": {
+          name: "acct-has-shop", plan: "Business",
+          selected_services: [{ service_id: "biz-pos-duka", service_name: "POS Duka", tier: "Duka", status: "Active" }],
+        },
+      },
+    });
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+    const res = makeRes();
+    await handler({
+      session: { webAccount: "acct-has-shop" },
+      body: { serviceId: "biz-pos-duka", config: { shopName: "Second", slug: "second-shop" } },
+    }, res);
+    ok(res.statusCode === 409 && res.body?.code === "APP_EXISTS", `409 APP_EXISTS (got ${res.statusCode} ${res.body?.code})`);
+    ok(!client.store["Tenant Slug"]?.["second-shop"], "no slug was reserved for the refused order");
+    ok(Object.keys(client.store["Checkout Order"] || {}).length === 0, "no order was created");
+  }
+
+  section("POST /api/orders — losing the slug race cancels the order");
+  {
+    const client = makeMockFrappe();
+    // The pre-check sees a free name (GET 404); the insert then collides, as
+    // when another process wins between the read and the write.
+    const realPost = client.post;
+    client.post = async (url, body) => {
+      if (/Tenant(%20| )Slug/.test(url)) { const e = new Error("dup"); e.response = { status: 409 }; throw e; }
+      return realPost(url, body);
+    };
+    const router = createOrdersRouter(baseCtx(client));
+    const handler = findHandler(router, "post", "/api/orders");
+    const res = makeRes();
+    await handler({
+      session: { webAccount: "acct-race" },
+      body: { serviceId: "biz-pos-duka", config: { shopName: "Racer", slug: "racename" } },
+    }, res);
+    ok(res.statusCode === 409 && res.body?.code === "slug_taken", "409 slug_taken when the insert collides");
+    ok(Array.isArray(res.body?.suggestions) && res.body.suggestions.length > 0, "suggestions offered");
+    const orders = Object.values(client.store["Checkout Order"] || {});
+    ok(orders.length === 1 && orders[0].status === "Cancelled", `the minted order was cancelled (${orders.map((o) => o.status).join(",")})`);
+    ok(!orders.some((o) => o.status === "Draft"), "no Draft order is left holding capacity");
+  }
+
+  section("prepare-payment — app order whose slug was lost raises no invoice");
+  {
+    const { mysqlDatetime } = require("../services/checkout/orderStore");
+    const tenantSlugs = require("../services/apps/tenantSlugStore");
+    const client = makeMockFrappe({
+      "Web Account": { "acct-lost": { name: "acct-lost", plan: "None", selected_services: [] } },
+    });
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-lost" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "Lost", slug: "lostname" } },
+    }, c);
+    ok(c.statusCode === 200, "order created");
+    const orderId = c.body.order.id;
+
+    // The hold lapses and another buyer takes the name.
+    client.store["Tenant Slug"].lostname.expires_at = mysqlDatetime(Date.now() - 1000);
+    await tenantSlugs.reserveSlug(client, { slug: "lostname", app: "pos", webAccount: "acct-thief", orderId: "CHK-X", nowMs: Date.now() });
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-lost" }, params: { id: orderId } }, res);
+    ok(res.statusCode === 409 && res.body?.code === "slug_taken", `409 slug_taken (got ${res.statusCode} ${res.body?.code})`);
+    ok(Array.isArray(res.body?.suggestions) && res.body.suggestions.length > 0, "suggestions offered");
+    ok(Object.keys(client.store["Portal Invoice"] || {}).length === 0, "no Portal Invoice was created");
+    ok(!client.store["Checkout Order"][orderId].invoice_doc_name, "order has no invoice linked");
+    ok(client.store["Tenant Slug"].lostname.web_account === "acct-thief", "the other buyer keeps the name");
+  }
+
+  section("prepare-payment — app order links its slug to the invoice");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-link": { name: "acct-link", plan: "None", selected_services: [] } },
+    });
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-link" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "Linked", slug: "linkedname" } },
+    }, c);
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-link" }, params: { id: c.body.order.id } }, res);
+    ok(res.statusCode === 200 && !!res.body?.invoiceDocName, `prepare-payment succeeds (got ${res.statusCode})`);
+    const doc = client.store["Tenant Slug"].linkedname;
+    ok(String(doc.invoice || "").split(",").includes(res.body.invoiceDocName), "Tenant Slug.invoice contains the new invoice");
+    ok(doc.status === "reserved" && doc.web_account === "acct-link", "slug still reserved for the buyer");
+    ok(client.store["Checkout Order"][c.body.order.id].invoice_doc_name === res.body.invoiceDocName, "the order's invoice_doc_name is set to the same invoice");
+  }
+
+  section("POST /api/orders — client-supplied app/slug/shopName are never trusted on a non-app order");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-forge": { name: "acct-forge", plan: "None", selected_services: [] } },
+    });
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-forge" },
+      body: { serviceId: "starter-web-hosting", planKey: "Starter", config: { domainChoice: "Use Murzak Subdomain", app: "pos", slug: "rival-shop", shopName: "X" } },
+    }, c);
+    ok(c.statusCode === 200, `non-app order created (got ${c.statusCode})`);
+    const cfg = c.body?.order?.config || {};
+    ok(!("app" in cfg) && !("slug" in cfg) && !("shopName" in cfg), "returned order.config has none of the reserved keys");
+    ok(cfg.domainChoice === "Use Murzak Subdomain", "ordinary client config keys are still kept");
+    const stored = client.store["Checkout Order"]?.[c.body.order.id];
+    ok(stored && !/rival-shop/.test(stored.config_json || "") && !/"app"/.test(stored.config_json || ""), "stored config_json has no app/slug");
+    ok(Object.keys(client.store["Tenant Slug"] || {}).length === 0, "no Tenant Slug doc was created at order time");
+
+    const res = makeRes();
+    await prep({ session: { webAccount: "acct-forge" }, params: { id: c.body.order.id } }, res);
+    ok(res.statusCode === 200 && !!res.body?.invoiceDocName, `prepare-payment succeeds (got ${res.statusCode})`);
+    ok(Object.keys(client.store["Tenant Slug"] || {}).length === 0, "no Tenant Slug doc exists after prepare-payment either");
+  }
+
+  section("POST /api/orders — an app order's reserved keys come only from the validated result");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const create = findHandler(router, "post", "/api/orders");
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-forge2" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "  Mama Njeri  ", slug: "MamaNjeri2", app: "erp" } },
+    }, c);
+    ok(c.statusCode === 200, `app order created (got ${c.statusCode})`);
+    ok(c.body?.order?.config?.app === "pos", "config.app is the server's value, not the client's");
+    ok(c.body?.order?.config?.slug === "mamanjeri2" && c.body?.order?.config?.shopName === "Mama Njeri", "slug/shopName are the normalized, validated values");
+  }
+
+  section("prepare-payment — the slug is linked to the invoice BEFORE the order is");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-m1": { name: "acct-m1", plan: "None", selected_services: [] } },
+    });
+    // linkInvoice dies after the invoice exists: the slug must already carry it.
+    const router = createOrdersRouter(baseCtx(client, {
+      linkInvoice: async () => { throw new Error("link blew up"); },
+    }));
+    const create = findHandler(router, "post", "/api/orders");
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+    const c = makeRes();
+    await create({
+      session: { webAccount: "acct-m1" },
+      body: { serviceId: "biz-pos-duka", planKey: "Business", config: { shopName: "M1", slug: "m1shop" } },
+    }, c);
+    const orig = console.error; console.error = () => {};
+    const res = makeRes();
+    try { await prep({ session: { webAccount: "acct-m1" }, params: { id: c.body.order.id } }, res); } finally { console.error = orig; }
+    ok(res.statusCode === 500, `prepare-payment reports the failure (got ${res.statusCode})`);
+    const invoiceNames = Object.keys(client.store["Portal Invoice"] || {});
+    ok(invoiceNames.length === 1 && String(client.store["Tenant Slug"].m1shop.invoice || "").split(",").includes(invoiceNames[0]), "the slug already carries the invoice although the order link failed");
+    ok(!client.store["Checkout Order"][c.body.order.id].invoice_doc_name, "the order is still un-invoiced (so a retry re-enters and cannot skip the slug link)");
+  }
+
+  section("GET /api/apps/:app/address");
+  {
+    const createAppsRouter = require("../routes/appsRoutes");
+    const tenantSlugs = require("../services/apps/tenantSlugStore");
+    const client = makeMockFrappe();
+    await tenantSlugs.reserveSlug(client, { slug: "takenshop", app: "pos", webAccount: "acct-owner", orderId: "CHK-1", nowMs: Date.now() });
+    const router = createAppsRouter({ frappeClient: () => client });
+    const handler = findHandler(router, "get", "/api/apps/:app/address");
+    const call = async (app, name, session) => {
+      const res = makeRes();
+      await handler({ params: { app }, query: { name }, session }, res);
+      return res;
+    };
+
+    ok((await call("nope", "x")).statusCode === 404, "unknown app -> 404");
+    ok((await call("constructor", "mamanjeri")).statusCode === 404, "prototype key 'constructor' -> 404");
+    ok((await call("toString", "mamanjeri")).statusCode === 404, "prototype key 'toString' -> 404");
+
+    const empty = await call("pos", "");
+    ok(empty.body?.available === false && !!empty.body?.reason, "empty name -> unavailable with a reason");
+    const bad = await call("pos", "api");
+    ok(bad.body?.available === false && !!bad.body?.reason, "reserved name -> unavailable with a reason");
+
+    const free = await call("pos", "Fresh Shop");
+    ok(free.statusCode === 200 && free.body?.available === true && free.body?.slug === "fresh-shop", "free name -> available");
+
+    const taken = await call("pos", "takenshop");
+    ok(taken.body?.available === false && taken.body?.reason === "taken", "taken name -> unavailable, reason taken");
+    ok(Array.isArray(taken.body?.suggestions) && taken.body.suggestions.length > 0, "taken name comes with suggestions");
+
+    const anon = await call("pos", "takenshop", undefined);
+    ok(anon.body?.available === false, "anonymous visitor (no session) still gets an answer");
+    const stranger = await call("pos", "takenshop", { webAccount: "acct-other" });
+    ok(stranger.body?.available === false, "a different signed-in account sees it as taken");
+    const owner = await call("pos", "takenshop", { webAccount: "acct-owner" });
+    ok(owner.body?.available === true, "the signed-in holder sees their own address as available");
+    const ownerViaUser = await call("pos", "takenshop", { user: { id: "acct-owner" } });
+    ok(ownerViaUser.body?.available === true, "session.user.id is honoured too");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

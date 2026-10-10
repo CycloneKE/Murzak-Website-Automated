@@ -120,6 +120,9 @@ export const SERVER_CAPACITY = {
   wholesaleKesPerMonth: 2192,
 } as const;
 
+/** Business apps sold through their own app checkout. */
+export type AppId = "pos";
+
 export type ServiceOption = {
   id: string;
   name: string;
@@ -210,6 +213,22 @@ export type ServiceOption = {
    * and renewals keep working. Never delete a catalog id a customer might
    * already own — deprecate it instead. */
   deprecated?: boolean;
+
+  /**
+   * Business app this item is a TIER of (Murzak POS today). App tiers are sold
+   * through the app's own checkout (/get/:app), never the hosting configurator,
+   * and are priced by their own id — so each tier is a separate catalog item
+   * (the snapshot generator splits items on every `id:`, so tiers can't nest).
+   */
+  app?: AppId;
+  /** Customer-facing tier name, e.g. "Duka". Never the word "plan" in copy. */
+  appPlan?: string;
+  /** One-line who-it's-for, e.g. "One shop". */
+  appTagline?: string;
+  /** Shown limits (soft in v1). null = unlimited. */
+  appLimits?: { branches: number | null; users: number | null; products: number | null };
+  /** The "Most popular" tier. */
+  appPopular?: boolean;
 };
 
 export type ServiceItem = ServiceOption;
@@ -645,18 +664,61 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       sortOrder: 20,
     },
     {
-      id: "biz-pos-inventory",
-      name: "POS & Inventory",
-      description: "Point of sale + inventory for a shop or branch, managed and hosted.",
+      id: "biz-pos-duka",
+      name: "Murzak POS — Duka",
+      description: "Point of sale and stock for one shop, on your own private POS.",
       category: "POS & Inventory",
       tier: "Medium",
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 25 },
       benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
-      pricing: { model: "addon", monthlyKes: 4500, setupKes: 3000 },
-      highlights: ["Touch POS", "Stock tracking", "Receipts & reports", "M-Pesa-ready"],
+      pricing: { model: "addon", monthlyKes: 2500, setupKes: 0 },
+      highlights: ["M-Pesa payments", "Receipts", "Stock tracking", "Sales reports"],
+      app: "pos",
+      appPlan: "Duka",
+      appTagline: "One shop",
+      appLimits: { branches: 1, users: 3, products: 1000 },
+      sortOrder: 29,
+    },
+    {
+      // Id kept from the original single POS product so customers who bought it
+      // at KES 4,500 are simply on Biashara — same price, no migration.
+      id: "biz-pos-inventory",
+      name: "Murzak POS — Biashara",
+      description: "Point of sale and stock for a growing business with a few branches.",
+      category: "POS & Inventory",
+      tier: "Medium",
+      capacityClass: "premium",
+      specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
+      resources: { ramMb: 2048, diskGb: 25 },
+      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
+      pricing: { model: "addon", monthlyKes: 4500, setupKes: 0 },
+      highlights: ["Everything in Duka", "Purchase orders", "Loyalty points", "Stock transfers"],
+      app: "pos",
+      appPlan: "Biashara",
+      appTagline: "A growing business",
+      appLimits: { branches: 3, users: 10, products: null },
+      appPopular: true,
       sortOrder: 30,
+    },
+    {
+      id: "biz-pos-chain",
+      name: "Murzak POS — Chain",
+      description: "Point of sale and stock across many branches, with multi-branch reporting.",
+      category: "POS & Inventory",
+      tier: "Medium",
+      capacityClass: "premium",
+      specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
+      resources: { ramMb: 2048, diskGb: 25 },
+      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
+      pricing: { model: "addon", monthlyKes: 8500, setupKes: 0 },
+      highlights: ["Everything in Biashara", "Multi-branch reports", "Priority support"],
+      app: "pos",
+      appPlan: "Chain",
+      appTagline: "Many branches",
+      appLimits: { branches: null, users: null, products: null },
+      sortOrder: 31,
     },
     {
       id: "biz-crm-helpdesk",
@@ -1277,7 +1339,9 @@ export function domainCatalogIdForTld(tld: string): string | null {
 export function configuratorServices(planCode: PlanCode): ServiceItem[] {
   const base = SERVICE_CATALOG[planCode] ?? [];
   const pool = planCode === "Test" || planCode === "Enterprise" ? base : [...base, ...UNIVERSAL_ADDONS];
-  return pool.filter((s) => !s.deprecated);
+  // App tiers (Murzak POS) have their own checkout — selling them here would
+  // put RAM meters and domain choices in front of a shop owner.
+  return pool.filter((s) => !s.deprecated && !s.app);
 }
 
 // ---- Helpers ----
@@ -1363,6 +1427,13 @@ const SERVICE_INDEX: Record<string, ServiceItem> = (() => {
 /** Look up any catalog service (plan service or universal add-on) by id. */
 export function getService(id: string): ServiceItem | undefined {
   return SERVICE_INDEX[id];
+}
+
+/** Every live tier of a business app, cheapest first. */
+export function servicesForApp(app: AppId): ServiceItem[] {
+  return Object.values(SERVICE_INDEX)
+    .filter((s) => s.app === app && !s.deprecated)
+    .sort((a, b) => (a.pricing.monthlyKes ?? 0) - (b.pricing.monthlyKes ?? 0));
 }
 
 /** Monthly price (KES) of a service by id, or undefined if unknown. */

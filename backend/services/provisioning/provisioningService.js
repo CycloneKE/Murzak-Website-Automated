@@ -185,6 +185,16 @@ function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
 }
 
 /**
+ * attempts value for a job held for staff (its shop address is unresolved).
+ * Deliberately NOT derived from PROVISIONING_MAX_ATTEMPTS: that env is read
+ * separately by the website and by the host runner (murzak-bench-runner claims
+ * attempts < ITS value). If the website's value were ever lower than the host's,
+ * a "pinned at MAX" job would be claimable and built under the wrong name. A
+ * fixed sentinel far above any sane max can't be undercut by either config.
+ */
+const HELD_JOB_ATTEMPTS = 999;
+
+/**
  * Create a queued Provisioning Job per service id (idempotent).
  * Returns { created:[], skipped:[], doctypeMissing:bool, error:string|null }.
  * Never throws.
@@ -222,6 +232,97 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     }
   }
 
+  // App tiers (Murzak POS): the address the buyer chose rides on the job.
+  // Looked up once per invoice — one app order, one invoice, one slug.
+  // Activating it here (payment confirmed) makes the name theirs for good.
+  // If it can't be resolved (lookup threw, or no Tenant Slug is linked — expired,
+  // released, never linked) the job must NOT build under a guessed name: the
+  // buyer paid for the address they chose. appSlugProblem holds the reason and
+  // the app-tier jobs below are held for staff.
+  let appSiteSlug = null;
+  let appSlugProblem = null;
+  let appAccountLookupFailed = false;
+  if (ids.some((id) => getServiceMeta(id)?.app)) {
+    try {
+      // Lazy: tenantSlugStore -> orderStore -> provisioning/capacity would
+      // otherwise risk a load-time require cycle.
+      const tenantSlugs = require("../apps/tenantSlugStore");
+      appSiteSlug = await tenantSlugs.activateSlugForInvoice(client, invoiceDocName);
+      if (!appSiteSlug) {
+        appSlugProblem = "no Tenant Slug linked";
+        // Renewal invoices (REN-...) re-bill the account's service rows with no
+        // Tenant Slug linked to them and no Checkout Order. Adopt the account's
+        // own ACTIVE slug for this app: the provisioner then idempotently
+        // re-adopts the existing site instead of building a second, empty shop
+        // under an account-derived name. Only reached when the invoice lookup
+        // cleanly found nothing (a thrown lookup stays unresolved -> hold).
+        // One app per invoice, same assumption as the invoice slug above.
+        const appKey = ids.map((id) => getServiceMeta(id)?.app).find(Boolean);
+        try {
+          appSiteSlug = await tenantSlugs.findActiveSlugForAccount(client, { webAccount, app: appKey });
+        } catch (e) {
+          // Can't tell whether the account already has a shop: fail safe and hold
+          // even when no Checkout Order proves this came from the app checkout.
+          appSlugProblem = `account slug lookup failed: ${e.message}`;
+          appAccountLookupFailed = true;
+        }
+        if (appSiteSlug) appSlugProblem = null;
+      }
+    } catch (e) {
+      appSlugProblem = `lookup failed: ${e.message}`;
+    }
+  }
+  // Did this invoice really come from the app checkout? Decided by the Checkout
+  // Order (invoice_doc_name = this invoice, config.app set), NOT by the Tenant
+  // Slug row: another account can take over an expired reservation and clear the
+  // row's invoice, which would make a lost address look like "no checkout". The
+  // portal "Add services" flow can also sell biz-pos-* with no order and no
+  // slug at all — that must keep provisioning, not strand a paying customer.
+  // Only asked when needed (an unresolved app tier), at most once per invoice.
+  //   "app"     -> an app-checkout order exists: hold the job
+  //   "none"    -> lookup succeeded, no such order: provision as before
+  //   "unknown" -> lookup threw: provenance unknown, fail safe and hold
+  let provenance = null;
+  const resolveProvenance = async () => {
+    if (provenance) return provenance;
+    try {
+      const { ORDER_DOCTYPE } = require("../checkout/orderStore");
+      const res = await client.get(`/api/resource/${ORDER_DOCTYPE}`, {
+        params: {
+          fields: JSON.stringify(["name", "invoice_doc_name", "config_json"]),
+          filters: JSON.stringify([["invoice_doc_name", "=", invoiceDocName]]),
+          limit_page_length: 5,
+        },
+      });
+      // Re-filter in JS: a mock (or a misconfigured server-side filter) may
+      // return rows for other invoices.
+      const rows = (res.data?.data || []).filter((r) => r?.invoice_doc_name === invoiceDocName);
+      const isAppOrder = (r) => {
+        try {
+          return Boolean(JSON.parse(r.config_json || "{}")?.app);
+        } catch {
+          return false;
+        }
+      };
+      provenance = rows.some(isAppOrder) ? "app" : "none";
+    } catch (e) {
+      provenance = "unknown";
+      appProvenanceError = String(e.message || e).slice(0, 120);
+    }
+    return provenance;
+  };
+  let appProvenanceError = "";
+  // Born needs_human with attempts pinned at HELD_JOB_ATTEMPTS, so neither the
+  // container runner nor murzak-bench-runner (claims attempts < its MAX) builds it.
+  const holdUnresolvedAddress = (payload, reason) => {
+    payload.status = "needs_human";
+    payload.attempts = HELD_JOB_ATTEMPTS;
+    payload.error = (
+      `Customer's chosen shop address could not be resolved for invoice ${invoiceDocName} (${reason}). ` +
+      `Find their Tenant Slug, set this job's site_slug, reset attempts to 0 and status to needs_human to release it.`
+    ).slice(0, 500);
+  };
+
   const reservedPortsThisBatch = new Set();
   for (const { serviceId, domainChoice } of services) {
     const payload = buildJobPayload({
@@ -232,6 +333,28 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       appPort: accountAppPort,
     });
     const meta = getServiceMeta(serviceId);
+    if (meta?.app && appSiteSlug) payload.site_slug = appSiteSlug;
+    let holdForAddress = false;
+    if (meta?.app && !appSiteSlug) {
+      const kind = appAccountLookupFailed ? "unknown" : await resolveProvenance();
+      if (kind === "none") {
+        // Not an app-checkout order (e.g. a portal add-on): there is no chosen
+        // address to honour. Provision under the account-derived name, as before.
+        console.warn(
+          `[provisioning] app tier without a Tenant Slug and no app checkout order — provisioning normally (${appSlugProblem}): account=${webAccount} invoice=${invoiceDocName} service=${serviceId}`
+        );
+      } else {
+        holdForAddress = true;
+        const reason =
+          kind === "unknown"
+            ? `${appSlugProblem}; could not confirm whether this order came from the app checkout${appProvenanceError ? `: ${appProvenanceError}` : ""}`
+            : appSlugProblem;
+        console.error(
+          `[provisioning] app order held — chosen address unresolved (${reason}): account=${webAccount} invoice=${invoiceDocName} service=${serviceId}`
+        );
+        holdUnresolvedAddress(payload, reason);
+      }
+    }
 
     // Phase 2: Database Hosting jobs get a real external port so a customer
     // can connect with their own SQL client. Only for jobs that are actually
@@ -249,7 +372,9 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
       }
     }
 
-    if (meta?.capacityClass === "premium") {
+    // A job held for its address is not being built, so it neither needs a box
+    // placement nor should it request scale-out.
+    if (meta?.capacityClass === "premium" && !holdForAddress) {
       const placement = await scaling.ensureCapacityFor(client, {
         ramMb: payload.ram_mb,
         capacityClass: "premium",
@@ -338,8 +463,14 @@ function jobLine(j) {
   // fulfilling a manually-provisioned order — most importantly a domain
   // registration — can actually see WHAT was bought, not just the SKU name.
   const domain = j.domainChoice ? ` · domain: ${j.domainChoice}` : "";
+  // A job held because the buyer's chosen shop address couldn't be resolved needs
+  // a specific action (set site_slug, then release it) — show staff the reason
+  // instead of a bare "needs human".
+  const heldForAddress = j.status === "needs_human" && String(j.error || "").startsWith("Customer's chosen shop address");
   const flag = j.gated
     ? " · ⚠ CAPACITY-GATED (needs KVM #2)"
+    : heldForAddress
+    ? ` · ⚠ needs human — ${String(j.error).slice(0, 200)}`
     : j.status === "needs_human"
     ? " · ⚠ needs human"
     : "";
@@ -455,6 +586,7 @@ async function runProvisioningForInvoice({ client, webAccount, invoiceDocName, s
 
 module.exports = {
   JOB_DOCTYPE,
+  HELD_JOB_ATTEMPTS,
   isEnabled,
   buildJobPayload,
   enqueueProvisioningForInvoice,

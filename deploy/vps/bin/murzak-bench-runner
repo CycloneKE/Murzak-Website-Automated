@@ -134,9 +134,19 @@ fi
 jobs_json="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
   "${BASE}/api/resource/${JOB_DOCTYPE// /%20}" \
   --data-urlencode 'filters=[["status","=","needs_human"],["lane","=","bench"],["attempts","<",'"$MAX_ATTEMPTS"']]' \
-  --data-urlencode 'fields=["name","web_account","invoice","service_id","service_name","attempts"]' \
+  --data-urlencode 'fields=["name","web_account","invoice","service_id","service_name","attempts","site_slug"]' \
   --data-urlencode "limit_page_length=${FETCH_LIMIT}" \
   --data-urlencode 'order_by=modified asc')"
+
+# curl exits 0 on an HTTP error, and `jq '.data | length'` of a Frappe error body
+# ({"exc_type":"ValidationError",...}) is 0 -- so a failed query (e.g. the
+# Provisioning Job doctype has no `site_slug` field yet, which this query asks
+# for) would read as "0 jobs" and silently stall every bench job forever. Insist
+# on a real list; anything else is a loud, non-zero failure.
+if ! jq -e '.data | type == "array"' <<<"$jobs_json" >/dev/null 2>&1; then
+  log "job query response: ${jobs_json:0:300}"
+  die "job query failed — is the Provisioning Job doctype missing a field the runner requests (site_slug)?"
+fi
 
 job_count="$(jq '.data | length' <<<"$jobs_json" 2>/dev/null || echo 0)"
 log "found ${job_count} bench job(s) eligible for this run"
@@ -149,6 +159,7 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
   service_id="$(jq -r '.service_id // ""' <<<"$job")"
   service_name="$(jq -r '.service_name // ""' <<<"$job")"
   attempts="$(jq -r '.attempts // 0' <<<"$job")"
+  site_slug="$(jq -r '.site_slug // ""' <<<"$job")"
 
   log "--- job $name (account=$web_account service=$service_id attempts=$attempts) ---"
 
@@ -198,6 +209,7 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
   out="$(JOB_WEB_ACCOUNT="$web_account" JOB_SERVICE_ID="$service_id" \
          JOB_SERVICE_NAME="$service_name" JOB_INVOICE="$invoice" \
          JOB_OWNER_EMAIL="$owner_email" JOB_OWNER_NAME="$owner_name" \
+         JOB_SITE_SLUG="$site_slug" \
          JOB_BENCH_APPS="$bench_apps" BENCH_DB_ROOT_PASSWORD="$DB_ROOT_PW" \
          /usr/local/bin/murzak-bench-provision 2>/tmp/murzak-bench-runner-$$-stderr)"
   rc=$?

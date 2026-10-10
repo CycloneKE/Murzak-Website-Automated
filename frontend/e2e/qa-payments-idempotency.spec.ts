@@ -14,7 +14,7 @@ async function registerToPaymentPage(page: import('@playwright/test').Page, tag:
   const suffix = Math.floor(Math.random() * 100000);
   const email = `test_pay_${tag}_${suffix}@example.com`;
 
-  await page.goto('/pricing?configure=biz-pos-inventory');
+  await page.goto('/pricing?configure=biz-crm-helpdesk');
   const checkoutBtn = page.getByRole('button', { name: /Continue to checkout/i });
   await expect(checkoutBtn).toBeVisible({ timeout: 10000 });
   const domainInput = page.locator('input[placeholder="myshop"]');
@@ -57,8 +57,8 @@ test.describe('PAY-02 / PAY-04 — a paid invoice activates services via the rea
 
     const me = await page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).json());
     const services = me?.user?.selectedServices || me?.selectedServices || [];
-    const pos = services.find((s: any) => /POS/i.test(s.serviceName || s.serviceId || ''));
-    expect(pos, 'purchased POS service missing from selectedServices after capture').toBeTruthy();
+    const pos = services.find((s: any) => /CRM/i.test(s.serviceName || s.serviceId || ''));
+    expect(pos, 'purchased CRM + Helpdesk service missing from selectedServices after capture').toBeTruthy();
     expect(['Active', 'Setting up']).toContain(pos.status);
 
     // Regression guard for the "mock path lie": no hardcoded phantom
@@ -88,8 +88,8 @@ test.describe('PAY-03 — a replayed capture does not double-activate', () => {
 
     const me = await page.evaluate(async () => (await fetch('/api/auth/me', { credentials: 'include' })).json());
     const services = me?.user?.selectedServices || me?.selectedServices || [];
-    const posMatches = services.filter((s: any) => /POS/i.test(s.serviceName || s.serviceId || ''));
-    expect(posMatches.length, `expected exactly one POS service after a replayed capture, found ${posMatches.length}`).toBe(1);
+    const posMatches = services.filter((s: any) => /CRM/i.test(s.serviceName || s.serviceId || ''));
+    expect(posMatches.length, `expected exactly one CRM + Helpdesk service after a replayed capture, found ${posMatches.length}`).toBe(1);
   });
 });
 
@@ -169,7 +169,7 @@ test.describe('PAY-09 — deleting a PAID service is gated behind an explicit DE
     expect(cap.status).toBe(200);
 
     // The purchased POS service should now be Active/Setting up on the account.
-    const serviceId = 'biz-pos-inventory';
+    const serviceId = 'biz-crm-helpdesk';
 
     // First attempt WITHOUT the confirm token — a paid service must not be
     // silently deletable (reconcileServiceDeletionAgainstInvoices guards the
