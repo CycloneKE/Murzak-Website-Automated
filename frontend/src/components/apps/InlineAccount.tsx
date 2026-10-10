@@ -33,6 +33,7 @@ const InlineAccount: React.FC<InlineAccountProps> = ({ user, companyHint, onSign
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     const cleanName = name.trim();
     if (mode === "signup" && !cleanName) {
       setError("Please enter your name.");
@@ -54,7 +55,7 @@ const InlineAccount: React.FC<InlineAccountProps> = ({ user, companyHint, onSign
         ),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 409 && mode === "signup") {
+      if (res.status === 409 && mode === "signup" && /already|in use|exists/i.test(String(data?.error || ""))) {
         setMode("signin");
         setError("You already have an account with that email — sign in below.");
         return;
@@ -73,7 +74,7 @@ const InlineAccount: React.FC<InlineAccountProps> = ({ user, companyHint, onSign
       {mode === "signup" && (
         <input aria-label="Your name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" autoComplete="name" className={INPUT_CLASS} />
       )}
-      <input aria-label="Email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoComplete="email" className={INPUT_CLASS} />
+      <input aria-label="Email" required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoComplete={mode === "signup" ? "email" : "username"} className={INPUT_CLASS} />
       <input
         aria-label="Password"
         required
