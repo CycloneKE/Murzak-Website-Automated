@@ -47,6 +47,15 @@ function formatCountdown(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Where someone goes when they open (or are bounced from) a checkout that is
+// already paid. App orders (Murzak POS) have a live set-up screen; everything
+// else goes to the portal as before.
+function paidDestination(order: { id?: string; config?: { app?: string } } | null | undefined): string {
+  return order?.config?.app && order?.id
+    ? `/welcome/${encodeURIComponent(order.id)}`
+    : '/portal/overview';
+}
+
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
@@ -200,7 +209,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         setOrder(ord);
 
         if (ord.status === 'Paid') {
-          navigate('/portal/overview', { replace: true });
+          navigate(paidDestination(ord), { replace: true });
           return;
         }
         if (ord.status === 'Cancelled') {
@@ -253,7 +262,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         if (!res.ok || !data?.order) return;
         setOrder(data.order);
         if (data.order.status === 'Paid') {
-          navigate('/portal/overview', { replace: true });
+          navigate(paidDestination(data.order), { replace: true });
           return;
         }
         if (data.order.status === 'Cancelled') {
@@ -300,7 +309,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       setOrder(ord);
 
       if (ord.status === 'Paid') {
-        navigate('/portal/overview', { replace: true });
+        navigate(paidDestination(ord), { replace: true });
         return;
       }
       if (ord.status === 'Cancelled') {

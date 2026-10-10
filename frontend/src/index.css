@@ -83,15 +83,23 @@ html.dark body { background-color: #090C10; color: #F1F5F9; }
      text-murzak-ink (a fixed near-black). */
   .glass-input {
     background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(223, 228, 247, 0.9);
+    border-width: 1px;
+    border-style: solid;
+  }
+  .glass-input:not([class*="border-red"]) {
+    border-color: rgba(223, 228, 247, 0.9);
   }
   .glass-input::placeholder {
     color: #94a3b8;
   }
   html.dark .glass-input {
     background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.14);
     color: #f1f5f9;
+  }
+  /* Border colour is skipped when a caller marks the field as errored with a
+     border-red utility — otherwise this selector's specificity would hide it. */
+  html.dark .glass-input:not([class*="border-red"]) {
+    border-color: rgba(255, 255, 255, 0.14);
   }
   html.dark .glass-input::placeholder {
     color: #64748b;
