@@ -1414,35 +1414,89 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Task 8: Install the backend foundation on production, in a safe order
 
-This is an ops task with no code; run each step in order. Prerequisite: Tasks 1–7 are merged to `master` and the website is redeployed in Coolify. Deploying the website is the Coolify **Redeploy** of `murzak-website-automated`; see memory `murzaktech-live-deploy-topology`.
+> **Rewritten after the final whole-branch review (2026-10-10).** The original order redeployed the website *before* the doctypes and host scripts were in place, and never updated the VPS copy of the catalog. Both would have shipped paid orders that are built wrongly or not at all. Follow this order exactly.
 
-- [ ] **Step 1: Install the doctypes on the live Frappe instance** (from the website container, so the real env is used)
+This is an ops task with no code. **Do not redeploy the website (Coolify) until Step 8.** Prerequisites: Tasks 1–7 are reviewed on the branch; the per-shop POS work (PR "feat: deploy Murzak POS per shop", `feat/pos-per-shop-deploy`) is merged to `master` first. See memory `murzaktech-live-deploy-topology` for how the website deploys (Coolify **Redeploy** of `murzak-website-automated`).
+
+Steps 1–7 are additive and safe with the OLD website still running: the old code ignores the new doctype and field, and the new host scripts treat an empty `site_slug` as "derive the name from the account", exactly as before.
+
+- [ ] **Step 1: Get the new doctype fixtures and installers into the running container.** The live container runs the OLD code and has no `doctype-tenant-slug.json`. From a checkout of this branch:
+
+```bash
+C=$(ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'sudo docker ps --format "{{.Names}}" | grep -m1 m97a6sejlizhpmvk5b77dhib')
+scp -i ~/.ssh/murzak_vps backend/data/doctype-tenant-slug.json backend/data/doctype-provisioning-job.json backend/scripts/install-missing-doctypes.js backend/scripts/install-provisioning-doctype.js ubuntu@187.124.217.78:/tmp/
+ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 "for f in doctype-tenant-slug.json doctype-provisioning-job.json; do sudo docker cp /tmp/\$f $C:/app/backend/data/\$f; done; for f in install-missing-doctypes.js install-provisioning-doctype.js; do sudo docker cp /tmp/\$f $C:/app/backend/scripts/\$f; done"
+```
+
+- [ ] **Step 2: Install the doctypes on live Frappe** (from the website container, so the real env is used):
 
 ```bash
 ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'C=$(sudo docker ps --format "{{.Names}}" | grep -m1 m97a6sejlizhpmvk5b77dhib); sudo docker exec "$C" sh -c "cd /app/backend && node scripts/install-missing-doctypes.js && node scripts/install-provisioning-doctype.js"'
 ```
-Expected: lines saying `Tenant Slug` was created and `Provisioning Job` gained `site_slug`. Re-running reports nothing to add.
+Expected: `Tenant Slug` created and `Provisioning Job` gained `site_slug`. Re-running reports nothing to add. (The copied files vanish on the next container rebuild, which is fine: the doctypes persist in Frappe.)
 
-- [ ] **Step 2: Live schema check** (MOCK_FRAPPE accepts anything; this is the real proof)
+- [ ] **Step 3: Live schema check.** The dev mock accepts any field, so this is the real proof. Check the new doctype fields AND the fields the host runner's job query requests. Save this as a small script and run it inside the container:
+
+```js
+// /tmp/schema-check.js (run: docker exec <container> node /tmp/schema-check.js)
+const axios = require("axios");
+const h = { Authorization: `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}` };
+const b = process.env.FRAPPE_BASE_URL;
+const q = (doctype, fields) =>
+  axios.get(`${b}/api/resource/${encodeURIComponent(doctype)}`, {
+    headers: h,
+    params: { limit_page_length: 1, fields: JSON.stringify(fields) },
+  });
+Promise.all([
+  q("Tenant Slug", ["name", "slug", "status", "invoice", "expires_at", "web_account", "app"]),
+  q("Provisioning Job", ["name", "web_account", "invoice", "service_id", "service_name", "attempts", "site_slug"]),
+]).then((r) => {
+  if (!r.every((x) => Array.isArray(x.data.data))) throw new Error("no data array");
+  console.log("SCHEMA OK");
+}).catch((e) => {
+  console.error("SCHEMA FAIL", e.response && e.response.status, (e.response && e.response.data && e.response.data.exception) || e.message);
+  process.exit(1);
+});
+```
+Expected: `SCHEMA OK`. A `417` names the missing field. Fix the install and re-run; **do not continue until this passes** (the new runner requests `site_slug`; without the field it cannot list jobs).
+
+- [ ] **Step 4: Copy the NEW catalog snapshot to the VPS.** The host runner reads `benchApps` from its own copy. Without this, every paid Duka and Chain job is marked permanent ("no benchApps declared") and never built; Biashara only works because it reuses the old id.
 
 ```bash
-ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'C=$(sudo docker ps --format "{{.Names}}" | grep -m1 m97a6sejlizhpmvk5b77dhib); sudo docker exec "$C" sh -c "cd /app/backend && node -e \"const a=require(\\\"axios\\\");const h={Authorization:\\\"token \\\"+process.env.FRAPPE_API_KEY+\\\":\\\"+process.env.FRAPPE_API_SECRET};const b=process.env.FRAPPE_BASE_URL;Promise.all([a.get(b+\\\"/api/resource/Tenant Slug?limit_page_length=1&fields=[\\\\\\\"name\\\\\\\",\\\\\\\"slug\\\\\\\",\\\\\\\"status\\\\\\\",\\\\\\\"invoice\\\\\\\",\\\\\\\"expires_at\\\\\\\"]\\\",{headers:h}),a.get(b+\\\"/api/resource/Provisioning Job?limit_page_length=1&fields=[\\\\\\\"name\\\\\\\",\\\\\\\"site_slug\\\\\\\"]\\\",{headers:h})]).then(()=>console.log(\\\"SCHEMA OK\\\")).catch(e=>{console.error(\\\"SCHEMA FAIL\\\",e.response&&e.response.status,e.response&&e.response.data&&e.response.data.exception);process.exit(1)})\""'
+node backend/scripts/generate-catalog-snapshot.js && git diff --exit-code backend/data/serviceCatalogSnapshot.json
+scp -i ~/.ssh/murzak_vps backend/data/serviceCatalogSnapshot.json ubuntu@187.124.217.78:/tmp/bench-catalog-snapshot.json
+ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'sudo cp -a /etc/murzak/bench-catalog-snapshot.json /root/bench-catalog-snapshot.json.bak-$(date +%Y%m%d%H%M%S) && sudo install -m0644 -o root -g root /tmp/bench-catalog-snapshot.json /etc/murzak/bench-catalog-snapshot.json && for id in biz-pos-duka biz-pos-inventory biz-pos-chain; do printf "%s: " $id; sudo jq -c ".items[\"$id\"].benchApps" /etc/murzak/bench-catalog-snapshot.json; done'
 ```
-Expected: `SCHEMA OK`. A `417` names the missing field. Fix the install and re-run; **do not** continue to Step 3 until this passes.
+Expected: the `git diff --exit-code` passes (the committed snapshot is in sync) and all three ids print `["erpnext","techsavanna_pos","kenya_compliance"]`.
 
-- [ ] **Step 3: Only now install the host scripts** (with backups)
+- [ ] **Step 5: Install the host scripts** (with backups):
 
 ```bash
 scp -i ~/.ssh/murzak_vps deploy/vps/bin/murzak-bench-provision deploy/vps/bin/murzak-bench-runner ubuntu@187.124.217.78:/tmp/
 ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'set -e; TS=$(date +%Y%m%d%H%M%S); for f in murzak-bench-provision murzak-bench-runner; do sudo cp -a /usr/local/bin/$f /root/$f.bak-$TS; sudo install -m0755 -o root -g root /tmp/$f /usr/local/bin/$f; done; echo INSTALLED $TS'
 ```
 
-- [ ] **Step 4: Confirm the next scheduled runner run is healthy**
+- [ ] **Step 6: Confirm the next scheduled runner run is healthy.** The new runner exits non-zero with `FATAL: job query failed` when the Provisioning Job query errors, so look for that explicitly, not only for "found N":
 
 ```bash
-ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'S=$(date "+%Y-%m-%d %H:%M:%S"); until sudo journalctl -u murzak-bench-runner.service --since "$S" --no-pager | grep -qE "run complete|found [0-9]+ bench job|FATAL"; do sleep 5; done; sudo journalctl -u murzak-bench-runner.service --since "$S" --no-pager | tail -4'
+ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'S=$(date "+%Y-%m-%d %H:%M:%S"); until sudo journalctl -u murzak-bench-runner.service --since "$S" --no-pager | grep -qE "run complete|found [0-9]+ bench job|FATAL"; do sleep 5; done; sudo journalctl -u murzak-bench-runner.service --since "$S" --no-pager | tail -5'
 ```
-Expected: `found N bench job(s) eligible for this run` with no `FATAL`. On `FATAL`, restore the `.bak-$TS` copies straight away.
+Expected: `found N bench job(s) eligible for this run`, no `FATAL`. On `FATAL`, restore the `.bak-$TS` copies straight away.
+
+- [ ] **Step 7: Check the website container's environment.** The in-container bench lane must stay off, and its attempts limit must not exceed the host runner's:
+
+```bash
+ssh -i ~/.ssh/murzak_vps ubuntu@187.124.217.78 'C=$(sudo docker ps --format "{{.Names}}" | grep -m1 m97a6sejlizhpmvk5b77dhib); sudo docker exec "$C" sh -c "printenv | grep -E \"^(BENCH_PROVISION_CMD|PROVISIONING_TARGETS|PROVISIONING_MAX_ATTEMPTS)=\" | cut -c1-80"; sudo systemctl show murzak-bench-runner.service -p Environment'
+```
+Expected: `BENCH_PROVISION_CMD` unset and no `benchCmd` in `PROVISIONING_TARGETS` (deliberate: the container never runs bench jobs; the code now also refuses POS shops there). `PROVISIONING_MAX_ATTEMPTS`, if set on either side, must match (default 3).
+
+- [ ] **Step 8: NOW merge to `master` and redeploy the website** (Coolify → `murzak-website-automated` → Redeploy). Then smoke test:
+  - `/products/pos` shows Duka / Biashara / Chain at KES 2,500 / 4,500 / 8,500, with the annual toggle.
+  - `/api/apps/pos/address?name=testshop` answers `available`; `?name=api` answers `reserved`.
+  - `/pricing?configure=biz-pos-inventory` redirects to `/products/pos#plans`.
+  - An existing customer's POS resource page in the portal is unchanged.
+
+- [ ] **Step 9: The real purchase (Task 16).** This spends real money, so it needs the user's explicit go-ahead. Afterwards drop the test site (`bench drop-site`) and delete its `Tenant Slug` doc.
 
 ---
 
