@@ -95,11 +95,16 @@ function persistedError(e) {
       const echo = 'printf \'{"site":"acme.erp.test","apps":"%s","svc":"%s"}\\n\' "$JOB_BENCH_APPS" "$JOB_SERVICE_ID"\n';
       const cmd = scriptWith(echo);
 
+      // POS is an APP tier now: this lane refuses it (permanently, before any
+      // spawn) because only the host runner can give the buyer an owner login —
+      // see test/benchLaneAppTier.test.js. Its app list is still checked, via the
+      // pure env builder, so the catalogue-order guarantee keeps a test.
       const pos = await settle(cmd, { service_id: "biz-pos-inventory", service_name: "POS & Inventory" });
-      ok(pos.ok && pos.value.access.apps === "erpnext,techsavanna_pos,kenya_compliance",
+      ok(!pos.ok && pos.error.permanent === true && /murzak-bench-runner/.test(pos.error.message),
+        "biz-pos-inventory (an app tier) is refused permanently by this lane");
+      const posEnv = bench.buildProvisionEnv({ service_id: "biz-pos-inventory" }, {}, catalog.getServiceMeta("biz-pos-inventory"));
+      ok(posEnv.JOB_BENCH_APPS === "erpnext,techsavanna_pos,kenya_compliance",
         "biz-pos-inventory -> erpnext,techsavanna_pos,kenya_compliance (kenya_compliance is techsavanna_pos's undeclared dep)");
-      ok(pos.ok && pos.value.access.svc === "biz-pos-inventory", "the rest of the job context still reaches the script");
-      ok(pos.ok && pos.value.externalRef === "acme.erp.test", "the site from the script's JSON line is the external ref");
 
       const erp = await settle(cmd, { service_id: "biz-erp-light" });
       ok(erp.ok && erp.value.access.apps === "erpnext,hrms,csf_ke",

@@ -108,30 +108,72 @@ function stderrVerdict(stderr) {
 }
 
 /**
+ * App tiers (Murzak POS, sold by tier at /get/:app) create a private site WITH
+ * an owner login for the buyer. That needs the account holder's email, which
+ * this lane does not have — only murzak-bench-runner on the host reads the Web
+ * Account. So an app-tier job reaching this lane must not be built here: with
+ * BENCH_PROVISION_CMD configured it would otherwise produce a shop under an
+ * account-derived name and no owner login. Returns the permanent-failure
+ * message, or null when the job may proceed.
+ *
+ * Pure: takes the already-resolved catalogue meta so it needs no process.
+ */
+function appTierRefusal(job, meta) {
+  if (!meta?.app) return null;
+  return (
+    "Murzak POS shops are provisioned by the host runner (murzak-bench-runner); " +
+    "the in-container bench lane does not create owner logins"
+  );
+}
+
+/**
+ * Environment handed to the provisioning command. Pure (no spawn).
+ * JOB_SITE_SLUG carries the address an app-tier buyer chose; it is only set for
+ * app tiers and only when the job has one — never invented here.
+ */
+function buildProvisionEnv(job, opts, meta) {
+  const env = {
+    ...process.env,
+    JOB_SERVICE_ID: String(job.service_id || ""),
+    JOB_SERVICE_NAME: String(job.service_name || ""),
+    JOB_WEB_ACCOUNT: String(job.web_account || ""),
+    JOB_INVOICE: String(job.invoice || ""),
+    JOB_RAM_MB: String(job.ram_mb || ""),
+    JOB_DISK_GB: String(job.disk_gb || ""),
+    JOB_TARGET: String(opts?.target?.id || "box-1"),
+    // Which Frappe apps this product's site needs, comma-separated and in
+    // install order. Resolved here rather than on the box so the catalogue
+    // stays the single source of truth — shipping a second copy of the
+    // snapshot to the VPS would drift the moment either side changed.
+    // Empty for a product with no declared app set, which the script treats
+    // as "escalate", not "install nothing" (see biz-webapps / biz-db-medium,
+    // which reach this lane via capacityClass but are not Frappe products).
+    JOB_BENCH_APPS: (meta?.benchApps || []).join(","),
+  };
+  // Never let an ambient JOB_SITE_SLUG from the container's own environment
+  // leak into a job that has none of its own.
+  delete env.JOB_SITE_SLUG;
+  if (meta?.app && job.site_slug) env.JOB_SITE_SLUG = String(job.site_slug);
+  return env;
+}
+
+/**
  * @returns {Promise<{externalRef:string, access:object, log:string}>}
  * @throws when the command exits non-zero (runner converts to retry/escalate).
  */
 function provision(job, opts) {
   return new Promise((resolve, reject) => {
     const cmd = cmdFor(opts);
-    const env = {
-      ...process.env,
-      JOB_SERVICE_ID: String(job.service_id || ""),
-      JOB_SERVICE_NAME: String(job.service_name || ""),
-      JOB_WEB_ACCOUNT: String(job.web_account || ""),
-      JOB_INVOICE: String(job.invoice || ""),
-      JOB_RAM_MB: String(job.ram_mb || ""),
-      JOB_DISK_GB: String(job.disk_gb || ""),
-      JOB_TARGET: String(opts?.target?.id || "box-1"),
-      // Which Frappe apps this product's site needs, comma-separated and in
-      // install order. Resolved here rather than on the box so the catalogue
-      // stays the single source of truth — shipping a second copy of the
-      // snapshot to the VPS would drift the moment either side changed.
-      // Empty for a product with no declared app set, which the script treats
-      // as "escalate", not "install nothing" (see biz-webapps / biz-db-medium,
-      // which reach this lane via capacityClass but are not Frappe products).
-      JOB_BENCH_APPS: (getServiceMeta(String(job.service_id || ""))?.benchApps || []).join(","),
-    };
+    const meta = getServiceMeta(String(job.service_id || ""));
+    const refusal = appTierRefusal(job, meta);
+    if (refusal) {
+      // Same permanent-failure signal as an exit-2 refusal: the runner escalates
+      // to a human at once instead of burning the retry budget.
+      const failure = new Error(`bench provision refused: ${refusal}`);
+      failure.permanent = true;
+      return reject(failure);
+    }
+    const env = buildProvisionEnv(job, opts, meta);
 
     execFile(
       cmd,
@@ -222,4 +264,4 @@ function provision(job, opts) {
   });
 }
 
-module.exports = { lane: "bench", isConfigured, configError, provision };
+module.exports = { lane: "bench", isConfigured, configError, provision, appTierRefusal, buildProvisionEnv };
