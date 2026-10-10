@@ -72,7 +72,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
   };
 
   const businessSystems = [
-    { title: "Murzak POS", desc: "Multi-branch point of sale, inventory tracking, and M-Pesa integration.", path: "pos", priceId: "biz-pos-inventory", previewLabel: "Today's total", previewValue: "KES 24,180" },
+    { title: "Murzak POS", desc: "Multi-branch point of sale, inventory tracking, and M-Pesa integration.", path: "pos", priceId: "biz-pos-duka", previewLabel: "Today's total", previewValue: "KES 24,180" },
     { title: "Murzak ERP", desc: "Accounting, HR, and inventory tailored for Kenyan compliance.", path: "erp", priceId: "biz-erp-light", previewLabel: "Net this month", previewValue: "KES 1.4M" },
     { title: "Murzak CRM & Helpdesk", desc: "Track leads, manage support tickets, and integrate WhatsApp.", path: "crm", priceId: "biz-crm-helpdesk", previewLabel: "Open pipeline", previewValue: "12 deals" }
   ];

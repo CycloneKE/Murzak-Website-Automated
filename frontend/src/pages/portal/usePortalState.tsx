@@ -868,6 +868,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     // filter by tier rule + must have addon pricing
     return all
       .filter((s) => !s.deprecated)
+      // App tiers are sold only through their own checkout (/get/:app).
+      .filter((s) => !s.app)
       .filter((s) => (s?.pricing?.model || "").toLowerCase() === "addon" && Number(s?.pricing?.monthlyKes || 0) > 0)
       .sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
   }, [planCode]);

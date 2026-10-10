@@ -165,7 +165,12 @@ const handleCtaClick = (plan: typeof plans[0]) => {
 };
 
 // Advisor recommended a plan — open the configurator with services pre-selected.
-const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[]) => {
+const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPath?: string) => {
+  // App recommendations (e.g. POS) are sold through their own product page, not the configurator.
+  if (productPath) {
+    navigate(productPath);
+    return;
+  }
   setPreselectIds(serviceIds);
   setServicesPlanCode(planCode);
   setServicesPlanLabel(PLAN_META[planCode].label);

@@ -5,7 +5,7 @@ import { Section } from '../../components/ui/Section';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import Breadcrumbs from '../../components/Breadcrumbs';
-import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
+import AppPlans from '../../components/apps/AppPlans';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -13,6 +13,13 @@ interface Props {
 
 const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
   const [salesOpen, setSalesOpen] = useState(false);
+
+  // Deep links (/products/pos#plans, from the storefront and the advisor) land on the tiers.
+  React.useEffect(() => {
+    if (window.location.hash === "#plans") {
+      requestAnimationFrame(() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" }));
+    }
+  }, []);
 
   const features = [
     { icon: <MonitorSmartphone size={20} />, title: "Touch POS on any device", desc: "Works on tablets, laptops, and dedicated POS hardware. Fast and intuitive." },
@@ -49,15 +56,15 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
             Built from scratch for Kenyan retail, not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
-              Start from {formatKes(serviceMonthlyKes('biz-pos-inventory'))}/mo <ArrowRight size={18} />
+            <Button onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}>
+              See prices <ArrowRight size={18} />
             </Button>
             <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Book a Demo
             </Button>
           </div>
           <p className="mt-5 text-sm font-semibold text-slate-600 dark:text-slate-400">
-            Your own private POS, ready minutes after payment. Your sign-in is waiting in your Murzak portal.
+            Your own private POS at yourshop.pos.murzaktech.tech, ready minutes after payment.
           </p>
         </div>
       </section>
@@ -140,14 +147,19 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
 
       </div>
 
+      <AppPlans
+        app="pos"
+        onChoose={(serviceId, term) => onNavigate(`/get/pos?service=${encodeURIComponent(serviceId)}&term=${term}`)}
+      />
+
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Stop guessing your stock.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-pos-inventory')}>
-              Configure POS <ArrowRight size={17} />
+            <Button variant="primary" onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}>
+              See prices <ArrowRight size={17} />
             </Button>
             <Button variant="outline" onClick={() => setSalesOpen(true)}>
               Talk to Sales

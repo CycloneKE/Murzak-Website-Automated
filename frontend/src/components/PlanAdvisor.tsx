@@ -2,12 +2,13 @@
 import React, { useState } from "react";
 import { X, Wand2, ArrowRight, ArrowLeft, CheckCircle2, RefreshCw } from "lucide-react";
 import { PLAN_META, formatKes, type PlanCode } from "../config/serviceCatalog";
+import { APP_CHECKOUT } from "../config/appCheckout";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   /** Open the configurator for the recommended plan, with services pre-selected. */
-  onChoosePlan: (planCode: PlanCode, serviceIds: string[]) => void;
+  onChoosePlan: (planCode: PlanCode, serviceIds: string[], productPath?: string) => void;
   /** Enterprise / dedicated recommendations route to a sales conversation. */
   onTalkToSales: () => void;
 }
@@ -33,6 +34,8 @@ type Recommendation = {
   plan: PlanCode;
   serviceIds: string[];
   reason: string;
+  /** Set when the recommendation is an app sold through its own checkout: go to its product page tiers instead of the configurator. */
+  productPath?: string;
 };
 
 function recommend(need: NeedKey, size: SizeKey): Recommendation {
@@ -50,7 +53,7 @@ function recommend(need: NeedKey, size: SizeKey): Recommendation {
     }
     return size === "mid"
       ? { plan: "Business", serviceIds: ["biz-erp-configured", "biz-email"], reason: "A configured Murzak ERP, migrated for you, with team email fits a 10–50 person operation." }
-      : { plan: "Business", serviceIds: ["biz-pos-inventory"], reason: "Managed POS and inventory gets a small team or shop running quickly." };
+      : { plan: "Business", serviceIds: [], productPath: `${APP_CHECKOUT.pos.productPath}#plans`, reason: "Murzak POS and inventory gets a small team or shop running quickly. Pick a size on the next page." };
   }
 
   if (need === "email") {
@@ -183,10 +186,10 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
                   </button>
                 ) : (
                   <button
-                    onClick={() => { onChoosePlan(rec.plan, rec.serviceIds); close(); }}
+                    onClick={() => { onChoosePlan(rec.plan, rec.serviceIds, rec.productPath); close(); }}
                     className="w-full py-4 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                   >
-                    Configure this plan <ArrowRight size={16} />
+                    {rec.productPath ? "See POS prices" : "Configure this plan"} <ArrowRight size={16} />
                   </button>
                 )}
                 <button onClick={reset} className="w-full inline-flex items-center justify-center gap-1.5 text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-murzak-accent">
