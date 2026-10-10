@@ -66,6 +66,9 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const [invoice, setInvoice] = useState<InvoicePricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Set when prepare-payment says the buyer's chosen shop address was taken or
+  // is no longer reserved for them — the fix is a new address, not a retry.
+  const [slugLost, setSlugLost] = useState(false);
 
   // Capacity waitlist — shown when POST /api/orders (the /checkout/new
   // deep-link) comes back 409 CAPACITY.
@@ -159,6 +162,13 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         body: JSON.stringify(body),
       });
       const prepData = await prepRes.json().catch(() => ({}));
+      if (prepRes.status === 409 && prepData?.code === 'slug_taken') {
+        if (mountedRef.current) {
+          setSlugLost(true);
+          setError(typeof prepData.error === 'string' && prepData.error ? prepData.error : 'That shop address is no longer available.');
+        }
+        return;
+      }
       if (!prepRes.ok || !prepData?.invoiceDocName) {
         throw new Error(prepData?.error || 'Failed to prepare payment.');
       }
@@ -470,9 +480,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   if (error) {
     return chrome(
       <div className="glass-card rounded-3xl p-6 sm:p-8">
-        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold flex items-start gap-2">
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-start gap-2">
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
+        {slugLost && order?.serviceId && (
+          <button
+            onClick={() => navigate(`/get/pos?service=${encodeURIComponent(order.serviceId)}${order.config?.billingTerm ? `&term=${encodeURIComponent(order.config.billingTerm)}` : ''}`)}
+            className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink"
+          >
+            Choose another address
+          </button>
+        )}
         <button
           onClick={() => navigate('/cloud')}
           className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent transition-colors"

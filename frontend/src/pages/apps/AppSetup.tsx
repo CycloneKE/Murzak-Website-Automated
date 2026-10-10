@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 import { toUserMessage } from "../../services/errors";
 import ShopAddressField from "../../components/apps/ShopAddressField";
@@ -101,7 +101,8 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
 
   const onTierChange = (id: string) => {
     setServiceId(id);
-    setErrorCode("");
+    // APP_EXISTS is account-level, so changing the tier must not clear it.
+    setErrorCode((c) => (c === "APP_EXISTS" ? c : ""));
     setWaitlisted(false);
     setError("");
     setNotice("");
@@ -110,7 +111,9 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
   };
 
   const onCta = errorCode === "CAPACITY" ? joinWaitlist : submit;
-  const ctaDisabled = waitlisted || joining || (errorCode !== "CAPACITY" && !canContinue);
+  const appExists = errorCode === "APP_EXISTS";
+  // APP_EXISTS is account-level: keep the CTA disabled until a reload or re-sign-in.
+  const ctaDisabled = waitlisted || joining || appExists || (errorCode !== "CAPACITY" && !canContinue);
   const ctaLabel = waitlisted
     ? "You're on the list"
     : errorCode === "CAPACITY"
@@ -119,7 +122,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
   const busy = submitting || joining;
 
   // First unmet requirement, shown beside a disabled CTA.
-  const hint = !ctaDisabled || waitlisted || joining
+  const hint = !ctaDisabled || waitlisted || joining || appExists
     ? ""
     : !user
       ? "Create your account or sign in to continue."
@@ -129,9 +132,15 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
           ? "Choose an available shop address."
           : "";
 
-  const showError = !!error && errorCode !== "APP_EXISTS";
+  const showError = !!error && !appExists;
   const messages = (extra: string) => (
     <>
+      {appExists && (
+        <p className={`${extra} text-sm font-bold text-red-600 dark:text-red-400`} role="alert">
+          You already have a shop on this account.{" "}
+          <Link to="/portal/overview" className="underline underline-offset-2 text-murzak-accent">Go to my portal</Link>
+        </p>
+      )}
       {showError && <p className={`${extra} text-sm font-bold text-red-600 dark:text-red-400`} role="alert">{error}</p>}
       {notice && <p className={`${extra} text-sm font-bold text-emerald-700 dark:text-emerald-400`} role="status">{notice}</p>}
     </>
@@ -148,7 +157,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             <ShopAddressField
               app={app}
               shopName={shopName}
-              onShopNameChange={(n) => { setShopName(n); setServerSuggestions([]); setError(""); setErrorCode(""); }}
+              onShopNameChange={(n) => { setShopName(n); setServerSuggestions([]); setError(""); setErrorCode((c) => (c === "APP_EXISTS" ? c : "")); }}
               onSlugChange={setSlug}
               suggestionsFromServer={serverSuggestions}
             />
@@ -163,7 +172,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
             <section className="rounded-3xl border border-murzak-accent/30 bg-murzak-accent/5 p-6">
               <p className="font-black text-murzak-ink dark:text-slate-100">You already have a shop on this account.</p>
               <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">
-                Open it, or change its tier, from your portal. Want a second, separate shop? Message support and we'll set it up.
+                Open it from your portal. Want a second, separate shop? Message support and we'll set it up.
               </p>
               <button type="button" onClick={() => navigate("/portal/overview")} className="mt-4 text-sm font-black text-murzak-accent underline underline-offset-2">
                 Go to my portal →
