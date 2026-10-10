@@ -72,15 +72,23 @@ const SubmitCardButton: React.FC<{
   );
 };
 
-const fieldStyle = {
-  input: {
-    "font-size": "18px",
-    "font-weight": "700",
-    color: "#ffffff",
-  },
-  ".invalid": {
-    color: "#ef4444",
-  },
+// PayPal's hosted fields live in cross-origin iframes, so they can't inherit
+// our CSS: the text colour has to match the `.glass-input` wrapper (near-white
+// in light mode, dark in dark mode). The styles are applied when the fields
+// initialise, so toggling the theme afterwards does not restyle them
+// (acceptable; the card step is short-lived).
+const buildFieldStyle = () => {
+  const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  return {
+    input: {
+      "font-size": "18px",
+      "font-weight": "700",
+      color: dark ? "#f1f5f9" : "#090C10",
+    },
+    ".invalid": {
+      color: "#ef4444",
+    },
+  };
 };
 
 const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
@@ -92,6 +100,7 @@ const PayPalCardSection: React.FC<PayPalCardSectionProps> = ({
   amountUsd,
 }) => {
   const [paypalOptions, setPaypalOptions] = useState<any>(null);
+  const [fieldStyle] = useState(buildFieldStyle);
 
   useEffect(() => {
     let mounted = true;
