@@ -20,11 +20,11 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-brand-gradient text-murzak-ink hover:scale-[1.02] shadow-md hover:shadow-murzak-brand2/30",
   // Secondary: White with light border
   secondary:
-    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
+    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-xs",
   // Outline: same as secondary — every call site in the app uses "outline",
   // not "secondary" (which has zero call sites), so this is the real name.
   outline:
-    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-sm",
+    "bg-white dark:bg-white/5 border border-murzak-border text-murzak-ink dark:text-slate-100 hover:border-murzak-accent hover:text-murzak-accent shadow-xs",
   // Ghost: No background, subtle hover
   ghost:
     "bg-transparent text-murzak-ink dark:text-slate-100 hover:bg-slate-100/50 dark:hover:bg-white/5",

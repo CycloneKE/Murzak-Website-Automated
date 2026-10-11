@@ -109,7 +109,7 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-start gap-2.5 text-xs text-gray-500 bg-white/[0.03] border border-white/10 rounded-xl p-3">
+            <div className="flex items-start gap-2.5 text-xs text-gray-500 bg-white/3 border border-white/10 rounded-xl p-3">
               <Info className="w-4 h-4 shrink-0 mt-0.5 text-gray-500" />
               <span>Your live URL is assigned automatically once the build finishes, and you'll see it on the next screen.</span>
             </div>
@@ -121,7 +121,7 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
                   type="text" 
                   value={buildCommand}
                   onChange={(e) => setBuildCommand(e.target.value)}
-                  className="bg-black border border-white/10 rounded-xl px-4 py-3 text-white outline-none w-full font-mono text-sm focus:border-purple-500/50 transition-colors"
+                  className="bg-black border border-white/10 rounded-xl px-4 py-3 text-white outline-hidden w-full font-mono text-sm focus:border-purple-500/50 transition-colors"
                 />
               </div>
               <div>
@@ -130,7 +130,7 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
                   type="text" 
                   value={installCommand}
                   onChange={(e) => setInstallCommand(e.target.value)}
-                  className="bg-black border border-white/10 rounded-xl px-4 py-3 text-white outline-none w-full font-mono text-sm focus:border-purple-500/50 transition-colors"
+                  className="bg-black border border-white/10 rounded-xl px-4 py-3 text-white outline-hidden w-full font-mono text-sm focus:border-purple-500/50 transition-colors"
                 />
               </div>
             </div>
@@ -157,14 +157,14 @@ export const ConfigAndUpsellStep: React.FC<Props> = ({ config, onNext }) => {
                         placeholder="KEY"
                         value={row.key}
                         onChange={(e) => updateEnvVar(i, 'key', e.target.value.toUpperCase())}
-                        className="w-2/5 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none font-mono text-xs focus:border-purple-500/50 transition-colors"
+                        className="w-2/5 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-hidden font-mono text-xs focus:border-purple-500/50 transition-colors"
                       />
                       <input
                         type="text"
                         placeholder="value"
                         value={row.value}
                         onChange={(e) => updateEnvVar(i, 'value', e.target.value)}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-none font-mono text-xs focus:border-purple-500/50 transition-colors"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white outline-hidden font-mono text-xs focus:border-purple-500/50 transition-colors"
                       />
                       <button
                         type="button"

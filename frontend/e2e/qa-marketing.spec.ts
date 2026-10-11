@@ -22,11 +22,31 @@ const MARKETING_PAGES = [
  * dark-mode surfaces (see murzaktech-byoa-app-hosting / dark-contrast fix).
  */
 function contrastCheckScript() {
+  // Tailwind 4 writes its palette as oklch() and its opacity utilities as
+  // color-mix(), and getComputedStyle() returns those verbatim. rgb()/rgba()
+  // strings are parsed directly (unchanged behaviour); anything else is handed
+  // to the browser, via a 1x1 canvas, to be converted to sRGB.
+  let colorCtx: CanvasRenderingContext2D | null = null;
   function parseRgb(str: string) {
-    const m = str.match(/rgba?\(([^)]+)\)/);
-    if (!m) return null;
-    const parts = m[1].split(',').map((s) => parseFloat(s.trim()));
-    return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] ?? 1 };
+    if (!str) return null;
+    const m = str.match(/^rgba?\(([^)]+)\)$/);
+    if (m) {
+      const parts = m[1].split(',').map((s) => parseFloat(s.trim()));
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] ?? 1 };
+    }
+    if (!colorCtx) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      colorCtx = canvas.getContext('2d', { willReadFrequently: true });
+    }
+    if (!colorCtx) return null;
+    colorCtx.clearRect(0, 0, 1, 1);
+    colorCtx.fillStyle = '#010203';
+    colorCtx.fillStyle = str; // an unparseable value leaves the sentinel in place
+    if (colorCtx.fillStyle === '#010203' && str.trim().toLowerCase() !== '#010203') return null;
+    colorCtx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = colorCtx.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a: a / 255 };
   }
   function luminance(c: { r: number; g: number; b: number }) {
     const chan = [c.r, c.g, c.b].map((v) => {

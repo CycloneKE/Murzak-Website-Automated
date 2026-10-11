@@ -46,9 +46,9 @@ const BillingTab: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-12">
-      <div className="flex justify-between items-end mb-4 px-2">
+      <div className="flex justify-between items-end px-2">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">
+          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] tracking-tighter uppercase leading-none">
             Billing & Plans
           </h2>
           <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
@@ -63,7 +63,7 @@ const BillingTab: React.FC = () => {
           
           {/* Plan Card */}
           <div className="glass-card rounded-[3rem] p-8 sm:p-10 relative overflow-hidden group border border-murzak-border">
-            <div className="absolute inset-0 bg-gradient-to-br from-murzak-ink to-murzak-ink/90 z-0"></div>
+            <div className="absolute inset-0 bg-linear-to-br from-murzak-ink to-murzak-ink/90 z-0"></div>
             <div className="absolute -top-24 -right-24 w-96 h-96 bg-murzak-accent/20 blur-3xl rounded-full opacity-50 group-hover:opacity-70 transition-opacity duration-700 pointer-events-none z-0"></div>
             
             <div className="absolute top-8 right-8 opacity-10 group-hover:scale-110 transition-transform duration-700 z-0">
@@ -130,7 +130,7 @@ const BillingTab: React.FC = () => {
                 />
               ) : (
                 selectedServices.map((s) => (
-                  <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-[2rem] bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border hover:border-murzak-accent/30 transition-colors group">
+                  <div key={s.serviceId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-4xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border hover:border-murzak-accent/30 transition-colors group">
                     <div className="flex items-start sm:items-center gap-4">
                       <div className={`p-3 rounded-2xl ${s.status === 'Active' ? 'bg-murzak-accent/10 text-murzak-accent' : 'bg-orange-500/10 text-orange-500'}`}>
                         {s.status === 'Active' ? <Zap className="w-5 h-5" /> : <Lock className="w-5 h-5" />}

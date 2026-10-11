@@ -136,7 +136,7 @@ export default function AddDomainModal({
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[140]">
+    <div className="fixed inset-0 z-140">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
         <div className="relative w-full max-w-xl max-h-[92vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
@@ -154,7 +154,7 @@ export default function AddDomainModal({
               )}
               <div className="min-w-0">
                 <p className="text-micro font-black uppercase text-murzak-accent/90">Domains</p>
-                <h3 className="text-lg sm:text-2xl font-black tracking-tighter text-white mt-0.5 leading-tight">
+                <h3 className="text-lg sm:text-2xl sm:leading-(--text-2xl--line-height) font-black tracking-tighter text-white mt-0.5 leading-tight">
                   {path ? PATHS.find((p) => p.id === path)?.title : "Add a domain"}
                 </h3>
               </div>
@@ -176,7 +176,7 @@ export default function AddDomainModal({
                     key={p.id}
                     type="button"
                     onClick={() => setPath(p.id)}
-                    className="text-left rounded-[1.5rem] p-5 border border-murzak-accent/25 bg-white/60 dark:bg-black/5 hover:border-murzak-accent/60 transition-all flex items-start gap-4"
+                    className="text-left rounded-3xl p-5 border border-murzak-accent/25 bg-white/60 dark:bg-black/5 hover:border-murzak-accent/60 transition-all flex items-start gap-4"
                   >
                     <div className="shrink-0 w-10 h-10 rounded-2xl bg-murzak-accent/15 text-murzak-accent flex items-center justify-center">
                       {p.icon}
@@ -204,12 +204,12 @@ export default function AddDomainModal({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="yourbrand"
-                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                     />
                     <select
                       value={tld}
                       onChange={(e) => setTld(e.target.value)}
-                      className="h-12 px-3 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-black text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                      className="h-12 px-3 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-black text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                     >
                       {TLD_OPTIONS.map((t) => (
                         <option key={t} value={t}>{t}</option>
@@ -252,7 +252,7 @@ export default function AddDomainModal({
                     value={domainName}
                     onChange={(e) => setDomainName(e.target.value)}
                     placeholder="yourbrand.com"
-                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                   />
                   {domainName && !domainNameValid && (
                     <p className="mt-2 text-micro font-bold text-red-500">That doesn't look like a valid domain.</p>
@@ -266,7 +266,7 @@ export default function AddDomainModal({
                     value={registrar}
                     onChange={(e) => setRegistrar(e.target.value)}
                     placeholder="e.g. GoDaddy, Namecheap"
-                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                   />
                 </div>
                 <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -298,7 +298,7 @@ export default function AddDomainModal({
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
                       placeholder="yourbrand"
-                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                     />
                     {/* Preview only — the request is fulfilled server-side against
                         whatever FREE_SUBDOMAIN_ROOT_DOMAIN is actually configured

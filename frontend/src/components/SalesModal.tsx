@@ -115,14 +115,14 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
 
   const inputClasses = (name: string) => `w-full bg-slate-50 dark:bg-black/5 border ${errors[name] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"} rounded-xl px-11 sm:px-12
     py-3.5 sm:py-4 text-sm font-bold text-murzak-ink placeholder:text-slate-500
-    focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all
+    focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition-all
   `;
 
   const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1";
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-3 sm:p-6 lg:p-8">
-      <div className="absolute inset-0 bg-black/20 dark:bg-black/35 backdrop-blur-sm sm:backdrop-blur-md"
+    <div className="fixed inset-0 z-100 flex items-end sm:items-center justify-center p-3 sm:p-6 lg:p-8">
+      <div className="absolute inset-0 bg-black/20 dark:bg-black/35 backdrop-blur-xs sm:backdrop-blur-md"
         onClick={onClose}
       />
       <div className="relative w-full max-w-4xl bg-white dark:bg-murzak-ink rounded-[1.75rem] sm:rounded-[3rem] shadow-xl sm:shadow-3xl overflow-hidden
@@ -132,7 +132,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
            <div className="absolute -top-10 -right-10 opacity-10 rotate-12">
              <Terminal className="w-40 h-40 sm:w-56 sm:h-56 lg:w-[300px] lg:h-[300px]" /></div>
            <div className="relative z-10">
-              <h2 className="text-3xl lg:text-5xl font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-accent">With Us.</span></h2>
+              <h2 className="text-3xl lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-accent">With Us.</span></h2>
               <p className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                 Nairobi software &amp; cloud team <br /> Real people, usually replying same day
               </p>
@@ -150,7 +150,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
         </div>
 
         {/* Right Side: Interactive Area */}
-        <div className="flex-grow min-h-0 p-5 sm:p-8 lg:p-14 overflow-y-auto">
+        <div className="grow min-h-0 p-5 sm:p-8 lg:p-14 overflow-y-auto">
           {isSuccess ? (
             <div className="text-center py-10 animate-fade-in">
               <div className="w-20 h-20 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
@@ -178,7 +178,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <button 
                   onClick={() => setMode('demo')}
-                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
+                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-xs hover:shadow-xl"
                 >
                   <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Package size={28} />
@@ -189,7 +189,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
                 
                 <button 
                   onClick={() => setMode('quote')}
-                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-sm hover:shadow-xl"
+                  className="group p-5 sm:p-7 bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-[1.75rem] sm:rounded-[2.5rem] text-left hover:border-murzak-accent transition-all hover:scale-[1.01] sm:hover:scale-[1.02] shadow-xs hover:shadow-xl"
                 >
                   <div className="w-14 h-14 bg-murzak-accent/10 text-murzak-accent rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Briefcase size={28} />

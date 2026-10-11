@@ -46,10 +46,10 @@ const cardClass =
   "rounded-[1.75rem] border border-murzak-border bg-white dark:bg-murzak-ink p-5 sm:p-6";
 
 const inputClass =
-  "w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
+  "w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-hidden text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const textareaClass =
-  "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-none text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
+  "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-hidden text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
 
 const primaryBtnClass =
   "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
@@ -60,7 +60,7 @@ const secondaryBtnClass =
 const tabClass = (active: boolean) =>
   `px-4 py-2.5 rounded-2xl text-micro font-black uppercase border transition-all ${
     active
-      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-sm"
+      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-xs"
       : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-400 hover:border-murzak-accent/50"
   }`;
 
@@ -584,7 +584,7 @@ const WebsiteHostingDashboard: React.FC = () => {
 
   if (pageError || !payload) {
     return (
-      <div className="rounded-[2rem] border border-red-200 bg-red-50 p-6 text-red-700">
+      <div className="rounded-4xl border border-red-200 bg-red-50 p-6 text-red-700">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 mt-0.5" />
           <div>
@@ -641,7 +641,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 rounded-[2rem] border border-murzak-accent/25 bg-murzak-accent/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="xl:col-span-2 rounded-4xl border border-murzak-accent/25 bg-murzak-accent/5 p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
             <ChoiceIcon className="w-20 h-20" />
           </div>
@@ -1174,7 +1174,7 @@ const WebsiteHostingDashboard: React.FC = () => {
     if (domainChoice === "Bring My Domain") return renderBringMyDomainPanel();
 
     return (
-      <div className="rounded-[2rem] border border-orange-200 bg-orange-50 p-6 text-orange-700">
+      <div className="rounded-4xl border border-orange-200 bg-orange-50 p-6 text-orange-700">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 mt-0.5" />
           <div>
@@ -1335,7 +1335,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 rounded-[2rem] border border-green-500/20 bg-green-500/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="xl:col-span-2 rounded-4xl border border-green-500/20 bg-green-500/5 p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
             <Server className="w-20 h-20" />
           </div>
@@ -1461,7 +1461,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           {!isUnlimitedStorage && storagePercent !== null && storagePercent >= 80 && (
             <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
               <AlertCircle size={18} className="text-amber-500 shrink-0" />
-              <p className="flex-grow text-sm font-bold text-amber-600 dark:text-amber-300">
+              <p className="grow text-sm font-bold text-amber-600 dark:text-amber-300">
                 You've used {storagePercent}% of your {formatMb(storageLimit)} storage.
                 {storageUpsell === "sent"
                   ? " Request received. Our team will reach out with upgrade options."
@@ -1891,7 +1891,7 @@ const WebsiteHostingDashboard: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div
-        className={`rounded-[2rem] border p-6 sm:p-8 relative overflow-hidden ${
+        className={`rounded-4xl border p-6 sm:p-8 relative overflow-hidden ${
           isLiveMode
             ? "border-green-500/20 bg-green-500/5"
             : "border-murzak-accent/30 bg-murzak-accent/5"

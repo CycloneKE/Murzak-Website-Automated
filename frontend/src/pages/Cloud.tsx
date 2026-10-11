@@ -45,7 +45,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       {/* Hero */}
       <section className="relative min-h-[90vh] lg:min-h-screen flex items-center pt-32 lg:pt-48 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/server-glow.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-gradient-to-b from-slate-300/70 via-slate-300/55 to-transparent" />
+        <div className="absolute inset-0 z-0 bg-linear-to-b from-slate-300/70 via-slate-300/55 to-transparent" />
         <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow z-0" />
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 w-full grid lg:grid-cols-12 gap-12 items-center relative z-10">
           <div className="lg:col-span-7 rounded-[2.5rem] border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-8 sm:p-10 lg:p-14 shadow-2xl">
@@ -53,7 +53,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-murzak-ink dark:text-slate-100">
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
-            <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
               Your site, email and apps: set up, secured and backed up by us, on fast infrastructure,
               billed in shillings. You get the result; we handle the servers.
             </p>
@@ -117,7 +117,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
                 <Tag
                   key={c.t}
                   onClick={isLink ? () => onNavigate(c.path || (c.page as Page)) : undefined}
-                  className={`flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08] ${isLink ? 'text-left w-full group hover:border-murzak-accent/40 dark:hover:border-murzak-accent/40' : ''}`}
+                  className={`flex items-start gap-5 rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/8 ${isLink ? 'text-left w-full group hover:border-murzak-accent/40 dark:hover:border-murzak-accent/40' : ''}`}
                 >
                   <span className="shrink-0 inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">{c.icon}</span>
                   <div className="flex-1">
@@ -139,7 +139,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <div className="grid lg:grid-cols-12 gap-10 items-center mb-12">
             <div className="lg:col-span-7">
-              <p className="inline-block font-mono text-micro uppercase text-sky-800 dark:text-murzak-accent mb-3 px-2.5 py-1 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-sm">Fully managed</p>
+              <p className="inline-block font-mono text-micro uppercase text-sky-800 dark:text-murzak-accent mb-3 px-2.5 py-1 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-xs">Fully managed</p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">The parts you'd rather not think about.</h2>
               <p className="mt-4 text-slate-600 dark:text-slate-300 font-medium leading-relaxed max-w-md">
                 Real engineers watching real infrastructure, not a support queue that routes you overseas.
@@ -148,7 +148,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
 
             {/* Resource monitor mockup — hand-coded JSX, not a screenshot */}
             <div className="lg:col-span-5">
-              <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6">
+              <div className="rounded-4xl bg-slate-900 border border-murzak-border shadow-2xl p-6">
                 <div className="flex items-center justify-between mb-5">
                   <span className="text-micro font-black uppercase tracking-widest text-slate-400">Resource Monitor</span>
                   <span className="rounded-full bg-murzak-success/15 text-murzak-success text-micro font-black uppercase px-2.5 py-1">99.97% uptime</span>

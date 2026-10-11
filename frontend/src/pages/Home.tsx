@@ -217,7 +217,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section data-bg-surface="dark" className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/nairobi-skyline.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
+        <div className="absolute inset-0 z-0 bg-linear-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
         {/* ambient */}
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '32px 32px' }} />
@@ -236,7 +236,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <span className="text-murzak-gradient">We'll run the tech.</span>
             </h1>
 
-            <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-xl leading-relaxed">
               Managed hosting, ready-to-use business systems and custom software: set up for you,
               billed in shillings, and supported by real people in Nairobi.
             </p>
@@ -290,10 +290,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 03 · EMPATHY */}
       <section className="relative z-10 py-24 lg:py-36">
         <Reveal className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-6xl font-[900] tracking-tight leading-[1.05]">
+          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-6xl lg:leading-(--text-6xl--line-height) font-[900] tracking-tight leading-[1.05]">
             You didn't start your business<br className="hidden sm:block" /> to babysit servers.
           </h2>
-          <p className="mt-8 text-lg sm:text-xl text-slate-400 font-medium leading-relaxed">
+          <p className="mt-8 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-400 font-medium leading-relaxed">
             Sites that go down on a Friday night. An ERP demo from a vendor who then vanished.
             Invoices in dollars you have to convert. Support answered three time zones away, next week.
           </p>
@@ -321,7 +321,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <Reveal key={p.title} delayMs={i * 80} className={p.span}>
                 <button
                   onClick={() => onNavigate(p.page)}
-                  className="group text-left w-full h-full rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] hover:-translate-y-1"
+                  className="group text-left w-full h-full rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/5 hover:-translate-y-1"
                 >
                   <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
                   <p className="font-mono text-micro uppercase text-slate-400 mb-2">{p.tag}</p>
@@ -342,7 +342,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
           <Reveal>
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No hidden pricing</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight leading-tight">
+            <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] tracking-tight leading-tight">
               See the price before<br /> you talk to anyone.
             </h2>
             <p className="mt-6 text-lg text-slate-400 font-medium leading-relaxed max-w-md">
@@ -486,7 +486,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </ul>
             </Reveal>
             {/* the murzak way */}
-            <Reveal delayMs={80} className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
+            <Reveal delayMs={80} className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/6 p-8 lg:p-10 overflow-hidden">
               <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-brand-gradient opacity-20" />
               <p className="font-mono text-micro uppercase text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
@@ -529,7 +529,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('pricing')}
                   className={`text-left w-full h-full rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
                     m.featured
-                      ? 'border-murzak-accent/40 bg-murzak-accent/[0.06]'
+                      ? 'border-murzak-accent/40 bg-murzak-accent/6'
                       : 'glass-dark hover:border-white/20'
                   }`}
                 >
@@ -565,7 +565,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
           <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
             <div className="text-5xl text-murzak-gradient font-black mb-6">"</div>
-            <blockquote className="text-2xl sm:text-3xl font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
+            <blockquote className="text-2xl sm:text-3xl sm:leading-(--text-3xl--line-height) font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
             <p className="mt-6 text-sm font-bold text-slate-300">{TESTIMONIALS[0].name}</p>
             <p className="font-mono text-micro uppercase text-slate-400">{TESTIMONIALS[0].org}</p>
           </div>

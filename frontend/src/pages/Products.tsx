@@ -100,7 +100,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
           absolutely-positioned sibling layers on its own. */}
       <section data-bg-surface="dark" className="relative min-h-[70vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/products-hero.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-gradient-to-b from-murzak-ink/85 via-murzak-ink/70 to-murzak-ink/90" />
+        <div className="absolute inset-0 z-0 bg-linear-to-b from-murzak-ink/85 via-murzak-ink/70 to-murzak-ink/90" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-6">
             <span className="text-micro font-black uppercase text-murzak-accent">All Products</span>
@@ -108,7 +108,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl text-white">
             Software built for <span className="text-murzak-gradient">how Kenya works.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
             From ready-made business systems to custom operational tools, we build and run the technology that powers growing companies.
           </p>
         </div>
@@ -131,7 +131,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
              {businessSystems.map((item, idx) => (
                <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
                   <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{item.desc}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 grow">{item.desc}</p>
                   <div className="rounded-xl bg-slate-900 px-4 py-3 mb-5">
                     <div className="text-micro font-bold uppercase text-slate-400 mb-1">{item.previewLabel}</div>
                     <div className="text-sm font-black text-murzak-accent">{item.previewValue}</div>
@@ -152,7 +152,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
                  regardless of site theme, so its content is wrapped in a scoped
                  `dark` class to force the correct (already-defined) dark-mode
                  text colors on — rather than duplicating them as fixed classes. */}
-             <div className="p-10 rounded-[2rem] border border-murzak-border bg-slate-900 overflow-hidden relative group dark">
+             <div className="p-10 rounded-4xl border border-murzak-border bg-slate-900 overflow-hidden relative group dark">
                 <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-accent group-hover:scale-110 transition-transform duration-700">
                   <Terminal size={120} strokeWidth={1} />
                 </div>
@@ -164,7 +164,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
                 </div>
              </div>
 
-             <div className="p-10 rounded-[2rem] border border-murzak-accent/30 bg-murzak-accent/5 overflow-hidden relative group">
+             <div className="p-10 rounded-4xl border border-murzak-accent/30 bg-murzak-accent/5 overflow-hidden relative group">
                 <div className="absolute top-0 right-0 p-8 opacity-20 text-murzak-accent group-hover:scale-110 transition-transform duration-700">
                   <Cloud size={120} strokeWidth={1} />
                 </div>
@@ -188,7 +188,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
              {databases.map((db) => (
                <div key={db.id} onClick={() => onNavigate(`/checkout/new?serviceId=${db.id}`)} className="cursor-pointer group p-6 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all flex flex-col h-full">
                   <h3 className="text-lg font-black mb-2 text-murzak-ink dark:text-slate-100">{db.name}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 flex-grow">{db.desc}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-5 grow">{db.desc}</p>
                   <div className="text-murzak-accent text-sm font-bold flex items-center justify-between">
                     <span className="text-slate-500 dark:text-slate-400 text-xs font-mono uppercase">From {formatKes(serviceMonthlyKes(db.id))}/mo</span>
                     <span className="flex items-center gap-1 group-hover:translate-x-1 transition-transform">Launch <ArrowRight size={14} /></span>

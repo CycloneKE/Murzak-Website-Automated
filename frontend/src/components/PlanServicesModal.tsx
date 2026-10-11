@@ -370,7 +370,7 @@ export default function PlanServicesModal({
     : "Build your plan. Prices update live, no surprises at checkout.";
 
   return (
-    <div className="fixed inset-0 z-[120]">
+    <div className="fixed inset-0 z-120">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
 
       <div className="relative w-full h-full bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-2xl overflow-hidden flex flex-col">
@@ -414,14 +414,14 @@ export default function PlanServicesModal({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search services: email, backups, CDN…"
-                    className="w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 pl-11 pr-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                   />
                 </div>
                 <div className="relative">
                   <div
                     ref={catRowRef}
                     onScroll={updateCatScrollState}
-                    className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none [&::-webkit-scrollbar]:hidden"
                   >
                     <button
                       onClick={() => setActiveCat("All")}
@@ -453,12 +453,12 @@ export default function PlanServicesModal({
                       the list rather than a swipeable/scrollable row. */}
                   {catCanScrollLeft && (
                     <>
-                      <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-8 bg-gradient-to-r from-white dark:from-murzak-ink to-transparent" />
+                      <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-8 bg-linear-to-r from-white dark:from-murzak-ink to-transparent" />
                       <button
                         type="button"
                         aria-label="Scroll categories left"
                         onClick={() => scrollCatRow(-1)}
-                        className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
+                        className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-xs"
                       >
                         <ChevronDown size={12} className="rotate-90" />
                       </button>
@@ -466,12 +466,12 @@ export default function PlanServicesModal({
                   )}
                   {catCanScrollRight && (
                     <>
-                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-white dark:from-murzak-ink to-transparent" />
+                      <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-8 bg-linear-to-l from-white dark:from-murzak-ink to-transparent" />
                       <button
                         type="button"
                         aria-label="Scroll categories right"
                         onClick={() => scrollCatRow(1)}
-                        className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-sm"
+                        className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 items-center justify-center w-6 h-6 rounded-full bg-white dark:bg-murzak-ink border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 shadow-xs"
                       >
                         <ChevronDown size={12} className="-rotate-90" />
                       </button>
@@ -515,7 +515,7 @@ export default function PlanServicesModal({
                           <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                             {svc.category} • {svc.tier}
                           </div>
-                          <div className="text-base sm:text-lg font-black text-murzak-ink dark:text-slate-100 mt-1 leading-tight">
+                          <div className="text-base sm:text-lg sm:leading-(--text-lg--line-height) font-black text-murzak-ink dark:text-slate-100 mt-1 leading-tight">
                             {svc.name}
                           </div>
                           {isManagedSetup(svc) && (
@@ -670,7 +670,7 @@ export default function PlanServicesModal({
 
               <div className={`${summaryOpen ? "block" : "hidden"} lg:block lg:sticky lg:top-6`}>
                 <div className="glass-card shadow-2xl overflow-hidden border border-murzak-border">
-                  <div className="bg-gradient-to-r from-murzak-brand1/20 to-murzak-accent/20 px-5 py-4 border-b border-murzak-border backdrop-blur-sm">
+                  <div className="bg-linear-to-r from-murzak-brand1/20 to-murzak-accent/20 px-5 py-4 border-b border-murzak-border backdrop-blur-xs">
                     <div className="text-micro font-black uppercase text-murzak-ink/80 dark:text-slate-300">Your plan</div>
                     <div className="text-sm font-black text-murzak-ink dark:text-slate-100 mt-0.5">{planLabel || planCode}</div>
                   </div>

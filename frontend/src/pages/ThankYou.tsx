@@ -28,11 +28,11 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
           alt=""
           className="absolute inset-0 z-[-2] w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
         />
-        <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-white via-white/95 to-white dark:from-murzak-ink dark:via-murzak-ink/95 dark:to-murzak-ink" />
+        <div className="absolute inset-0 z-[-1] bg-linear-to-b from-white via-white/95 to-white dark:from-murzak-ink dark:via-murzak-ink/95 dark:to-murzak-ink" />
 
         <div className="max-w-lg mx-auto text-center relative z-10">
           <CheckCircle2 size={56} className="text-green-500 mx-auto mb-8" />
-          <h1 className="text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-[0.95]">
+          <h1 className="text-4xl lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-[0.95]">
             You're all set.
           </h1>
           <p className="text-base text-slate-600 dark:text-slate-500 font-medium mb-10">

@@ -52,7 +52,7 @@ export default function MetricCard({ title, value, icon, trend, trendUp, actionL
 
   return (
     <div className="glass-panel glass-interactive rounded-2xl p-6 relative overflow-hidden group">
-      <div className="absolute -inset-1 bg-gradient-to-r from-murzak-accent/0 via-murzak-accent/5 to-murzak-brand1/0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 blur-xl"></div>
+      <div className="absolute -inset-1 bg-linear-to-r from-murzak-accent/0 via-murzak-accent/5 to-murzak-brand1/0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 blur-xl"></div>
       <div className="relative z-10 flex items-start justify-between mb-4">
         <div className="p-3 bg-murzak-brand2/10 text-murzak-accent rounded-xl">
           {icon}

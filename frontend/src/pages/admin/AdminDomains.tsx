@@ -176,12 +176,12 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search domain, account..."
             className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-4 py-2.5
-                       text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                       text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
           />
         </div>
         <button
           onClick={load}
-          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
           title="Refresh"
           aria-label="Refresh domains"
           type="button"
@@ -211,7 +211,7 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
           <div className="divide-y divide-slate-100 dark:divide-murzak-border">
             {visible.map((d) => (
               <div key={d.id} className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="min-w-0 flex-grow">
+                <div className="min-w-0 grow">
                   <div className="flex items-center gap-3 flex-wrap">
                     <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
                       {d.domainName}

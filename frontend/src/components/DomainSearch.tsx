@@ -41,7 +41,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="yourbusiness"
-            className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+            className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 pl-9 pr-3 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
           />
         </div>
         <button

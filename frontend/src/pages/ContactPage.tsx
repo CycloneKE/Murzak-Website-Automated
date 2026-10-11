@@ -61,7 +61,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
   const inputCls = (k: string) =>
     `w-full bg-slate-50 dark:bg-black/5 border ${
       errors[k] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"
-    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition`;
+    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition`;
 
   return (
     <div className="relative">
@@ -77,7 +77,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           Talk to a <span className="text-murzak-gradient">real person.</span>
         </h1>
-        <p className="mt-5 text-sm sm:text-base font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-5 text-sm sm:text-base sm:leading-(--text-base--line-height) font-bold text-slate-500 dark:text-slate-500 max-w-2xl mx-auto leading-relaxed">
           Tell us what you're trying to do, in plain words. Our Nairobi team usually replies within one business day.
         </p>
       </div>

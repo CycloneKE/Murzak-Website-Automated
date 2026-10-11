@@ -36,7 +36,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-murzak-base dark:bg-murzak-ink text-murzak-ink dark:text-slate-100">
-          <div className="max-w-md w-full text-center glass-panel rounded-[2rem] p-8 border border-murzak-border">
+          <div className="max-w-md w-full text-center glass-panel rounded-4xl p-8 border border-murzak-border">
             <p className="text-label font-black uppercase tracking-widest text-red-500 mb-3">Something went wrong</p>
             <h1 className="text-xl font-black mb-3">This page hit an unexpected error.</h1>
             <p className="text-body-sm text-slate-600 dark:text-slate-300 mb-6">

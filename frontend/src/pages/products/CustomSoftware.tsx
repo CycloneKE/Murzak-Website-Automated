@@ -38,7 +38,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
           absolutely-positioned sibling layers on its own. */}
       <section data-bg-surface="dark" className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/custom-software-hero.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
+        <div className="absolute inset-0 z-0 bg-linear-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <Breadcrumbs
             onNavigate={onNavigate}
@@ -51,7 +51,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl leading-relaxed">
             We design and build the exact system your business needs. Unlike typical agencies, we don't hand over the code and disappear. We host it and keep it running.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
@@ -153,7 +153,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
                    ))}
                 </div>
              </div>
-             <div className="rounded-[2rem] bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-label sm:text-xs overflow-hidden">
+             <div className="rounded-4xl bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-label sm:text-xs overflow-hidden">
                 <div className="flex gap-2 mb-4">
                    <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
                    <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>

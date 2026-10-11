@@ -223,7 +223,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
           <h1 className="text-[clamp(2.2rem,10vw,7.5rem)] font-bold text-murzak-ink dark:text-slate-100 mb-6 tracking-tight leading-[0.9] sm:leading-[0.85] text-balance">
             Pay for what you use. <br /><span className="text-transparent bg-clip-text bg-brand-gradient">See it first.</span>
           </h1>
-          <p className="text-base sm:text-xl lg:text-2xl text-murzak-muted dark:text-slate-400 max-w-3xl mx-auto mb-10 font-medium leading-relaxed">
+          <p className="text-base sm:text-xl sm:leading-(--text-xl--line-height) lg:text-2xl lg:leading-(--text-2xl--line-height) text-murzak-muted dark:text-slate-400 max-w-3xl mx-auto mb-10 font-medium leading-relaxed">
             Pick your services, watch the total add up in shillings, and start. No quotes to chase, no surprises on the invoice.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -263,7 +263,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
               >
                 {/* Image section removed as the Glass UI design is minimal, text-focused, and cleaner without heavy images in the cards. */}
 
-                <div className="p-6 sm:p-8 flex-grow flex flex-col">
+                <div className="p-6 sm:p-8 grow flex flex-col">
                   <h3 className="text-micro sm:text-xs font-semibold uppercase text-sky-700 dark:text-murzak-accent mb-2">
                     {plan.name} {plan.isFeatured ? ' · POPULAR' : ''}
                   </h3>
@@ -276,10 +276,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
                   </div>
                   <p className="text-sm font-medium text-murzak-muted dark:text-slate-400 leading-relaxed mb-6">{plan.description}</p>
                   
-                  <ul className="space-y-3 mb-8 flex-grow">
+                  <ul className="space-y-3 mb-8 grow">
                     {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2 text-xs font-medium text-murzak-ink dark:text-slate-100 leading-tight">
-                        <Check size={14} className="text-murzak-success flex-shrink-0 mt-0.5" />
+                        <Check size={14} className="text-murzak-success shrink-0 mt-0.5" />
                         {feature}
                       </li>
                     ))}
@@ -313,7 +313,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">
               “Managed” means we actually do the work.
             </h2>
-            <p className="mt-5 text-base sm:text-lg text-slate-500 font-medium leading-relaxed">
+            <p className="mt-5 text-base sm:text-lg sm:leading-(--text-lg--line-height) text-slate-500 font-medium leading-relaxed">
               Every paid plan comes fully set up and looked after. No hidden setup fees, no “that’s an add-on” surprises for the essentials.
             </p>
           </div>

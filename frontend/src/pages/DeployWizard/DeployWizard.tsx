@@ -112,7 +112,7 @@ export const DeployWizard: React.FC = () => {
         return (
           <div className="relative">
             {isDeploying && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-2xl">
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs rounded-2xl">
                 <div className="flex flex-col items-center text-white">
                   <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
                   <p className="font-medium">Triggering Deployment...</p>
@@ -162,7 +162,7 @@ export const DeployWizard: React.FC = () => {
           <div className="p-3 bg-white/5 rounded-xl border border-white/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]">
             <Rocket className="w-6 h-6 text-purple-400" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-white to-gray-400 bg-clip-text text-transparent">
             Deploy your App
           </h1>
         </header>

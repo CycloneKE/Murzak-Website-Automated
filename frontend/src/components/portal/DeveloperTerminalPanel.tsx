@@ -89,7 +89,7 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
   if (!isActive) return null;
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
       <div className="flex items-center gap-3 mb-3">
         <Terminal className="w-5 h-5 text-murzak-accent" />
         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Developer Access</p>

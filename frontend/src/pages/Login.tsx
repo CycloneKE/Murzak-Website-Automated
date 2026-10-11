@@ -549,7 +549,7 @@ const handleReset = async (e: React.FormEvent) => {
     w-full bg-white/60
     border ${fieldErrors[name] ? "border-murzak-danger" : "border-murzak-border"} rounded-xl py-3
     pl-10 pr-10 text-sm font-semibold text-murzak-ink
-    placeholder:text-murzak-muted/50 focus:outline-none focus:ring-2 focus:ring-murzak-accent/20 focus:border-murzak-accent transition-all duration-200
+    placeholder:text-murzak-muted/50 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent/20 focus:border-murzak-accent transition-all duration-200
   `;
 
   const labelStyles = "text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 block ml-1";
@@ -569,10 +569,10 @@ const handleReset = async (e: React.FormEvent) => {
           would leave the page washed-out white behind dark:text-slate-100 content
           (see the 2026-08 light-mode contrast sweep), so it switches to an ink wash
           that actually darkens the photo instead of lightening it. */}
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
+      <div className="absolute inset-0 z-0 bg-radial-[ellipse_at_center] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
       <div className="absolute inset-0 z-0 bg-murzak-accent/10 mix-blend-color" />
       <div className="absolute top-6 lg:top-10 left-6 lg:left-10 z-20">
-        <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-micro uppercase hover:text-murzak-accent transition-colors drop-shadow">
+        <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-micro uppercase hover:text-murzak-accent transition-colors drop-shadow-sm">
           <ChevronLeft size={16} /> Back
         </button>
       </div>
@@ -589,7 +589,7 @@ const handleReset = async (e: React.FormEvent) => {
         </div>
 
         <form noValidate onSubmit={mode === 'forgot' ? handleForgot : mode === 'reset' ? handleReset : handleSubmit} className="glass-panel p-5 sm:p-8 lg:p-14
-           rounded-[2rem] sm:rounded-[2.5rem] space-y-6 sm:space-y-8">
+           rounded-4xl sm:rounded-[2.5rem] space-y-6 sm:space-y-8">
           {error && (
             <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-xs font-bold text-center flex items-center justify-center gap-2">
               <AlertCircle size={16} /> {error}
@@ -645,7 +645,7 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             <div className="space-y-6">
-              <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Your Details</h3>
+              <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase">Your Details</h3>
               {mode === 'signup' && (
                 <>
                   <div className="space-y-1">
@@ -719,7 +719,7 @@ const handleReset = async (e: React.FormEvent) => {
 
             {mode === 'signup' ? (
               <div className="space-y-6">
-                <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Project Setup</h3>
+                <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase">Project Setup</h3>
                 <div className="space-y-1">
                   <label className={labelStyles}>What is the goal of this project?</label>
                   <div className="relative">
@@ -739,9 +739,9 @@ const handleReset = async (e: React.FormEvent) => {
                   <button 
                     type="button" 
                     onClick={() => setFormData({...formData, authorized: !formData.authorized})}
-                    className={`w-full p-5 rounded-[1.5rem] border flex items-center gap-4 transition-all ${formData.authorized ? 'bg-murzak-accent/10 border-murzak-accent shadow-lg' : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border'}`}
+                    className={`w-full p-5 rounded-3xl border flex items-center gap-4 transition-all ${formData.authorized ? 'bg-murzak-accent/10 border-murzak-accent shadow-lg' : 'bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border'}`}
                   >
-                    <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all flex-shrink-0 ${formData.authorized ? 'bg-murzak-accent border-murzak-accent text-murzak-ink' : 'border-slate-300'}`}>
+                    <div className={`w-6 h-6 rounded-sm flex items-center justify-center border-2 transition-all shrink-0 ${formData.authorized ? 'bg-murzak-accent border-murzak-accent text-murzak-ink' : 'border-slate-300'}`}>
                       {formData.authorized && <CheckSquare size={14} />}
                     </div>
                     <span className="text-micro font-black uppercase text-left leading-tight">I authorize Murzak to help set up and host my system securely.</span>
@@ -759,7 +759,7 @@ const handleReset = async (e: React.FormEvent) => {
           )}
 
           {mode === 'login' && (
-            <div className="text-right -mt-2">
+            <div className="text-right">
               <button type="button"
                 onClick={() => { setMode('forgot'); setError(''); setInfo(''); setFieldErrors({}); }}
                 className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors">
@@ -799,7 +799,7 @@ const handleReset = async (e: React.FormEvent) => {
                 disabled={googleLoading || isSubmitting}
                 className="w-full bg-white dark:bg-black/5 border border-slate-200 dark:border-white/15 text-murzak-ink dark:text-slate-100
                            px-6 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black text-sm sm:text-base hover:bg-slate-50 dark:hover:bg-white/15
-                           transition-all shadow-sm flex items-center justify-center gap-3 disabled:opacity-50">
+                           transition-all shadow-xs flex items-center justify-center gap-3 disabled:opacity-50">
                 {googleLoading ? (
                   <RefreshCw className="animate-spin w-5 h-5" />
                 ) : (
@@ -822,14 +822,14 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'forgot' || mode === 'reset') ? (
             <button
               onClick={() => { setMode('login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow"
+              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow-sm"
             >
               ← Back to Log In
             </button>
           ) : (
             <button
               onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setInfo(''); setFieldErrors({}); }}
-              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow"
+              className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors drop-shadow-sm"
             >
               {mode === 'login' ? "Need a New Account? Get Started" : "Already Have an Account? Log In"}
             </button>

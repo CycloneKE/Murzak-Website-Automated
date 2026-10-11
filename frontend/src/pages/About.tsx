@@ -72,13 +72,13 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           absolutely-positioned sibling layers on its own. */}
       <section data-bg-surface="dark" className="relative min-h-[60vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/about-hero.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/90 via-murzak-ink/70 to-murzak-ink/40" />
+        <div className="absolute inset-0 z-0 bg-linear-to-r from-murzak-ink/90 via-murzak-ink/70 to-murzak-ink/40" />
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
           <p className="font-mono text-micro uppercase text-murzak-accent mb-5">About Murzak</p>
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl leading-relaxed">
             Murzak Technologies is a Nairobi team that hosts, builds and looks after the software small
             and growing businesses depend on. We started it because too many good businesses were being
             let down by hosting that went dark, vendors who disappeared, and invoices in dollars.
@@ -184,7 +184,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
                 { icon: <Boxes size={20} />, t: 'Business systems', s: 'Murzak ERP, POS, CRM and accounting, configured around how your team actually works.', page: 'products' as const, cta: 'See products' },
                 { icon: <Code2 size={20} />, t: 'Custom software', s: 'When off-the-shelf won’t do, we design, build and keep running the exact system you need.', page: 'products' as const, cta: 'Start a build' },
               ].map((c) => (
-                <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/[0.08]">
+                <button key={c.t} onClick={() => onNavigate(c.page)} className="group text-left rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 transition-all hover:border-white/60 dark:hover:border-white/10 hover:bg-white/40 dark:hover:bg-white/8">
                   <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">{c.icon}</div>
                   <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{c.t}</h3>
                   <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-5">{c.s}</p>

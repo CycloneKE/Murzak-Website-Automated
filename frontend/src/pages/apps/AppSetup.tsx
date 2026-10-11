@@ -189,7 +189,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
               id="tier"
               value={serviceId}
               onChange={(e) => onTierChange(e.target.value)}
-              className="w-full rounded-xl px-3 py-2 font-black bg-white/70 dark:bg-slate-800 border border-slate-300 dark:border-murzak-border text-murzak-ink dark:text-slate-100 dark:[color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+              className="w-full rounded-xl px-3 py-2 font-black bg-white/70 dark:bg-slate-800 border border-slate-300 dark:border-murzak-border text-murzak-ink dark:text-slate-100 dark:scheme-dark focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
             >
               {tiers.map((t) => (
                 <option key={t.id} value={t.id}>{info.productName} · {t.appPlan}</option>
@@ -246,7 +246,7 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
       </div>
 
       {/* Phone: sticky action bar */}
-      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-murzak-border backdrop-blur"
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 p-4 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-murzak-border backdrop-blur-sm"
         style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
       >
         {messages("mb-2 text-center")}

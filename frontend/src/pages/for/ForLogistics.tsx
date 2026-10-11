@@ -29,7 +29,7 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Track every delivery and route every driver. <span className="text-murzak-gradient">Stop running dispatch on WhatsApp.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's logistics sector has been waiting for. Eliminate delivery disputes and manual tracking.
           </p>
         </div>
@@ -37,15 +37,15 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
 
       {/* Hero Image */}
       <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 -mt-4 mb-12">
-        <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
+        <div className="relative rounded-4xl overflow-hidden shadow-2xl border border-murzak-border group">
           <img 
             src="/images/for-logistics.png" 
             alt="Futuristic logistics tracking visualization with delivery routes and fleet management" 
-            className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]" 
+            className="w-full rounded-4xl transition-transform duration-700 group-hover:scale-[1.02]" 
             loading="lazy"
           />
-          <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-murzak-ink/80 via-murzak-ink/20 to-murzak-ink/30 rounded-[2rem]" />
+          <div className="absolute inset-0 rounded-4xl ring-1 ring-inset ring-white/10" />
+          <div className="absolute inset-0 bg-linear-to-t from-murzak-ink/80 via-murzak-ink/20 to-murzak-ink/30 rounded-4xl" />
         </div>
       </div>
 

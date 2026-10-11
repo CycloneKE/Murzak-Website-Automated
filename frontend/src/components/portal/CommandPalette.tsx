@@ -49,7 +49,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-sm px-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh] bg-black/60 backdrop-blur-xs px-4">
       <div className="w-full max-w-2xl bg-[#0f1115] border border-white/10 rounded-xl shadow-2xl overflow-hidden transform transition-all">
         <Command label="Global Command Menu" shouldFilter={true} className="w-full">
           <div className="flex items-center border-b border-white/10 px-4">
@@ -59,7 +59,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
               placeholder="Type a command or search..." 
               value={inputValue}
               onValueChange={setInputValue}
-              className="w-full bg-transparent text-white placeholder:text-gray-500 h-14 outline-none border-none text-lg"
+              className="w-full bg-transparent text-white placeholder:text-gray-500 h-14 outline-hidden border-none text-lg"
             />
           </div>
 
@@ -78,7 +78,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, user }
                   >
                     <Server className="w-4 h-4 mr-3" />
                     <span>Manage {service.name || service.category}</span>
-                    <span className="ml-auto text-xs opacity-50 bg-white/5 px-2 py-1 rounded">{service.status}</span>
+                    <span className="ml-auto text-xs opacity-50 bg-white/5 px-2 py-1 rounded-sm">{service.status}</span>
                   </Command.Item>
                 ))}
               </Command.Group>

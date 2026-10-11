@@ -324,9 +324,9 @@ const AdminProvisioning: React.FC = () => {
                       </td>
                       <td className="p-4 max-w-[260px]">
                         {j.error
-                          ? <p className="text-micro font-semibold text-red-400 break-words">{j.error}</p>
+                          ? <p className="text-micro font-semibold text-red-400 wrap-break-word">{j.error}</p>
                           : j.external_ref
-                          ? <p className="text-micro font-semibold text-emerald-400 break-words">{j.external_ref}</p>
+                          ? <p className="text-micro font-semibold text-emerald-400 wrap-break-word">{j.external_ref}</p>
                           : <span className="text-micro text-slate-600 dark:text-slate-400">—</span>}
                       </td>
                       <td className="p-4 text-right">
@@ -363,8 +363,8 @@ const AdminProvisioning: React.FC = () => {
       </Card>
 
       {resolveModalJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-sm">
-          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-xs">
+          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-4xl p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
             <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
             <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mb-6">Job: {resolveModalJob}</p>
             
@@ -372,12 +372,12 @@ const AdminProvisioning: React.FC = () => {
               <div>
                 <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
                 <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent" />
               </div>
               <div>
                 <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Access Credentials (JSON)</label>
                 <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
               </div>
               
               <div className="pt-4 flex gap-3">
@@ -392,7 +392,7 @@ const AdminProvisioning: React.FC = () => {
       )}
 
       {consoleJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-xs">
           <div className="w-full max-w-3xl max-h-[85vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col">
             <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-murzak-border">
               <div className="flex items-center text-gray-300 text-sm min-w-0">
@@ -400,7 +400,7 @@ const AdminProvisioning: React.FC = () => {
                 <span className="truncate">
                   {consoleJob.service_name || consoleJob.service_id} — {consoleJob.name}
                 </span>
-                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded text-micro uppercase ${jobStatusClasses(consoleJob.status)}`}>
+                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded-sm text-micro uppercase ${jobStatusClasses(consoleJob.status)}`}>
                   {consoleJob.status || "unknown"}
                 </span>
               </div>
@@ -421,7 +421,7 @@ const AdminProvisioning: React.FC = () => {
               <div>
                 <p className="text-gray-500 uppercase text-micro mb-1">Runner log</p>
                 {consoleJob.log ? (
-                  <pre className="whitespace-pre-wrap break-words text-gray-300">{consoleJob.log}</pre>
+                  <pre className="whitespace-pre-wrap wrap-break-word text-gray-300">{consoleJob.log}</pre>
                 ) : (
                   <p className="text-gray-600">No log recorded yet — {consoleJob.status === "queued" ? "still queued." : "nothing written by the runner."}</p>
                 )}
@@ -430,7 +430,7 @@ const AdminProvisioning: React.FC = () => {
               {consoleJob.error && (
                 <div>
                   <p className="text-gray-500 uppercase text-micro mb-1">Error</p>
-                  <pre className="whitespace-pre-wrap break-words text-orange-400">{consoleJob.error}</pre>
+                  <pre className="whitespace-pre-wrap wrap-break-word text-orange-400">{consoleJob.error}</pre>
                 </div>
               )}
 
@@ -460,7 +460,7 @@ const AdminProvisioning: React.FC = () => {
                       return null;
                     }
                   })()}
-                  <pre className="whitespace-pre-wrap break-words text-emerald-400">{consoleJob.access}</pre>
+                  <pre className="whitespace-pre-wrap wrap-break-word text-emerald-400">{consoleJob.access}</pre>
                 </div>
               )}
             </div>

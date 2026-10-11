@@ -52,7 +52,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
             Sell fast. Know your stock. <span className="text-murzak-gradient">Every branch, one system.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
             Built from scratch for Kenyan retail, not a foreign POS with a Swahili label. Manage your sales, inventory, and M-Pesa payments in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
@@ -96,7 +96,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive: POS Mockup */}
-      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/2">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Checkout made effortless.</h2>
@@ -113,14 +113,14 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
             </ul>
           </div>
 
-          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
+          <div className="relative rounded-4xl overflow-hidden shadow-2xl border border-murzak-border group">
             <img
               src="/images/pos-dashboard.png"
               alt="Murzak POS Dashboard showing checkout interface with M-Pesa payment"
-              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]"
+              className="w-full rounded-4xl transition-transform duration-700 group-hover:scale-[1.02]"
               loading="lazy"
             />
-            <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
+            <div className="absolute inset-0 rounded-4xl ring-1 ring-inset ring-white/10" />
           </div>
         </div>
       </Section>

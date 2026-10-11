@@ -377,7 +377,7 @@ const App: React.FC = () => {
 
       <div className={`relative z-10 flex flex-col min-h-screen w-full ${(isPortalRoute || isPaymentRoute) ? "bg-white/95 dark:bg-murzak-ink/95 rounded-t-[40px] shadow-2xl" : "bg-transparent"}`}>
         {(isPortalRoute || isPaymentRoute) && (
-          // backdrop-blur lives on this decorative child, not the wrapper itself — a
+          // backdrop-blur-sm lives on this decorative child, not the wrapper itself — a
           // backdrop-filter/filter/transform on an ancestor becomes the containing
           // block for every `position: fixed` descendant (spec behavior, not a bug
           // in the descendants), which silently breaks every portal modal's fixed
@@ -396,7 +396,7 @@ const App: React.FC = () => {
           />
         )}
   
-        <main className={`flex-grow relative ${!hideChrome ? "pt-16 sm:pt-20 lg:pt-28" : ""}`}>
+        <main className={`grow relative ${!hideChrome ? "pt-16 sm:pt-20 lg:pt-28" : ""}`}>
           <div className="max-w-full overflow-x-hidden">
             <Routes>
               <Route path="/" element={<Home onNavigate={onNavigate} isLoading={isPageLoading} />} />

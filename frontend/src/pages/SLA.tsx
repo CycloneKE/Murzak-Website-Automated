@@ -12,15 +12,15 @@ const SLA: React.FC = () => {
             className="w-full h-full object-cover opacity-20 dark:opacity-40 transition-opacity duration-700"
             style={{ fetchPriority: 'high' } as any}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-linear-to-r from-white via-white/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-linear-to-t from-white via-transparent to-transparent"></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full text-center lg:text-left">
           <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-sky-700 dark:text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
             Performance guarantee
           </div>
-          <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
+          <h1 className="text-5xl lg:text-9xl lg:leading-(--text-9xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
             Reliability <br /><span className="text-sky-700 dark:text-murzak-accent">assurance.</span>
           </h1>
           <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90 mx-auto lg:mx-0">
@@ -44,7 +44,7 @@ const SLA: React.FC = () => {
                 <h3 className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-10">Uptime guarantee</h3>
                 <p className="text-base font-bold text-slate-600 dark:text-slate-400 leading-relaxed">We guarantee monthly network availability. If we fall below this threshold, Business clients are eligible for service credits.</p>
               </div>
-              <div className="bg-white/20 dark:bg-black/5 p-12 rounded-[3.5rem] border border-slate-200 dark:border-murzak-border shadow-xl backdrop-blur-sm">
+              <div className="bg-white/20 dark:bg-black/5 p-12 rounded-[3.5rem] border border-slate-200 dark:border-murzak-border shadow-xl backdrop-blur-xs">
                 <Clock size={40} className="text-murzak-accent mb-8" />
                 <h2 className="text-6xl font-[900] mb-4 tracking-tighter text-murzak-ink dark:text-slate-100">2-hour</h2>
                 <h3 className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-10">Critical response</h3>
@@ -56,7 +56,7 @@ const SLA: React.FC = () => {
               <h2 className="text-3xl font-black flex items-center gap-4 text-murzak-ink dark:text-slate-100 tracking-tighter leading-none">
                 <Activity size={28} className="text-murzak-accent" /> Support matrix
               </h2>
-              <div className="overflow-x-auto rounded-[2rem] border border-slate-100 dark:border-murzak-border/50 shadow-lg bg-white/40 dark:bg-black/20">
+              <div className="overflow-x-auto rounded-4xl border border-slate-100 dark:border-murzak-border/50 shadow-lg bg-white/40 dark:bg-black/20">
                 <table className="w-full text-left text-sm font-bold">
                   <thead className="border-b border-slate-100 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
                     <tr className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">

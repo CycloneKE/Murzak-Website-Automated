@@ -45,7 +45,7 @@ const AppPlans: React.FC<AppPlansProps> = ({ app, onChoose }) => {
                 className={`px-5 py-2.5 rounded-xl text-sm font-black transition ${
                   // murzak-surface is a fixed white in this theme (not dark-aware), so the
                   // selected pill uses the accent in dark mode with dark ink on it.
-                  term === t ? "bg-white dark:bg-murzak-accent text-murzak-ink shadow" : "text-slate-500 dark:text-slate-400"
+                  term === t ? "bg-white dark:bg-murzak-accent text-murzak-ink shadow-sm" : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 {t === "monthly" ? "Monthly" : (

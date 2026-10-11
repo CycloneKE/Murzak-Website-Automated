@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { computedTextRgb } from './helpers/color';
 
 // Suite 2 — Configurator & pricing (see QA test plan, suite CFG-*).
 // CFG-01 (add/remove totals) and the base checkout flow are already covered
@@ -202,8 +203,8 @@ test.describe('CFG-03 — plan advisor recommends exactly one plan with a legibl
 
     // The dark-mode fix applies here — the reason text must not render as
     // the pre-fix too-dark slate-600 with no override.
-    const color = await reasonEl.evaluate((el) => getComputedStyle(el).color);
-    const [r, g, b] = (color.match(/rgba?\(([^)]+)\)/)?.[1] || '0,0,0').split(',').map((v) => parseFloat(v));
+    // Read the colour as sRGB whatever notation the CSS uses (Tailwind 4 emits oklch()).
+    const [r, g, b] = await computedTextRgb(reasonEl);
     expect(r + g + b).toBeGreaterThan(150);
 
     await page.getByRole('button', { name: /Start over/i }).click();

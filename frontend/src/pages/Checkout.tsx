@@ -405,7 +405,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           alt=""
           className="w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
       <div className="max-w-2xl w-full relative z-10">
         <button
@@ -415,7 +415,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           <ChevronLeft size={16} /> Back to your portal
         </button>
         <div className="mb-6">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-murzak-ink dark:text-slate-100 mb-2 tracking-tighter leading-none">
+          <h1 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-5xl lg:leading-(--text-5xl--line-height) font-black text-murzak-ink dark:text-slate-100 mb-2 tracking-tighter leading-none">
             Check <span className="text-murzak-accent">out.</span>
           </h1>
           <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-500">
@@ -540,7 +540,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             {order.config?.app && order.config?.slug ? (
               <>
                 {order.config.shopName ? (
-                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-words">{order.config.shopName}</p>
+                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 wrap-break-word">{order.config.shopName}</p>
                 ) : null}
                 <p className="text-sm font-semibold font-mono text-slate-600 dark:text-slate-300 mt-0.5 break-all">
                   {order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}

@@ -76,7 +76,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
       <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
 
         {/* Animated background glow */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-blue-500/5 animate-pulse" />
+        <div className="absolute inset-0 bg-linear-to-br from-purple-500/5 to-blue-500/5 animate-pulse" />
 
         <div className="relative z-10">
           <h2 className="text-2xl font-bold text-center text-white mb-8">Deploying your App</h2>
@@ -125,7 +125,7 @@ export const BuildProgressStep: React.FC<Props> = ({ jobId, onNext }) => {
 
           <div className="mt-10 h-2 bg-gray-900 rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-500 ease-out ${error ? 'bg-red-500' : 'bg-gradient-to-r from-purple-500 to-blue-500'}`}
+              className={`h-full transition-all duration-500 ease-out ${error ? 'bg-red-500' : 'bg-linear-to-r from-purple-500 to-blue-500'}`}
               style={{ width: `${Math.min((currentStep / steps.length) * 100, 100)}%` }}
             />
           </div>

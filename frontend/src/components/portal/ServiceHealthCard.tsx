@@ -47,7 +47,7 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
     <button
       onClick={() => onAction?.(action, service.id)}
       disabled={busy}
-      className={`min-w-[2.5rem] min-h-[2.5rem] flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent ${className || "bg-black/5 hover:bg-black/5 text-slate-500 hover:text-murzak-ink dark:text-white"}`}
+      className={`min-w-10 min-h-10 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent ${className || "bg-black/5 hover:bg-black/5 text-slate-500 hover:text-murzak-ink dark:text-white"}`}
       title={title}
       aria-label={title}
     >
@@ -56,7 +56,7 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
   );
 
   return (
-    <div className="glass-card rounded-[2rem] p-5 relative group overflow-hidden border border-murzak-border hover:-translate-y-1 transition-all">
+    <div className="glass-card rounded-4xl p-5 relative group overflow-hidden border border-murzak-border hover:-translate-y-1 transition-all">
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div>
           <h4 className="text-[13px] font-black text-murzak-ink dark:text-white">{service.name}</h4>

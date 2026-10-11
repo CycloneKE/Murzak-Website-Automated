@@ -1,4 +1,5 @@
 import { test, expect, Browser } from '@playwright/test';
+import { computedTextRgb } from './helpers/color';
 
 // Suite 7 — Customer portal (see QA test plan, suite PORT-*).
 // NOTE: if any test below fails landing on /portal/admin instead of /login,
@@ -167,9 +168,10 @@ test.describe('PORT-06 — empty-state dashboard for a brand-new account', () =>
 
     // The dark-mode contrast fix applies here too — this label used to render
     // as text-slate-600 with no dark: override.
-    const color = await page.locator('text=No Active Services').evaluate((el) => getComputedStyle(el).color);
-    const m = color.match(/rgba?\(([^)]+)\)/);
-    const [r, g, b] = (m ? m[1] : '0,0,0').split(',').map((v) => parseFloat(v));
+    // Read the colour as sRGB whatever notation the CSS uses (Tailwind 4 emits oklch()).
+    const label = page.locator('text=No Active Services');
+    const color = await label.evaluate((el) => getComputedStyle(el).color);
+    const [r, g, b] = await computedTextRgb(label);
     // slate-600 (#475569 ~ rgb(71,85,105)) is what the bug looked like; the
     // fixed dark: override is slate-400 (~rgb(148,163,184)) or lighter.
     expect(r + g + b, `label color ${color} looks like the pre-fix too-dark slate-600`).toBeGreaterThan(200);
