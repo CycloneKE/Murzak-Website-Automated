@@ -11,7 +11,8 @@
 // instead of crashing boot. The service account JSON is a BACKEND SECRET — keep
 // it out of the client bundle and out of git.
 
-let admin = null;
+let app = null;
+let getAuth = null;
 let initError = null;
 let initialized = false;
 
@@ -42,23 +43,25 @@ function init() {
 
   try {
     // Require lazily so the dependency is only touched when configured.
-    const firebaseAdmin = require("firebase-admin");
-    if (!firebaseAdmin.apps.length) {
-      firebaseAdmin.initializeApp({
-        credential: firebaseAdmin.credential.cert(serviceAccount),
-      });
-    }
-    admin = firebaseAdmin;
+    // Modular API: in firebase-admin 14.x the root export no longer carries
+    // the namespaced `.apps`, `.credential` or `.auth()`.
+    const { initializeApp, getApps, cert } = require("firebase-admin/app");
+    const auth = require("firebase-admin/auth");
+    app = getApps().length === 0
+      ? initializeApp({ credential: cert(serviceAccount) })
+      : getApps()[0];
+    getAuth = auth.getAuth;
     initError = null;
   } catch (e) {
     initError = `firebase-admin init failed: ${e.message}`;
-    admin = null;
+    app = null;
+    getAuth = null;
   }
 }
 
 function isConfigured() {
   init();
-  return !!admin;
+  return !!app;
 }
 
 function configError() {
@@ -73,7 +76,7 @@ function configError() {
  */
 async function verifyIdToken(idToken) {
   init();
-  if (!admin) {
+  if (!app) {
     const err = new Error(initError || "Firebase is not configured on the server.");
     err.code = "firebase_unconfigured";
     throw err;
@@ -84,7 +87,7 @@ async function verifyIdToken(idToken) {
     throw err;
   }
   // checkRevoked=true so a disabled/revoked account can't keep signing in.
-  return admin.auth().verifyIdToken(idToken, true);
+  return getAuth(app).verifyIdToken(idToken, true);
 }
 
 module.exports = { isConfigured, configError, verifyIdToken };
