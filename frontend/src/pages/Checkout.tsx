@@ -34,6 +34,9 @@ interface InvoicePricing {
   docName: string;
   chargeKes: number;
   paypalAmountUsd: number;
+  // The term the invoice was prepared for. The order's own monthlyKes never
+  // changes with it, so the summary reads this to show what is really charged.
+  term: 'monthly' | 'annual';
 }
 
 // Re-GET the order this often while it's unpaid — well inside the 30-minute
@@ -186,6 +189,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         docName: prepData.invoiceDocName,
         chargeKes: Number(invData.invoice.chargeKes ?? invData.invoice.amount ?? 0),
         paypalAmountUsd: Number(invData.invoice.paypalAmountUsd || 0),
+        term: term === 'annual' ? 'annual' : 'monthly',
       });
     } catch (e: any) {
       if (mountedRef.current) {
@@ -386,6 +390,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
 
   const svcForOrder = order ? getService(order.serviceId) : undefined;
   const period = svcForOrder && isYearlyBilled(svcForOrder) ? "/yr" : "/mo";
+  // Once an annual invoice exists the buyer is being charged the prepay amount,
+  // not order.monthlyKes — the summary must say so or "Due now" contradicts the
+  // pay button.
+  const annualPrepaid = !!invoice && invoice.term === 'annual' && period === "/mo";
+  const dueNowKes = invoice ? invoice.chargeKes : order?.monthlyKes ?? 0;
   const afterPaymentCopy = svcForOrder ? postPurchaseCopy(svcForOrder) : GENERIC_POST_PURCHASE_COPY;
 
   const chrome = (children: React.ReactNode) => (
@@ -540,13 +549,13 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             ) : null}
           </div>
           <span className="text-left sm:text-right whitespace-nowrap">
-            {period === "/yr" ? (
+            {period === "/yr" || annualPrepaid ? (
               <>
                 <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
-                  {formatKes(monthlyEquivalentKes(order.monthlyKes))}/mo
+                  {formatKes(period === "/yr" ? monthlyEquivalentKes(order.monthlyKes) : Math.round(dueNowKes / 12))}/mo
                 </span>
                 <span className="block text-xs font-bold text-slate-600 dark:text-slate-400">
-                  billed annually at {formatKes(order.monthlyKes)}
+                  billed annually at {formatKes(period === "/yr" ? order.monthlyKes : dueNowKes)}
                 </span>
               </>
             ) : (
@@ -559,7 +568,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
           <div className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100">
             <span>Due now</span>
-            <span>{formatKes(order.monthlyKes)}</span>
+            <span>{formatKes(period === "/yr" ? order.monthlyKes : dueNowKes)}</span>
           </div>
           {order.setupKes > 0 && (
             <p className="text-xs font-semibold text-slate-500 pt-1">
