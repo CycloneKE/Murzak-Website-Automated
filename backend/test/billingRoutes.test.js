@@ -221,6 +221,136 @@ function seedAnnualPaidInvoice(webAccountName) {
     );
   }
 
+  // ---- M-Pesa STK push -------------------------------------------------
+  // Regression: the handler used DARAJA_TIMEOUT_MS / appendCheckoutRequestId
+  // without importing them, so every push threw a ReferenceError that the
+  // catch reported as a generic 500 "Failed to initiate M-Pesa payment." —
+  // before Safaricom was ever contacted. These tests run the real handler
+  // against a fake Safaricom (no network).
+  const { effectiveChargeKes, isVerificationOnly } = require("../utils/billingAmount");
+
+  // server.js is a monolith that cannot be required here; mirror its helper.
+  function normalizeMpesaPhone(raw) {
+    const d = String(raw || "").replace(/\D/g, "");
+    if (d.startsWith("254") && d.length === 12) return d;
+    if (d.startsWith("0") && d.length === 10) return "254" + d.slice(1);
+    if (d.length === 9 && (d.startsWith("7") || d.startsWith("1"))) return "254" + d;
+    return null;
+  }
+
+  const MPESA_ENV_KEYS = [
+    "MPESA_ENV", "MPESA_CONSUMER_KEY", "MPESA_CONSUMER_SECRET",
+    "MPESA_SHORTCODE", "MPESA_PASSKEY", "MPESA_CALLBACK_URL",
+  ];
+  const savedEnv = Object.fromEntries(MPESA_ENV_KEYS.map((k) => [k, process.env[k]]));
+  function setMpesaEnv() {
+    process.env.MPESA_ENV = "sandbox";
+    process.env.MPESA_CONSUMER_KEY = "test-key";
+    process.env.MPESA_CONSUMER_SECRET = "test-secret";
+    process.env.MPESA_SHORTCODE = "174379";
+    process.env.MPESA_PASSKEY = "test-passkey";
+    process.env.MPESA_CALLBACK_URL = "https://example.test/api/billing/mpesa/callback?token=t";
+  }
+
+  function stkCtx(client, fakeAxios) {
+    return baseCtx(client, {
+      axios: fakeAxios,
+      effectiveChargeKes,
+      isVerificationOnly,
+      normalizeMpesaPhone,
+      getMpesaAccessToken: async () => "fake-token",
+    });
+  }
+  function unpaidInvoiceStore(webAccount) {
+    return {
+      "Portal Invoice": {
+        "PINV-STK-1": {
+          name: "PINV-STK-1",
+          web_account: webAccount,
+          invoice_no: "INV-26-10-11-0001",
+          status: "Unpaid",
+          amount: 43200,
+        },
+      },
+    };
+  }
+
+  section("POST /api/billing/mpesa/stk-push — sends the prompt and records the checkout id");
+  {
+    setMpesaEnv();
+    const client = makeMockFrappe(unpaidInvoiceStore("acct-stk"));
+    const calls = [];
+    const fakeAxios = {
+      post: async (url, body, opts) => {
+        calls.push({ url, body, opts });
+        return { data: { ResponseCode: "0", CheckoutRequestID: "ws_CO_123", MerchantRequestID: "mr_1" } };
+      },
+    };
+    const router = createBillingRouter(stkCtx(client, fakeAxios));
+    const handler = findHandler(router, "post", "/api/billing/mpesa/stk-push");
+    const req = {
+      session: { webAccount: "acct-stk" },
+      body: { phoneNumber: "0708374149", invoiceDocName: "PINV-STK-1" },
+    };
+    const res = makeRes();
+    await handler(req, res);
+    ok(res.statusCode === 200, `status 200 (got ${res.statusCode}, body: ${JSON.stringify(res.body)})`);
+    ok(res.body?.ok === true && res.body?.checkoutRequestID === "ws_CO_123", "returns the CheckoutRequestID");
+    ok(calls.length === 1, "exactly one request sent to Safaricom");
+    ok(calls[0]?.body?.PhoneNumber === "254708374149", "phone normalised to 254708374149");
+    ok(calls[0]?.body?.Amount === 43200, "charges the full invoice amount (KES 43,200)");
+    ok(
+      typeof calls[0]?.opts?.timeout === "number" && calls[0].opts.timeout >= 1000,
+      "Safaricom request carries a bounded timeout"
+    );
+    const stored = client.store["Portal Invoice"]["PINV-STK-1"];
+    ok(stored.mpesa_checkout_request_id === "ws_CO_123", "checkout id saved on the invoice");
+    ok(stored.mpesa_checkout_request_ids === "ws_CO_123", "checkout id added to the history");
+  }
+
+  section("POST /api/billing/mpesa/stk-push — a second push keeps the earlier checkout id in the history");
+  {
+    setMpesaEnv();
+    const seed = unpaidInvoiceStore("acct-stk2");
+    seed["Portal Invoice"]["PINV-STK-1"].mpesa_checkout_request_ids = "ws_CO_OLD";
+    const client = makeMockFrappe(seed);
+    const fakeAxios = {
+      post: async () => ({ data: { ResponseCode: "0", CheckoutRequestID: "ws_CO_NEW", MerchantRequestID: "mr_2" } }),
+    };
+    const router = createBillingRouter(stkCtx(client, fakeAxios));
+    const handler = findHandler(router, "post", "/api/billing/mpesa/stk-push");
+    const res = makeRes();
+    await handler(
+      { session: { webAccount: "acct-stk2" }, body: { phoneNumber: "0708374149", invoiceDocName: "PINV-STK-1" } },
+      res
+    );
+    ok(res.statusCode === 200, `status 200 (got ${res.statusCode})`);
+    ok(
+      client.store["Portal Invoice"]["PINV-STK-1"].mpesa_checkout_request_ids === "ws_CO_OLD,ws_CO_NEW",
+      "history is 'ws_CO_OLD,ws_CO_NEW'"
+    );
+  }
+
+  section("POST /api/billing/mpesa/stk-push — missing M-Pesa settings is a clear 503, not a crash");
+  {
+    setMpesaEnv();
+    delete process.env.MPESA_PASSKEY;
+    const client = makeMockFrappe(unpaidInvoiceStore("acct-stk3"));
+    const router = createBillingRouter(stkCtx(client, { post: async () => { throw new Error("must not be called"); } }));
+    const handler = findHandler(router, "post", "/api/billing/mpesa/stk-push");
+    const res = makeRes();
+    await handler(
+      { session: { webAccount: "acct-stk3" }, body: { phoneNumber: "0708374149", invoiceDocName: "PINV-STK-1" } },
+      res
+    );
+    ok(res.statusCode === 503, `status 503 (got ${res.statusCode})`);
+  }
+
+  MPESA_ENV_KEYS.forEach((k) => {
+    if (savedEnv[k] === undefined) delete process.env[k];
+    else process.env[k] = savedEnv[k];
+  });
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();

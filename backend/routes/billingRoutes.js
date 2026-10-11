@@ -1,6 +1,14 @@
 
 const express = require('express');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
+// These are used by the M-Pesa STK push and callback handlers below. They were
+// never imported here, so every STK push died with a ReferenceError that the
+// handler's catch turned into a generic 500 "Failed to initiate M-Pesa payment."
+const {
+  DARAJA_TIMEOUT_MS,
+  appendCheckoutRequestId,
+  findInvoiceByCheckoutRequestId
+} = require('../services/mpesaService');
 
 module.exports = function(ctx) {
   const { 
