@@ -79,9 +79,9 @@ const ShopAddressField: React.FC<ShopAddressFieldProps> = ({
         placeholder="e.g. Mama Njeri Stores"
         autoComplete="organization"
         aria-describedby="shop-address-status"
-        className="w-full rounded-2xl px-5 py-4 text-lg font-bold bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+        className="w-full rounded-2xl px-5 py-4 text-lg font-bold bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
       />
-      <div id="shop-address-status" className="mt-2 min-h-[1.5rem] text-sm font-semibold" aria-live="polite">
+      <div id="shop-address-status" className="mt-2 min-h-6 text-sm font-semibold" aria-live="polite">
         {checking && (
           <span className="text-slate-500 dark:text-slate-400 inline-flex items-center gap-1.5">
             <Loader2 size={14} className="animate-spin" /> Checking address…

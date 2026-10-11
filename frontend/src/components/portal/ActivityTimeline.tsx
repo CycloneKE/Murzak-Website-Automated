@@ -31,7 +31,7 @@ const TYPE_COLORS = {
 
 export default function ActivityTimeline({ events }: ActivityTimelineProps) {
   return (
-    <div className="relative pl-6 space-y-8 before:absolute before:inset-y-0 before:left-[11px] before:w-px before:bg-gradient-to-b before:from-murzak-accent/50 before:to-transparent">
+    <div className="relative pl-6 space-y-8 before:absolute before:inset-y-0 before:left-[11px] before:w-px before:bg-linear-to-b before:from-murzak-accent/50 before:to-transparent">
       {events.map((event, index) => (
         <div key={event.id} className="relative group animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
           <div className={`absolute -left-6 top-1 w-6 h-6 rounded-full border flex items-center justify-center bg-murzak-ink ${TYPE_COLORS[event.type]} shadow-[0_0_10px_currentColor] transition-transform group-hover:scale-110`}>

@@ -116,7 +116,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
 
           {/* Business snapshot mockup — hand-coded JSX, not a screenshot */}
           <div className="lg:col-span-5">
-            <div className="rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl p-6 sm:p-7">
+            <div className="rounded-4xl bg-slate-900 border border-murzak-border shadow-2xl p-6 sm:p-7">
               <div className="flex items-center justify-between mb-5">
                 <span className="text-micro font-black uppercase tracking-widest text-slate-400">Business Snapshot</span>
                 <span className="flex items-center gap-1.5 text-micro font-black uppercase text-murzak-accent">
@@ -187,9 +187,9 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive */}
-      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/2">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="order-2 lg:order-1 relative p-8 rounded-[2rem] bg-slate-900 border border-murzak-border shadow-2xl overflow-hidden">
+          <div className="order-2 lg:order-1 relative p-8 rounded-4xl bg-slate-900 border border-murzak-border shadow-2xl overflow-hidden">
             <div className="absolute top-0 right-0 p-4">
               <ShieldCheck className="text-murzak-success" size={24} />
             </div>
@@ -231,7 +231,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
               <Button className="w-full" variant="ghost" onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>Select Light</Button>
            </div>
-           <div className="p-8 rounded-3xl border border-murzak-accent/40 bg-murzak-accent/[0.05]">
+           <div className="p-8 rounded-3xl border border-murzak-accent/40 bg-murzak-accent/5">
               <h3 className="text-xl font-black mb-2">Configured (5-20 Users)</h3>
               <div className="text-3xl font-black text-murzak-ink dark:text-slate-100 mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500 dark:text-slate-400">/mo</span></div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Data migration, training, and tailored workflows included.</p>

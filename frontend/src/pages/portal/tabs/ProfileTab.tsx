@@ -72,7 +72,7 @@ const ProfileTab: React.FC = () => {
                   type="text"
                   value={profileNameDraft}
                   onChange={(e) => setProfileNameDraft(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-none focus:border-murzak-accent/60"
+                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:border-murzak-accent/60"
                 />
               </div>
               <div>
@@ -81,7 +81,7 @@ const ProfileTab: React.FC = () => {
                   type="text"
                   value={profileCompanyDraft}
                   onChange={(e) => setProfileCompanyDraft(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-none focus:border-murzak-accent/60"
+                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:border-murzak-accent/60"
                 />
               </div>
               {profileMsg && !profileMsg.ok && (
@@ -112,7 +112,7 @@ const ProfileTab: React.FC = () => {
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Full Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.name}
               </p>
             </div>
@@ -121,7 +121,7 @@ const ProfileTab: React.FC = () => {
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
               </p>
-              <p className="text-lg sm:text-xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-lg sm:text-xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.email}
               </p>
             </div>
@@ -130,7 +130,7 @@ const ProfileTab: React.FC = () => {
               <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
               </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 break-words pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
+              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
                 {user.company}
               </p>
             </div>
@@ -148,7 +148,7 @@ const ProfileTab: React.FC = () => {
                   value={repoDraft}
                   onChange={(e) => { setRepoDraft(e.target.value); if (repoMsg) setRepoMsg(null); }}
                   placeholder="https://github.com/you/your-app"
-                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-murzak-accent/60"
+                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:border-murzak-accent/60"
                 />
                 <button
                   type="button"
@@ -171,7 +171,7 @@ const ProfileTab: React.FC = () => {
 
         {/* Service Plan */}
         <div className="glass-card glass-dark p-8 sm:p-10 rounded-[3rem] shadow-xl flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-br from-transparent to-murzak-accent/5 z-0 pointer-events-none"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-transparent to-murzak-accent/5 z-0 pointer-events-none"></div>
           <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
 
           {/* This card is `.glass-dark` — a fixed dark backdrop that does not
@@ -196,7 +196,7 @@ const ProfileTab: React.FC = () => {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-murzak-border bg-black/5 p-6 backdrop-blur-sm group-hover:bg-black/5 transition-colors">
+            <div className="rounded-3xl border border-murzak-border bg-black/5 p-6 backdrop-blur-xs group-hover:bg-black/5 transition-colors">
               <div className="flex justify-between items-center mb-4">
                 <p className="text-micro font-black uppercase text-murzak-accent">
                   Provisioned Services

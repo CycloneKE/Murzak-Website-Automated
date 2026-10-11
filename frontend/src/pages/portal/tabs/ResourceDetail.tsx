@@ -128,7 +128,7 @@ const ResourceDetail: React.FC = () => {
 
       {pane === "overview" && (
         <>
-            <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 flex items-start gap-3">
+            <div className="mt-7 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5 flex items-start gap-3">
               <Shield className="w-5 h-5 text-murzak-accent shrink-0 mt-0.5" />
               <p className="text-[13px] font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
                 {resourceAdminActive ? (
@@ -194,7 +194,7 @@ const ResourceDetail: React.FC = () => {
                   The last deployment didn't complete. Our team has been notified and is on it.
                 </p>
                 {cloudJob?.error && (
-                  <p className="text-label text-slate-600 dark:text-slate-400 mt-2 break-words">{toUserMessage(cloudJob.error, "Our team is reviewing the deployment logs.")}</p>
+                  <p className="text-label text-slate-600 dark:text-slate-400 mt-2 wrap-break-word">{toUserMessage(cloudJob.error, "Our team is reviewing the deployment logs.")}</p>
                 )}
                 <button
                   type="button"
@@ -228,7 +228,7 @@ const ResourceDetail: React.FC = () => {
               </div>
             )}
             {isActive && !cloudAccessUrl && cloudJob?.statusDetail === "url_pending" && (
-              <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+              <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">URL pending</p>
                 <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
                   Your app is deployed and we're assigning its web address. Check back shortly, or
@@ -244,7 +244,7 @@ const ResourceDetail: React.FC = () => {
             )}
 
             {isActive && cloudJob && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-2 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                     <ShieldCheck className="w-4 h-4 text-murzak-accent" /> Off-site backup
@@ -283,7 +283,7 @@ const ResourceDetail: React.FC = () => {
         <>
             {/* Deployment history — git-sourced apps only (hidden otherwise). */}
             {deploymentsAvailable && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <div>
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Deployments</p>
@@ -382,7 +382,7 @@ const ResourceDetail: React.FC = () => {
                 />
 
                 {isActive && (
-                  <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+                  <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
                     <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Connect your domain</p>
                     <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
                       Own a domain already? Point an A record at our server, then connect it here. SSL is issued automatically.
@@ -393,7 +393,7 @@ const ResourceDetail: React.FC = () => {
                         value={domainInput}
                         onChange={(e) => setDomainInput(e.target.value)}
                         placeholder="shop.yourbusiness.co.ke"
-                        className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                        className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-[12px] font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                       />
                       <button
                         onClick={submitDomainAttach}
@@ -414,7 +414,7 @@ const ResourceDetail: React.FC = () => {
             )}
 
             {svc?.capacityClass === "scalable" && isActive && (
-              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+              <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Scaling</p>
                 <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-4">
                   Set a fixed replica count, or let it auto-scale with traffic.
@@ -464,7 +464,7 @@ const ResourceDetail: React.FC = () => {
 
       {/* Fixed overlay — lives outside the panes so closing a tab can't strand it. */}
             {deployLogView && (
-              <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-sm" onClick={() => setDeployLogView(null)}>
+              <div className="fixed inset-0 z-130 flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-xs" onClick={() => setDeployLogView(null)}>
                 <div
                   className="w-full max-w-2xl max-h-[80vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col"
                   onClick={(e) => e.stopPropagation()}
@@ -479,7 +479,7 @@ const ResourceDetail: React.FC = () => {
                     {deployLogView.loading ? (
                       <p className="text-xs text-gray-500">Loading log…</p>
                     ) : (
-                      <pre className="whitespace-pre-wrap break-words text-label text-gray-300 leading-relaxed">{deployLogView.logs}</pre>
+                      <pre className="whitespace-pre-wrap wrap-break-word text-label text-gray-300 leading-relaxed">{deployLogView.logs}</pre>
                     )}
                   </div>
                 </div>

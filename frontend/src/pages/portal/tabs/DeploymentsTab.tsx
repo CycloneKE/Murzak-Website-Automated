@@ -100,7 +100,7 @@ const DeploymentsTab: React.FC = () => {
         <button
           type="button"
           onClick={load}
-          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent self-start"
+          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent self-start"
           title="Refresh"
           aria-label="Refresh deployments"
         >
@@ -137,7 +137,7 @@ const DeploymentsTab: React.FC = () => {
                   }`}
                   aria-label={d.result || "in progress"}
                 />
-                <div className="min-w-0 flex-grow">
+                <div className="min-w-0 grow">
                   <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
                     {d.serviceName}
                     <span className="ml-2 font-bold text-slate-500 normal-case">{d.status || "unknown"}</span>
@@ -173,7 +173,7 @@ const DeploymentsTab: React.FC = () => {
 
       {deployLogView && (
         <div
-          className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-sm"
+          className="fixed inset-0 z-130 flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-xs"
           onClick={() => setDeployLogView(null)}
         >
           <div
@@ -196,7 +196,7 @@ const DeploymentsTab: React.FC = () => {
               {deployLogView.loading ? (
                 <p className="text-xs text-gray-500">Loading log…</p>
               ) : (
-                <pre className="whitespace-pre-wrap break-words text-label text-gray-300 leading-relaxed">
+                <pre className="whitespace-pre-wrap wrap-break-word text-label text-gray-300 leading-relaxed">
                   {deployLogView.logs}
                 </pre>
               )}

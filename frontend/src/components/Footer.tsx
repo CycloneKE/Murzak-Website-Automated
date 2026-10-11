@@ -27,10 +27,10 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   ];
 
   return (
-    <footer className="relative z-10 w-full flex-shrink-0 bg-murzak-ink text-murzak-base pt-20 pb-12 border-t border-murzak-border/50 transition-colors duration-300">
+    <footer className="relative z-10 w-full shrink-0 bg-murzak-ink text-murzak-base pt-20 pb-12 border-t border-murzak-border/50 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
         {/* Top CTA band */}
-        <div className="mb-16 lg:mb-20 rounded-[2.5rem] border border-murzak-border bg-white/[0.03] p-8 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="mb-16 lg:mb-20 rounded-[2.5rem] border border-murzak-border bg-white/3 p-8 sm:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="text-center lg:text-left">
             <h3 className="text-2xl sm:text-3xl font-[900] tracking-tight">Ready when you are.</h3>
             <p className="mt-2 text-slate-500 font-medium text-sm sm:text-base max-w-xl">
@@ -83,7 +83,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <a
                 href="https://www.linkedin.com/in/murzak-technologies-1774b63a9"
                 target="_blank" rel="noopener noreferrer"
-                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                 aria-label="LinkedIn"
               >
                 <Linkedin size={18} />
@@ -91,7 +91,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <a
                 href="https://twitter.com/MurzakTech"
                 target="_blank" rel="noopener noreferrer"
-                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                 aria-label="Twitter / X"
               >
                 <Twitter size={18} />
@@ -99,7 +99,7 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <a
                 href="https://instagram.com/Murzaktechnologies"
                 target="_blank" rel="noopener noreferrer"
-                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                className="w-11 h-11 rounded-2xl bg-black/5 flex items-center justify-center text-slate-500 hover:text-murzak-accent hover:bg-black/5 transition-all focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                 aria-label="Instagram"
               >
                 <Instagram size={18} />

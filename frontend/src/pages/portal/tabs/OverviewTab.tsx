@@ -186,9 +186,9 @@ const OverviewTab: React.FC = () => {
       {/* Status band — the persistent page header already renders the "Welcome
           back" greeting, so this strip focuses on live status + quick actions
           instead of repeating it. */}
-      <div className="glass-card rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden group border border-murzak-border">
-        <div className="absolute inset-0 bg-gradient-to-r from-murzak-ink to-transparent opacity-90 dark:opacity-50"></div>
-        <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 bg-[url('/portal-hero-bg.webp')] bg-cover mix-blend-overlay blur-sm transition-transform duration-1000 group-hover:scale-105"></div>
+      <div className="glass-card rounded-4xl sm:rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden group border border-murzak-border">
+        <div className="absolute inset-0 bg-linear-to-r from-murzak-ink to-transparent opacity-90 dark:opacity-50"></div>
+        <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 bg-[url('/portal-hero-bg.webp')] bg-cover mix-blend-overlay blur-xs transition-transform duration-1000 group-hover:scale-105"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -271,7 +271,7 @@ const OverviewTab: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 rounded-[2rem] border border-dashed border-murzak-border bg-black/5">
+              <div className="text-center py-12 rounded-4xl border border-dashed border-murzak-border bg-black/5">
                 <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
                 <p className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-2">No Active Services</p>
                 <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-6">Your account is ready. Here's what you can add.</p>

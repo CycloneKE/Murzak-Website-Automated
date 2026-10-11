@@ -43,7 +43,7 @@ export default function ManagedComparison() {
           <div
             key={r.feature}
             className={`grid grid-cols-[1.4fr_1fr_1fr] border-t border-slate-200 dark:border-murzak-border ${
-              i % 2 ? "bg-slate-50/60 dark:bg-white/[0.02]" : ""
+              i % 2 ? "bg-slate-50/60 dark:bg-white/2" : ""
             }`}
           >
             <div className="p-4 sm:p-5 text-label sm:text-[13px] font-black text-murzak-ink dark:text-slate-100">

@@ -217,7 +217,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section data-bg-surface="dark" className="relative min-h-[90vh] flex items-center pt-24 lg:pt-36 pb-20 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
         <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/nairobi-skyline.webp')" }} />
         {/* Dark overlay to ensure white text is perfectly legible against the background image */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
+        <div className="absolute inset-0 z-0 bg-linear-to-r from-murzak-ink/95 via-murzak-ink/60 to-transparent sm:via-murzak-ink/75" />
         {/* ambient */}
         <div className="pointer-events-none absolute inset-0 z-0">
           <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '32px 32px' }} />
@@ -321,7 +321,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <Reveal key={p.title} delayMs={i * 80} className={p.span}>
                 <button
                   onClick={() => onNavigate(p.page)}
-                  className="group text-left w-full h-full rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/[0.05] hover:-translate-y-1"
+                  className="group text-left w-full h-full rounded-3xl glass-dark p-8 lg:p-10 transition-all hover:border-murzak-accent/40 hover:bg-white/5 hover:-translate-y-1"
                 >
                   <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">{p.icon}</div>
                   <p className="font-mono text-micro uppercase text-slate-400 mb-2">{p.tag}</p>
@@ -486,7 +486,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </ul>
             </Reveal>
             {/* the murzak way */}
-            <Reveal delayMs={80} className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/[0.06] p-8 lg:p-10 overflow-hidden">
+            <Reveal delayMs={80} className="relative rounded-3xl border border-murzak-accent/30 bg-murzak-accent/6 p-8 lg:p-10 overflow-hidden">
               <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full blur-[100px] bg-brand-gradient opacity-20" />
               <p className="font-mono text-micro uppercase text-murzak-accent mb-6 relative">The Murzak way</p>
               <ul className="space-y-4 relative">
@@ -529,7 +529,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('pricing')}
                   className={`text-left w-full h-full rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
                     m.featured
-                      ? 'border-murzak-accent/40 bg-murzak-accent/[0.06]'
+                      ? 'border-murzak-accent/40 bg-murzak-accent/6'
                       : 'glass-dark hover:border-white/20'
                   }`}
                 >

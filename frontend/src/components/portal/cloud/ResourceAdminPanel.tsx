@@ -240,7 +240,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   if (!loading && !eligibility?.enabled) return null;
 
   const shell = (children: React.ReactNode) => (
-    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
       <div className="flex items-center gap-3 mb-3">
         <SlidersHorizontal className="w-5 h-5 text-murzak-accent" />
         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Advanced Controls</p>
@@ -372,7 +372,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             {envs.map((env) => (
               <div
                 key={env.uuid || env.key}
-                className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/[0.04] border border-slate-100 dark:border-murzak-border px-3 py-2"
+                className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border px-3 py-2"
               >
                 <code className="text-label font-bold text-slate-700 dark:text-slate-300 shrink-0">{env.key}</code>
                 <code className="text-label font-medium text-slate-500 truncate flex-1">
@@ -411,13 +411,13 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             value={draftKey}
             onChange={(e) => setDraftKey(e.target.value)}
             placeholder="VARIABLE_NAME"
-            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/[0.04] px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
           />
           <input
             value={draftValue}
             onChange={(e) => setDraftValue(e.target.value)}
             placeholder="value"
-            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/[0.04] px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
           />
           <button
             type="button"
@@ -441,7 +441,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             <select
               value={logLines}
               onChange={(e) => setLogLines(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/[0.04] px-2 py-1 text-micro font-bold text-slate-600 dark:text-slate-300"
+              className="rounded-lg border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-2 py-1 text-micro font-bold text-slate-600 dark:text-slate-300"
             >
               <option value={100}>100 lines</option>
               <option value={200}>200 lines</option>
@@ -494,7 +494,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               onChange={(e) => setRequestDetail(e.target.value)}
               rows={3}
               placeholder={REQUEST_TOPICS.find((t) => t.id === requestTopic)?.hint}
-              className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/[0.04] px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+              className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
             />
             <button
               type="button"

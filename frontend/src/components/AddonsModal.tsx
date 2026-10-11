@@ -163,7 +163,7 @@ useLayoutEffect(() => {
   };
 
 return createPortal(
-  <div className="fixed inset-0 z-[140]">
+  <div className="fixed inset-0 z-140">
     <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
     <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
       <div className="relative w-full max-w-6xl md:max-w-7xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
@@ -203,7 +203,7 @@ return createPortal(
     style={{ WebkitOverflowScrolling: "touch" }}
   >
     {addons.length === 0 ? (
-      <div className="text-center py-16 rounded-[2rem] border border-dashed border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
+      <div className="text-center py-16 rounded-4xl border border-dashed border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           No add-ons available for this plan tier yet.
         </p>
@@ -265,7 +265,7 @@ return createPortal(
   <div className="hidden sm:block sm:w-[32%] border-l border-slate-200 dark:border-murzak-border p-5 sm:p-6">
     <div className="sticky top-4 space-y-4">
       {/* Selected list */}
-      <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
+      <div className="rounded-4xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           Selected
         </p>
@@ -313,7 +313,7 @@ return createPortal(
       </div>
 
       {/* Total + CTA */}
-      <div className="rounded-[2rem] border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
+      <div className="rounded-4xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
         <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
           Total monthly
         </p>

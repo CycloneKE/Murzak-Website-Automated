@@ -1,6 +1,348 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-murzak-base: #f8fafb;
+  --color-murzak-surface: #ffffff;
+  --color-murzak-ink: #090c10;
+  --color-murzak-muted: #4b5270;
+  --color-murzak-success: #22c55e;
+  --color-murzak-warning: #f59e0b;
+  --color-murzak-danger: #ef4444;
+  --color-murzak-border: #dfe4f7;
+  --color-murzak-accent: #00bdfc;
+  --color-murzak-brand1: #882ffd;
+  --color-murzak-brand2: #3388f2;
+
+  --font-sans: Manrope Variable, Manrope, sans-serif;
+  --font-mono: JetBrains Mono Variable, JetBrains Mono, monospace;
+
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.35;
+  --text-micro--letter-spacing: 0.08em;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.4;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.5;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.55;
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.6;
+  --text-title-sm: 1.125rem;
+  --text-title-sm--line-height: 1.4;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.35;
+  --text-title-lg: 1.5rem;
+  --text-title-lg--line-height: 1.3;
+  --text-display-sm: 1.875rem;
+  --text-display-sm--line-height: 1.2;
+  --text-display-sm--letter-spacing: -0.01em;
+  --text-display: 2.25rem;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.015em;
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 1.1;
+  --text-display-lg--letter-spacing: -0.02em;
+
+  --font-weight-black: 800;
+
+  --background-image-brand-gradient: linear-gradient(
+    to right,
+    #882ffd,
+    #3388f2
+  );
+
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  --shadow-glass-dark: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+
+  --animate-float: float 8s ease-in-out infinite;
+  --animate-drift: drift 20s ease-in-out infinite;
+  --animate-drift-slow: drift 35s ease-in-out infinite alternate;
+  --animate-pulse-slow: pulse 10s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-glow-pulse: glowPulse 2.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s infinite linear;
+  --animate-fade-in: fadeIn 0.45s ease-out both;
+  --animate-fade-in-up: fadeInUp 0.6s ease-out both;
+  --animate-scale-in: scaleIn 0.5s ease-out both;
+  --animate-slide-in-right: slideInRight 0.5s ease-out both;
+  --animate-fall: fall 2.4s linear infinite;
+
+  @keyframes glowPulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      filter: brightness(1);
+    }
+    50% {
+      opacity: 1;
+      filter: brightness(1.3);
+    }
+  }
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes scaleIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes slideInRight {
+    0% {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes fall {
+    0% {
+      transform: translateY(-20px) rotate(0deg);
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(130px) rotate(240deg);
+      opacity: 0;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-30px) rotate(5deg);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes drift {
+    0% {
+      transform: translate(0, 0) scale(1) rotate(0deg);
+    }
+    33% {
+      transform: translate(80px, -120px) scale(1.2) rotate(15deg);
+    }
+    66% {
+      transform: translate(-60px, 40px) scale(0.9) rotate(-10deg);
+    }
+    100% {
+      transform: translate(0, 0) scale(1) rotate(0deg);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility micro-label {
+  /* Legible micro-label: replaces text-[8-10px] uppercase tracking-widest font-black */
+  @apply text-micro font-bold uppercase text-murzak-muted dark:text-slate-400;
+}
+
+@utility text-murzak-gradient {
+  /* Brand gradient text */
+  background-image: linear-gradient(to right, #882ffd, #3388f2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility glass-panel {
+  /* Glassmorphism Utilities - Light Mode (dark-mode surfaces flip to a dark
+     translucent panel so cards don't stay light-only inside html.dark) */
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(223, 228, 247, 0.8); /* Border color */
+  box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
+  html.dark & {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@utility glass-card {
+  /* Portal card surface — same treatment as .glass-panel. Used across the
+     portal instead of .glass-panel in a handful of places; kept as a
+     separate class name so portal-specific overrides can diverge later. */
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(223, 228, 247, 0.8);
+  box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
+  html.dark & {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+  }
+}
+
+@utility glass-light {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(223, 228, 247, 0.5);
+  box-shadow: 0 4px 16px -4px rgba(9, 12, 16, 0.03);
+  html.dark & {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+@utility glass-input {
+  /* Form-field surface. Was referenced by PaymentMethods / PayPalCardSection but
+     never defined, so the M-Pesa phone and card fields rendered unstyled. Text
+     colour is flipped in dark mode here because those callers only set
+     text-murzak-ink (a fixed near-black). */
+  background: rgba(255, 255, 255, 0.7);
+  border-width: 1px;
+  border-style: solid;
+  &:not([class*='border-red']) {
+    border-color: rgba(223, 228, 247, 0.9);
+  }
+  &::placeholder {
+    color: #94a3b8;
+  }
+  html.dark & {
+    background: rgba(255, 255, 255, 0.06);
+    color: #f1f5f9;
+  }
+  /* Border colour is skipped when a caller marks the field as errored with a
+     border-red utility — otherwise this selector's specificity would hide it. */
+  html.dark &:not([class*='border-red']) {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+  html.dark &::placeholder {
+    color: #64748b;
+  }
+}
+
+@utility glass-interactive {
+  /* Interactive Glass Hover */
+  transition: all 0.3s ease;
+  &:hover {
+    border-color: rgba(0, 189, 252, 0.5); /* Accent cyan */
+    box-shadow: 0 8px 32px -8px rgba(0, 189, 252, 0.15);
+    transform: translateY(-2px);
+  }
+}
+
+@utility glass-dark {
+  /* Immersive Overlay - Spatial Glass (Dark) */
+  background: rgba(24, 26, 30, 0.42);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: white;
+}
+
+@utility glass-pill {
+  /* Pill Controls on Dark Glass */
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+@utility glass-pill-inactive {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+@utility section-bg-wash {
+  /* Section background duotone — the shared "GLOBAL BACKGROUND WRAPPER" image
+     layer (Home/Cloud/Products/About/CustomSoftware/ForLogistics) desaturated
+     and washed in the brand gradient instead of sitting under a flat tint.
+     Pair with a higher-opacity, desaturated bg-image (see each page's own
+     `filter: saturate(.5) contrast(1.05)` inline style) and .section-bg-fade
+     for the theme-correct top/bottom read-through fade. */
+  background: linear-gradient(
+    115deg,
+    rgba(136, 47, 253, 0.55) 0%,
+    rgba(51, 136, 242, 0.42) 55%,
+    rgba(9, 12, 16, 0.75) 100%
+  );
+  html:not(.dark) & {
+    background: linear-gradient(
+      115deg,
+      rgba(136, 47, 253, 0.5) 0%,
+      rgba(51, 136, 242, 0.38) 55%,
+      rgba(248, 250, 251, 0.8) 100%
+    );
+  }
+}
+
+@utility section-bg-fade {
+  /* The middle band is a light tint rather than fully transparent — bare
+     section text (kickers/body copy not sitting inside its own card) still
+     needs to read against this, and a colorful wash alone isn't enough
+     contrast for the site's normal light/dark text colors. Verified via
+     pixel-sampled compositing, not just eyeballing. */
+  background: linear-gradient(
+    180deg,
+    rgba(248, 250, 251, 0.9) 0%,
+    rgba(248, 250, 251, 0.25) 30%,
+    rgba(248, 250, 251, 0.25) 70%,
+    rgba(248, 250, 251, 0.9) 100%
+  );
+  html.dark & {
+    background: linear-gradient(
+      180deg,
+      rgba(9, 12, 16, 0.9) 0%,
+      rgba(9, 12, 16, 0.25) 30%,
+      rgba(9, 12, 16, 0.25) 70%,
+      rgba(9, 12, 16, 0.9) 100%
+    );
+  }
+}
 
 @layer base {
   /* Set base font to Manrope. JetBrains Mono used via explicit class. */
@@ -9,157 +351,21 @@
   }
 }
 
-html { background-color: #F8FAFB; }
-body {
-  /* Base background. The gradient effects will be applied in Layout wrappers */
-  background-color: #F8FAFB;
-}
-
-html.dark { background-color: #090C10; }
-html.dark body { background-color: #090C10; color: #F1F5F9; }
-
-@layer components {
-  /* Legible micro-label: replaces text-[8-10px] uppercase tracking-widest font-black */
-  .micro-label {
-    @apply text-micro font-bold uppercase text-murzak-muted dark:text-slate-400;
-  }
-}
-
 @layer utilities {
-  /* Brand gradient text */
-  .text-murzak-gradient {
-    background-image: linear-gradient(to right, #882FFD, #3388F2);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  html {
+    background-color: #f8fafb;
   }
-  
-  /* Glassmorphism Utilities - Light Mode (dark-mode surfaces flip to a dark
-     translucent panel so cards don't stay light-only inside html.dark) */
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(223, 228, 247, 0.8); /* Border color */
-    box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
-  }
-  html.dark .glass-panel {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
+  body {
+    /* Base background. The gradient effects will be applied in Layout wrappers */
+    background-color: #f8fafb;
   }
 
-  /* Portal card surface — same treatment as .glass-panel. Used across the
-     portal instead of .glass-panel in a handful of places; kept as a
-     separate class name so portal-specific overrides can diverge later. */
-  .glass-card {
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(223, 228, 247, 0.8);
-    box-shadow: 0 4px 24px -4px rgba(9, 12, 16, 0.05);
+  html.dark {
+    background-color: #090c10;
   }
-  html.dark .glass-card {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
-  }
-
-  .glass-light {
-    background: rgba(255, 255, 255, 0.25);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(223, 228, 247, 0.5);
-    box-shadow: 0 4px 16px -4px rgba(9, 12, 16, 0.03);
-  }
-  html.dark .glass-light {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
-  /* Form-field surface. Was referenced by PaymentMethods / PayPalCardSection but
-     never defined, so the M-Pesa phone and card fields rendered unstyled. Text
-     colour is flipped in dark mode here because those callers only set
-     text-murzak-ink (a fixed near-black). */
-  .glass-input {
-    background: rgba(255, 255, 255, 0.7);
-    border-width: 1px;
-    border-style: solid;
-  }
-  .glass-input:not([class*="border-red"]) {
-    border-color: rgba(223, 228, 247, 0.9);
-  }
-  .glass-input::placeholder {
-    color: #94a3b8;
-  }
-  html.dark .glass-input {
-    background: rgba(255, 255, 255, 0.06);
+  html.dark body {
+    background-color: #090c10;
     color: #f1f5f9;
-  }
-  /* Border colour is skipped when a caller marks the field as errored with a
-     border-red utility — otherwise this selector's specificity would hide it. */
-  html.dark .glass-input:not([class*="border-red"]) {
-    border-color: rgba(255, 255, 255, 0.14);
-  }
-  html.dark .glass-input::placeholder {
-    color: #64748b;
-  }
-
-  /* Interactive Glass Hover */
-  .glass-interactive {
-    transition: all 0.3s ease;
-  }
-  .glass-interactive:hover {
-    border-color: rgba(0, 189, 252, 0.5); /* Accent cyan */
-    box-shadow: 0 8px 32px -8px rgba(0, 189, 252, 0.15);
-    transform: translateY(-2px);
-  }
-  
-  /* Immersive Overlay - Spatial Glass (Dark) */
-  .glass-dark {
-    background: rgba(24, 26, 30, 0.42);
-    backdrop-filter: blur(20px) saturate(170%);
-    -webkit-backdrop-filter: blur(20px) saturate(170%);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: white;
-  }
-
-  /* Pill Controls on Dark Glass */
-  .glass-pill {
-    background: rgba(255, 255, 255, 0.22);
-    border-radius: 999px;
-  }
-  .glass-pill-inactive {
-    background: rgba(255, 255, 255, 0.10);
-    border-radius: 999px;
-  }
-
-  /* Section background duotone — the shared "GLOBAL BACKGROUND WRAPPER" image
-     layer (Home/Cloud/Products/About/CustomSoftware/ForLogistics) desaturated
-     and washed in the brand gradient instead of sitting under a flat tint.
-     Pair with a higher-opacity, desaturated bg-image (see each page's own
-     `filter: saturate(.5) contrast(1.05)` inline style) and .section-bg-fade
-     for the theme-correct top/bottom read-through fade. */
-  .section-bg-wash {
-    background: linear-gradient(115deg, rgba(136, 47, 253, 0.55) 0%, rgba(51, 136, 242, 0.42) 55%, rgba(9, 12, 16, 0.75) 100%);
-  }
-  html:not(.dark) .section-bg-wash {
-    background: linear-gradient(115deg, rgba(136, 47, 253, 0.5) 0%, rgba(51, 136, 242, 0.38) 55%, rgba(248, 250, 251, 0.8) 100%);
-  }
-  /* The middle band is a light tint rather than fully transparent — bare
-     section text (kickers/body copy not sitting inside its own card) still
-     needs to read against this, and a colorful wash alone isn't enough
-     contrast for the site's normal light/dark text colors. Verified via
-     pixel-sampled compositing, not just eyeballing. */
-  .section-bg-fade {
-    background: linear-gradient(180deg,
-      rgba(248, 250, 251, 0.9) 0%, rgba(248, 250, 251, 0.25) 30%,
-      rgba(248, 250, 251, 0.25) 70%, rgba(248, 250, 251, 0.9) 100%);
-  }
-  html.dark .section-bg-fade {
-    background: linear-gradient(180deg,
-      rgba(9, 12, 16, 0.9) 0%, rgba(9, 12, 16, 0.25) 30%,
-      rgba(9, 12, 16, 0.25) 70%, rgba(9, 12, 16, 0.9) 100%);
   }
 }
 

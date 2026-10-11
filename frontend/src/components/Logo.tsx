@@ -31,7 +31,7 @@ const Logo: React.FC<LogoProps> = ({ className = "", variant = 'full', theme, ma
           aria-hidden="true"
           width={257}
           height={128}
-          className="h-7 sm:h-9 lg:h-10 w-auto shrink-0 drop-shadow-sm"
+          className="h-7 sm:h-9 lg:h-10 w-auto shrink-0 drop-shadow-xs"
           draggable={false}
         />
       </picture>

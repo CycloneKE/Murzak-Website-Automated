@@ -28,7 +28,7 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
           alt=""
           className="absolute inset-0 z-[-2] w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
         />
-        <div className="absolute inset-0 z-[-1] bg-gradient-to-b from-white via-white/95 to-white dark:from-murzak-ink dark:via-murzak-ink/95 dark:to-murzak-ink" />
+        <div className="absolute inset-0 z-[-1] bg-linear-to-b from-white via-white/95 to-white dark:from-murzak-ink dark:via-murzak-ink/95 dark:to-murzak-ink" />
 
         <div className="max-w-lg mx-auto text-center relative z-10">
           <CheckCircle2 size={56} className="text-green-500 mx-auto mb-8" />

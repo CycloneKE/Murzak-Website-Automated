@@ -45,11 +45,11 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
 
   return (
     <div className="bg-[#1e1e1e] p-6 rounded-lg border border-[#333] max-w-md w-full mx-auto relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500" />
+      <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-blue-500 to-purple-500" />
       <h3 className="text-xl font-medium text-white mb-4">Scaling Settings</h3>
 
-      {error && <div className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded text-red-200 text-sm">{error}</div>}
-      {success && <div className="mb-4 p-3 bg-green-900/50 border border-green-500/50 rounded text-green-200 text-sm">Scaling settings updated successfully.</div>}
+      {error && <div className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-sm text-red-200 text-sm">{error}</div>}
+      {success && <div className="mb-4 p-3 bg-green-900/50 border border-green-500/50 rounded-sm text-green-200 text-sm">Scaling settings updated successfully.</div>}
 
       <div className="mb-6 flex gap-2 p-1 bg-[#2a2a2a] rounded-lg">
         <button
@@ -76,7 +76,7 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
               max={10} 
               value={replicas} 
               onChange={e => setReplicas(parseInt(e.target.value) || 1)} 
-              className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded p-2 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded-sm p-2 focus:border-blue-500 focus:outline-hidden"
             />
             <p className="text-xs text-gray-500 mt-1">Fixed number of pods running your application.</p>
           </div>
@@ -91,7 +91,7 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
                   max={maxReplicas} 
                   value={minReplicas} 
                   onChange={e => setMinReplicas(parseInt(e.target.value) || 1)} 
-                  className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded p-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded-sm p-2 focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
               <div>
@@ -102,7 +102,7 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
                   max={20} 
                   value={maxReplicas} 
                   onChange={e => setMaxReplicas(parseInt(e.target.value) || 1)} 
-                  className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded p-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded-sm p-2 focus:border-blue-500 focus:outline-hidden"
                 />
               </div>
             </div>
@@ -114,7 +114,7 @@ export function ScalingSettings({ serviceId, onClose }: ScalingSettingsProps) {
                 max={95} 
                 value={cpuPercent} 
                 onChange={e => setCpuPercent(parseInt(e.target.value) || 80)} 
-                className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded p-2 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-[#2a2a2a] border border-[#333] text-white rounded-sm p-2 focus:border-blue-500 focus:outline-hidden"
               />
               <p className="text-xs text-gray-500 mt-1">Scale out when average CPU utilization hits this target.</p>
             </div>

@@ -89,7 +89,7 @@ export default function PlanAdvisor({ isOpen, onClose, onChoosePlan, onTalkToSal
   const recMeta = rec ? PLAN_META[rec.plan] : null;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-130 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={close} />
 
       <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-murzak-ink backdrop-blur-xl overflow-hidden shadow-2xl border border-murzak-border">

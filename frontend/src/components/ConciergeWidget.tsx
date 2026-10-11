@@ -145,7 +145,7 @@ const ConciergeWidget: React.FC = () => {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Murzaker..."
-                className="w-full bg-black/5 border border-murzak-border rounded-xl pl-4 pr-12 py-3 text-sm text-murzak-ink dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:border-murzak-accent/50 resize-none max-h-32"
+                className="w-full bg-black/5 border border-murzak-border rounded-xl pl-4 pr-12 py-3 text-sm text-murzak-ink dark:text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-murzak-accent/50 resize-none max-h-32"
                 rows={1}
               />
               <button

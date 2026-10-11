@@ -123,7 +123,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
   const usedPct = quotaBytes > 0 ? Math.min(100, (usedBytes / quotaBytes) * 100) : 0;
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-5">
+    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
           <HardDrive className="w-5 h-5 text-murzak-accent" />
@@ -161,7 +161,7 @@ const StorageFileBrowser: React.FC<StorageFileBrowserProps> = ({ serviceId, isAc
           {files.map((file) => (
             <div
               key={file.key}
-              className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/[0.04] border border-slate-100 dark:border-murzak-border px-3 py-2"
+              className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border px-3 py-2"
             >
               <span className="text-label font-bold text-slate-700 dark:text-slate-300 truncate flex-1">{file.name}</span>
               <span className="text-micro font-medium text-slate-400 shrink-0">{formatBytes(file.size)}</span>

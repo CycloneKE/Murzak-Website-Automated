@@ -37,15 +37,15 @@ const ForLogistics: React.FC<Props> = ({ onNavigate }) => {
 
       {/* Hero Image */}
       <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 -mt-4 mb-12">
-        <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
+        <div className="relative rounded-4xl overflow-hidden shadow-2xl border border-murzak-border group">
           <img 
             src="/images/for-logistics.png" 
             alt="Futuristic logistics tracking visualization with delivery routes and fleet management" 
-            className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]" 
+            className="w-full rounded-4xl transition-transform duration-700 group-hover:scale-[1.02]" 
             loading="lazy"
           />
-          <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-murzak-ink/80 via-murzak-ink/20 to-murzak-ink/30 rounded-[2rem]" />
+          <div className="absolute inset-0 rounded-4xl ring-1 ring-inset ring-white/10" />
+          <div className="absolute inset-0 bg-linear-to-t from-murzak-ink/80 via-murzak-ink/20 to-murzak-ink/30 rounded-4xl" />
         </div>
       </div>
 

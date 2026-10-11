@@ -307,7 +307,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
               <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">
                 <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               </div>
-              <div className="flex-grow">
+              <div className="grow">
                 <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                   Threads
                 </p>
@@ -321,7 +321,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
               </div>
               <button
                 onClick={loadThreads}
-                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 title="Refresh"
                 aria-label="Refresh threads"
                 type="button"
@@ -337,7 +337,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, email, company..."
                 className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl sm:rounded-2xl pl-11 pr-4 py-2.5 sm:py-3
-                            text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent"/>
+                            text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"/>
             </div>
           </div>
 
@@ -410,7 +410,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
 
               <button
                 onClick={() => selectedId && loadThread(selectedId)}
-                className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 title="Refresh thread"
                 aria-label="Refresh thread"
                 type="button"
@@ -501,7 +501,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                             : "bg-slate-50 dark:bg-black/5 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
                         }`}
                       >
-                        <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">
+                        <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">
                           {m.message}
                         </p>
                         {m.attachments && (
@@ -531,7 +531,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
             </div>
 
             <form onSubmit={handleSend} className="mt-5 flex flex-col sm:flex-row gap-3 items-stretch">
-              <div className="flex-grow">
+              <div className="grow">
                 <label className="block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1">
                   Reply
                 </label>
@@ -561,7 +561,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Reply to this user..."
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all resize-none"
+                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition-all resize-none"
                 />
               </div>
 

@@ -240,7 +240,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
   const messages = thread?.messages || [];
 
   const inputBase =
-    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition-all";
+    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition-all";
 
   const inputClasses = (key: string) =>
     `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
@@ -249,9 +249,9 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
     "block text-micro font-black text-slate-400 uppercase mb-2 ml-1";
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6">
+    <div className="fixed inset-0 z-200 flex items-center justify-center p-3 sm:p-6">
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[2px] sm:backdrop-blur-[4px]"
+        className="absolute inset-0 bg-black/20 backdrop-blur-[2px] sm:backdrop-blur-xs"
         onClick={onClose}
       />
 
@@ -304,7 +304,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                           : "bg-slate-50 text-murzak-ink border-slate-200"
                       }`}
                     >
-                      <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap break-words">{m.message}</p>
+                      <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">{m.message}</p>
                       {m.attachments && (
                         <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`}
                           target="_blank"
@@ -337,7 +337,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
           )}
 
           <form onSubmit={handleSend} className="mt-4 flex gap-3 items-center">
-            <div className="flex-grow min-w-0">
+            <div className="grow min-w-0">
               <label className={labelClasses}>Message</label>
               {(uploading || uploadedUrl) && (
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">

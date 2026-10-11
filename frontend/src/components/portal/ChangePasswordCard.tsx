@@ -12,7 +12,7 @@ const ChangePasswordCard: React.FC = () => {
   const [success, setSuccess] = useState("");
 
   const inputCls =
-    "w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-11 py-3.5 text-sm font-semibold text-murzak-ink dark:text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition";
+    "w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-11 py-3.5 text-sm font-semibold text-murzak-ink dark:text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

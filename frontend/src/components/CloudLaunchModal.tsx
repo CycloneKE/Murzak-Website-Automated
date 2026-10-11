@@ -224,7 +224,7 @@ export default function CloudLaunchModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[140]">
+    <div className="fixed inset-0 z-140">
       <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
         <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
@@ -307,7 +307,7 @@ export default function CloudLaunchModal({
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   placeholder="https://github.com/you/app"
-                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                 />
                 <details className="mt-3">
                   <summary className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none">
@@ -319,7 +319,7 @@ export default function CloudLaunchModal({
                     value={appPort}
                     onChange={(e) => setAppPort(e.target.value)}
                     placeholder="3000"
-                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                   />
                   <p className="mt-2 text-label text-slate-600 dark:text-slate-400 font-medium">
                     The port your app listens on inside its container. Leave blank if it uses 3000.

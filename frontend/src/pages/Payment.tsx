@@ -107,7 +107,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
     <div className="min-h-screen bg-transparent flex flex-col items-center justify-center py-20 lg:py-32 px-6 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 bg-murzak-ink">
         <img src="/images/checkout-flow-bg.webp" alt="" className="w-full h-full object-cover opacity-20 dark:opacity-15 grayscale" />
-        <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
       <div className="max-w-4xl w-full relative z-10">
         <div className="text-center mb-12">

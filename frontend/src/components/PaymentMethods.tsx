@@ -205,7 +205,7 @@ export default function PaymentMethods({
               </button>
             ))}
           </div>
-          <div className="flex-grow p-8 lg:p-14">
+          <div className="grow p-8 lg:p-14">
             <form
               onSubmit={(e) => {
                 if (method === "paypal") {
@@ -229,7 +229,7 @@ export default function PaymentMethods({
                     <input
                       type="tel"
                       placeholder="e.g. 0712 345 678"
-                      className={`w-full glass-input rounded-2xl px-8 py-5 text-xl font-black text-murzak-ink focus:outline-none focus:ring-2 focus:ring-murzak-accent ${errors.phoneNumber ? 'border-red-500 ring-1 ring-red-500/50' : ''}`}
+                      className={`w-full glass-input rounded-2xl px-8 py-5 text-xl font-black text-murzak-ink focus:outline-hidden focus:ring-2 focus:ring-murzak-accent ${errors.phoneNumber ? 'border-red-500 ring-1 ring-red-500/50' : ''}`}
                       value={phoneNumber}
                       onChange={(e) => { setPhoneNumber(e.target.value); if(errors.phoneNumber) setErrors({...errors, phoneNumber: ''}); }}
                     />
@@ -282,7 +282,7 @@ export default function PaymentMethods({
         </div>
       ) : step === 'processing' ? (
         pollTimedOut ? (
-          <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
+          <div className="grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
             <Smartphone size={48} className="text-murzak-accent mb-6" />
             <h3 className="text-2xl sm:text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Waiting for your payment</h3>
             <p className="text-sm font-bold text-slate-500 leading-relaxed mb-8">
@@ -313,14 +313,14 @@ export default function PaymentMethods({
             )}
           </div>
         ) : (
-          <div className="flex-grow flex flex-col items-center justify-center p-20 text-center animate-fade-in">
+          <div className="grow flex flex-col items-center justify-center p-20 text-center animate-fade-in">
             <RefreshCw size={56} className="animate-spin text-murzak-accent mb-8" />
             <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Check your phone</h3>
             <p className="text-sm font-bold text-slate-500">Enter your M-Pesa PIN to approve the payment of KES {chargeKes.toLocaleString()}.</p>
           </div>
         )
       ) : (
-        <div className="flex-grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
+        <div className="grow flex flex-col items-center justify-center p-12 sm:p-20 text-center animate-fade-in max-w-xl mx-auto">
           <CheckCircle2 size={56} className="text-green-500 mb-8" />
           <h3 className="text-3xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter mb-4">Payment received</h3>
           {mpesaReceipt && (

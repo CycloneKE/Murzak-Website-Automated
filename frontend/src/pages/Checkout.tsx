@@ -405,7 +405,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           alt=""
           className="w-full h-full object-cover opacity-20 dark:opacity-15 grayscale"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
+        <div className="absolute inset-0 bg-linear-to-b from-murzak-ink via-murzak-ink/95 to-murzak-ink/90"></div>
       </div>
       <div className="max-w-2xl w-full relative z-10">
         <button
@@ -540,7 +540,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             {order.config?.app && order.config?.slug ? (
               <>
                 {order.config.shopName ? (
-                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 break-words">{order.config.shopName}</p>
+                  <p className="text-base font-black text-murzak-ink dark:text-slate-100 mt-1 wrap-break-word">{order.config.shopName}</p>
                 ) : null}
                 <p className="text-sm font-semibold font-mono text-slate-600 dark:text-slate-300 mt-0.5 break-all">
                   {order.config.slug}.{APP_CHECKOUT[order.config.app as AppId]?.addressSuffix}

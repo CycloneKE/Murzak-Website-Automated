@@ -12,7 +12,7 @@ interface InlineAccountProps {
 type Mode = "signup" | "signin";
 
 const INPUT_CLASS =
-  "w-full rounded-2xl px-5 py-3.5 font-bold bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent";
+  "w-full rounded-2xl px-5 py-3.5 font-bold bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent";
 
 const InlineAccount: React.FC<InlineAccountProps> = ({ user, companyHint, onSignedIn }) => {
   const [mode, setMode] = useState<Mode>("signup");

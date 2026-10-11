@@ -61,7 +61,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
   const inputCls = (k: string) =>
     `w-full bg-slate-50 dark:bg-black/5 border ${
       errors[k] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"
-    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-murzak-accent transition`;
+    } rounded-2xl pl-11 pr-4 py-3.5 text-sm font-semibold text-murzak-ink placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition`;
 
   return (
     <div className="relative">

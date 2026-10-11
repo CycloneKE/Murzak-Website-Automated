@@ -100,20 +100,20 @@ const Header: React.FC<HeaderProps> = ({
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12">
           <div className="flex items-center justify-between h-16 sm:h-20 lg:h-24 transition-all">
             <button
-              className="flex items-center cursor-pointer group focus:outline-none shrink-0"
+              className="flex items-center cursor-pointer group focus:outline-hidden shrink-0"
               onClick={() => handleMobileNav("home")}
             >
               <Logo className="scale-90 sm:scale-100 origin-left transition-transform group-hover:scale-105" />
             </button>
 
             {/* Desktop Navigation */}
-            <div className="hidden xl:flex flex-grow items-center justify-center px-4">
+            <div className="hidden xl:flex grow items-center justify-center px-4">
               <nav className="flex items-center gap-x-8" aria-label="Main Navigation">
                 {navItems.map((item) => (
                   <div key={item.page} className="relative group/nav">
                     <button
                       onClick={() => item.submenu ? onNavigate(item.page) : onNavigate(item.page as Page)}
-                      className={`flex items-center gap-1.5 text-sm font-semibold transition-all relative py-2 group focus:outline-none whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 text-sm font-semibold transition-all relative py-2 group focus:outline-hidden whitespace-nowrap ${
                         activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage)))
                           ? "text-murzak-brand2"
                           : "text-murzak-muted dark:text-slate-400 hover:text-murzak-accent"
@@ -170,7 +170,7 @@ const Header: React.FC<HeaderProps> = ({
                   <>
                     <button
                       onClick={() => onNavigate("login")}
-                      className="flex items-center gap-2 bg-white border border-murzak-border text-murzak-ink font-semibold text-sm hover:border-murzak-accent hover:text-murzak-accent transition-all px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-sm"
+                      className="flex items-center gap-2 bg-white border border-murzak-border text-murzak-ink font-semibold text-sm hover:border-murzak-accent hover:text-murzak-accent transition-all px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-xs"
                     >
                       <LogIn className="w-4 h-4 text-murzak-accent" /> Login
                     </button>
@@ -186,7 +186,7 @@ const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={toggle}
-                className="p-2.5 sm:p-3 rounded-full text-murzak-ink dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-2.5 sm:p-3 rounded-full text-murzak-ink dark:text-slate-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
                 aria-label={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 title={effective === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               >
@@ -195,7 +195,7 @@ const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={() => setIsMenuOpen((v) => !v)}
-                className="xl:hidden p-2.5 sm:p-3 text-murzak-ink dark:text-slate-100 relative z-[70]"
+                className="xl:hidden p-2.5 sm:p-3 text-murzak-ink dark:text-slate-100 relative z-70"
                 aria-label={isMenuOpen ? "Close menu" : "Open menu"}
               >
                 {isMenuOpen ? <X className="w-6 h-6 sm:w-7 sm:h-7" /> : <Menu className="w-6 h-6 sm:w-7 sm:h-7" />}
@@ -207,13 +207,13 @@ const Header: React.FC<HeaderProps> = ({
 
       {isMenuOpen && (
         <div
-          className="fixed inset-0 z-[55] bg-black/15 dark:bg-black/40 backdrop-blur-sm xl:hidden animate-fade-in"
+          className="fixed inset-0 z-55 bg-black/15 dark:bg-black/40 backdrop-blur-xs xl:hidden animate-fade-in"
           onClick={() => setIsMenuOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed top-0 right-0 bottom-0 z-[60] w-64 max-w-[360px] bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl
+        className={`fixed top-0 right-0 bottom-0 z-60 w-64 max-w-[360px] bg-white/90 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl
           border-l border-slate-200 dark:border-murzak-border flex flex-col p-6 sm:p-8 transition-transform duration-500 ease-in-out xl:hidden h-dvh overflow-hidden
           ${isMenuOpen ? "translate-x-0" : "translate-x-full"}`}
       >

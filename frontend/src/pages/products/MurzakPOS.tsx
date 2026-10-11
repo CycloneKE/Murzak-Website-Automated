@@ -96,7 +96,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </Section>
 
       {/* Deep Dive: POS Mockup */}
-      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/[0.02]">
+      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/2">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-[900] tracking-tight mb-5">Checkout made effortless.</h2>
@@ -113,14 +113,14 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
             </ul>
           </div>
 
-          <div className="relative rounded-[2rem] overflow-hidden shadow-2xl border border-murzak-border group">
+          <div className="relative rounded-4xl overflow-hidden shadow-2xl border border-murzak-border group">
             <img
               src="/images/pos-dashboard.png"
               alt="Murzak POS Dashboard showing checkout interface with M-Pesa payment"
-              className="w-full rounded-[2rem] transition-transform duration-700 group-hover:scale-[1.02]"
+              className="w-full rounded-4xl transition-transform duration-700 group-hover:scale-[1.02]"
               loading="lazy"
             />
-            <div className="absolute inset-0 rounded-[2rem] ring-1 ring-inset ring-white/10" />
+            <div className="absolute inset-0 rounded-4xl ring-1 ring-inset ring-white/10" />
           </div>
         </div>
       </Section>

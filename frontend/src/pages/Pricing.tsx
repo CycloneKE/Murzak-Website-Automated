@@ -263,7 +263,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
               >
                 {/* Image section removed as the Glass UI design is minimal, text-focused, and cleaner without heavy images in the cards. */}
 
-                <div className="p-6 sm:p-8 flex-grow flex flex-col">
+                <div className="p-6 sm:p-8 grow flex flex-col">
                   <h3 className="text-micro sm:text-xs font-semibold uppercase text-sky-700 dark:text-murzak-accent mb-2">
                     {plan.name} {plan.isFeatured ? ' · POPULAR' : ''}
                   </h3>
@@ -276,10 +276,10 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
                   </div>
                   <p className="text-sm font-medium text-murzak-muted dark:text-slate-400 leading-relaxed mb-6">{plan.description}</p>
                   
-                  <ul className="space-y-3 mb-8 flex-grow">
+                  <ul className="space-y-3 mb-8 grow">
                     {plan.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-2 text-xs font-medium text-murzak-ink dark:text-slate-100 leading-tight">
-                        <Check size={14} className="text-murzak-success flex-shrink-0 mt-0.5" />
+                        <Check size={14} className="text-murzak-success shrink-0 mt-0.5" />
                         {feature}
                       </li>
                     ))}

@@ -26,7 +26,7 @@ export default function EmptyState({
 
   return (
     <div
-      className={`text-center py-10 px-6 rounded-[2rem] border border-dashed border-murzak-border bg-black/5 dark:bg-white/5 ${className}`}
+      className={`text-center py-10 px-6 rounded-4xl border border-dashed border-murzak-border bg-black/5 dark:bg-white/5 ${className}`}
     >
       <div className={`w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center ${toneClasses}`}>
         {icon}

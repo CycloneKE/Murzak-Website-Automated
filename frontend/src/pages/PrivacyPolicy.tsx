@@ -12,8 +12,8 @@ const PrivacyPolicy: React.FC = () => {
             className="w-full h-full object-cover opacity-20 dark:opacity-40 transition-opacity duration-700"
             style={{ fetchPriority: 'high' } as any}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-linear-to-r from-white via-white/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-linear-to-t from-white via-transparent to-transparent"></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10 w-full">
@@ -35,7 +35,7 @@ const PrivacyPolicy: React.FC = () => {
         <div className="max-w-4xl mx-auto px-6 lg:px-12">
           <div className="prose dark:prose-invert prose-slate max-w-none space-y-20">
             <div className="bg-slate-50 dark:bg-black/5 p-10 lg:p-14 rounded-[3rem] border border-slate-100 dark:border-murzak-border/50 flex flex-col md:flex-row gap-10 shadow-xl">
-              <ShieldCheck size={48} className="text-murzak-accent flex-shrink-0" />
+              <ShieldCheck size={48} className="text-murzak-accent shrink-0" />
               <div>
                 <h3 className="text-2xl font-black mb-4 tracking-tight text-murzak-ink dark:text-slate-100">Data sovereignty commitment</h3>
                 <p className="text-base text-slate-600 dark:text-slate-400 font-medium leading-relaxed">Murzak Technologies Limited is committed to the protection of business and personal data as per the <span className="text-murzak-ink dark:text-slate-100 font-bold">Kenya Data Protection Act 2019</span>. We ensure all regional client data hosted on Murzak Cloud remains within secure architectural bounds.</p>

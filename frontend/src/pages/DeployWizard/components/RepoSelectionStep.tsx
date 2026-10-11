@@ -87,12 +87,12 @@ export const RepoSelectionStep: React.FC<Props> = ({ onNext }) => {
     <div className="w-full max-w-2xl mx-auto animate-in slide-in-from-bottom-8 fade-in duration-500">
       <div className="bg-[#0A0A0A] border border-white/10 rounded-2xl p-1 overflow-hidden shadow-2xl relative">
         {/* Search Header */}
-        <div className="p-4 border-b border-white/10 flex items-center bg-white/[0.02]">
+        <div className="p-4 border-b border-white/10 flex items-center bg-white/2">
           <Search className="w-5 h-5 text-gray-500 mr-3" />
           <input 
             type="text" 
             placeholder="Search repositories..." 
-            className="bg-transparent border-none outline-none text-white w-full placeholder:text-gray-600 text-lg"
+            className="bg-transparent border-none outline-hidden text-white w-full placeholder:text-gray-600 text-lg"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -135,13 +135,13 @@ export const RepoSelectionStep: React.FC<Props> = ({ onNext }) => {
         </div>
 
         {/* Custom Repo Input */}
-        <div className="p-4 border-t border-white/10 bg-white/[0.02]">
+        <div className="p-4 border-t border-white/10 bg-white/2">
           <h3 className="text-sm font-medium text-gray-400 mb-2">Or deploy from a public URL</h3>
           <div className="flex gap-2">
             <input
               type="text"
               placeholder="https://github.com/username/repo"
-              className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500/50 transition-colors"
+              className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white outline-hidden focus:border-purple-500/50 transition-colors"
               value={customRepo}
               onChange={(e) => setCustomRepo(e.target.value)}
             />

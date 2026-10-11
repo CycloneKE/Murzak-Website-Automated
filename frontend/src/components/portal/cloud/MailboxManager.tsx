@@ -136,7 +136,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
 
   if (!isActive) {
     return (
-      <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-murzak-border p-5">
+      <div className="rounded-2xl bg-slate-50 dark:bg-white/2 border border-slate-100 dark:border-murzak-border p-5">
         <div className="flex items-center gap-2 mb-1">
           <Mail className="w-4 h-4 text-murzak-accent" />
           <h4 className="text-label font-black uppercase text-slate-700 dark:text-slate-200">Mailboxes</h4>
@@ -151,7 +151,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
   const allowance = unlimited ? "Unlimited" : limit === null ? "—" : String(limit);
 
   return (
-    <div className="rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-slate-100 dark:border-murzak-border p-5">
+    <div className="rounded-2xl bg-slate-50 dark:bg-white/2 border border-slate-100 dark:border-murzak-border p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -185,7 +185,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
           {mailboxes.map((mb) => (
             <div
               key={mb.id}
-              className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/[0.04] border border-slate-100 dark:border-murzak-border px-3 py-2"
+              className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border px-3 py-2"
             >
               <span className="text-label font-bold text-slate-700 dark:text-slate-300 truncate flex-1">
                 {mb.address || `${mb.localPart}@`}
@@ -219,7 +219,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       )}
 
       {showForm ? (
-        <form onSubmit={handleCreate} className="rounded-xl bg-white dark:bg-white/[0.04] border border-slate-100 dark:border-murzak-border p-3 mb-3 space-y-2">
+        <form onSubmit={handleCreate} className="rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border p-3 mb-3 space-y-2">
           <div>
             <label htmlFor="mb-local" className="block text-micro font-bold uppercase text-slate-500 mb-1">
               Mailbox name
@@ -232,7 +232,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               placeholder="info"
               autoComplete="off"
               required
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/[0.06] border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
+              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/6 border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
             />
             <p className="text-micro font-medium text-slate-400 mt-1">
               Letters, numbers, dots, dashes or underscores.
@@ -249,7 +249,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
               required
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/[0.06] border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
+              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/6 border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
             />
             <p className="text-micro font-medium text-slate-400 mt-1">
               At least 8 characters, with an uppercase letter, a lowercase letter and a number.

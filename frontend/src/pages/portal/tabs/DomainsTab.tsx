@@ -109,7 +109,7 @@ const DomainsTab: React.FC = () => {
           <button
             type="button"
             onClick={refreshDomains}
-            className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-murzak-accent"
+            className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
             title="Refresh"
             aria-label="Refresh domains"
           >
@@ -172,7 +172,7 @@ const DomainsTab: React.FC = () => {
                 className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] p-5 sm:p-6 shadow-lg"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                  <div className="min-w-0 flex-grow">
+                  <div className="min-w-0 grow">
                     <div className="flex items-center gap-3 flex-wrap">
                       <p className="text-base font-black text-murzak-ink dark:text-slate-100 truncate">
                         {d.domainName}
@@ -206,7 +206,7 @@ const DomainsTab: React.FC = () => {
                         <select
                           value={pickedService}
                           onChange={(e) => setPickedService(e.target.value)}
-                          className="h-10 px-3 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-micro font-black uppercase text-murzak-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-murzak-accent"
+                          className="h-10 px-3 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-micro font-black uppercase text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                         >
                           {attachable.length === 0 && <option value="">No active services</option>}
                           {attachable.map((s) => (

@@ -85,7 +85,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
     }
   };
 
-  const inputClasses = (name: string) => `w-full bg-slate-50 border ${errors[name] ? 'border-red-500' : 'border-slate-200 dark:border-murzak-border'} rounded-2xl px-6 py-4 text-base font-bold text-murzak-ink transition-all focus:outline-none focus:ring-2 focus:ring-murzak-accent placeholder:text-slate-500`;
+  const inputClasses = (name: string) => `w-full bg-slate-50 border ${errors[name] ? 'border-red-500' : 'border-slate-200 dark:border-murzak-border'} rounded-2xl px-6 py-4 text-base font-bold text-murzak-ink transition-all focus:outline-hidden focus:ring-2 focus:ring-murzak-accent placeholder:text-slate-500`;
   const labelClasses = "block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-3 ml-1";
 
   if (submitted) {
@@ -197,7 +197,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
                 <button type="button" onClick={prevStep} className="hidden sm:flex px-8 bg-slate-100 dark:bg-black/5 text-murzak-ink dark:text-slate-100 rounded-2xl items-center justify-center font-black uppercase text-micro"><ChevronLeft size={20} /></button>
-                <button type="submit" disabled={isSubmitting} className="flex-grow bg-murzak-accent text-murzak-ink py-5 sm:py-6 rounded-2xl font-black text-lg flex items-center justify-center group hover:scale-[1.02] transition-all disabled:opacity-50 shadow-xl">
+                <button type="submit" disabled={isSubmitting} className="grow bg-murzak-accent text-murzak-ink py-5 sm:py-6 rounded-2xl font-black text-lg flex items-center justify-center group hover:scale-[1.02] transition-all disabled:opacity-50 shadow-xl">
                   {isSubmitting ? <RefreshCw className="animate-spin mr-3" /> : <>Save My Plan <ShieldCheck size={20} className="ml-3" /></>}
                 </button>
               </div>

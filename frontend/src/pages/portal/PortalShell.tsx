@@ -63,18 +63,18 @@ const PortalShell: React.FC = () => {
   const { effective: theme, toggle: toggleTheme } = useTheme();
 
   return (
-    <div className="h-[100dvh] bg-transparent flex overflow-hidden">
+    <div className="h-dvh bg-transparent flex overflow-hidden">
       {/* Sidebar */}
       {isSidebarOpen && (
         <button
           type="button"
           aria-label="Close menu"
           onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-90 bg-black/40 backdrop-blur-xs lg:hidden"
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-[100] w-72 sm:w-80 bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl
+        className={`fixed inset-y-0 left-0 z-100 w-72 sm:w-80 bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl
                     border-r border-slate-100 dark:border-murzak-border/50 flex flex-col transition-transform duration-500 lg:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -89,7 +89,7 @@ const PortalShell: React.FC = () => {
         {/* User profile */}
         <button
           onClick={() => onTabClick("profile")}
-          className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/[0.03] p-3 text-left hover:border-murzak-accent/40 transition-all"
+          className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-3 text-left hover:border-murzak-accent/40 transition-all"
         >
           <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-accent/15 text-sky-700 dark:text-murzak-accent flex items-center justify-center font-black text-sm">
             {(user.name || "U").split(" ").map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
@@ -106,7 +106,7 @@ const PortalShell: React.FC = () => {
           </div>
         </button>
 
-        <nav className="flex-grow px-4 sm:px-6 space-y-1.5 mt-3 overflow-y-auto">
+        <nav className="grow px-4 sm:px-6 space-y-1.5 mt-3 overflow-y-auto">
           {allMenuItems.map((item) => {
             if (item.id !== "cloud") {
               return (
@@ -120,7 +120,7 @@ const PortalShell: React.FC = () => {
                   }`}
                 >
                   <span className="shrink-0">{item.icon}</span>
-                  <span className="flex-grow text-left">{item.label}</span>
+                  <span className="grow text-left">{item.label}</span>
                   {!!item.badge && (
                     <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black">
                       {item.badge > 99 ? "99+" : item.badge}
@@ -220,11 +220,11 @@ const PortalShell: React.FC = () => {
           paddingBottom: "calc(6rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-white/70 via-cyan-50/40 to-white/60 backdrop-blur-md sm:backdrop-blur-xl" />
+        <div className="absolute inset-0 -z-10 bg-linear-to-br from-white/70 via-cyan-50/40 to-white/60 backdrop-blur-md sm:backdrop-blur-xl" />
         <div className="absolute inset-0 -z-10 opacity-50 bg-[radial-gradient(circle_at_15%_15%,rgba(34,211,238,0.25),transparent_55%),radial-gradient(circle_at_85%_25%,rgba(59,130,246,0.2),transparent_55%)]" />
 
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
-          <div className="flex-grow">
+          <div className="grow">
             <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter uppercase leading-none">
               Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
@@ -236,7 +236,7 @@ const PortalShell: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden fixed top-5 right-5 z-[140] p-3 bg-white dark:bg-murzak-ink rounded-xl shadow-lg flex items-center justify-center border border-slate-100 dark:border-murzak-border"
+            className="lg:hidden fixed top-5 right-5 z-140 p-3 bg-white dark:bg-murzak-ink rounded-xl shadow-lg flex items-center justify-center border border-slate-100 dark:border-murzak-border"
             aria-label="Open menu"
             title="Menu"
           >
@@ -257,7 +257,7 @@ const PortalShell: React.FC = () => {
             return (
               <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
                 <div className="shrink-0">{icon}</div>
-                <p className="flex-grow text-sm font-bold text-murzak-ink dark:text-slate-100 leading-relaxed">{text}</p>
+                <p className="grow text-sm font-bold text-murzak-ink dark:text-slate-100 leading-relaxed">{text}</p>
                 {cta && (
                   <button
                     type="button"
@@ -401,9 +401,9 @@ const PortalShell: React.FC = () => {
       />
 
       {stopConfirmService && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => setStopConfirmService(null)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-murzak-ink rounded-[2rem] border border-slate-200 dark:border-murzak-border p-7 shadow-2xl">
+          <div className="relative w-full max-w-md bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-7 shadow-2xl">
             <p className="text-micro font-black uppercase text-orange-500">Stop service</p>
             <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mt-2">
               Stop {stopConfirmService.name}?
@@ -443,9 +443,9 @@ const PortalShell: React.FC = () => {
       />
 
       {deleteTarget && (
-        <div className="fixed inset-0 z-[200]">
+        <div className="fixed inset-0 z-200">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => !deleteLoading && setDeleteTarget(null)} />
-            <div className="relative max-w-lg mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-[2rem] border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
+            <div className="relative max-w-lg mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
               <p className="text-micro font-black uppercase text-red-500">
                 Paid service deletion
               </p>
@@ -504,12 +504,12 @@ const PortalShell: React.FC = () => {
       )}
 
       {upgradePromptOpen && (
-        <div className="fixed inset-0 z-[220]">
+        <div className="fixed inset-0 z-220">
           <div
             className="absolute inset-0 bg-black/70 backdrop-blur-2xl"
             onClick={() => setUpgradePromptOpen(false)}
           />
-          <div className="relative max-w-xl mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-[2rem] border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
+          <div className="relative max-w-xl mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
             <p className="text-micro font-black uppercase text-murzak-accent">
               Upgrade plan
             </p>
@@ -553,15 +553,15 @@ const PortalShell: React.FC = () => {
 
       {/* Scaling Settings Modal */}
       {scalingServiceId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
           <ScalingSettings serviceId={scalingServiceId} onClose={() => setScalingServiceId(null)} />
         </div>
       )}
 
       {/* Developer Upsell Modal */}
       {developerUpsellSvc && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-murzak-ink/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-[2rem] p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative overflow-hidden">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-murzak-ink/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-4xl p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
             
             <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-black/5 hover:bg-slate-200 dark:hover:bg-black/5 transition z-10 text-slate-500">
