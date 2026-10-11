@@ -34,6 +34,10 @@ const axios = require("axios");
 
 const FIXTURE_PATHS = [
   path.resolve(__dirname, "../data/custom-fields-portal-invoice-mpesa.json"),
+  // billing_term + the PayPal capture/reconciliation fields. This fixture was
+  // never listed here, so a live site silently dropped every write to them
+  // (Frappe ignores unknown fields on PUT) — an annual invoice lost its term.
+  path.resolve(__dirname, "../data/custom-fields-portal-invoice.json"),
   path.resolve(__dirname, "../data/custom-fields-web-account.json"),
 ];
 

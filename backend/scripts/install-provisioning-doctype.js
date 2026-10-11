@@ -49,18 +49,40 @@ async function main() {
     const existing = existingRes.data?.data || {};
     const existingNames = new Set((existing.fields || []).map((f) => f.fieldname));
     const missing = doctype.fields.filter((f) => f.fieldname && !existingNames.has(f.fieldname));
-    if (!missing.length) {
-      console.log(`✓ DocType "${doctype.name}" already exists and has every fixture field — nothing to do.`);
+
+    // A Select that gained an option in the fixture (e.g. status "deleted")
+    // never reached an already-installed site, so Frappe rejected writes of
+    // the new value with a 417. Append options the live field lacks; never
+    // remove or reorder existing ones.
+    const fixtureByName = new Map(doctype.fields.map((f) => [f.fieldname, f]));
+    const widened = [];
+    const mergedExisting = (existing.fields || []).map((f) => {
+      const fx = fixtureByName.get(f.fieldname);
+      if (!fx || f.fieldtype !== "Select" || fx.fieldtype !== "Select") return f;
+      const have = String(f.options || "").split("\n");
+      const add = String(fx.options || "").split("\n").filter((o) => o && !have.includes(o));
+      if (!add.length) return f;
+      widened.push(`${f.fieldname} (+${add.join(", ")})`);
+      return { ...f, options: [...have, ...add].join("\n") };
+    });
+
+    if (!missing.length && !widened.length) {
+      console.log(`✓ DocType "${doctype.name}" already exists and has every fixture field and Select option — nothing to do.`);
       return;
     }
     try {
       await client.put(`/api/resource/DocType/${encodeURIComponent(doctype.name)}`, {
-        fields: [...(existing.fields || []), ...missing],
+        fields: [...mergedExisting, ...missing],
       });
-      console.log(
-        `✓ DocType "${doctype.name}" updated — added ${missing.length} missing field(s): ` +
-          missing.map((f) => f.fieldname).join(", ")
-      );
+      if (missing.length) {
+        console.log(
+          `✓ DocType "${doctype.name}" updated — added ${missing.length} missing field(s): ` +
+            missing.map((f) => f.fieldname).join(", ")
+        );
+      }
+      if (widened.length) {
+        console.log(`✓ DocType "${doctype.name}" updated — widened Select option(s): ${widened.join("; ")}`);
+      }
     } catch (e) {
       console.error(`✗ Failed to add missing fields to "${doctype.name}":`, e.response?.data || e.message);
       console.error(
