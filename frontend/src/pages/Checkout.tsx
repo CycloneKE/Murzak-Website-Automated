@@ -415,7 +415,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           <ChevronLeft size={16} /> Back to your portal
         </button>
         <div className="mb-6">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-murzak-ink dark:text-slate-100 mb-2 tracking-tighter leading-none">
+          <h1 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-5xl lg:leading-(--text-5xl--line-height) font-black text-murzak-ink dark:text-slate-100 mb-2 tracking-tighter leading-none">
             Check <span className="text-murzak-accent">out.</span>
           </h1>
           <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-500">

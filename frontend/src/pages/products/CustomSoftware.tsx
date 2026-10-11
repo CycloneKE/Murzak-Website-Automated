@@ -51,7 +51,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl leading-relaxed">
             We design and build the exact system your business needs. Unlike typical agencies, we don't hand over the code and disappear. We host it and keep it running.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">

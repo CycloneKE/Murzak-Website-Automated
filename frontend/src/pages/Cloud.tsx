@@ -53,7 +53,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-murzak-ink dark:text-slate-100">
               Hosting that just <span className="text-murzak-gradient">stays up.</span>
             </h1>
-            <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-300 font-medium max-w-xl leading-relaxed">
               Your site, email and apps: set up, secured and backed up by us, on fast infrastructure,
               billed in shillings. You get the result; we handle the servers.
             </p>

@@ -32,7 +32,7 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
 
         <div className="max-w-lg mx-auto text-center relative z-10">
           <CheckCircle2 size={56} className="text-green-500 mx-auto mb-8" />
-          <h1 className="text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-[0.95]">
+          <h1 className="text-4xl lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-[0.95]">
             You're all set.
           </h1>
           <p className="text-base text-slate-600 dark:text-slate-500 font-medium mb-10">

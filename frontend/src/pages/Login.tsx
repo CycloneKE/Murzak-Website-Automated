@@ -569,7 +569,7 @@ const handleReset = async (e: React.FormEvent) => {
           would leave the page washed-out white behind dark:text-slate-100 content
           (see the 2026-08 light-mode contrast sweep), so it switches to an ink wash
           that actually darkens the photo instead of lightening it. */}
-      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
+      <div className="absolute inset-0 z-0 bg-radial-[ellipse_at_center] from-slate-300/80 via-slate-300/40 to-transparent dark:from-murzak-ink/90 dark:via-murzak-ink/70 dark:to-murzak-ink/20" />
       <div className="absolute inset-0 z-0 bg-murzak-accent/10 mix-blend-color" />
       <div className="absolute top-6 lg:top-10 left-6 lg:left-10 z-20">
         <button onClick={() => onNavigate('home')} className="flex items-center gap-2 text-slate-200 font-black text-micro uppercase hover:text-murzak-accent transition-colors drop-shadow-sm">
@@ -645,7 +645,7 @@ const handleReset = async (e: React.FormEvent) => {
           {(mode === 'login' || mode === 'signup') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 lg:gap-10">
             <div className="space-y-6">
-              <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Your Details</h3>
+              <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase">Your Details</h3>
               {mode === 'signup' && (
                 <>
                   <div className="space-y-1">
@@ -719,7 +719,7 @@ const handleReset = async (e: React.FormEvent) => {
 
             {mode === 'signup' ? (
               <div className="space-y-6">
-                <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase mb-4">Project Setup</h3>
+                <h3 className="text-micro font-black text-sky-700 dark:text-murzak-accent uppercase">Project Setup</h3>
                 <div className="space-y-1">
                   <label className={labelStyles}>What is the goal of this project?</label>
                   <div className="relative">
@@ -759,7 +759,7 @@ const handleReset = async (e: React.FormEvent) => {
           )}
 
           {mode === 'login' && (
-            <div className="text-right -mt-2">
+            <div className="text-right">
               <button type="button"
                 onClick={() => { setMode('forgot'); setError(''); setInfo(''); setFieldErrors({}); }}
                 className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase hover:text-murzak-accent transition-colors">

@@ -501,7 +501,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                             : "bg-slate-50 dark:bg-black/5 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
                         }`}
                       >
-                        <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">
+                        <p className="text-[13px] sm:text-sm sm:leading-(--text-sm--line-height) font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">
                           {m.message}
                         </p>
                         {m.attachments && (

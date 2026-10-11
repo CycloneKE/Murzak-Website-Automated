@@ -108,7 +108,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl text-white">
             Software built for <span className="text-murzak-gradient">how Kenya works.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl mx-auto leading-relaxed">
             From ready-made business systems to custom operational tools, we build and run the technology that powers growing companies.
           </p>
         </div>

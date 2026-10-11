@@ -132,7 +132,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
            <div className="absolute -top-10 -right-10 opacity-10 rotate-12">
              <Terminal className="w-40 h-40 sm:w-56 sm:h-56 lg:w-[300px] lg:h-[300px]" /></div>
            <div className="relative z-10">
-              <h2 className="text-3xl lg:text-5xl font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-accent">With Us.</span></h2>
+              <h2 className="text-3xl lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] tracking-tighter leading-none mb-6">Work <br /><span className="text-murzak-accent">With Us.</span></h2>
               <p className="text-sm font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                 Nairobi software &amp; cloud team <br /> Real people, usually replying same day
               </p>

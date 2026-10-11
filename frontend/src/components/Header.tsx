@@ -100,7 +100,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-12">
           <div className="flex items-center justify-between h-16 sm:h-20 lg:h-24 transition-all">
             <button
-              className="flex items-center cursor-pointer group focus:outline-hidden shrink-0"
+              className="flex items-center cursor-pointer group rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-murzak-accent shrink-0"
               onClick={() => handleMobileNav("home")}
             >
               <Logo className="scale-90 sm:scale-100 origin-left transition-transform group-hover:scale-105" />
@@ -157,7 +157,7 @@ const Header: React.FC<HeaderProps> = ({
               </nav>
             </div>
 
-            <div className="flex items-center space-x-2 sm:space-x-4 shrink-0 ml-auto">
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0 ml-auto">
               <div className="hidden sm:flex items-center gap-2 lg:gap-4">
                 {isLoggedIn ? (
                   <button

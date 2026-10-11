@@ -22,7 +22,7 @@ const TermsOfService: React.FC = () => {
             <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-sky-700 dark:text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
               Legal framework
             </div>
-            <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
+            <h1 className="text-5xl lg:text-9xl lg:leading-(--text-9xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
               Service <br /><span className="text-sky-700 dark:text-murzak-accent">terms.</span>
             </h1>
             <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">

@@ -515,7 +515,7 @@ export default function PlanServicesModal({
                           <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
                             {svc.category} • {svc.tier}
                           </div>
-                          <div className="text-base sm:text-lg font-black text-murzak-ink dark:text-slate-100 mt-1 leading-tight">
+                          <div className="text-base sm:text-lg sm:leading-(--text-lg--line-height) font-black text-murzak-ink dark:text-slate-100 mt-1 leading-tight">
                             {svc.name}
                           </div>
                           {isManagedSetup(svc) && (

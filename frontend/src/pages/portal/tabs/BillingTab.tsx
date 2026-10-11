@@ -46,9 +46,9 @@ const BillingTab: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-12">
-      <div className="flex justify-between items-end mb-4 px-2">
+      <div className="flex justify-between items-end px-2">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">
+          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] tracking-tighter uppercase leading-none">
             Billing & Plans
           </h2>
           <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">

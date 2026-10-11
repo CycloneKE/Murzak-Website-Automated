@@ -29,9 +29,9 @@ const ProfileTab: React.FC = () => {
 
   return (
     <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 mb-4 px-1 sm:px-2">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 px-1 sm:px-2">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tighter uppercase leading-none">Account Profile</h2>
+          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] tracking-tighter uppercase leading-none">Account Profile</h2>
           <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
             Manage your personal information, security and active plans
           </p>
@@ -242,7 +242,7 @@ const ProfileTab: React.FC = () => {
         <div className="space-y-6">
           <ChangePasswordCard />
           
-          <div className="pt-8 mt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
+          <div className="pt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
             <div>
               <h4 className="text-sm font-black text-murzak-ink dark:text-slate-100">Welcome Tour</h4>
               <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">Re-run the onboarding experience</p>

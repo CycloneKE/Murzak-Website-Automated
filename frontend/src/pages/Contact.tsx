@@ -304,7 +304,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                           : "bg-slate-50 text-murzak-ink border-slate-200"
                       }`}
                     >
-                      <p className="text-[13px] sm:text-sm font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">{m.message}</p>
+                      <p className="text-[13px] sm:text-sm sm:leading-(--text-sm--line-height) font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">{m.message}</p>
                       {m.attachments && (
                         <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`}
                           target="_blank"

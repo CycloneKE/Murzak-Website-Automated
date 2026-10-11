@@ -173,7 +173,7 @@ return createPortal(
             <p className="text-micro sm:text-micro font-black uppercase text-murzak-accent/90">
               Add-ons for {planLabel}
             </p>
-            <h3 className="text-base sm:text-2xl font-black tracking-tighter text-white mt-0.5 sm:mt-1 leading-tight">
+            <h3 className="text-base sm:text-2xl sm:leading-(--text-2xl--line-height) font-black tracking-tighter text-white mt-0.5 sm:mt-1 leading-tight">
               Purchase extra services
             </h3>
             <p className="hidden sm:block text-micro font-bold text-white/80 mt-2 max-w-2xl">

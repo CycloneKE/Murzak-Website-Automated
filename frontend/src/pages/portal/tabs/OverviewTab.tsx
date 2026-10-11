@@ -64,7 +64,7 @@ const OverviewTab: React.FC = () => {
               <span className="text-micro font-black uppercase">Live Launch Progress</span>
             </div>
 
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
+            <h2 className="text-xl sm:text-2xl sm:leading-(--text-2xl--line-height) lg:text-3xl lg:leading-(--text-3xl--line-height) font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
               Setting up <br />
               <span className="text-murzak-accent">Your System.</span>
             </h2>

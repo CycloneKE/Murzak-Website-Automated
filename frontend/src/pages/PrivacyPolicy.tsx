@@ -21,7 +21,7 @@ const PrivacyPolicy: React.FC = () => {
             <div className="inline-flex items-center rounded-full bg-murzak-accent/10 px-4 py-2 text-micro font-black text-sky-700 dark:text-murzak-accent mb-8 uppercase border border-murzak-accent/20 backdrop-blur-md">
               Compliance & data safety
             </div>
-            <h1 className="text-5xl lg:text-9xl font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
+            <h1 className="text-5xl lg:text-9xl lg:leading-(--text-9xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-10 tracking-tighter leading-[0.85] drop-shadow-2xl">
               Privacy <br /><span className="text-sky-700 dark:text-murzak-accent">protocol.</span>
             </h1>
             <p className="text-xl lg:text-3xl text-slate-700 dark:text-slate-400 font-bold max-w-2xl opacity-90">
@@ -54,7 +54,7 @@ const PrivacyPolicy: React.FC = () => {
               </ul>
             </div>
 
-            <div className="bg-murzak-ink text-white p-12 lg:p-20 rounded-[4rem] mt-24 shadow-2xl relative overflow-hidden">
+            <div className="bg-murzak-ink text-white p-12 lg:p-20 rounded-[4rem] shadow-2xl relative overflow-hidden">
               <div className="flex items-center gap-6 mb-10">
                 <FileText size={32} className="text-murzak-accent" />
                 <h3 className="text-2xl font-black tracking-tighter">Compliance inquiries</h3>

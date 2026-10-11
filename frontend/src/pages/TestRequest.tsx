@@ -102,7 +102,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
               <Rocket size={40} className="animate-bounce" />
             </div>
 
-            <h2 className="text-3xl lg:text-4xl font-[900] text-murzak-ink dark:text-slate-100 mb-6 tracking-tighter leading-none">Trial Ready.</h2>
+            <h2 className="text-3xl lg:text-4xl lg:leading-(--text-4xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 mb-6 tracking-tighter leading-none">Trial Ready.</h2>
 
             <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-10 max-w-sm mx-auto leading-relaxed">
               We've saved your goals for <span className="text-murzak-accent font-black">{formData.testingGoal}</span>. Create your account, then a quick <span className="text-murzak-accent font-black">KES 1</span> verification (card or M-Pesa) starts your 36-hour trial.
@@ -146,7 +146,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
             <Server size={18} />
             <span className="text-micro sm:text-micro font-black uppercase">Nairobi System Sandbox</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-8xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter leading-[0.85] mb-6">
+          <h1 className="text-4xl sm:text-5xl sm:leading-(--text-5xl--line-height) lg:text-8xl lg:leading-(--text-8xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter leading-[0.85] mb-6">
             Get your <br /><span className="text-sky-700 dark:text-murzak-accent">36h trial.</span>
           </h1>
         </div>

@@ -78,7 +78,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,5rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
             We run the tech, so you can <span className="text-murzak-gradient">run your business.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-2xl leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl leading-relaxed">
             Murzak Technologies is a Nairobi team that hosts, builds and looks after the software small
             and growing businesses depend on. We started it because too many good businesses were being
             let down by hosting that went dark, vendors who disappeared, and invoices in dollars.

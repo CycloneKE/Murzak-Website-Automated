@@ -236,7 +236,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <span className="text-murzak-gradient">We'll run the tech.</span>
             </h1>
 
-            <p className="mt-7 text-lg sm:text-xl text-slate-300 font-medium max-w-xl leading-relaxed">
+            <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-xl leading-relaxed">
               Managed hosting, ready-to-use business systems and custom software: set up for you,
               billed in shillings, and supported by real people in Nairobi.
             </p>
@@ -290,10 +290,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* 03 · EMPATHY */}
       <section className="relative z-10 py-24 lg:py-36">
         <Reveal className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
-          <h2 className="text-3xl sm:text-4xl lg:text-6xl font-[900] tracking-tight leading-[1.05]">
+          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-6xl lg:leading-(--text-6xl--line-height) font-[900] tracking-tight leading-[1.05]">
             You didn't start your business<br className="hidden sm:block" /> to babysit servers.
           </h2>
-          <p className="mt-8 text-lg sm:text-xl text-slate-400 font-medium leading-relaxed">
+          <p className="mt-8 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-400 font-medium leading-relaxed">
             Sites that go down on a Friday night. An ERP demo from a vendor who then vanished.
             Invoices in dollars you have to convert. Support answered three time zones away, next week.
           </p>
@@ -342,7 +342,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="max-w-[1320px] mx-auto px-6 sm:px-10 lg:px-16 grid lg:grid-cols-2 gap-12 items-center">
           <Reveal>
             <p className="font-mono text-micro uppercase text-murzak-accent mb-4">No hidden pricing</p>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight leading-tight">
+            <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) lg:text-5xl lg:leading-(--text-5xl--line-height) font-[900] tracking-tight leading-tight">
               See the price before<br /> you talk to anyone.
             </h2>
             <p className="mt-6 text-lg text-slate-400 font-medium leading-relaxed max-w-md">
@@ -565,7 +565,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <section className="relative z-10 py-20 lg:py-28 border-t border-white/5">
           <div className="max-w-3xl mx-auto px-6 sm:px-10 text-center">
             <div className="text-5xl text-murzak-gradient font-black mb-6">"</div>
-            <blockquote className="text-2xl sm:text-3xl font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
+            <blockquote className="text-2xl sm:text-3xl sm:leading-(--text-3xl--line-height) font-black text-white leading-snug">{TESTIMONIALS[0].quote}</blockquote>
             <p className="mt-6 text-sm font-bold text-slate-300">{TESTIMONIALS[0].name}</p>
             <p className="font-mono text-micro uppercase text-slate-400">{TESTIMONIALS[0].org}</p>
           </div>

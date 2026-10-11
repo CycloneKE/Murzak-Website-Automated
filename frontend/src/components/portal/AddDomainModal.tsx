@@ -154,7 +154,7 @@ export default function AddDomainModal({
               )}
               <div className="min-w-0">
                 <p className="text-micro font-black uppercase text-murzak-accent/90">Domains</p>
-                <h3 className="text-lg sm:text-2xl font-black tracking-tighter text-white mt-0.5 leading-tight">
+                <h3 className="text-lg sm:text-2xl sm:leading-(--text-2xl--line-height) font-black tracking-tighter text-white mt-0.5 leading-tight">
                   {path ? PATHS.find((p) => p.id === path)?.title : "Add a domain"}
                 </h3>
               </div>

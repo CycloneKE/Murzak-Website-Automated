@@ -225,7 +225,7 @@ const PortalShell: React.FC = () => {
 
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
           <div className="grow">
-            <h1 className="text-2xl sm:text-4xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter uppercase leading-none">
+            <h1 className="text-2xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter uppercase leading-none">
               Welcome back, {(user.name || "User").split(" ")[0]}
             </h1>
             <p className="text-micro sm:text-micro font-black text-slate-600 dark:text-slate-400 uppercase sm:mt-3 sm:mt-4">

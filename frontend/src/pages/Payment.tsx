@@ -114,7 +114,7 @@ const Payment: React.FC<PaymentProps> = ({ onNavigate, onSuccess }) => {
           <button onClick={() => onNavigate('portal')} className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 font-black text-label uppercase tracking-[0.2em] mb-12 hover:text-murzak-ink transition-colors">
             <ChevronLeft size={16} /> Back to your portal
           </button>
-          <h1 className="text-5xl lg:text-7xl font-black text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-none">
+          <h1 className="text-5xl lg:text-7xl lg:leading-(--text-7xl--line-height) font-black text-murzak-ink dark:text-slate-100 mb-4 tracking-tighter leading-none">
             Pay <span className="text-murzak-accent">securely.</span>
           </h1>
           <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-500">

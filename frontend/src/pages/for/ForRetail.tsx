@@ -27,7 +27,7 @@ const ForRetail: React.FC<Props> = ({ onNavigate }) => {
           <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
             Run your shop, not your systems. <span className="text-murzak-gradient">POS, stock and accounting, handled.</span>
           </h1>
-          <p className="mt-7 text-lg sm:text-xl text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
             We're building the technology layer Kenya's retail sector has been waiting for. Stop doing manual stock counts and reconciling M-Pesa at midnight.
           </p>
         </div>
