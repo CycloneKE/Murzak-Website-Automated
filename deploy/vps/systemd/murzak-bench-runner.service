@@ -15,4 +15,11 @@ ExecStart=/usr/local/bin/murzak-bench-runner
 User=root
 PrivateTmp=true
 ProtectHome=read-only
+# ProtectHome=read-only applies to every child process too, and a build has to
+# create the new site's folder under the bench user's home, so without this
+# line `bench new-site` fails instantly with "Read-only file system". Proven on
+# the live server 2026-10-17: the write test failed under these settings and
+# passed once this path was listed. The bench user's home is the only path that
+# needs to be writable; /root stays read-only.
+ReadWritePaths=/home/murzakerp
 NoNewPrivileges=true
