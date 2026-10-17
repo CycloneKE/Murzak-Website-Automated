@@ -15,7 +15,7 @@ Frappe 15.95.0 / ERPNext 15.94.1 (version-15).
 | `hrms` | 15.63.4 (version-15) | Payroll, salary structures, attendance, leave |
 | `csf_ke` | **v16.12.0 (pinned tag)** | Kenya statutory: PAYE (P9A/P10), NSSF, SHIF, Housing Levy, HELB, withholding tax |
 | `kenya_compliance` | 0.8.2 (develop) | KRA eTIMS via OSCU — the `Navari KRA eTims Settings` doctype |
-| `techsavanna_pos` | 0.0.1 | POS. **Third-party**, remote `Shavia-bit/savanna_pos_tech` |
+| `murzak_pos` | 0.0.1 | Murzak POS. **Renamed from `techsavanna_pos`** (originally the third-party `Shavia-bit/savanna_pos_tech`); the app's own git history now shows its pull requests in the `MurzakTech` GitHub organisation. The Python package, and so every API method path, is `murzak_pos.*` |
 | `murzak_custom` | 0.0.1 | Murzak/customer customisations |
 | `matatuke_api`, `logistics_core` | 0.0.1 | Matatuke transport app |
 
@@ -27,7 +27,7 @@ available to a customer.
 | Site | Apps |
 |---|---|
 | `erp.murzaktech.tech` | erpnext, murzak_custom, **hrms**, **csf_ke** |
-| `api.pos.murzaktech.tech` | erpnext, techsavanna_pos, **kenya_compliance** |
+| `api.pos.murzaktech.tech` | erpnext, murzak_pos, **kenya_compliance** (confirmed with `bench list-apps` on 2026-10-17) |
 | `erp.mystylecarhire.com` | erpnext, murzak_custom — **a paying customer's site; do not change without asking them** |
 | `matatuke.murzaktech.tech` | matatuke_api |
 
@@ -77,8 +77,21 @@ customer's site had none since 2026-06-21.
   It was previously sitting on an untagged `develop` commit (`8f543b3`), which
   meant `bench update` could move it arbitrarily; the pin stops that. Rolling
   back means `git checkout 8f543b3` in `apps/csf_ke`, then migrate and restart.
-- `techsavanna_pos` had an undeclared dependency on `kenya_compliance`; a local
-  patch adds it to `required_apps`, but that app is third-party and **the edit
-  is lost on the next pull**. It belongs upstream.
+- `murzak_pos` now declares its dependency itself
+  (`required_apps = ["frappe/erpnext", "navariltd/kenya_compliance"]`, checked
+  2026-10-17), so the old local patch to its predecessor is no longer needed.
+  `kenya_compliance` stays in each POS tier's `benchApps` because the
+  provisioner installs apps in the listed order.
+- **The rename broke POS provisioning.** The catalogue and
+  `murzak-bench-provision` kept asking for `techsavanna_pos`, so the host runner
+  refused every Murzak POS job ("app 'techsavanna_pos' is not installed on this
+  bench"). Fixed by renaming them; the VPS needs the new
+  `bench-catalog-snapshot.json` and `murzak-bench-provision`.
+- **Deploy drift:** the live `conf.d/00-murzak-pos-guard-map.conf` already
+  covers both app names and has a `password_reset` rule that
+  `deploy/vps/nginx/00-murzak-pos-guard-map.conf` in this repo lacks. Deploying
+  the repo copy over the live one would reopen sign-up on tenant POS sites for
+  `murzak_pos`. Sync the repo copy from the live file before ever installing
+  it.
 - Customer sites get none of this automatically. Provisioning a customer who
   buys payroll or eTIMS means installing the relevant apps on their site.

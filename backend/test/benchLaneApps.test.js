@@ -103,8 +103,8 @@ function persistedError(e) {
       ok(!pos.ok && pos.error.permanent === true && /murzak-bench-runner/.test(pos.error.message),
         "biz-pos-inventory (an app tier) is refused permanently by this lane");
       const posEnv = bench.buildProvisionEnv({ service_id: "biz-pos-inventory" }, {}, catalog.getServiceMeta("biz-pos-inventory"));
-      ok(posEnv.JOB_BENCH_APPS === "erpnext,techsavanna_pos,kenya_compliance",
-        "biz-pos-inventory -> erpnext,techsavanna_pos,kenya_compliance (kenya_compliance is techsavanna_pos's undeclared dep)");
+      ok(posEnv.JOB_BENCH_APPS === "erpnext,murzak_pos,kenya_compliance",
+        "biz-pos-inventory -> erpnext,murzak_pos,kenya_compliance (kenya_compliance is murzak_pos's undeclared dep)");
 
       const erp = await settle(cmd, { service_id: "biz-erp-light" });
       ok(erp.ok && erp.value.access.apps === "erpnext,hrms,csf_ke",

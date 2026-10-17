@@ -194,7 +194,7 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
   fi
 
   # The account holder becomes the owner login of a POS shop (the provisioner
-  # only uses these when the apps include techsavanna_pos, and refuses — exit
+  # only uses these when the apps include murzak_pos, and refuses — exit
   # 2, not retried — if a POS shop has no email to give the owner).
   owner_email=""
   owner_name=""

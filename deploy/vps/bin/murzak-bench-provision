@@ -19,7 +19,7 @@
 #              JOB_SERVICE_NAME  human label, logging only
 #              JOB_INVOICE       invoice ref, logging only
 #              JOB_OWNER_EMAIL   Web Account work_email (required when the
-#                                apps include techsavanna_pos)
+#                                apps include murzak_pos)
 #              JOB_OWNER_NAME    Web Account holder name (optional)
 #              JOB_SITE_SLUG     customer-chosen address (optional); site
 #                                becomes <slug>.erp…, POS <slug>.pos…
@@ -253,7 +253,7 @@ if printf '%s\n' "$final" | grep -qx "hrms"; then
 fi
 
 # ---- 6c. Murzak POS: owner account + the shop's own POS address ------------
-# A site with techsavanna_pos is a Murzak POS shop. The customer uses the POS
+# A site with murzak_pos is a Murzak POS shop. The customer uses the POS
 # app at <slug>.pos.murzaktech.tech (nginx/pos-tenants-wildcard pins that host
 # to this site), never the ERPNext desk, so:
 #
@@ -264,7 +264,7 @@ fi
 #     first stranger to find the URL would register as System Manager of
 #     someone else's shop.
 #
-# The owner is created through techsavanna_pos's own register_user, so roles,
+# The owner is created through murzak_pos's own register_user, so roles,
 # API keys and the OAuth client are exactly what a self-signed-up owner gets.
 # Python is run directly (what `bench execute` does internally) so the
 # password travels by environment, never argv — same rule as step 4.
@@ -277,7 +277,7 @@ POS_SUFFIX="${BENCH_POS_SUFFIX:-pos.murzaktech.tech}"
 POS_HOST=""
 POS_USER=""
 POS_PASSWORD=""
-if printf '%s\n' "$final" | grep -qx "techsavanna_pos"; then
+if printf '%s\n' "$final" | grep -qx "murzak_pos"; then
   [ -n "${JOB_OWNER_EMAIL:-}" ] || refuse \
     "JOB_OWNER_EMAIL is empty — a POS shop needs an owner login, and sign-up is closed on tenant POS hosts"
   if command -v getent >/dev/null 2>&1; then
@@ -306,7 +306,7 @@ try:
         parts = (os.environ.get('POS_OWNER_NAME') or '').split()
         first = parts[0] if parts else 'Shop'
         last = ' '.join(parts[1:]) or 'Owner'
-        from techsavanna_pos.api.auth_api import register_user
+        from murzak_pos.api.auth_api import register_user
         r = register_user(email=email, first_name=first, last_name=last,
                           password=os.environ['POS_OWNER_PW'])
         if isinstance(r, dict) and r.get('success') is False:

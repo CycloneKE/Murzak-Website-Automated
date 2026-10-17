@@ -134,7 +134,7 @@ const { getServiceMeta } = require("../services/provisioning/catalog");
       ok(meta?.setupKes === 0, `${id} has no setup fee`);
       ok(meta?.capacityClass === "premium" && meta?.ramMb === 2048, `${id} is a premium 2GB tenant`);
       ok(
-        JSON.stringify(meta?.benchApps) === JSON.stringify(["erpnext", "techsavanna_pos", "kenya_compliance"]),
+        JSON.stringify(meta?.benchApps) === JSON.stringify(["erpnext", "murzak_pos", "kenya_compliance"]),
         `${id} installs the POS bench apps in order`
       );
     }
