@@ -159,7 +159,7 @@ export type ServiceOption = {
    * Exists because the provisioning script has to know what to install and the
    * catalogue previously declared only RAM. Without it, `bench new-site` would
    * have to hardcode a product->app map somewhere outside the catalogue, which
-   * is how the techsavanna_pos / kenya_compliance dependency went unnoticed
+   * is how the murzak_pos / kenya_compliance dependency went unnoticed
    * (see that app's hooks.py).
    *
    * Every app named here MUST already exist on the bench — the bench app set is
@@ -672,7 +672,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 25 },
-      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
+      benchApps: ["erpnext", "murzak_pos", "kenya_compliance"],
       pricing: { model: "addon", monthlyKes: 2500, setupKes: 0 },
       highlights: ["M-Pesa payments", "Receipts", "Stock tracking", "Sales reports"],
       app: "pos",
@@ -692,7 +692,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 25 },
-      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
+      benchApps: ["erpnext", "murzak_pos", "kenya_compliance"],
       pricing: { model: "addon", monthlyKes: 4500, setupKes: 0 },
       highlights: ["Everything in Duka", "Purchase orders", "Loyalty points", "Stock transfers"],
       app: "pos",
@@ -711,7 +711,7 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       capacityClass: "premium",
       specs: { ram: "2GB", storage: "25GB NVMe", cpu: "2 vCPU", bandwidth: "High", backups: "Daily", sla: "99.9%" },
       resources: { ramMb: 2048, diskGb: 25 },
-      benchApps: ["erpnext", "techsavanna_pos", "kenya_compliance"],
+      benchApps: ["erpnext", "murzak_pos", "kenya_compliance"],
       pricing: { model: "addon", monthlyKes: 8500, setupKes: 0 },
       highlights: ["Everything in Biashara", "Multi-branch reports", "Priority support"],
       app: "pos",

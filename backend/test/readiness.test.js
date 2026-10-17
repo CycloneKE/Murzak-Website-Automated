@@ -118,12 +118,17 @@ function makeClient(doctypeFieldnames) {
 
   // Baseline that satisfies every OTHER required check, so toggling only
   // PROVISIONING_PHASE below isolates runner_enabled's effect on r.ready.
+  // The M-Pesa custom-field check only runs when M-Pesa keys are configured, so
+  // blank them: a developer or CI box with real keys in its environment would
+  // otherwise gain an extra required check and fail the tests below.
   const READY_BASELINE_ENV = {
     ADMIN_EMAILS: "ops@example.com",
     SMTP_HOST: "smtp.example.com",
     SMTP_USER: "u",
     SMTP_PASS: "p",
     PROVISIONING_ENABLED: "true",
+    MPESA_CONSUMER_KEY: "",
+    MPESA_CONSUMER_SECRET: "",
   };
 
   section("runner_enabled: runner off, no PROVISIONING_PHASE opt-out — required and fails");

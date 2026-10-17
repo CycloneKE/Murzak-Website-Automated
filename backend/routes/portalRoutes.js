@@ -766,7 +766,7 @@ function mapProvisioningJobRow(j, { includeCredentials = false } = {}) {
   // label leak AND the wrong link). No url yet => empty, and the frontend
   // shows "URL pending".
   let accessUrl = "";
-  // A Murzak POS shop (bench lane, techsavanna_pos): the owner's login for
+  // A Murzak POS shop (bench lane, murzak_pos): the owner's login for
   // their POS, created by murzak-bench-provision because sign-up is closed on
   // tenant POS hosts. password is only present on the provisioning run that
   // created the account. access.admin / access.deskUrl are the Frappe
