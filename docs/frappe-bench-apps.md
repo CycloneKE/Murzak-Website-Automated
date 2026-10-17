@@ -87,11 +87,11 @@ customer's site had none since 2026-06-21.
   refused every Murzak POS job ("app 'techsavanna_pos' is not installed on this
   bench"). Fixed by renaming them; the VPS needs the new
   `bench-catalog-snapshot.json` and `murzak-bench-provision`.
-- **Deploy drift:** the live `conf.d/00-murzak-pos-guard-map.conf` already
-  covers both app names and has a `password_reset` rule that
-  `deploy/vps/nginx/00-murzak-pos-guard-map.conf` in this repo lacks. Deploying
-  the repo copy over the live one would reopen sign-up on tenant POS sites for
-  `murzak_pos`. Sync the repo copy from the live file before ever installing
-  it.
+- **Deploy drift, resolved 2026-10-17:** the live
+  `conf.d/00-murzak-pos-guard-map.conf` had been edited by hand to cover both
+  app names and to add a `password_reset` rule, while the repo copy still named
+  only `techsavanna_pos`. Installing the old repo copy would have reopened
+  sign-up on tenant POS sites for `murzak_pos`. The repo copy is now the live
+  file verbatim, so future edits should start from the repo.
 - Customer sites get none of this automatically. Provisioning a customer who
   buys payroll or eTIMS means installing the relevant apps on their site.
