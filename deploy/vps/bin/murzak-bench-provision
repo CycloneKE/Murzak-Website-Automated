@@ -156,11 +156,18 @@ else
   ADMIN_PASSWORD="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | cut -c1-16)"
   log "creating site"
   # --no-mariadb-socket keeps bench on password auth, matching this box.
-  # Password is passed through the environment, never on the command line,
-  # so it cannot appear in ps output or the runner's captured log.
-  if ! BENCH_ADMIN_PW="$ADMIN_PASSWORD" DBRP="$BENCH_DB_ROOT_PASSWORD" \
-       sudo -u "$BENCH_USER" --preserve-env=BENCH_ADMIN_PW,DBRP bash -lc \
-       "cd '$BENCH_DIR' && bench new-site '$SITE' \
+  #
+  # Both secrets travel on STDIN, never in sudo's environment. sudo logs the
+  # full ENV= of every command it runs (--preserve-env included) to the system
+  # journal, which is how the MariaDB root password and each tenant's admin
+  # password ended up in `journalctl` in plain text on 2026-10-17. It only logs
+  # the command string, not stdin. Known limit: bench itself still receives the
+  # values as --db-root-password / --admin-password arguments, so they are
+  # visible to local users in /proc while bench runs; the CLI offers no other
+  # non-interactive way in.
+  if ! printf '%s\n%s\n' "$BENCH_DB_ROOT_PASSWORD" "$ADMIN_PASSWORD" | \
+       sudo -u "$BENCH_USER" bash -lc \
+       "IFS= read -r DBRP; IFS= read -r BENCH_ADMIN_PW; cd '$BENCH_DIR' && bench new-site '$SITE' \
           --db-root-password \"\$DBRP\" \
           --admin-password \"\$BENCH_ADMIN_PW\" \
           --no-mariadb-socket" >&2; then
@@ -291,10 +298,13 @@ if printf '%s\n' "$final" | grep -qx "murzak_pos"; then
   # a symbol. The fixed suffix guarantees each class whatever base64 yields.
   candidate="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | cut -c1-14)Aa7!"
 
-  owner_out="$(POS_OWNER_EMAIL="$POS_USER" POS_OWNER_NAME="${JOB_OWNER_NAME:-}" \
-    POS_OWNER_PW="$candidate" POS_SITE="$SITE" \
-    sudo -u "$BENCH_USER" --preserve-env=POS_OWNER_EMAIL,POS_OWNER_NAME,POS_OWNER_PW,POS_SITE \
-    bash -lc "cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+  # The owner's password goes in on stdin (read into the environment inside the
+  # bench user's shell), not through sudo's environment, so it is not written to
+  # the journal. The python program below still arrives on its own heredoc.
+  owner_out="$(printf '%s\n' "$candidate" | POS_OWNER_EMAIL="$POS_USER" POS_OWNER_NAME="${JOB_OWNER_NAME:-}" \
+    POS_SITE="$SITE" \
+    sudo -u "$BENCH_USER" --preserve-env=POS_OWNER_EMAIL,POS_OWNER_NAME,POS_SITE \
+    bash -lc "IFS= read -r POS_OWNER_PW; export POS_OWNER_PW; cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
 import json, os, frappe
 frappe.init(site=os.environ['POS_SITE'], sites_path='.')
 frappe.connect()

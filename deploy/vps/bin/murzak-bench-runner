@@ -215,6 +215,15 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
   rc=$?
   set -e
   verdict="$(grep -E '^\[' "/tmp/murzak-bench-runner-$$-stderr" 2>/dev/null | tail -1 | cut -c1-450)"
+  # On failure keep the tail of what the provisioner (and bench) printed in the
+  # JOURNAL. The verdict above is only the script's own last line, e.g. "bench
+  # new-site failed", and the real cause (bench's own error) is otherwise
+  # deleted with the temp file. Deliberately not written to the job's log/error
+  # fields: the portal shows those to the customer.
+  if [ "$rc" -ne 0 ]; then
+    tail -n 25 "/tmp/murzak-bench-runner-$$-stderr" 2>/dev/null | cut -c1-300 \
+      | while IFS= read -r l; do log "  | $l"; done
+  fi
   rm -f "/tmp/murzak-bench-runner-$$-stderr"
 
   if [ "$rc" -eq 0 ] && printf '%s' "$out" | tail -1 | jq -e . >/dev/null 2>&1; then
