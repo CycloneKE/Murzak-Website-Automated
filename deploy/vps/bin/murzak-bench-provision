@@ -334,6 +334,26 @@ PY" 2>&1)" || die "creating the POS owner on ${SITE} failed (retryable): $(print
   esac
 fi
 
+# ---- 6d. Murzak POS: outgoing email for the shop (never blocks the build) ---
+# A new site has no Email Account, so the POS's own "Email me a code" reset
+# fails with "We could not send the email just now". murzak-shop-mail adds one,
+# from /etc/murzak/shop-mail.env (a dedicated provider key, NOT the shared
+# Gmail one: every owner is System Manager and can read a stored password).
+#
+# Deliberately non-fatal and last: a paid shop must be delivered even if mail
+# is not configured or the provider is down, and a failure here would otherwise
+# make the runner retry a build that already succeeded. The step is idempotent;
+# re-run `murzak-shop-mail <site>` by hand once the cause is fixed.
+if [ -n "$POS_HOST" ]; then
+  mail_rc=0
+  /usr/local/bin/murzak-shop-mail "$SITE" >&2 || mail_rc=$?
+  case "$mail_rc" in
+    0) ;;
+    3) log "NOTE: shop email is not configured on this host; ${SITE} cannot send reset or notification email yet" ;;
+    *) log "WARNING: could not set up outgoing email on ${SITE} (exit ${mail_rc}); the shop is built and usable. Fix it, then run: murzak-shop-mail ${SITE}" ;;
+  esac
+fi
+
 # ---- 7. result -------------------------------------------------------------
 # THE only stdout line. admin is empty on an adopted site — we do not know the
 # existing password and must not invent one.
