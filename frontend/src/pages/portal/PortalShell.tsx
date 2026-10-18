@@ -32,6 +32,7 @@ import { ScalingSettings } from "../../components/portal/ScalingSettings";
 import { Database as DatabaseIcon, HardDrive } from "lucide-react";
 import { usePortal } from "./PortalContext";
 import OverviewTab from "./tabs/OverviewTab";
+import PortalLanding from "./tabs/PortalLanding";
 import CloudTab from "./tabs/CloudTab";
 import DomainsTab from "./tabs/DomainsTab";
 import ResourceListTab from "./tabs/ResourceListTab";
@@ -328,7 +329,7 @@ const PortalShell: React.FC = () => {
 
         <div className="max-w-7xl mx-auto">
           <Routes>
-            <Route index element={<Navigate to="overview" replace />} />
+            <Route index element={<PortalLanding />} />
             <Route path="overview" element={<OverviewTab />} />
             <Route path="cloud" element={<CloudTab />} />
             <Route path="domains" element={<DomainsTab />} />

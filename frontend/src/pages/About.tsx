@@ -304,7 +304,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
             <Button variant="primary" onClick={() => onNavigate('contact')}>
               <Phone size={17} /> Talk to us
             </Button>
-            <Button variant="outline" onClick={() => onNavigate('pricing')}>
+            <Button variant="outline" onClick={() => onNavigate('/products')}>
               Build a plan <ArrowRight size={17} />
             </Button>
           </div>

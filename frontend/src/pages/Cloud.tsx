@@ -201,7 +201,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
             <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100">Move your hosting somewhere it's handled.</h2>
             <p className="mt-4 text-lg text-slate-600 dark:text-slate-300 font-medium">Build a plan in two minutes, or try it free for 36 hours first.</p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="primary" onClick={() => onNavigate('pricing')}>
+              <Button variant="primary" onClick={() => onNavigate('/products')}>
                 Build my plan <ArrowRight size={18} />
               </Button>
               <Button variant="outline" onClick={() => onNavigate('test-request')}>

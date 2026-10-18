@@ -31,7 +31,7 @@ interface LoginProps {
   const [googleLoading, setGoogleLoading] = useState(false);
 
   const params = new URLSearchParams(location.search);
-  const returnTo = params.get("returnTo") || "/portal/overview";
+  const returnTo = params.get("returnTo") || "/portal";
 
   // Handle password-reset links and email-verification redirects.
   useEffect(() => {

@@ -62,7 +62,7 @@ const ForServices: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to professionalize your workflow?</h2>
-          <Button variant="primary" onClick={() => onNavigate('pricing')}>
+          <Button variant="primary" onClick={() => onNavigate('/products')}>
             Configure your service stack <ArrowRight size={17} />
           </Button>
         </div>

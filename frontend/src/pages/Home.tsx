@@ -242,7 +242,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row gap-4">
-              <Button onClick={() => onNavigate('pricing')}>
+              <Button onClick={() => onNavigate('products')}>
                 Build my plan <ArrowRight size={18} />
               </Button>
               <Button variant="outlineOnDark" onClick={() => scrollTo('what-we-do')}>
@@ -348,7 +348,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <p className="mt-6 text-lg text-slate-400 font-medium leading-relaxed max-w-md">
               Pick what you need, watch the cost add up in shillings, and start. No "contact us for pricing," no surprises on the invoice.
             </p>
-            <Button className="mt-8" onClick={() => onNavigate('pricing')}>
+            <Button className="mt-8" onClick={() => onNavigate('products')}>
               Build my plan <ArrowRight size={18} />
             </Button>
           </Reveal>
@@ -516,7 +516,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] tracking-tight">Start free. Scale when you’re ready.</h2>
             </div>
             <button
-              onClick={() => onNavigate('pricing')}
+              onClick={() => onNavigate('products')}
               className="shrink-0 inline-flex items-center gap-2 font-black text-label uppercase tracking-widest text-murzak-accent hover:gap-3 transition-all"
             >
               See full pricing <ArrowUpRight size={15} />
@@ -526,7 +526,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             {Object.values(PLAN_META).map((m, i) => (
               <Reveal key={m.code} delayMs={i * 80}>
                 <button
-                  onClick={() => onNavigate('pricing')}
+                  onClick={() => onNavigate('products')}
                   className={`text-left w-full h-full rounded-3xl border p-7 transition-all hover:-translate-y-1 ${
                     m.featured
                       ? 'border-murzak-accent/40 bg-murzak-accent/6'
@@ -592,7 +592,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             Build a plan in two minutes, or talk to someone who'll actually pick up.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="onDark" onClick={() => onNavigate('pricing')}>
+            <Button variant="onDark" onClick={() => onNavigate('products')}>
               Build my plan <ArrowRight size={18} />
             </Button>
             <Button variant="outlineOnDark" onClick={() => onNavigate('contact')}>

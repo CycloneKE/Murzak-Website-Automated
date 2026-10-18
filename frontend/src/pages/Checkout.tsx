@@ -56,7 +56,7 @@ function formatCountdown(ms: number): string {
 function paidDestination(order: { id?: string; config?: { app?: string } } | null | undefined): string {
   return order?.config?.app && order?.id
     ? `/welcome/${encodeURIComponent(order.id)}`
-    : '/portal/overview';
+    : '/portal';
 }
 
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
