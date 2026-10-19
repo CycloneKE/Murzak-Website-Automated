@@ -70,3 +70,26 @@ export async function saveShopSetup(orderId: string, body: { answers: SetupAnswe
   });
   return (await json<{ setup: SetupState }>(res)).setup;
 }
+
+export interface ProgressStep {
+  id: string;
+  label: string;
+  help: string;
+  optional: boolean;
+  done: boolean;
+}
+export interface ShopProgress {
+  checked: boolean;
+  checkedAt: string | null;
+  steps: ProgressStep[];
+  doneCount: number;
+  total: number;
+  complete: boolean;
+  nextStepId: string | null;
+}
+
+/** null when the service is not an app shop or has no paid order yet. */
+export async function fetchShopProgress(serviceId: string): Promise<ShopProgress | null> {
+  const res = await fetch(`/api/portal/services/${encodeURIComponent(serviceId)}/shop-progress`, { credentials: "include" });
+  return (await json<{ progress: ShopProgress | null }>(res)).progress;
+}
