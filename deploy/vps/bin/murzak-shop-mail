@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+#
+# murzak-shop-mail <site> [<site> ...]
+#
+# Gives a customer's Frappe site (a Murzak POS shop) an outgoing email account,
+# so the shop's own "Email me a code" password reset and any notification can
+# send. A freshly created site has no Email Account, so those calls fail with
+# "We could not send the email just now" (seen on lindamwananchi, 2026-10-18).
+#
+# WHICH CREDENTIAL, AND WHY NOT THE GMAIL ONE
+#   Every shop owner is System Manager on their own site, and a System Manager
+#   can read a stored Password field through Frappe's own API. Whatever
+#   credential this script puts in a shop is therefore readable by that
+#   customer. So it must be a dedicated, quota-limited SMTP key from a
+#   transactional mail provider (Brevo, Mailgun, SES...), never the Gmail
+#   account the shared api.pos site uses. If one leaks, replace that one key and
+#   re-run this script on every shop; nothing else is exposed.
+#
+# CONFIG: /etc/murzak/shop-mail.env, root-only (mode 600), never in git:
+#   SHOP_SMTP_HOST=smtp-relay.example.com
+#   SHOP_SMTP_PORT=587                 # default 587
+#   SHOP_SMTP_SECURITY=starttls        # starttls (587, default) or ssl (465)
+#   SHOP_SMTP_USER=...                 # the provider's SMTP login
+#   SHOP_SMTP_PASSWORD=...             # the provider's SMTP key
+#   SHOP_MAIL_FROM=no-reply@murzaktech.tech   # must be a verified sender/domain
+#   SHOP_MAIL_NAME="Murzak POS"        # display name; also the account's name
+#
+# The password goes to the bench user on STDIN, not in sudo's environment: sudo
+# logs ENV= for every command it runs, which is how secrets reached the journal
+# before (see murzak-bench-provision).
+#
+# IDEMPOTENT: re-running updates the existing account in place (this is how a
+# rotated key is rolled out). Saving the account makes Frappe open a real SMTP
+# connection, so a wrong host, login or key fails here instead of silently.
+#
+# Exit codes: 0 applied
+#             3 not configured (no /etc/murzak/shop-mail.env) - skipped, harmless
+#             2 bad input or unsafe config (never retry blindly)
+#             1 the site rejected it (e.g. SMTP login failed) - fix, then re-run
+#
+# Only diagnostics go to stderr; stdout stays empty so a caller can capture its
+# own output safely.
+
+set -euo pipefail
+
+CONF="${MURZAK_SHOP_MAIL_ENV:-/etc/murzak/shop-mail.env}"
+BENCH_DIR="${BENCH_DIR:-/home/murzakerp/frappe-bench}"
+BENCH_USER="${BENCH_USER:-murzakerp}"
+
+log()    { printf '%s %s\n' "[$(date -u +%H:%M:%S)]" "$*" >&2; }
+die()    { log "ERROR: $*"; exit "${2:-1}"; }
+refuse() { log "REFUSED: $*"; exit 2; }
+
+[ "$#" -ge 1 ] || refuse "usage: murzak-shop-mail <site> [<site> ...]"
+
+if [ ! -e "$CONF" ]; then
+  log "shop mail is not configured (no $CONF) - shops cannot send email yet"
+  exit 3
+fi
+
+# The file holds a live SMTP key: insist it is not readable by group/other.
+mode="$(stat -c '%a' "$CONF")"
+case "$mode" in
+  400|600) ;;
+  *) refuse "$CONF has mode $mode; it holds a secret and must be 600 (chmod 600 $CONF)" ;;
+esac
+
+set -a; . "$CONF"; set +a
+# Do not leave the key exported: it would sit in the environment of every child.
+export -n SHOP_SMTP_PASSWORD
+
+: "${SHOP_SMTP_PORT:=587}"
+: "${SHOP_SMTP_SECURITY:=starttls}"
+: "${SHOP_MAIL_NAME:=Murzak POS}"
+[ -n "${SHOP_SMTP_HOST:-}" ]     || refuse "SHOP_SMTP_HOST is empty in $CONF"
+[ -n "${SHOP_SMTP_USER:-}" ]     || refuse "SHOP_SMTP_USER is empty in $CONF"
+[ -n "${SHOP_SMTP_PASSWORD:-}" ] || refuse "SHOP_SMTP_PASSWORD is empty in $CONF"
+[ -n "${SHOP_MAIL_FROM:-}" ]     || refuse "SHOP_MAIL_FROM is empty in $CONF"
+case "$SHOP_SMTP_SECURITY" in starttls|ssl) ;; *) refuse "SHOP_SMTP_SECURITY must be starttls or ssl" ;; esac
+case "$SHOP_SMTP_PORT" in ''|*[!0-9]*) refuse "SHOP_SMTP_PORT must be a number" ;; esac
+[ -d "$BENCH_DIR" ] || refuse "bench directory ${BENCH_DIR} not found"
+
+# Site names become hostnames and a python argument; same shape the provisioner
+# builds (lowercase labels), checked here because this can be run by hand.
+site_re='^[a-z0-9]([a-z0-9.-]*[a-z0-9])$'
+for site in "$@"; do
+  ( export LC_ALL=C; [[ "$site" =~ $site_re ]] ) || refuse "'$site' is not a valid site name"
+  [ -d "${BENCH_DIR}/sites/${site}" ] || refuse "site ${site} does not exist on this bench"
+done
+
+failures=0
+for site in "$@"; do
+  log "configuring outgoing email on ${site}"
+  if out="$(printf '%s\n' "$SHOP_SMTP_PASSWORD" | \
+      SHOP_SITE="$site" SHOP_SMTP_HOST="$SHOP_SMTP_HOST" SHOP_SMTP_PORT="$SHOP_SMTP_PORT" \
+      SHOP_SMTP_SECURITY="$SHOP_SMTP_SECURITY" SHOP_SMTP_USER="$SHOP_SMTP_USER" \
+      SHOP_MAIL_FROM="$SHOP_MAIL_FROM" SHOP_MAIL_NAME="$SHOP_MAIL_NAME" \
+      sudo -u "$BENCH_USER" \
+        --preserve-env=SHOP_SITE,SHOP_SMTP_HOST,SHOP_SMTP_PORT,SHOP_SMTP_SECURITY,SHOP_SMTP_USER,SHOP_MAIL_FROM,SHOP_MAIL_NAME \
+        bash -lc "IFS= read -r SMTP_PW; export SMTP_PW; cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+import json, os, frappe
+
+frappe.init(site=os.environ['SHOP_SITE'], sites_path='.')
+frappe.connect()
+try:
+    frappe.set_user('Administrator')
+    e = os.environ
+    name = e['SHOP_MAIL_NAME']
+    sender = e['SHOP_MAIL_FROM']
+    login = e['SHOP_SMTP_USER']
+    ssl = e['SHOP_SMTP_SECURITY'] == 'ssl'
+    different = login != sender
+
+    if frappe.db.exists('Email Account', name):
+        doc = frappe.get_doc('Email Account', name)
+    else:
+        doc = frappe.new_doc('Email Account')
+
+    doc.update({
+        'email_account_name': name,
+        'email_id': sender,
+        'enable_incoming': 0,
+        'enable_outgoing': 1,
+        'default_outgoing': 1,
+        'smtp_server': e['SHOP_SMTP_HOST'],
+        'smtp_port': e['SHOP_SMTP_PORT'],
+        'use_tls': 0 if ssl else 1,
+        'use_ssl_for_outgoing': 1 if ssl else 0,
+        'login_id_is_different': 1 if different else 0,
+        'login_id': login if different else None,
+        'always_use_account_email_id_as_sender': 1,
+        'always_use_account_name_as_sender_name': 1,
+        'send_unsubscribe_message': 0,
+        'track_email_status': 0,
+    })
+    doc.password = os.environ['SMTP_PW']
+    # save() opens a real SMTP connection (Email Account.validate_smtp_conn),
+    # so a bad host, login or key raises here.
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+    print(json.dumps({'state': 'applied', 'account': name}))
+finally:
+    frappe.destroy()
+PY" 2>&1)"; then
+    log "  ok: $(printf '%s\n' "$out" | tail -1 | cut -c1-200)"
+  else
+    failures=$((failures + 1))
+    log "  FAILED on ${site}: $(printf '%s' "$out" | tail -3 | tr '\n' ' ' | cut -c1-400)"
+  fi
+done
+
+[ "$failures" -eq 0 ] || die "${failures} site(s) failed; fix the cause above and re-run" 1

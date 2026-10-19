@@ -18,6 +18,7 @@ the design and the reasoning behind it.
 | `nginx/erp-tenants-wildcard` | `/etc/nginx/sites-available/erp-tenants-wildcard` | 0644 root:root |
 | `bin/murzak-bench-provision` | `/usr/local/bin/murzak-bench-provision` | 0755 root:root |
 | `bin/murzak-bench-runner` | `/usr/local/bin/murzak-bench-runner` | 0755 root:root |
+| `bin/murzak-shop-mail` | `/usr/local/bin/murzak-shop-mail` | 0755 root:root |
 | `systemd/murzak-bench-runner.service` | `/etc/systemd/system/murzak-bench-runner.service` | 0644 root:root |
 | `systemd/murzak-bench-runner.timer` | `/etc/systemd/system/murzak-bench-runner.timer` | 0644 root:root |
 | `nginx/murzak-app-proxy.conf` | `/etc/nginx/snippets/murzak-app-proxy.conf` | 0644 root:root |
@@ -305,6 +306,60 @@ It is idempotent by design, because the runner retries: an existing site is
 adopted rather than recreated, and apps already installed are skipped. The
 `admin` field is empty for an adopted site — the existing password is unknown
 and inventing one would be worse than returning nothing.
+
+## Shop email (outgoing mail for customer POS shops)
+
+A new shop starts with no Email Account, so its own "Email me a code" password
+reset fails with "We could not send the email just now". `bin/murzak-shop-mail`
+adds one, and `murzak-bench-provision` calls it for every new POS shop (a
+failure there never blocks the build; it only logs a warning).
+
+**Use a dedicated key from a transactional mail provider (Brevo, Mailgun, Amazon
+SES), never the Gmail account that api.pos uses.** Every shop owner is System
+Manager on their own site, and a System Manager can read a stored Password
+field through Frappe's own API, so whatever credential goes into a shop is
+readable by that customer. A dedicated, quota-limited key limits the damage to
+one replaceable credential.
+
+One-time setup on the VPS:
+
+1. In the provider, add and verify `murzaktech.tech` as a sending domain (it
+   gives you SPF and DKIM DNS records; add a DMARC record too), then create an
+   SMTP key.
+2. Install the script: `sudo install -m 0755 bin/murzak-shop-mail /usr/local/bin/`
+3. Create the config. The password prompt does not echo and never lands in shell
+   history, and `%q` quotes it safely:
+
+   ```bash
+   sudo bash -c '
+   umask 077
+   read -r -p "SMTP host: " H
+   read -r -p "SMTP login: " U
+   read -rs -p "SMTP password/key: " P; echo
+   {
+     printf "SHOP_SMTP_HOST=%q\n" "$H"
+     printf "SHOP_SMTP_PORT=587\n"
+     printf "SHOP_SMTP_SECURITY=starttls\n"
+     printf "SHOP_SMTP_USER=%q\n" "$U"
+     printf "SHOP_SMTP_PASSWORD=%q\n" "$P"
+     printf "SHOP_MAIL_FROM=no-reply@murzaktech.tech\n"
+     printf "SHOP_MAIL_NAME=%q\n" "Murzak POS"
+   } > /etc/murzak/shop-mail.env
+   chmod 600 /etc/murzak/shop-mail.env'
+   ```
+
+4. Apply it to a shop that already exists, then try "Email me a code" on it:
+
+   ```bash
+   sudo murzak-shop-mail <slug>.erp.murzaktech.tech
+   ```
+
+Saving the account makes Frappe open a real SMTP connection, so a wrong host,
+login or key fails right there with the provider's message.
+
+To rotate the key, edit `/etc/murzak/shop-mail.env` and re-run
+`murzak-shop-mail` for every shop (it accepts several site names). It updates
+the existing account in place.
 
 ## Deploying a change
 
