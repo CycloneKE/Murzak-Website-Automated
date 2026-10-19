@@ -54,7 +54,7 @@ const ShopSetupCard: React.FC<Props> = ({ orderId, serviceId }) => {
   }, [orderId]);
 
   // Once answers are saved, keep checking until the shop has them applied.
-  const waiting = setup && (setup.state === "saved" || setup.state === "applying");
+  const waiting = !!setup && (setup.state === "saved" || setup.state === "applying");
   useEffect(() => {
     if (!waiting) return;
     let cancel = false;
@@ -126,11 +126,21 @@ const ShopSetupCard: React.FC<Props> = ({ orderId, serviceId }) => {
           <>
             <p className="mt-3 flex items-center gap-2 text-sm font-black text-murzak-ink dark:text-slate-100">
               {done ? <Check size={16} className="text-emerald-600" aria-hidden="true" /> : <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
-              {done ? "Done. Your shop is set up for your business." : "Saved. We'll apply this as soon as your shop is ready."}
+              {done ? "Done. Your shop is set up for your business." : setup.state === "failed" ? "Saved, but not applied yet." : "Saved. We'll apply this as soon as your shop is ready."}
             </p>
             <ul className="mt-3 space-y-1.5 list-disc pl-5 text-sm font-semibold text-slate-600 dark:text-slate-300">
               {setup.summary.map((line) => <li key={line}>{line}</li>)}
             </ul>
+            {setup.state === "failed" && (
+              <p className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                We could not apply this automatically. Your shop works as normal; message us from your portal and we will finish it for you.
+              </p>
+            )}
+            {done && setup.notes.length > 0 && (
+              <ul className="mt-3 space-y-1.5 list-disc pl-5 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                {setup.notes.map((line) => <li key={line}>{line}</li>)}
+              </ul>
+            )}
           </>
         )}
       </>

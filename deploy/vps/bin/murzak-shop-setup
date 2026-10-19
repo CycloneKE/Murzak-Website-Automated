@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+#
+# murzak-shop-setup  sweep
+# murzak-shop-setup  apply <site>      (plan JSON on stdin)
+#
+# Applies what a new Murzak POS owner chose on the "Your shop is getting ready"
+# page (business type, kitchen till, bar till) to their shop, once it exists.
+#
+# HOW IT FITS
+#   The website saves the owner's answers on their Checkout Order
+#   (config_json -> shopSetup, state "saved", with a ready-made `plan`). This
+#   script runs on the host every time murzak-bench-runner does (about every 90
+#   seconds), looks for FINISHED POS shops whose owner has saved a plan that has
+#   not been applied, and applies it. A shop that is still building is simply
+#   not looked at yet, so the owner can answer before or after the build ends.
+#
+# WHAT IT CHANGES IN THE SHOP, and only this (it goes through murzak_pos's own
+# functions, never straight into tables):
+#   - business kind      murzak_pos.api.setup_api.save_business_kind
+#   - kitchen and bar    murzak_pos.api.kitchen_api.save_kitchen_settings
+#   - Item Groups "Food" / "Drinks" if missing (the groups the stations serve)
+#   It ADDS and never removes. If the owner has already chosen a business kind or
+#   saved kitchen settings themselves, those are kept and the owner is told so.
+#
+# SAFE TO RE-RUN. The order marker moves saved -> applying -> applied. A run
+# killed mid-way leaves "applying", which is picked up again after 15 minutes. A
+# failure goes back to "saved" and is retried up to 3 times, then "failed"
+# (the shop is unaffected; a person can run `apply` by hand).
+#
+# CONFIG: /etc/murzak/frappe-api.env (same file murzak-bench-runner uses).
+# Needs: bash, curl, jq, sudo.
+#
+# Exit codes: 0 done (or nothing to do)   2 bad input   1 something failed
+# Diagnostics go to stderr; stdout is only the JSON result of `apply`.
+
+set -euo pipefail
+
+FRAPPE_ENV="${MURZAK_FRAPPE_ENV:-/etc/murzak/frappe-api.env}"
+BENCH_DIR="${BENCH_DIR:-/home/murzakerp/frappe-bench}"
+BENCH_USER="${BENCH_USER:-murzakerp}"
+LOOKBACK_HOURS="${MURZAK_SHOP_SETUP_LOOKBACK_HOURS:-48}"
+MAX_ATTEMPTS="${MURZAK_SHOP_SETUP_MAX_ATTEMPTS:-3}"
+STALE_APPLYING_SEC="${MURZAK_SHOP_SETUP_STALE_SEC:-900}"
+RUNNER_ID="shop-setup-$(hostname -s 2>/dev/null || echo vps)-$$"
+SITE_RE='^[a-z0-9]([a-z0-9.-]*[a-z0-9])$'
+
+log()    { printf '%s %s\n' "[$(date -u +%H:%M:%S)]" "$*" >&2; }
+refuse() { log "REFUSED: $*"; exit 2; }
+
+# ---------------------------------------------------------------- apply ------
+# Plan JSON on stdin -> the shop. Prints {"applied":[...],"kept":[...]} last.
+apply_plan() {
+  local site="$1" plan
+  ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || refuse "'$site' is not a valid site name"
+  [ -d "${BENCH_DIR}/sites/${site}" ] || refuse "site ${site} does not exist on this bench"
+  plan="$(jq -c '.')" || refuse "the plan on stdin is not valid JSON"
+  jq -e '.version == 1 and (.kind|IN("retail","services","other"))' <<<"$plan" >/dev/null \
+    || refuse "the plan has an unknown version or business kind"
+
+  # The plan goes in on stdin and is read inside the bench user's shell, so it
+  # is not in sudo's logged environment.
+  printf '%s\n' "$plan" | SHOP_SITE="$site" sudo -u "$BENCH_USER" --preserve-env=SHOP_SITE \
+    bash -lc "IFS= read -r PLAN_JSON; export PLAN_JSON; cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+import json, os, frappe
+
+frappe.init(site=os.environ['SHOP_SITE'], sites_path='.')
+frappe.connect()
+try:
+    frappe.set_user('Administrator')
+    plan = json.loads(os.environ['PLAN_JSON'])
+    applied, kept = [], []
+
+    from murzak_pos.api.payment_gateway_common import resolve_company
+    from murzak_pos.api import setup_api, kitchen_api
+    company = resolve_company(None)
+
+    # 1. Business kind. Keep one the owner already chose.
+    current = (setup_api.get_business_features(company).get('data') or {}).get('kind')
+    if current and current != plan['kind']:
+        kept.append('Your business type was already set, so we left it as it is.')
+    elif current == plan['kind']:
+        applied.append('business type')
+    else:
+        setup_api.save_business_kind(plan['kind'], company)
+        applied.append('business type')
+
+    # 2. Kitchen and bar. Keep settings the owner already saved.
+    kitchen = plan.get('kitchen')
+    if kitchen:
+        existing = frappe.db.get_value('POS Kitchen Settings', {'company': company}, 'settings')
+        if existing:
+            kept.append('Your kitchen settings were already saved, so we left them as they are.')
+        else:
+            for group in plan.get('itemGroups') or []:
+                if not frappe.db.exists('Item Group', group):
+                    frappe.get_doc({'doctype': 'Item Group', 'item_group_name': group,
+                                    'parent_item_group': 'All Item Groups', 'is_group': 0}).insert(ignore_permissions=True)
+            result = kitchen_api.save_kitchen_settings(json.dumps(kitchen), company)
+            if not result.get('success'):
+                raise Exception('kitchen settings refused: %s' % result.get('message'))
+            applied.append('kitchen and bar')
+
+    frappe.db.commit()
+    print(json.dumps({'applied': applied, 'kept': kept}))
+finally:
+    frappe.destroy()
+PY" 2>&1
+}
+
+# ---------------------------------------------------------------- sweep ------
+load_frappe() {
+  [ -r "$FRAPPE_ENV" ] || { log "cannot read $FRAPPE_ENV"; exit 1; }
+  set -a; . "$FRAPPE_ENV"; set +a
+  [ -n "${FRAPPE_BASE_URL:-}" ] && [ -n "${FRAPPE_API_KEY:-}" ] && [ -n "${FRAPPE_API_SECRET:-}" ] \
+    || { log "$FRAPPE_ENV is missing FRAPPE_BASE_URL / FRAPPE_API_KEY / FRAPPE_API_SECRET"; exit 1; }
+  AUTH="token ${FRAPPE_API_KEY}:${FRAPPE_API_SECRET}"
+  BASE="${FRAPPE_BASE_URL%/}"
+}
+
+order_get() { # name -> order JSON on stdout
+  curl -sS --max-time 30 -H "Authorization: $AUTH" -H "Accept: application/json" \
+    "${BASE}/api/resource/Checkout%20Order/$(jq -rn --arg n "$1" '$n|@uri')" | jq -e '.data // empty' 2>/dev/null
+}
+
+# Rewrite the order's config_json from a fresh read, so keys other writers own
+# (welcomeEmail) are carried through.
+# $1 order name, $2 jq filter run on the whole config object.
+order_set_config() {
+  local name="$1" filter="$2" fresh cfg code
+  fresh="$(order_get "$name")" || return 1
+  cfg="$(jq -r '.config_json // "{}"' <<<"$fresh" | jq -c '.')" || return 1
+  cfg="$(jq -c "$filter" <<<"$cfg")" || return 1
+  code="$(jq -n --arg c "$cfg" '{config_json:$c}' | curl -sS --max-time 30 -o /dev/null -w '%{http_code}' -X PUT \
+    -H "Authorization: $AUTH" -H "Content-Type: application/json" \
+    "${BASE}/api/resource/Checkout%20Order/$(jq -rn --arg n "$name" '$n|@uri')" -d @-)"
+  [ "$code" = "200" ]
+}
+
+setup_field() { # row-or-order JSON, jq path under shopSetup -> value
+  jq -r "(.config_json | try fromjson catch {}) | .shopSetup.${2} // \"\"" <<<"$1"
+}
+
+sweep() {
+  command -v jq >/dev/null 2>&1 || { log "jq is required"; exit 1; }
+  load_frappe
+  local cutoff now_epoch jobs
+  cutoff="$(date -u -d "-${LOOKBACK_HOURS} hours" '+%Y-%m-%d %H:%M:%S')"
+  now_epoch="$(date -u +%s)"
+
+  jobs="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+    "${BASE}/api/resource/Provisioning%20Job" \
+    --data-urlencode 'filters=[["status","=","active"],["lane","=","bench"],["modified",">=","'"$cutoff"'"]]' \
+    --data-urlencode 'fields=["name","invoice","service_id","access"]' \
+    --data-urlencode 'limit_page_length=50')"
+  if ! jq -e '.data | type == "array"' <<<"$jobs" >/dev/null 2>&1; then
+    log "job query failed: ${jobs:0:200}"; exit 1
+  fi
+
+  local job service invoice site orders row oname state claimed_at age plan attempts out rc result next err
+  while IFS= read -r job; do
+    [ -n "$job" ] || continue
+    service="$(jq -r '.service_id // ""' <<<"$job")"
+    case "$service" in biz-pos-*) ;; *) continue ;; esac
+    invoice="$(jq -r '.invoice // ""' <<<"$job")"
+    site="$(jq -r '(.access // "{}") | (try fromjson catch {}) | .site // ""' <<<"$job")"
+    [ -n "$invoice" ] && [ -n "$site" ] || continue
+    ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || { log "skip: odd site name in job"; continue; }
+    [ -d "${BENCH_DIR}/sites/${site}" ] || continue
+
+    orders="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+      "${BASE}/api/resource/Checkout%20Order" \
+      --data-urlencode 'filters=[["invoice_doc_name","=","'"$invoice"'"],["status","=","Paid"]]' \
+      --data-urlencode 'fields=["name","invoice_doc_name","config_json"]' \
+      --data-urlencode 'limit_page_length=5')"
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      [ "$(jq -r '.invoice_doc_name' <<<"$row")" = "$invoice" ] || continue   # never trust a server filter to be exact
+      oname="$(jq -r '.name' <<<"$row")"
+      state="$(setup_field "$row" state)"
+      case "$state" in
+        saved) ;;
+        applying)
+          claimed_at="$(setup_field "$row" claimedAt)"
+          age=$(( now_epoch - $(date -u -d "${claimed_at:-1970-01-01}" +%s 2>/dev/null || echo 0) ))
+          [ "$age" -gt "$STALE_APPLYING_SEC" ] || continue ;;
+        *) continue ;;
+      esac
+      plan="$(jq -c '(.config_json | try fromjson catch {}) | .shopSetup.plan // empty' <<<"$row")"
+      [ -n "$plan" ] || continue
+      attempts="$(setup_field "$row" attempts)"; attempts="${attempts:-0}"
+
+      log "applying shop setup to ${site} (order ${oname})"
+      if ! order_set_config "$oname" ".shopSetup.state = \"applying\" | .shopSetup.claimedAt = \"$(date -u '+%Y-%m-%d %H:%M:%S')\" | .shopSetup.runner = \"$RUNNER_ID\""; then
+        log "  could not claim ${oname}; will try again next run"; continue
+      fi
+      # Confirm the claim stuck (two sweeps overlapping back off).
+      if [ "$(setup_field "$(order_get "$oname")" runner)" != "$RUNNER_ID" ]; then
+        log "  lost the claim on ${oname}"; continue
+      fi
+
+      rc=0
+      out="$(printf '%s\n' "$plan" | apply_plan "$site")" || rc=$?
+      result="$(tail -1 <<<"$out")"
+      if [ "$rc" -eq 0 ] && jq -e '.applied' <<<"$result" >/dev/null 2>&1; then
+        log "  applied: $(jq -c '.applied' <<<"$result") kept: $(jq -c '.kept' <<<"$result")"
+        order_set_config "$oname" ".shopSetup.state = \"applied\" | .shopSetup.appliedAt = \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" | .shopSetup.notes = $(jq -c '.kept' <<<"$result") | del(.shopSetup.runner, .shopSetup.claimedAt, .shopSetup.lastError)" \
+          || log "  WARNING: applied, but could not record it; it will be applied again harmlessly"
+      else
+        attempts=$((attempts + 1))
+        next="saved"; [ "$attempts" -lt "$MAX_ATTEMPTS" ] || next="failed"
+        err="$(printf '%s' "$out" | tail -3 | tr '\n' ' ' | cut -c1-300)"
+        log "  FAILED (attempt ${attempts}, now ${next}): ${err}"
+        order_set_config "$oname" ".shopSetup.state = \"${next}\" | .shopSetup.attempts = ${attempts} | .shopSetup.lastError = $(jq -n --arg e "$err" '$e') | del(.shopSetup.runner, .shopSetup.claimedAt)" || true
+      fi
+    done < <(jq -c '.data[]?' <<<"$orders")
+  done < <(jq -c '.data[]' <<<"$jobs")
+}
+
+case "${1:-sweep}" in
+  sweep) sweep ;;
+  apply) [ "$#" -eq 2 ] || refuse "usage: murzak-shop-setup apply <site>   (plan JSON on stdin)"; apply_plan "$2" ;;
+  *) refuse "usage: murzak-shop-setup [sweep | apply <site>]" ;;
+esac

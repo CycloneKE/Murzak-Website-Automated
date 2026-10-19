@@ -38,6 +38,8 @@ export interface SetupState {
   skipped: boolean;
   answers: SetupAnswers | null;
   summary: string[];
+  /** Things the shop already had and we left alone. */
+  notes: string[];
   savedAt: string | null;
   appliedAt: string | null;
 }

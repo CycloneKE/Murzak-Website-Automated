@@ -233,6 +233,7 @@ function publicSetup(config) {
     skipped: s.skipped === true,
     answers: s.answers || null,
     summary: Array.isArray(s.summary) ? s.summary : [],
+    notes: Array.isArray(s.notes) ? s.notes : [],
     savedAt: s.savedAt || null,
     appliedAt: s.appliedAt || null,
   };
