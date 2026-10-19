@@ -25,6 +25,7 @@ const validateAppOrder = require("../services/apps/appOrder").validateAppOrder;
 const isAppService = require("../services/apps/appOrder").isAppService;
 const tenantSlugs = require("../services/apps/tenantSlugStore");
 const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
+const shopSetup = require("../services/apps/shopSetup");
 
 // Shared by POST /api/orders (order-creation, purely informational — the
 // order's own stored config.billingTerm is never read back by
@@ -235,6 +236,35 @@ module.exports = function (ctx) {
       return res.json({ ok: true, order: { ...order, eligibleForTermChoice } });
     } catch (err) {
       return sendError(res, err, "Failed to fetch order.", "GET ORDER");
+    }
+  });
+
+  // The questionnaire a new shop owner answers while the shop builds, and
+  // their saved answers. The host applies them once the shop exists
+  // (deploy/vps/bin/murzak-shop-setup); until then they are only stored.
+  router.get("/api/orders/:id/shop-setup", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const order = await getOrder({ client: frappeClient(), webAccountName, orderId: req.params.id, nowMs: Date.now(), renew: false });
+      if (order.status !== "Paid" || !order.config?.app) return res.status(409).json({ error: "Shop setup is available once your shop order is paid." });
+      return res.json({ ok: true, ...shopSetup.catalogForClient(), setup: shopSetup.publicSetup(order.config) });
+    } catch (err) {
+      return sendError(res, err, "Failed to load shop setup.", "GET SHOP SETUP");
+    }
+  });
+
+  router.put("/api/orders/:id/shop-setup", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const client = frappeClient();
+      const order = await getOrder({ client, webAccountName, orderId: req.params.id, nowMs: Date.now(), renew: false });
+      const result = await shopSetup.saveShopSetup({ client, order, body: req.body, nowMs: Date.now() });
+      if (!result.ok) return res.status(result.status).json({ error: result.error });
+      return res.json({ ok: true, setup: result.setup });
+    } catch (err) {
+      return sendError(res, err, "Failed to save shop setup.", "SAVE SHOP SETUP");
     }
   });
 

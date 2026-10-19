@@ -130,6 +130,13 @@ if [ -n "$reclaim_list" ]; then
   done <<< "$reclaim_list"
 fi
 
+# ---- 0b. apply owners' shop-setup choices to shops that are already built ---
+# Separate script (murzak-shop-setup) so it can also be run by hand. It never
+# blocks or fails this run: a shop is fully usable without its optional setup.
+if [ -x /usr/local/bin/murzak-shop-setup ]; then
+  /usr/local/bin/murzak-shop-setup sweep || log "shop-setup sweep reported a problem (see lines above); builds are unaffected"
+fi
+
 # ---- 1. fetch claimable jobs -----------------------------------------------
 jobs_json="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
   "${BASE}/api/resource/${JOB_DOCTYPE// /%20}" \

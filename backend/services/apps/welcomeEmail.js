@@ -31,6 +31,7 @@
 const { JOB_DOCTYPE } = require("../provisioning/constants");
 const { getServiceMeta } = require("../provisioning/catalog");
 const { APP_ADDRESS_SUFFIX } = require("./appOrder");
+const { mergeOrderConfig } = require("./shopSetup");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const WEB_ACCOUNT_DOCTYPE = "Web Account";
@@ -172,11 +173,12 @@ function isSmtpNotConfigured(err) {
 }
 
 async function writeMarker(client, order, config, marker) {
-  const next = { ...config, welcomeEmail: marker };
-  await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(order.name)}`, {
-    config_json: JSON.stringify(next),
+  // Re-reads the order first, so another writer's key (the owner's shop-setup
+  // answers) saved since this sweep started is carried through, not erased.
+  return mergeOrderConfig(client, order.name, (cfg) => {
+    cfg.welcomeEmail = marker;
+    return cfg;
   });
-  return next;
 }
 
 async function findAppOrder(client, invoice) {

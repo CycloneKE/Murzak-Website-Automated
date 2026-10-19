@@ -19,6 +19,7 @@ the design and the reasoning behind it.
 | `bin/murzak-bench-provision` | `/usr/local/bin/murzak-bench-provision` | 0755 root:root |
 | `bin/murzak-bench-runner` | `/usr/local/bin/murzak-bench-runner` | 0755 root:root |
 | `bin/murzak-shop-mail` | `/usr/local/bin/murzak-shop-mail` | 0755 root:root |
+| `bin/murzak-shop-setup` | `/usr/local/bin/murzak-shop-setup` | 0755 root:root |
 | `systemd/murzak-bench-runner.service` | `/etc/systemd/system/murzak-bench-runner.service` | 0644 root:root |
 | `systemd/murzak-bench-runner.timer` | `/etc/systemd/system/murzak-bench-runner.timer` | 0644 root:root |
 | `nginx/murzak-app-proxy.conf` | `/etc/nginx/snippets/murzak-app-proxy.conf` | 0644 root:root |
@@ -369,3 +370,22 @@ sites.
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+## Shop setup (business type, kitchen and bar)
+
+While a new POS shop builds, the owner answers a few questions on the website
+(`backend/services/apps/shopSetup.js` defines the choices). The answers are saved
+on their Checkout Order. `bin/murzak-shop-setup` applies them once the shop
+exists, through `murzak_pos`'s own `save_business_kind` and
+`save_kitchen_settings`. `murzak-bench-runner` calls it on every run, so there is
+nothing extra to schedule.
+
+1. Install the script: `sudo install -m 0755 bin/murzak-shop-setup /usr/local/bin/`
+2. Install the updated runner: `sudo install -m 0755 bin/murzak-bench-runner /usr/local/bin/`
+3. Apply to one shop by hand (the plan comes from the order, so this is only for
+   testing): `echo '{"version":1,"kind":"retail","kitchen":null,"itemGroups":[]}' | sudo murzak-shop-setup apply <slug>.erp.murzaktech.tech`
+4. Watch it work: `journalctl -u murzak-bench-runner.service --since "10 min ago" --no-pager | grep -i "shop setup"`
+
+It only adds. A business type or kitchen settings the owner already saved are
+kept, and the owner is told so. A failure is retried 3 times, then marked
+`failed`; the shop itself is never affected.

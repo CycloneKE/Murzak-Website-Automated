@@ -24,6 +24,8 @@ function makeClient({ jobs = [], orders = [], accounts = {} } = {}) {
       const filters = JSON.parse(opts?.params?.filters || "[]");
       if (u.endsWith("/Provisioning Job")) return { data: { data: jobs.filter((j) => matches(j, filters)) } };
       if (u.endsWith("/Checkout Order")) return { data: { data: orders.filter((o) => matches(o, filters)) } };
+      const one = u.match(/\/Checkout Order\/(.+)$/);
+      if (one) return { data: { data: orderByName[one[1]] } };
       const m = u.match(/\/Web Account\/(.+)$/);
       if (m) {
         if (!accounts[m[1]]) { const e = new Error("404"); e.response = { status: 404 }; throw e; }
