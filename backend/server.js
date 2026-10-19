@@ -3713,6 +3713,50 @@ const server = IS_ENTRYPOINT
     setInterval(run, everyMs).unref();
     console.log(`[welcome-email] scheduled every ${Math.round(everyMs / 60000)}m (looks back ${Math.round(lookbackMs / 3600000)}h)`);
   }
+
+  // Orders paid BY HAND in Frappe (bank transfer, cash, a staff correction): the
+  // payment rails run "activate services" and so create the build job, but
+  // setting an invoice to Paid in the desk does not. This finds paid app orders
+  // with no job and runs the same activation, so the shop actually gets built.
+  // It cannot mark anything paid. See services/apps/paidOrderReconciler.js.
+  if (process.env.PAID_ORDER_RECONCILE_ENABLED !== "false") {
+    const { sweepPaidAppOrders } = require("./services/apps/paidOrderReconciler");
+    const everyMs = Math.max(60000, Number(process.env.PAID_ORDER_RECONCILE_INTERVAL_MS || 2 * 60 * 1000));
+    const activate = ({ webAccount, invoiceDocName }) =>
+      activateServicesForInvoice({
+        // There is no browser session here: activation only needs the account name.
+        req: { session: { webAccount } },
+        invoiceDocName,
+        paymentVerified: false, // may resync an already-Paid invoice, never mark one Paid
+        frappeClient,
+        PORTAL_INVOICE_SERVICES_FIELD,
+        CHILD_SERVICE_ID_FIELD,
+        WEB_ACCOUNT_SERVICES_FIELD,
+        CHILD_STATUS_FIELD,
+        fetchInvoicesForUser,
+        fetchSelectedServicesForUser,
+        buildUserPayload,
+      });
+    // Dry run (PAID_ORDER_RECONCILE_DRY_RUN=true) only logs what it would start.
+    // Roll out with it on first and read the list: an old paid order whose job
+    // was deleted in a clean-up would otherwise be rebuilt.
+    const dryRun = String(process.env.PAID_ORDER_RECONCILE_DRY_RUN || "").toLowerCase() === "true";
+    const announced = new Set();
+    const run = () =>
+      sweepPaidAppOrders(frappeClient(), { activate, dryRun })
+        .then((r) => {
+          for (const w of r.wouldStart) {
+            if (!announced.has(w)) { announced.add(w); console.log(`[paid-order] DRY RUN would start: ${w}`); }
+          }
+          if (r.reconciled > 0 || r.failed > 0 || r.error) {
+            console.log(`[paid-order] checked=${r.checked} started=${r.reconciled} failed=${r.failed} skipped=${r.skipped}${r.error ? ` error=${r.error}` : ""}`);
+          }
+        })
+        .catch((e) => console.warn("[paid-order] error:", e.message));
+    setTimeout(run, 150000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[paid-order] scheduled every ${Math.round(everyMs / 60000)}m${dryRun ? " (DRY RUN: nothing will be started)" : ""}`);
+  }
     })
   : null;
 
