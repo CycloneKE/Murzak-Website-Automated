@@ -6,6 +6,7 @@ import StorageFileBrowser from "../../../components/portal/cloud/StorageFileBrow
 import MailboxManager from "../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../components/portal/cloud/DatabaseConnectionPanel";
 import PosLoginPanel from "../../../components/portal/cloud/PosLoginPanel";
+import ShopChecklist from "../../../components/apps/ShopChecklist";
 import { usePortal } from "../PortalContext";
 import { toUserMessage } from "../../../services/errors";
 
@@ -167,6 +168,10 @@ const ResourceDetail: React.FC = () => {
 
             {isActive && cloudAccessUrl && cloudJob?.posLogin && (
               <PosLoginPanel posUrl={cloudAccessUrl} login={cloudJob.posLogin} />
+            )}
+
+            {isActive && cloudAccessUrl && cloudJob?.posLogin && cloudServiceId && (
+              <ShopChecklist serviceId={cloudServiceId} />
             )}
 
             {/* Honest provisioning states — a paid service must never look like

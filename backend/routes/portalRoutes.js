@@ -29,6 +29,7 @@ const s3ClientLib = require('../services/terminal/s3Client');
 const isValidRepoUrl = require('../utils/repoUrl').isValidRepoUrl;
 const supportUnread = require('../services/supportUnread');
 const mailer = require('../utils/mailer');
+const shopProgress = require('../services/apps/shopProgress');
 
 module.exports = function(ctx) {
   const {
@@ -855,6 +856,45 @@ router.get("/api/portal/services/:serviceId/activity", requireAuth, async (req, 
     }
     console.error("FETCH SERVICE ACTIVITY ERROR:", err.response?.data || err.message);
     return res.status(500).json({ error: "Failed to load service activity." });
+  }
+});
+
+// How far the owner of a POS shop has got (signed in, products, till, first
+// sale). The facts are read from the shop by the host (murzak-shop-setup
+// `progress`) and saved on the Checkout Order; this only reports them.
+router.get("/api/portal/services/:serviceId/shop-progress", requireAuth, async (req, res) => {
+  try {
+    const webAccountName = req.session?.webAccount || req.session?.user?.id;
+    const { serviceId } = req.params;
+    if (!webAccountName) return res.status(401).json({ error: "No session account." });
+    if (!serviceId || !getServiceMeta(serviceId)?.app) return res.json({ ok: true, progress: null });
+
+    const resp = await frappeClient().get("/api/resource/Checkout%20Order", {
+      params: {
+        filters: JSON.stringify([
+          ["web_account", "=", webAccountName],
+          ["service_id", "=", serviceId],
+          ["status", "=", "Paid"],
+        ]),
+        fields: JSON.stringify(["name", "web_account", "service_id", "status", "config_json"]),
+        order_by: "modified desc",
+        limit_page_length: 5,
+      },
+    });
+    // Re-filter in JS: a customer must only ever see their own shop's progress.
+    const rows = (Array.isArray(resp.data?.data) ? resp.data.data : []).filter(
+      (r) => r?.web_account === webAccountName && r?.service_id === serviceId && r?.status === "Paid"
+    );
+    for (const r of rows) {
+      let config = {};
+      try { config = JSON.parse(r.config_json || "{}") || {}; } catch { config = {}; }
+      if (config.app) return res.json({ ok: true, progress: shopProgress.progressView(config) });
+    }
+    return res.json({ ok: true, progress: null });
+  } catch (err) {
+    if (err?.response?.status === 404) return res.json({ ok: true, progress: null });
+    console.error("FETCH SHOP PROGRESS ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to load shop progress." });
   }
 });
 

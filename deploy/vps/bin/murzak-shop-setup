@@ -2,6 +2,8 @@
 #
 # murzak-shop-setup  sweep
 # murzak-shop-setup  apply <site>      (plan JSON on stdin)
+# murzak-shop-setup  progress          (checklist facts only)
+# murzak-shop-setup  signals <site>    (print one shop's checklist facts)
 #
 # Applies what a new Murzak POS owner chose on the "Your shop is getting ready"
 # page (business type, kitchen till, bar till) to their shop, once it exists.
@@ -27,6 +29,12 @@
 # failure goes back to "saved" and is retried up to 3 times, then "failed"
 # (the shop is unaffected; a person can run `apply` by hand).
 #
+# PROGRESS (`progress`, also run by `sweep`): for shops under 30 days old it READS
+# a few facts (signed in, products, staff, till opened, first sale) and saves them
+# on the owner's order for the portal checklist. Read-only in the shop. Each shop is
+# looked at every 10 minutes for its first 3 days and hourly after, and not at all
+# once all four required steps are done.
+#
 # CONFIG: /etc/murzak/frappe-api.env (same file murzak-bench-runner uses).
 # Needs: bash, curl, jq, sudo.
 #
@@ -41,6 +49,7 @@ BENCH_USER="${BENCH_USER:-murzakerp}"
 LOOKBACK_HOURS="${MURZAK_SHOP_SETUP_LOOKBACK_HOURS:-48}"
 MAX_ATTEMPTS="${MURZAK_SHOP_SETUP_MAX_ATTEMPTS:-3}"
 STALE_APPLYING_SEC="${MURZAK_SHOP_SETUP_STALE_SEC:-900}"
+PROGRESS_LOOKBACK_HOURS="${MURZAK_SHOP_PROGRESS_LOOKBACK_HOURS:-720}"
 RUNNER_ID="shop-setup-$(hostname -s 2>/dev/null || echo vps)-$$"
 SITE_RE='^[a-z0-9]([a-z0-9.-]*[a-z0-9])$'
 
@@ -216,8 +225,111 @@ sweep() {
   done < <(jq -c '.data[]' <<<"$jobs")
 }
 
+
+# ------------------------------------------------------------- progress ------
+# One shop's checklist facts as JSON. Read-only. No double quotes or backticks
+# in the python: it sits inside a double-quoted bash string.
+shop_signals() {
+  local site="$1"
+  ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || refuse "'$site' is not a valid site name"
+  [ -d "${BENCH_DIR}/sites/${site}" ] || refuse "site ${site} does not exist on this bench"
+  SHOP_SITE="$site" sudo -u "$BENCH_USER" --preserve-env=SHOP_SITE \
+    bash -lc "cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+import json, os, frappe
+from datetime import timedelta
+
+frappe.init(site=os.environ['SHOP_SITE'], sites_path='.')
+frappe.connect()
+try:
+    people = frappe.get_all('User', filters={'name': ['not in', ['Administrator', 'Guest']], 'enabled': 1},
+                            fields=['creation', 'last_active'])
+    # last_login is not set by murzak_pos sign-ins; last_active is. Ten minutes
+    # after the account was made, so provisioning itself never counts.
+    signed_in = any(u.last_active and u.creation and u.last_active > u.creation + timedelta(minutes=10) for u in people)
+    print(json.dumps({
+        'signedIn': bool(signed_in),
+        'products': int(frappe.db.count('Item', {'disabled': 0})),
+        'staff': len(people),
+        'tillOpened': frappe.db.count('POS Opening Entry') > 0,
+        'firstSale': frappe.db.count('POS Invoice', {'docstatus': 1}) > 0,
+    }))
+finally:
+    frappe.destroy()
+PY" 2>&1
+}
+
+progress_sweep() {
+  command -v jq >/dev/null 2>&1 || { log "jq is required"; exit 1; }
+  load_frappe
+  local cutoff now_epoch now_iso jobs job service invoice site orders row oname checked first age interval sig complete
+  cutoff="$(date -u -d "-${PROGRESS_LOOKBACK_HOURS} hours" '+%Y-%m-%d %H:%M:%S')"
+  now_epoch="$(date -u +%s)"; now_iso="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+  jobs="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+    "${BASE}/api/resource/Provisioning%20Job" \
+    --data-urlencode 'filters=[["status","=","active"],["lane","=","bench"],["modified",">=","'"$cutoff"'"]]' \
+    --data-urlencode 'fields=["name","invoice","service_id","access"]' \
+    --data-urlencode 'limit_page_length=100')"
+  if ! jq -e '.data | type == "array"' <<<"$jobs" >/dev/null 2>&1; then
+    log "progress: job query failed: ${jobs:0:200}"; exit 1
+  fi
+
+  while IFS= read -r job; do
+    [ -n "$job" ] || continue
+    service="$(jq -r '.service_id // ""' <<<"$job")"
+    case "$service" in biz-pos-*) ;; *) continue ;; esac
+    invoice="$(jq -r '.invoice // ""' <<<"$job")"
+    site="$(jq -r '(.access // "{}") | (try fromjson catch {}) | .site // ""' <<<"$job")"
+    [ -n "$invoice" ] && [ -n "$site" ] || continue
+    ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || continue
+    [ -d "${BENCH_DIR}/sites/${site}" ] || continue
+
+    orders="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+      "${BASE}/api/resource/Checkout%20Order" \
+      --data-urlencode 'filters=[["invoice_doc_name","=","'"$invoice"'"],["status","=","Paid"]]' \
+      --data-urlencode 'fields=["name","invoice_doc_name","config_json"]' \
+      --data-urlencode 'limit_page_length=5')"
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      [ "$(jq -r '.invoice_doc_name' <<<"$row")" = "$invoice" ] || continue
+      jq -e '(.config_json | try fromjson catch {}) | .app' <<<"$row" >/dev/null 2>&1 || continue
+      oname="$(jq -r '.name' <<<"$row")"
+
+      [ "$(jq -r '(.config_json | try fromjson catch {}) | .shopProgress.complete // false' <<<"$row")" = "true" ] && continue
+      checked="$(jq -r '(.config_json | try fromjson catch {}) | .shopProgress.checkedAt // ""' <<<"$row")"
+      first="$(jq -r '(.config_json | try fromjson catch {}) | .shopProgress.firstSeenAt // ""' <<<"$row")"
+      if [ -n "$checked" ]; then
+        age=$(( now_epoch - $(date -u -d "$checked" +%s 2>/dev/null || echo 0) ))
+        interval=600
+        if [ -n "$first" ] && [ $(( now_epoch - $(date -u -d "$first" +%s 2>/dev/null || echo "$now_epoch") )) -gt 259200 ]; then interval=3600; fi
+        [ "$age" -ge "$interval" ] || continue
+      fi
+
+      if ! sig="$(shop_signals "$site")" || ! jq -e '.signedIn != null and (.products|type=="number")' <<<"$(tail -1 <<<"$sig")" >/dev/null 2>&1; then
+        log "progress: could not read ${site}: $(printf '%s' "$sig" | tail -2 | tr '\n' ' ' | cut -c1-200)"; continue
+      fi
+      sig="$(tail -1 <<<"$sig")"
+      complete="$(jq -r '(.signedIn and .products >= 1 and .tillOpened and .firstSale)' <<<"$sig")"
+      if order_set_config "$oname" ".shopProgress = ($sig + {checkedAt: \"$now_iso\", firstSeenAt: \"${first:-$now_iso}\", complete: $complete})"; then
+        log "progress: ${site} $(jq -c '.' <<<"$sig")"
+      else
+        log "progress: could not save ${oname}; will try again next run"
+      fi
+    done < <(jq -c '.data[]?' <<<"$orders")
+  done < <(jq -c '.data[]' <<<"$jobs")
+}
+
+sweep_all() {
+  local rc=0
+  (sweep) || rc=1
+  (progress_sweep) || rc=1
+  return "$rc"
+}
+
 case "${1:-sweep}" in
-  sweep) sweep ;;
+  sweep) sweep_all ;;
+  progress) progress_sweep ;;
+  signals) [ "$#" -eq 2 ] || refuse "usage: murzak-shop-setup signals <site>"; shop_signals "$2" ;;
   apply) [ "$#" -eq 2 ] || refuse "usage: murzak-shop-setup apply <site>   (plan JSON on stdin)"; apply_plan "$2" ;;
-  *) refuse "usage: murzak-shop-setup [sweep | apply <site>]" ;;
+  *) refuse "usage: murzak-shop-setup [sweep | progress | signals <site> | apply <site>]" ;;
 esac

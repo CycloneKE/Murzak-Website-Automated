@@ -389,3 +389,18 @@ nothing extra to schedule.
 It only adds. A business type or kitchen settings the owner already saved are
 kept, and the owner is told so. A failure is retried 3 times, then marked
 `failed`; the shop itself is never affected.
+
+### Shop progress (portal checklist)
+
+`murzak-shop-setup` also reads a few facts from each young shop, read-only, for
+the portal's "Getting your shop going" checklist: signed in, products added,
+till opened, first sale, staff added. The runner's `sweep` runs it, so nothing
+extra is scheduled. The facts are saved on the owner's order, never in the shop.
+
+- Look at one shop by hand (read-only): `sudo murzak-shop-setup signals <slug>.erp.murzaktech.tech`
+- Run the progress pass now: `sudo murzak-shop-setup progress`
+- "Signed in" uses the user's `last_active` (10+ minutes after the account was
+  created), not `last_login`, which murzak_pos sign-ins do not set.
+- Each shop is read every 10 minutes for its first 3 days, hourly after that, and
+  not at all once signed in, products, till and first sale are all done.
+
