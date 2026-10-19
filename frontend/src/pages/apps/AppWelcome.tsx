@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, Loader2, ExternalLink, LifeBuoy } from "lucide-react";
 import PosLoginPanel from "../../components/portal/cloud/PosLoginPanel";
+import ShopSetupCard from "../../components/apps/ShopSetupCard";
 import { fetchServiceActivity, ProvisioningActivityEntry } from "../../services/serviceActivity";
 import { APP_CHECKOUT } from "../../config/appCheckout";
 import { SUPPORT_EMAIL } from "../../config/contact";
@@ -168,6 +169,8 @@ const AppWelcome: React.FC = () => {
           );
         })}
       </ol>
+
+      {serviceId && orderId && !cancelled && <ShopSetupCard orderId={orderId} serviceId={serviceId} />}
 
       {(slow || stuck) && (
         <div role="status" className="mt-6 rounded-2xl border border-orange-500/30 bg-orange-500/5 p-5">
