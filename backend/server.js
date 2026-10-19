@@ -3690,6 +3690,29 @@ const server = IS_ENTRYPOINT
     setInterval(run, everyMs).unref();
     console.log(`[capacity-sweep] scheduled every ${Math.round(everyMs / 60000)}m`);
   }
+
+  // Welcome email for new app shops (Murzak POS). The VPS runner finishes a
+  // shop by writing the job straight into Frappe, so this backend finds
+  // finished shops by looking, and emails each owner once (dedupe marker lives
+  // on the Checkout Order). The email never contains a password. Off only if
+  // explicitly disabled. See services/apps/welcomeEmail.js.
+  if (process.env.WELCOME_EMAIL_SWEEP_ENABLED !== "false") {
+    const { sweepWelcomeEmails } = require("./services/apps/welcomeEmail");
+    const { sendMail } = require("./utils/mailer");
+    const everyMs = Math.max(60000, Number(process.env.WELCOME_EMAIL_SWEEP_INTERVAL_MS || 2 * 60 * 1000));
+    const lookbackMs = Math.max(3600000, Number(process.env.WELCOME_EMAIL_LOOKBACK_HOURS || 12) * 3600000);
+    const run = () =>
+      sweepWelcomeEmails(frappeClient(), { sendMail, lookbackMs })
+        .then((r) => {
+          if (r.sent > 0 || r.failed > 0 || r.error) {
+            console.log(`[welcome-email] checked=${r.checked} sent=${r.sent} failed=${r.failed} skipped=${r.skipped}${r.error ? ` error=${r.error}` : ""}`);
+          }
+        })
+        .catch((e) => console.warn("[welcome-email] error:", e.message));
+    setTimeout(run, 120000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[welcome-email] scheduled every ${Math.round(everyMs / 60000)}m (looks back ${Math.round(lookbackMs / 3600000)}h)`);
+  }
     })
   : null;
 

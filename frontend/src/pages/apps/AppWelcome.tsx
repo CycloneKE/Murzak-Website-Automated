@@ -4,6 +4,7 @@ import { Check, Loader2, ExternalLink, LifeBuoy } from "lucide-react";
 import PosLoginPanel from "../../components/portal/cloud/PosLoginPanel";
 import { fetchServiceActivity, ProvisioningActivityEntry } from "../../services/serviceActivity";
 import { APP_CHECKOUT } from "../../config/appCheckout";
+import { SUPPORT_EMAIL } from "../../config/contact";
 import { AppId } from "../../config/serviceCatalog";
 import { toUserMessage } from "../../services/errors";
 
@@ -204,6 +205,24 @@ const AppWelcome: React.FC = () => {
             Open your POS <ExternalLink size={16} aria-hidden="true" />
           </a>
           {info && <p className="mt-4 text-sm font-semibold text-slate-500 dark:text-slate-400">{info.afterPayment}</p>}
+
+          {info && info.nextSteps.length > 0 && (
+            <section className="mt-6 glass-card rounded-2xl p-5" aria-labelledby="getting-started">
+              <h2 id="getting-started" className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Getting started</h2>
+              <ol className="mt-3 space-y-2 list-decimal pl-5 text-sm font-semibold text-murzak-ink dark:text-slate-100">
+                {info.nextSteps.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+              {job?.posLogin?.user && (
+                <p className="mt-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  We also email your shop address and these steps to {job.posLogin.user}. Nothing in your inbox after a few minutes? Check your spam folder.
+                </p>
+              )}
+              <p className="mt-3 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                Stuck on anything? <button type="button" onClick={() => navigate("/portal/support")} className={linkClass}>Message us from your portal</button>
+                {" "}or email <a href={`mailto:${SUPPORT_EMAIL}`} className={linkClass}>{SUPPORT_EMAIL}</a>.
+              </p>
+            </section>
+          )}
           <button type="button" onClick={() => navigate("/portal/overview")} className={`mt-6 ${linkClass}`}>
             Go to my portal
           </button>

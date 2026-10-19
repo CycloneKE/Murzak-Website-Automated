@@ -14,6 +14,12 @@ export interface AppCheckoutInfo {
   productPath: string;
   /** One line on the welcome screen once the app is ready. */
   afterPayment: string;
+  /**
+   * First steps for a new owner, shown on the ready screen. The welcome email
+   * (backend/services/apps/welcomeEmail.js) carries the same list; it is a
+   * separate copy because the backend cannot import this file, so edit both.
+   */
+  nextSteps: string[];
 }
 
 export const APP_CHECKOUT: Record<AppId, AppCheckoutInfo> = {
@@ -23,6 +29,12 @@ export const APP_CHECKOUT: Record<AppId, AppCheckoutInfo> = {
     addressSuffix: "pos.murzaktech.tech",
     productPath: "/products/pos",
     afterPayment: "You'll add your branches, staff and products the first time you sign in.",
+    nextSteps: [
+      "Sign in and set your own password. Open the account menu in your POS and choose to change it.",
+      "Set up your shop. Add your branches and opening details the first time you sign in.",
+      "Add your products, so you can start selling.",
+      "Add your cashiers and staff from inside the POS. Each person gets their own login.",
+    ],
   },
 };
 
