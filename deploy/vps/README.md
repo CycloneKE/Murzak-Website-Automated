@@ -20,6 +20,7 @@ the design and the reasoning behind it.
 | `bin/murzak-bench-runner` | `/usr/local/bin/murzak-bench-runner` | 0755 root:root |
 | `bin/murzak-shop-mail` | `/usr/local/bin/murzak-shop-mail` | 0755 root:root |
 | `bin/murzak-shop-setup` | `/usr/local/bin/murzak-shop-setup` | 0755 root:root |
+| `bin/murzak-shop-lifecycle` | `/usr/local/bin/murzak-shop-lifecycle` | 0755 root:root |
 | `systemd/murzak-bench-runner.service` | `/etc/systemd/system/murzak-bench-runner.service` | 0644 root:root |
 | `systemd/murzak-bench-runner.timer` | `/etc/systemd/system/murzak-bench-runner.timer` | 0644 root:root |
 | `nginx/murzak-app-proxy.conf` | `/etc/nginx/snippets/murzak-app-proxy.conf` | 0644 root:root |
@@ -404,3 +405,32 @@ extra is scheduled. The facts are saved on the owner's order, never in the shop.
 - Each shop is read every 10 minutes for its first 3 days, hourly after that, and
   not at all once signed in, products, till and first sale are all done.
 
+## Switching a shop off when the subscription lapses
+
+Until now a lapsed subscription only marked the customer's Web Account
+"Suspended" on the website; the shop kept trading. `bin/murzak-shop-lifecycle`
+makes the shop follow the account. `murzak-bench-runner` calls it on every run
+(about every 90 seconds), so nothing extra is scheduled.
+
+For each customer shop it reads the owner's Web Account. The shop is switched
+**off** when the account is Suspended or Cancelled, or when a POS service row is
+Suspended; it is switched back **on** when the account is paid up again.
+"Off" is `maintenance_mode` in that shop's `site_config.json`: every request gets
+Frappe's "Session Stopped" (HTTP 503), and nothing is deleted. It only ever
+switches back on a shop it switched off itself, so a shop you put into
+maintenance by hand stays that way. If the account cannot be read, the shop is
+left as it is. The company's own sites (no owner stamp) are never touched.
+
+Suspension itself is still the website's choice: it happens only when
+`RENEWAL_SUSPEND_ENABLED=true` on the backend (see `renewalService.js`). With
+that unset, no account is ever marked Suspended and this script changes nothing.
+
+1. Install: `sudo install -m 0755 bin/murzak-shop-lifecycle /usr/local/bin/`
+2. Install the updated runner: `sudo install -m 0755 bin/murzak-bench-runner /usr/local/bin/`
+3. Rehearse first, changing nothing: `sudo murzak-shop-lifecycle sweep --dry-run`
+   (it prints which shops it would switch off or on).
+4. By hand for one shop: `sudo murzak-shop-lifecycle off <slug>.erp.murzaktech.tech`
+   and `sudo murzak-shop-lifecycle on <slug>.erp.murzaktech.tech`.
+5. Watch it work: `journalctl -u murzak-bench-runner.service --since "10 min ago" --no-pager | grep -i "lifecycle"`
+
+Test the script without touching a server: `bash deploy/vps/test/shop-lifecycle.test.sh`.

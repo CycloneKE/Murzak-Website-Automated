@@ -137,6 +137,13 @@ if [ -x /usr/local/bin/murzak-shop-setup ]; then
   /usr/local/bin/murzak-shop-setup sweep || log "shop-setup sweep reported a problem (see lines above); builds are unaffected"
 fi
 
+# ---- 0c. switch shops off / on to match their subscription -----------------
+# Separate script (murzak-shop-lifecycle). Never blocks or fails this run: it
+# only follows the Web Account's status and leaves a shop alone if unsure.
+if [ -x /usr/local/bin/murzak-shop-lifecycle ]; then
+  /usr/local/bin/murzak-shop-lifecycle sweep || log "shop-lifecycle sweep reported a problem (see lines above); builds are unaffected"
+fi
+
 # ---- 1. fetch claimable jobs -----------------------------------------------
 jobs_json="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
   "${BASE}/api/resource/${JOB_DOCTYPE// /%20}" \
