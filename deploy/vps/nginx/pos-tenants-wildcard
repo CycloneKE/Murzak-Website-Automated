@@ -3,7 +3,7 @@
 # Front door for every customer's own Murzak POS: <tenant>.pos.murzaktech.tech.
 #
 # A POS purchase on murzaktech.tech provisions a private Frappe site
-# <tenant>.erp.murzaktech.tech with techsavanna_pos installed
+# <tenant>.erp.murzaktech.tech with murzak_pos installed
 # (murzak-bench-provision). This block puts the Murzak POS app in front of it:
 #
 #   /           the POS single-page app — ONE build for every shop, deployed
