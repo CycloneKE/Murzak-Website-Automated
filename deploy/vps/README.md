@@ -391,6 +391,14 @@ It only adds. A business type or kitchen settings the owner already saved are
 kept, and the owner is told so. A failure is retried 3 times, then marked
 `failed`; the shop itself is never affected.
 
+A brand-new shop has no Company until its owner finishes the first-time setup
+inside the POS, and nothing can be applied before that. The script waits for it:
+the order stays `saved` (no attempt is used up) and the sweep looks again on
+every run, logging `waiting`. The choice is applied soon after the owner
+completes first-time setup. Only shops whose build finished in the last
+`MURZAK_SHOP_SETUP_LOOKBACK_HOURS` (default 48) are looked at, so an owner who
+waits longer than that needs it applied by hand with the `apply` command above.
+
 ### Shop progress (portal checklist)
 
 `murzak-shop-setup` also reads a few facts from each young shop, read-only, for

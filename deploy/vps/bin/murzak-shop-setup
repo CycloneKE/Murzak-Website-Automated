@@ -79,6 +79,13 @@ try:
     plan = json.loads(os.environ['PLAN_JSON'])
     applied, kept = [], []
 
+    # A new shop has no Company until its owner finishes the first-time setup in
+    # the POS. Nothing can be applied before then, and that is not a failure:
+    # say so and let the sweep try again later without using up an attempt.
+    if not frappe.get_all('Company', pluck='name', limit=1):
+        print(json.dumps({'waiting': 'the shop has no company yet'}))
+        raise SystemExit(0)
+
     from murzak_pos.api.payment_gateway_common import resolve_company
     from murzak_pos.api import setup_api, kitchen_api
     company = resolve_company(None)
@@ -210,9 +217,13 @@ sweep() {
       rc=0
       out="$(printf '%s\n' "$plan" | apply_plan "$site")" || rc=$?
       result="$(tail -1 <<<"$out")"
-      if [ "$rc" -eq 0 ] && jq -e '.applied' <<<"$result" >/dev/null 2>&1; then
+      if [ "$rc" -eq 0 ] && jq -e '.waiting' <<<"$result" >/dev/null 2>&1; then
+        # Not an attempt: put it back to "saved" so the next sweep looks again.
+        log "  waiting: $(jq -r '.waiting' <<<"$result") (owner has not finished first-time setup)"
+        order_set_config "$oname" '.shopSetup.state = "saved" | .shopSetup.waiting = true | del(.shopSetup.runner, .shopSetup.claimedAt)' || true
+      elif [ "$rc" -eq 0 ] && jq -e '.applied' <<<"$result" >/dev/null 2>&1; then
         log "  applied: $(jq -c '.applied' <<<"$result") kept: $(jq -c '.kept' <<<"$result")"
-        order_set_config "$oname" ".shopSetup.state = \"applied\" | .shopSetup.appliedAt = \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" | .shopSetup.notes = $(jq -c '.kept' <<<"$result") | del(.shopSetup.runner, .shopSetup.claimedAt, .shopSetup.lastError)" \
+        order_set_config "$oname" ".shopSetup.state = \"applied\" | .shopSetup.appliedAt = \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\" | .shopSetup.notes = $(jq -c '.kept' <<<"$result") | del(.shopSetup.runner, .shopSetup.claimedAt, .shopSetup.lastError, .shopSetup.waiting)" \
           || log "  WARNING: applied, but could not record it; it will be applied again harmlessly"
       else
         attempts=$((attempts + 1))

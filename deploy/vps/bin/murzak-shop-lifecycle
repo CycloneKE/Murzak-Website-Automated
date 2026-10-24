@@ -65,12 +65,17 @@ check_site() {
   [ -f "${BENCH_DIR}/sites/${1}/site_config.json" ] || refuse "site $1 does not exist on this bench"
 }
 
-# site_config.json value (empty if absent). Read straight from the file.
+# site_config.json value (empty if absent). Read straight from the file. As
+# root (how the runner calls this) that needs no sudo; going through sudo for
+# every key of every shop on every pass would put thousands of lines a day in
+# the system journal, so sudo is only the fallback for an unreadable file.
 config_get() { # site key
-  as_bench python3 -c 'import json,sys
+  local f="${BENCH_DIR}/sites/${1}/site_config.json" prog
+  prog='import json,sys
 c = json.load(open(sys.argv[1]))
 v = c.get(sys.argv[2], "")
-print("" if v is None else v)' "${BENCH_DIR}/sites/${1}/site_config.json" "$2"
+print("" if v is None else v)'
+  if [ -r "$f" ]; then python3 -c "$prog" "$f" "$2"; else as_bench python3 -c "$prog" "$f" "$2"; fi
 }
 
 # Switch a site off/on by editing site_config.json (what `bench set-config`
