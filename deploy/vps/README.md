@@ -391,6 +391,13 @@ It only adds. A business type or kitchen settings the owner already saved are
 kept, and the owner is told so. A failure is retried 3 times, then marked
 `failed`; the shop itself is never affected.
 
+Applying the choice waits for the shop's Company (made automatically, see below).
+Until the shop has one, the order stays `saved` (no attempt is used up) and the
+sweep looks again on every run, logging `waiting`. Only shops whose build finished
+in the last `MURZAK_SHOP_SETUP_LOOKBACK_HOURS` (default 48) are looked at, so a
+shop that is older than that needs it applied by hand with the `apply` command
+above.
+
 ### The shop's Company (made automatically)
 
 A shop bought on the website is built with an owner login but no **Company**,
