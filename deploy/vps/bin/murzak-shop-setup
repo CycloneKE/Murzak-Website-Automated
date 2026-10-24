@@ -2,6 +2,8 @@
 #
 # murzak-shop-setup  sweep
 # murzak-shop-setup  apply <site>      (plan JSON on stdin)
+# murzak-shop-setup  company            (make sure every finished POS shop has its Company)
+# murzak-shop-setup  company <site> "<Shop name>" <owner email>   (one shop, by hand)
 # murzak-shop-setup  progress          (checklist facts only)
 # murzak-shop-setup  signals <site>    (print one shop's checklist facts)
 #
@@ -319,8 +321,148 @@ progress_sweep() {
   done < <(jq -c '.data[]' <<<"$jobs")
 }
 
+# -------------------------------------------------------------- company ------
+# A shop bought on the website has an owner login but NO Company. Everything in
+# the POS (the set-up wizard, Business settings, the till) hangs off a Company,
+# and the only code that made one was the public sign-up flow, which is closed on
+# shop addresses. Without this the owner signs in to "We could not load your shop
+# details" and cannot get out. This makes the Company the same way sign-up does
+# (murzak_pos's own create_company and create_pos_profile, run AS the owner so
+# the owner's default company, permission and alert settings are set), from the
+# shop name the buyer typed at checkout.
+#
+# SAFE TO RE-RUN: a shop that already has a Company is left alone. Shop name and
+# owner email go in through the environment, never spliced into code.
+# Run a shell command line as the bench owner, keeping the SHOP_* variables.
+# (As that user already, e.g. in the tests, no sudo is needed.)
+as_bench_shell() {
+  if [ "$(id -un)" = "$BENCH_USER" ]; then bash -lc "$1"
+  else sudo -u "$BENCH_USER" --preserve-env=SHOP_SITE,SHOP_NAME,SHOP_OWNER bash -lc "$1"
+  fi
+}
+
+ensure_company() { # site, shop name, owner email -> prints {"state":"created|exists","company":"..."} last
+  local site="$1" shop="$2" email="$3"
+  ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || refuse "'$site' is not a valid site name"
+  [ -d "${BENCH_DIR}/sites/${site}" ] || refuse "site ${site} does not exist on this bench"
+  [ -n "$email" ] || refuse "no owner email for ${site}"
+  SHOP_SITE="$site" SHOP_NAME="$shop" SHOP_OWNER="$email" \
+    as_bench_shell "cd '$BENCH_DIR/sites' && ../env/bin/python - <<'PY'
+import json, os, re, frappe
+
+frappe.init(site=os.environ['SHOP_SITE'], sites_path='.')
+frappe.connect()
+try:
+    existing = frappe.get_all('Company', pluck='name', limit=1)
+    if existing:
+        print(json.dumps({'state': 'exists', 'company': existing[0]}))
+    else:
+        owner = os.environ['SHOP_OWNER']
+        if not frappe.db.exists('User', owner):
+            raise Exception('the owner %s does not exist on this shop yet' % owner)
+        # Keep to characters a document name can safely hold
+        shop = re.sub(r'[^\w .&,()\'-]', ' ', os.environ.get('SHOP_NAME') or '', flags=re.UNICODE)
+        shop = re.sub(r'\s+', ' ', shop).strip()[:80]
+        if not shop:
+            shop = 'My Shop'
+        # 2 to 3 letters or digits, as the sign-up flow makes them
+        words = re.findall(r'[A-Za-z0-9]+', shop)
+        if len(words) >= 2:
+            abbr = ''.join(w[0] for w in words[:3]).upper()
+        else:
+            abbr = (words[0] if words else 'POS')[:3].upper()
+        if len(abbr) < 2:
+            abbr = (abbr + 'S')[:3]
+
+        user = frappe.get_doc('User', owner)
+        frappe.set_user(owner)
+        from murzak_pos.api.onboarding_api import create_company, create_pos_profile
+        made = create_company(
+            company_name=shop, abbr=abbr, country='Kenya', default_currency='KES',
+            company_contact={'first_name': user.first_name or '', 'last_name': user.last_name or '',
+                             'email': owner, 'mobile': user.mobile_no or '', 'phone': user.mobile_no or ''},
+        )
+        name = made['company']['name']
+        # Same as sign-up: a failure here is logged, the Company stands, and the owner can add the profile later
+        try:
+            create_pos_profile(company=name, profile_name=shop + ' POS', update_stock=True,
+                               allow_discount_change=True, allow_rate_change=True, allow_partial_payment=False)
+        except Exception:
+            frappe.log_error('POS profile for new shop', frappe.get_traceback())
+        frappe.db.commit()
+        print(json.dumps({'state': 'created', 'company': name}))
+finally:
+    frappe.destroy()
+PY" 2>&1
+}
+
+# Every finished POS shop whose Company has not been checked yet. The result is
+# kept on the owner's order (config_json -> shopCompany) so a shop is looked at
+# once, and retried up to 3 times if it fails.
+company_sweep() {
+  command -v jq >/dev/null 2>&1 || { log "jq is required"; exit 1; }
+  load_frappe
+  local cutoff jobs job service invoice site owner orders row oname state attempts shop out rc result err next
+  cutoff="$(date -u -d "-${LOOKBACK_HOURS} hours" '+%Y-%m-%d %H:%M:%S')"
+
+  jobs="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+    "${BASE}/api/resource/Provisioning%20Job" \
+    --data-urlencode 'filters=[["status","=","active"],["lane","=","bench"],["modified",">=","'"$cutoff"'"]]' \
+    --data-urlencode 'fields=["name","invoice","service_id","access"]' \
+    --data-urlencode 'limit_page_length=50')"
+  if ! jq -e '.data | type == "array"' <<<"$jobs" >/dev/null 2>&1; then
+    log "company: job query failed: ${jobs:0:200}"; exit 1
+  fi
+
+  while IFS= read -r job; do
+    [ -n "$job" ] || continue
+    service="$(jq -r '.service_id // ""' <<<"$job")"
+    case "$service" in biz-pos-*) ;; *) continue ;; esac
+    invoice="$(jq -r '.invoice // ""' <<<"$job")"
+    site="$(jq -r '(.access // "{}") | (try fromjson catch {}) | .site // ""' <<<"$job")"
+    owner="$(jq -r '(.access // "{}") | (try fromjson catch {}) | .posUser // ""' <<<"$job")"
+    [ -n "$invoice" ] && [ -n "$site" ] && [ -n "$owner" ] || continue
+    ( export LC_ALL=C; [[ "$site" =~ $SITE_RE ]] ) || continue
+    [ -d "${BENCH_DIR}/sites/${site}" ] || continue
+
+    orders="$(curl -sS --max-time 30 -G -H "Authorization: $AUTH" -H "Accept: application/json" \
+      "${BASE}/api/resource/Checkout%20Order" \
+      --data-urlencode 'filters=[["invoice_doc_name","=","'"$invoice"'"],["status","=","Paid"]]' \
+      --data-urlencode 'fields=["name","invoice_doc_name","config_json"]' \
+      --data-urlencode 'limit_page_length=5')"
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      [ "$(jq -r '.invoice_doc_name' <<<"$row")" = "$invoice" ] || continue
+      jq -e '(.config_json | try fromjson catch {}) | .app' <<<"$row" >/dev/null 2>&1 || continue
+      oname="$(jq -r '.name' <<<"$row")"
+      state="$(jq -r '(.config_json | try fromjson catch {}) | .shopCompany.state // ""' <<<"$row")"
+      case "$state" in done|failed) continue ;; esac
+      attempts="$(jq -r '(.config_json | try fromjson catch {}) | .shopCompany.attempts // 0' <<<"$row")"
+      shop="$(jq -r '(.config_json | try fromjson catch {}) | .shopName // ""' <<<"$row")"
+
+      rc=0
+      out="$(ensure_company "$site" "$shop" "$owner")" || rc=$?
+      result="$(tail -1 <<<"$out")"
+      if [ "$rc" -eq 0 ] && jq -e '.state' <<<"$result" >/dev/null 2>&1; then
+        log "company: ${site} $(jq -c '.' <<<"$result")"
+        order_set_config "$oname" ".shopCompany = {state: \"done\", result: $(jq -c '.state' <<<"$result"), at: \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\"}" \
+          || log "  could not record it on ${oname}; it will be checked again, harmlessly"
+      else
+        attempts=$((attempts + 1))
+        next="retry"; [ "$attempts" -lt "$MAX_ATTEMPTS" ] || next="failed"
+        err="$(printf '%s' "$out" | tail -3 | tr '\n' ' ' | cut -c1-300)"
+        log "company: FAILED for ${site} (attempt ${attempts}, ${next}): ${err}"
+        order_set_config "$oname" ".shopCompany = {state: \"${next}\", attempts: ${attempts}, lastError: $(jq -n --arg e "$err" '$e')}" || true
+      fi
+    done < <(jq -c '.data[]?' <<<"$orders")
+  done < <(jq -c '.data[]' <<<"$jobs")
+}
+
+
 sweep_all() {
   local rc=0
+  # The Company first: set-up answers and the owner's first sign-in both need it
+  (company_sweep) || rc=1
   (sweep) || rc=1
   (progress_sweep) || rc=1
   return "$rc"
@@ -329,7 +471,11 @@ sweep_all() {
 case "${1:-sweep}" in
   sweep) sweep_all ;;
   progress) progress_sweep ;;
+  company)
+    if [ "$#" -eq 1 ]; then company_sweep
+    else [ "$#" -eq 4 ] || refuse "usage: murzak-shop-setup company [<site> \"<Shop name>\" <owner email>]"; ensure_company "$2" "$3" "$4"
+    fi ;;
   signals) [ "$#" -eq 2 ] || refuse "usage: murzak-shop-setup signals <site>"; shop_signals "$2" ;;
   apply) [ "$#" -eq 2 ] || refuse "usage: murzak-shop-setup apply <site>   (plan JSON on stdin)"; apply_plan "$2" ;;
-  *) refuse "usage: murzak-shop-setup [sweep | progress | signals <site> | apply <site>]" ;;
+  *) refuse "usage: murzak-shop-setup [sweep | progress | company [<site> "<Shop name>" <owner email>] | signals <site> | apply <site>]" ;;
 esac

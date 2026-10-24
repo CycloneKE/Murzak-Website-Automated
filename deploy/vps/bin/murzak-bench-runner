@@ -266,6 +266,16 @@ echo "$jobs_json" | jq -c '.data[]' | while IFS= read -r job; do
       fi
     fi
 
+    # A new POS shop has an owner but no Company yet; make it now rather than
+    # waiting for the next pass, so the owner's first sign-in finds it. Never
+    # fails the build: the next sweep tries again.
+    case "$service_id" in
+      biz-pos-*)
+        if [ -x /usr/local/bin/murzak-shop-setup ]; then
+          /usr/local/bin/murzak-shop-setup company || log "  shop company step reported a problem; the next sweep retries it"
+        fi ;;
+    esac
+
   elif [ "$rc" -eq 2 ]; then
     log "  permanent (exit 2): ${verdict}"
     jq -n --arg err "host-bench-runner: ${verdict}" \

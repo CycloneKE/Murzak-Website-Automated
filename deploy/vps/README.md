@@ -391,6 +391,29 @@ It only adds. A business type or kitchen settings the owner already saved are
 kept, and the owner is told so. A failure is retried 3 times, then marked
 `failed`; the shop itself is never affected.
 
+### The shop's Company (made automatically)
+
+A shop bought on the website is built with an owner login but no **Company**,
+the business record the POS set-up wizard, Business settings and the till all
+hang off. Public sign-up is the only other thing that makes one, and it is closed
+on shop addresses, so without this the owner signs in to "We could not load your
+shop details" and cannot continue.
+
+`murzak-shop-setup company` (run first by every `sweep`, and straight after a POS
+build by `murzak-bench-runner`) makes it the way sign-up does, as the owner: the
+shop name the buyer typed at checkout, Kenya and KES, the owner's contact, default
+accounts, a POS profile, and the owner's default company and permission. A shop
+that already has a Company is left alone. The result is kept on the order
+(`shopCompany`), a failure is retried 3 times, and the other shop-setup steps wait
+for it.
+
+- One shop by hand (also how to repair a shop built before this existed):
+  `sudo murzak-shop-setup company <slug>.erp.murzaktech.tech "<Shop name>" <owner email>`
+- Run the check for every finished POS shop now: `sudo murzak-shop-setup company`
+- Test without a server: `bash deploy/vps/test/shop-company.test.sh`
+- Install: `sudo install -m 0755 bin/murzak-shop-setup /usr/local/bin/` and
+  `sudo install -m 0755 bin/murzak-bench-runner /usr/local/bin/`
+
 ### Shop progress (portal checklist)
 
 `murzak-shop-setup` also reads a few facts from each young shop, read-only, for
