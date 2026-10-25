@@ -156,11 +156,13 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
     ok(r.savingKes === 1575, "returns saving");
     ok(client.store["Portal Invoice"]["PINV-1"].amount === 3000 - 1575, "invoice amount reduced by exactly the saving (1425)");
     let cfg = JSON.parse(client.store["Checkout Order"]["CHK-1"].config_json);
-    ok(JSON.stringify(cfg.bundle.applied) === '["pos-domain-com"]', "applied recorded on the order");
+    ok(JSON.stringify(cfg.bundle.applied) === '[{"pairingId":"pos-domain-com","invoiceDocName":"PINV-1","savingKes":1575}]', "applied recorded as {pairingId, invoiceDocName, savingKes}");
     ok(cfg.bundle.windowEndsAtMs === END && cfg.bundle.savingKes === 5 && cfg.bundle.other === "keep", "other bundle keys preserved");
-    client.store["Portal Invoice"]["PINV-1"].amount = 3000;
-    r = await bundles.applyAddOnSaving(args());
-    ok(r.savingKes === 0 && client.store["Portal Invoice"]["PINV-1"].amount === 3000, "second purchase of same pairing: no saving, no change");
+    client.store["Portal Invoice"]["PINV-2"] = { name: "PINV-2", amount: 3000 };
+    const putsBefore = client.puts.length;
+    r = await bundles.applyAddOnSaving(args({ invoiceDocName: "PINV-2" }));
+    ok(r.savingKes === 0 && client.store["Portal Invoice"]["PINV-2"].amount === 3000 && client.puts.length === putsBefore,
+      "same pairing on a different invoice: no saving, no write");
 
     client = mk();
     r = await bundles.applyAddOnSaving(args({ nowMs: END + 1 }));
@@ -170,7 +172,12 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
     ok(r.savingKes === 0 && client.puts.length === 0, "no applicable pairing: no PUT at all");
     client = mk();
     r = await bundles.applyAddOnSaving(args({ amountKes: 1000 }));
-    ok(client.store["Portal Invoice"]["PINV-1"].amount === 0, "saving larger than amount floors at 0, never negative");
+    ok(r.savingKes === 0 && client.puts.length === 0 && client.store["Portal Invoice"]["PINV-1"].amount === 3000
+      && !JSON.parse(client.store["Checkout Order"]["CHK-1"].config_json).bundle.applied,
+      "saving that would zero the invoice is skipped: no write, no claim, never 0");
+    client = mk();
+    r = await bundles.applyAddOnSaving(args({ amountKes: 1576 }));
+    ok(client.store["Portal Invoice"]["PINV-1"].amount === 1, "amount 1576 - 1575 = 1 is still written (>0)");
 
     for (const bad of [undefined, null, 0, NaN, "x"]) {
       client = mk();
@@ -179,6 +186,83 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
       ok(code === 500 && client.puts.length === 0 && client.store["Portal Invoice"]["PINV-1"].amount === 3000,
         `amountKes ${String(bad)} with a saving: 500, nothing written`);
     }
+    // owned companion: no saving
+    client = mk();
+    r = await bundles.applyAddOnSaving(args({ ownedServiceIds: ["domain-com"] }));
+    ok(r.savingKes === 0 && client.puts.length === 0, "owned companion (explicit list): no saving");
+    client = mk();
+    client.store["Web Account"] = { "acct-p": { name: "acct-p", selected_services: [{ service_id: "domain-com", status: "Active" }] } };
+    r = await bundles.applyAddOnSaving(args());
+    ok(r.savingKes === 0 && client.puts.length === 0, "owned companion (read from Web Account): no saving");
+
+    // concurrent double apply -> exactly one saving
+    client = mk();
+    client.store["Portal Invoice"]["PINV-2"] = { name: "PINV-2", amount: 3000 };
+    const [ra, rb] = await Promise.all([
+      bundles.applyAddOnSaving(args()),
+      bundles.applyAddOnSaving(args({ invoiceDocName: "PINV-2" })),
+    ]);
+    ok(ra.savingKes + rb.savingKes === 1575, `concurrent: exactly one saving (${ra.savingKes}+${rb.savingKes})`);
+    const amts = [client.store["Portal Invoice"]["PINV-1"].amount, client.store["Portal Invoice"]["PINV-2"].amount].sort((x, y) => x - y);
+    ok(amts[0] === 1425 && amts[1] === 3000, "concurrent: one invoice reduced by 1575, the other untouched");
+    cfg = JSON.parse(client.store["Checkout Order"]["CHK-1"].config_json);
+    ok(cfg.bundle.applied.length === 1, "concurrent: pairing recorded once");
+
+    // invoice PUT failure -> claim rolled back, retry can claim
+    client = mk();
+    const realPut = client.put;
+    client.put = async (url, body) => { if (String(url).includes("Portal Invoice/")) throw new Error("boom"); return realPut(url, body); };
+    let msg = null;
+    try { await bundles.applyAddOnSaving(args()); } catch (e) { msg = e.message; }
+    cfg = JSON.parse(client.store["Checkout Order"]["CHK-1"].config_json);
+    ok(msg === "boom" && (cfg.bundle.applied || []).length === 0 && client.store["Portal Invoice"]["PINV-1"].amount === 3000,
+      "failed invoice PUT: rethrown, claim rolled back, invoice untouched");
+    client.put = realPut;
+    r = await bundles.applyAddOnSaving(args());
+    ok(r.savingKes === 1575 && client.store["Portal Invoice"]["PINV-1"].amount === 1425, "retry after failure claims and applies");
+
+    // multi-order: a failure leaves nothing claimed on any order
+    {
+      const c2 = makeMockFrappe({
+        "Checkout Order": { "CHK-1": orderDoc("CHK-1"), "CHK-2": orderDoc("CHK-2", { service_id: "biz-erp-light" }) },
+        "Portal Invoice": { "PINV-1": { name: "PINV-1", amount: 9000 } },
+      });
+      const rp = c2.put;
+      c2.put = async (url, body) => { if (String(url).includes("Portal Invoice/")) throw new Error("boom"); return rp(url, body); };
+      let m2 = null;
+      try { await bundles.applyAddOnSaving({ client: c2, webAccountName: "acct-p", invoiceDocName: "PINV-1", amountKes: 9000, serviceIds: ["starter-email", "domain-com"], nowMs: END }); } catch (e) { m2 = e.message; }
+      const a1 = JSON.parse(c2.store["Checkout Order"]["CHK-1"].config_json).bundle.applied || [];
+      const a2 = JSON.parse(c2.store["Checkout Order"]["CHK-2"].config_json).bundle.applied || [];
+      ok(m2 === "boom" && a1.length === 0 && a2.length === 0, "multi-order failure: every order's claim rolled back");
+    }
+
+    // merge into the same open invoice: first saving kept, never doubled, never lost
+    client = mk();
+    await bundles.applyAddOnSaving(args());                       // add-on 1: 3000 -> 1425
+    const merged = 3000 + 1200;                                    // add-on 2 merges: createAddonInvoice resets to the full merged sum
+    client.store["Portal Invoice"]["PINV-1"].amount = merged;
+    r = await bundles.applyAddOnSaving(args({ amountKes: merged, serviceIds: ["biz-erp-light"] }));
+    ok(client.store["Portal Invoice"]["PINV-1"].amount === merged - 1575, `merged invoice = full sum ${merged} - 1575 = ${merged - 1575}`);
+    cfg = JSON.parse(client.store["Checkout Order"]["CHK-1"].config_json);
+    ok(cfg.bundle.applied.length === 1, "merge does not record a second claim");
+    const merged3 = merged + 1000;
+    client.store["Portal Invoice"]["PINV-1"].amount = merged3;
+    r = await bundles.applyAddOnSaving(args({ amountKes: merged3, serviceIds: ["domain-org"] }));
+    ok(client.store["Portal Invoice"]["PINV-1"].amount === merged3 - 1575 - 1425, `third merge subtracts both once each: ${merged3 - 3000}`);
+
+    // prior saving larger than a tiny (annual pro-rated) merged amount: floors at 1
+    client = mk();
+    await bundles.applyAddOnSaving(args());
+    client.store["Portal Invoice"]["PINV-1"].amount = 900;
+    await bundles.applyAddOnSaving(args({ amountKes: 900, serviceIds: [] }));
+    ok(client.store["Portal Invoice"]["PINV-1"].amount === 1, "prior saving capped: amount floors at 1, never 0");
+
+    // legacy plain-string entries still count as used
+    client = makeMockFrappe({ "Checkout Order": { "CHK-1": orderDoc("CHK-1", {}, { windowEndsAtMs: END, applied: ["pos-domain-com"] }) },
+      "Portal Invoice": { "PINV-1": { name: "PINV-1", amount: 3000 } } });
+    r = await bundles.applyAddOnSaving(args());
+    ok(r.savingKes === 0 && client.puts.length === 0, "legacy string entry counts as used, no saving");
+
     client = mk();
     process.env.BUNDLES_ENABLED = "false";
     r = await bundles.applyAddOnSaving(args());

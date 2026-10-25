@@ -110,6 +110,19 @@ function parseOrderConfig(json) {
   }
 }
 
+/**
+ * config.bundle.applied entries: { pairingId, invoiceDocName, savingKes }.
+ * Legacy plain-string entries read as { pairingId } with no invoice.
+ */
+function appliedEntries(bundle) {
+  const raw = bundle && Array.isArray(bundle.applied) ? bundle.applied : [];
+  return raw
+    .map((e) => (typeof e === "string"
+      ? { pairingId: e, invoiceDocName: "", savingKes: 0 }
+      : { pairingId: String(e?.pairingId || ""), invoiceDocName: String(e?.invoiceDocName || ""), savingKes: Number(e?.savingKes) || 0 }))
+    .filter((e) => e.pairingId);
+}
+
 /** The same validity rule validateCompanions applies, for one candidate id. */
 function isAllowedCompanion(primaryId, serviceId) {
   if (!serviceId || serviceId === primaryId) return false;
@@ -158,7 +171,8 @@ async function activeBundleWindows({ client, webAccountName, nowMs }) {
       orderId: r.name,
       primaryId: r.service_id,
       windowEndsAtMs: endsAt,
-      applied: Array.isArray(bundle.applied) ? bundle.applied.map(String) : [],
+      applied: appliedEntries(bundle).map((e) => e.pairingId),
+      appliedEntries: appliedEntries(bundle),
     });
   }
   return out;
@@ -219,29 +233,93 @@ function offersForWindows({ windows, ownedServiceIds, nowMs }) {
   return offers;
 }
 
-/** Record used pairing ids on the paid order (fresh read, merged into config.bundle.applied). */
-async function recordAppliedPairings({ client, orderId, pairingIds }) {
+// In-process per-order critical section (single Node process, same assumption
+// as orderStore's serialize mutex).
+const orderLocks = new Map();
+function withOrderLock(orderId, fn) {
+  const prev = orderLocks.get(orderId) || Promise.resolve();
+  const p = prev.then(fn, fn);
+  const tail = p.catch(() => {});
+  orderLocks.set(orderId, tail);
+  tail.then(() => { if (orderLocks.get(orderId) === tail) orderLocks.delete(orderId); });
+  return p;
+}
+
+async function readOrderBundle(client, orderId) {
   const res = await client.get(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`);
   const config = parseOrderConfig(res.data?.data?.config_json);
   const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
-  const applied = Array.isArray(bundle.applied) ? bundle.applied.map(String) : [];
-  for (const id of pairingIds) if (!applied.includes(id)) applied.push(id);
+  return { config, bundle };
+}
+
+async function writeOrderBundle(client, orderId, config, bundle, entries) {
   await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
-    config_json: JSON.stringify({ ...config, bundle: { ...bundle, applied } }),
+    config_json: JSON.stringify({ ...config, bundle: { ...bundle, applied: entries } }),
   });
 }
 
+/** Claim pairings on one order (fresh read, merged); returns the entries actually claimed. */
+function claimPairings({ client, orderId, candidates, invoiceDocName }) {
+  return withOrderLock(orderId, async () => {
+    const { config, bundle } = await readOrderBundle(client, orderId);
+    const entries = appliedEntries(bundle);
+    const taken = new Set(entries.map((e) => e.pairingId));
+    const claimed = candidates
+      .filter((c) => !taken.has(c.pairingId))
+      .map((c) => ({ pairingId: c.pairingId, invoiceDocName, savingKes: c.savingKes }));
+    if (!claimed.length) return [];
+    await writeOrderBundle(client, orderId, config, bundle, [...entries, ...claimed]);
+    return claimed;
+  });
+}
+
+function releasePairings({ client, orderId, claimed, invoiceDocName }) {
+  return withOrderLock(orderId, async () => {
+    const { config, bundle } = await readOrderBundle(client, orderId);
+    const ids = new Set(claimed.map((c) => c.pairingId));
+    const entries = appliedEntries(bundle).filter((e) => !(ids.has(e.pairingId) && e.invoiceDocName === invoiceDocName));
+    await writeOrderBundle(client, orderId, config, bundle, entries);
+  });
+}
+
+async function ownedIds(client, webAccountName) {
+  try {
+    const res = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
+    const rows = res.data?.data?.selected_services;
+    return (Array.isArray(rows) ? rows : []).map((r) => String(r?.service_id ?? r?.serviceId ?? "").trim()).filter(Boolean);
+  } catch (e) {
+    if (e.response?.status === 404) return [];
+    throw e;
+  }
+}
+
 /**
- * After an add-on invoice exists: reduce it by any open-window saving and record
- * the used pairings. `amountKes` is the amount the caller already knows (never
- * read back). No saving => no writes at all. A saving with an unknown amount
- * throws 500 before anything is written.
+ * After an add-on invoice exists (created OR merged into an open one): reduce it
+ * by the open-window saving. `amountKes` is the amount the caller already knows
+ * for that invoice (never read back).
+ *  - Claim first, serialized per order: the pairing is recorded as
+ *    { pairingId, invoiceDocName, savingKes } BEFORE the invoice PUT; a failed PUT
+ *    rolls the claim back. Concurrent calls for one pairing yield one saving.
+ *  - A merge resets the invoice to full price, so savings already recorded
+ *    against this same (still unpaid) invoice are subtracted again, never
+ *    duplicated and never lost.
+ *  - The invoice never goes to 0: the new saving is skipped, and an oversized
+ *    prior reduction is capped, so the amount stays >= 1.
+ *  - No saving at all => no writes. A saving with an unknown amount => 500, no writes.
  */
-async function applyAddOnSaving({ client, webAccountName, invoiceDocName, amountKes, serviceIds, nowMs }) {
+async function applyAddOnSaving({ client, webAccountName, invoiceDocName, amountKes, serviceIds, ownedServiceIds, nowMs }) {
   if (!bundlesEnabled()) return { savingKes: 0 };
   const windows = await activeBundleWindows({ client, webAccountName, nowMs });
-  const { savingKes, applied } = savingForAddOn({ windows, serviceIds, nowMs });
-  if (!(savingKes > 0)) return { savingKes: 0 };
+  if (!windows.length) return { savingKes: 0 };
+
+  const owned = new Set(ownedServiceIds || (await ownedIds(client, webAccountName)));
+  const wanted = (serviceIds || []).filter((id) => !owned.has(id));
+  const { applied: candidates } = savingForAddOn({ windows, serviceIds: wanted, nowMs });
+  const priorKes = windows.reduce(
+    (sum, w) => sum + w.appliedEntries.filter((e) => e.invoiceDocName && e.invoiceDocName === invoiceDocName).reduce((a, e) => a + e.savingKes, 0),
+    0
+  );
+  if (!(candidates.length || priorKes > 0)) return { savingKes: 0 };
 
   const known = Number(amountKes);
   if (!Number.isFinite(known) || known <= 0 || !invoiceDocName) {
@@ -249,13 +327,46 @@ async function applyAddOnSaving({ client, webAccountName, invoiceDocName, amount
     e.statusCode = 500;
     throw e;
   }
-  await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-    amount: Math.max(0, known - savingKes),
-  });
-  const byOrder = new Map();
-  for (const a of applied) byOrder.set(a.orderId, [...(byOrder.get(a.orderId) || []), a.pairingId]);
-  for (const [orderId, pairingIds] of byOrder) await recordAppliedPairings({ client, orderId, pairingIds });
-  return { savingKes, applied };
+
+  // Claim (serialized per order). Skip the new saving if it would zero the invoice.
+  const claims = [];
+  const newPotential = candidates.reduce((s, c) => s + c.savingKes, 0);
+  if (candidates.length && known - priorKes - newPotential >= 1) {
+    const byOrder = new Map();
+    for (const c of candidates) byOrder.set(c.orderId, [...(byOrder.get(c.orderId) || []), c]);
+    try {
+      for (const [orderId, list] of byOrder) {
+        const claimed = await claimPairings({ client, orderId, candidates: list, invoiceDocName });
+        if (claimed.length) claims.push({ orderId, claimed });
+      }
+    } catch (err) {
+      await rollbackClaims({ client, claims, invoiceDocName });
+      throw err;
+    }
+  }
+  const newKes = claims.reduce((s, c) => s + c.claimed.reduce((a, x) => a + x.savingKes, 0), 0);
+  const totalKes = priorKes + newKes;
+  if (!(totalKes > 0)) return { savingKes: 0 };
+
+  try {
+    await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+      amount: Math.max(1, known - totalKes),
+    });
+  } catch (err) {
+    await rollbackClaims({ client, claims, invoiceDocName });
+    throw err;
+  }
+  return { savingKes: totalKes, newSavingKes: newKes, applied: claims.flatMap((c) => c.claimed) };
+}
+
+async function rollbackClaims({ client, claims, invoiceDocName }) {
+  for (const { orderId, claimed } of claims) {
+    try {
+      await releasePairings({ client, orderId, claimed, invoiceDocName });
+    } catch (e) {
+      console.error(`BUNDLE CLAIM ROLLBACK FAILED for order ${orderId} (pairings ${claimed.map((c) => c.pairingId).join(",")}):`, e.message);
+    }
+  }
 }
 
 module.exports = {
