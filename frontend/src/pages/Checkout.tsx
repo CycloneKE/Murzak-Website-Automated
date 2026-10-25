@@ -29,6 +29,17 @@ interface OrderView {
   invoiceDocName: string | null;
   config: Record<string, any>;
   eligibleForTermChoice: boolean;
+  // Bundle fields (all server-computed; optional so older responses still work).
+  companions?: CompanionLine[];
+  bundleSavingKes?: number;
+  bundleWindowEndsAtMs?: number | null;
+}
+
+interface CompanionLine {
+  serviceId: string;
+  serviceName: string;
+  monthlyKes: number;
+  setupKes: number;
 }
 
 interface InvoicePricing {
@@ -96,6 +107,8 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // yearly-only pricing and are never eligible.
   const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
   const [preparingPayment, setPreparingPayment] = useState(false);
+  const [removingId, setRemovingId] = useState('');
+  const [companionError, setCompanionError] = useState('');
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -388,6 +401,39 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     }
   };
 
+  // Replace the companion list without `removedId`. The server owns the list and
+  // all pricing, so re-send the remaining entries (config intact) and render
+  // whatever order comes back.
+  const handleRemoveCompanion = async (removedId: string) => {
+    if (!orderId || !order || removingId) return;
+    const stored = Array.isArray(order.config?.bundle?.companions) ? order.config.bundle.companions : [];
+    const source: Array<{ serviceId: string; config?: any }> = stored.length
+      ? stored
+      : (order.companions || []).map((c) => ({ serviceId: c.serviceId }));
+    const remaining = source
+      .filter((c) => c && c.serviceId !== removedId)
+      .map((c) => (c.config && Object.keys(c.config).length ? { serviceId: c.serviceId, config: c.config } : { serviceId: c.serviceId }));
+    setRemovingId(removedId);
+    setCompanionError('');
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/companions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ companions: remaining }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.order) {
+        throw new Error(data?.error || "We couldn't update your extras. Please try again.");
+      }
+      if (mountedRef.current) setOrder(data.order);
+    } catch (e: any) {
+      if (mountedRef.current) setCompanionError(toUserMessage(e, "We couldn't update your extras. Please try again."));
+    } finally {
+      if (mountedRef.current) setRemovingId('');
+    }
+  };
+
   const handleConfirmTerm = () => {
     preparePaymentAndPrice(billingTerm);
   };
@@ -420,6 +466,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // pay button.
   const annualPrepaid = !!invoice && invoice.term === 'annual' && period === "/mo";
   const dueNowKes = invoice ? invoice.chargeKes : order?.monthlyKes ?? 0;
+  const companionLines = order?.companions ?? [];
+  const bundleSavingKes = order?.bundleSavingKes ?? 0;
+  const hasCompanions = companionLines.length > 0;
+  // Companions can only change before any invoice exists (server: 409 otherwise).
+  const canEditCompanions = !!order && order.status === 'Draft' && !order.invoiceDocName && !invoice;
   const afterPaymentCopy = svcForOrder ? postPurchaseCopy(svcForOrder) : GENERIC_POST_PURCHASE_COPY;
 
   const chrome = (children: React.ReactNode) => (
@@ -552,7 +603,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   return chrome(
     <div className="space-y-4">
       {/* Order summary */}
-      <div className="glass-card rounded-3xl p-6">
+      <div className="glass-card rounded-3xl p-6" data-testid="order-summary">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
@@ -595,10 +646,51 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             )}
           </span>
         </div>
+        {hasCompanions && (
+          <div className="mt-4 pt-4 border-t border-murzak-border space-y-2">
+            <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+              Included with your order
+            </p>
+            {companionLines.map((c) => (
+              <div key={c.serviceId} data-testid="companion-line" className="flex items-center justify-between gap-3 text-sm font-bold text-murzak-ink dark:text-slate-100">
+                <span className="min-w-0 wrap-break-word">{c.serviceName}</span>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span>{formatKes(c.monthlyKes + c.setupKes)}</span>
+                  {canEditCompanions && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCompanion(c.serviceId)}
+                      disabled={!!removingId}
+                      aria-label={`Remove ${c.serviceName}`}
+                      className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 transition-colors"
+                    >
+                      {removingId === c.serviceId ? <Loader2 size={14} className="animate-spin" /> : 'Remove'}
+                    </button>
+                  )}
+                </span>
+              </div>
+            ))}
+            {bundleSavingKes > 0 && (
+              <div data-testid="bundle-saving-row" className="flex items-center justify-between text-sm font-black text-emerald-700 dark:text-emerald-300">
+                <span>Bundle saving</span>
+                <span>{'−'}{formatKes(bundleSavingKes)}</span>
+              </div>
+            )}
+            <div data-testid="order-total-row" className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100 pt-2 border-t border-murzak-border">
+              <span>Order total</span>
+              <span>{formatKes(order.totalDueKes)}</span>
+            </div>
+            {companionError && (
+              <p data-testid="companion-error" role="alert" className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-start gap-2">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" /> {companionError}
+              </p>
+            )}
+          </div>
+        )}
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
           <div className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100">
             <span>Due now</span>
-            <span>{formatKes(period === "/yr" ? order.monthlyKes : dueNowKes)}</span>
+            <span>{formatKes(period === "/yr" ? order.monthlyKes : !invoice && hasCompanions ? order.totalDueKes : dueNowKes)}</span>
           </div>
           {order.setupKes > 0 && (
             <p className="text-xs font-semibold text-slate-500 pt-1">
