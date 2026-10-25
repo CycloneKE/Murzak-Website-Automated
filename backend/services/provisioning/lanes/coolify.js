@@ -19,6 +19,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const { CAPACITY } = require("../catalog");
 const appDomain = require("../appDomain");
+const { CLOUD_APPS, adminEmailFor } = require("./cloudApps");
 
 // Server-wide budget (from the generated catalog snapshot: KVM 2 = 2 vCPU /
 // 6.4GB sellable). Used to derive a proportional CPU quota per container.
@@ -807,9 +808,7 @@ function wpAdminUser() {
 
 /** web_account is the portal user (normally an email); fall back to a Murzak address. */
 function wpAdminEmail(job) {
-  const acct = String((job && job.web_account) || "");
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(acct)) return acct;
-  return process.env.SMTP_FROM_EMAIL || process.env.WP_FALLBACK_ADMIN_EMAIL || "admin@murzaktech.tech";
+  return adminEmailFor(job);
 }
 
 /**
@@ -1073,6 +1072,9 @@ const CURATED_APP_CONFIG = {
   },
 };
 
+// Murzak Cloud app templates (n8n, Ghost, Nextcloud, ...) live in cloudApps.js.
+Object.assign(CURATED_APP_CONFIG, CLOUD_APPS);
+
 /** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
 function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase, preCtx, job) {
   if (appConfig.services) return buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job);
@@ -1142,6 +1144,8 @@ function hardeningBlock(limits, extraCaps = []) {
 const SECRET_GENERATORS = {
   random: generateRandomSecret,
   laravelAppKey: generateLaravelAppKey,
+  // For apps that enforce password complexity (upper, lower, digit, symbol).
+  complexPassword: () => `${generateRandomSecret().slice(0, 24)}Aa9!`,
 };
 
 /**
@@ -1217,7 +1221,11 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job
       : "";
 
     let commandLines = "";
-    if (svc.command) {
+    if (Array.isArray(svc.command)) {
+      commandLines =
+        `    command:\n` +
+        svc.command.map((arg) => `      - ${JSON.stringify(arg)}\n`).join("");
+    } else if (svc.command) {
       commandLines =
         `    command:\n` +
         `      - sh\n` +

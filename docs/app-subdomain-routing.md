@@ -254,3 +254,11 @@ PROVISIONING_RUNNER_ENABLED=true
 If `CLOUD_DOMAIN_BASE` is unset the product falls back to `APP_DOMAIN_BASE`.
 Any product can opt in by setting `domainBaseEnv` in its `CURATED_APP_CONFIG` entry.
 The admin URL, username and generated password are returned in the job `access` field.
+
+### Adding another Murzak Cloud app
+
+1. Add one entry to `backend/services/provisioning/lanes/cloudApps.js` (images, environment, storage, health check, and what login details to show the customer).
+2. Add one product block to `frontend/src/config/serviceCatalog.ts` (name, price, RAM, disk). Use an existing category or add one to `CloudLaunchCategory`.
+3. Run `node scripts/generate-catalog-snapshot.js` and `npm test` in `backend`. The test `cloudApps.test.js` checks every entry automatically (valid Compose, hardened containers, only one public service).
+
+Apps like n8n, Ghost and Uptime Kuma let the first visitor create the owner account, so customers are told to open the address straight away.
