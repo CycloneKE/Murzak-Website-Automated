@@ -96,4 +96,178 @@ function footprintOf(primaryId, companions) {
   );
 }
 
-module.exports = { bundlesEnabled, BUNDLE_WINDOW_MS, MAX_COMPANIONS, validateCompanions, computeBundle, footprintOf };
+// ---- Post-purchase (14-day window) ----------------------------------------
+// Kept free of orderStore imports (orderStore requires this module); the order
+// doctype name and config shape are mirrored locally.
+const ORDER_DOCTYPE = "Checkout Order";
+
+function parseOrderConfig(json) {
+  try {
+    const v = json ? JSON.parse(json) : {};
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The same validity rule validateCompanions applies, for one candidate id. */
+function isAllowedCompanion(primaryId, serviceId) {
+  if (!serviceId || serviceId === primaryId) return false;
+  if (!getServiceMeta(serviceId)) return false;
+  if (isAppService(serviceId)) return false;
+  return isBusinessApp(serviceId) || isZeroRamCompanion(serviceId);
+}
+
+function pairingSaving(pairing, meta) {
+  const monthlyKes = Number(meta?.monthlyKes || 0);
+  const setupKes = Number(meta?.setupKes || 0);
+  const raw = pairing.saving.type === "firstMonthFree" ? monthlyKes : Number(pairing.saving.kes || 0);
+  return Math.max(0, Math.min(raw, monthlyKes + setupKes));
+}
+
+/**
+ * This account's PAID orders whose add-on window is still open
+ * (windowEndsAtMs >= nowMs: exactly the end instant is still valid). An unpaid
+ * order never carries a window, so it never appears here.
+ */
+async function activeBundleWindows({ client, webAccountName, nowMs }) {
+  if (!bundlesEnabled()) return [];
+  let rows;
+  try {
+    const res = await client.get(`/api/resource/${ORDER_DOCTYPE}`, {
+      params: {
+        fields: JSON.stringify(["name", "web_account", "status", "service_id", "config_json"]),
+        filters: JSON.stringify([["web_account", "=", webAccountName], ["status", "=", "Paid"]]),
+        limit_page_length: 0,
+      },
+    });
+    rows = res.data?.data || [];
+  } catch (e) {
+    // Doctype not installed here: no orders, so no windows.
+    if (e.__doctypeMissing || e.response?.status === 404 || e.response?.status === 417) return [];
+    throw e;
+  }
+  const out = [];
+  for (const r of rows) {
+    // Re-filter in JS; the backend may not honor the filters param.
+    if (r.status !== "Paid" || r.web_account !== webAccountName) continue;
+    const bundle = parseOrderConfig(r.config_json).bundle;
+    const endsAt = bundle && typeof bundle === "object" ? bundle.windowEndsAtMs : undefined;
+    if (!Number.isFinite(endsAt) || endsAt < nowMs) continue;
+    out.push({
+      orderId: r.name,
+      primaryId: r.service_id,
+      windowEndsAtMs: endsAt,
+      applied: Array.isArray(bundle.applied) ? bundle.applied.map(String) : [],
+    });
+  }
+  return out;
+}
+
+/**
+ * The saving for adding `serviceIds` inside an open window. A pairing's saving
+ * applies at most once per paid order (windows[].applied lists the pairing ids
+ * already used); each add-on line takes its saving from the first window that
+ * still has it. Each saving is capped at that line's monthly + setup.
+ */
+function savingForAddOn({ windows, serviceIds, nowMs }) {
+  const applied = [];
+  if (!bundlesEnabled()) return { savingKes: 0, applied };
+  const open = (windows || []).filter((w) => Number.isFinite(w.windowEndsAtMs) && w.windowEndsAtMs >= nowMs);
+  for (const serviceId of new Set(serviceIds || [])) {
+    const meta = getServiceMeta(serviceId);
+    if (!meta) continue;
+    for (const w of open) {
+      const p = PAIRINGS.find(
+        (x) => x.companionId === serviceId && x.primaryIds.includes(w.primaryId) && !(w.applied || []).includes(x.id)
+      );
+      if (!p) continue;
+      const savingKes = pairingSaving(p, meta);
+      if (savingKes > 0) {
+        applied.push({ serviceId, savingKes, pairingId: p.id, orderId: w.orderId });
+        break;
+      }
+    }
+  }
+  return { savingKes: applied.reduce((s, a) => s + a.savingKes, 0), applied };
+}
+
+/** Allowed, not-yet-owned companions with a live saving, per open window. */
+function offersForWindows({ windows, ownedServiceIds, nowMs }) {
+  const owned = new Set(ownedServiceIds || []);
+  const seen = new Set();
+  const offers = [];
+  for (const w of windows || []) {
+    if (!(w.windowEndsAtMs >= nowMs)) continue;
+    for (const p of PAIRINGS) {
+      if (!p.primaryIds.includes(w.primaryId) || (w.applied || []).includes(p.id)) continue;
+      if (owned.has(p.companionId) || seen.has(p.companionId)) continue;
+      if (!isAllowedCompanion(w.primaryId, p.companionId)) continue;
+      const meta = getServiceMeta(p.companionId);
+      const savingKes = pairingSaving(p, meta);
+      if (!(savingKes > 0)) continue;
+      seen.add(p.companionId);
+      offers.push({
+        serviceId: p.companionId,
+        name: meta.name || p.companionId,
+        monthlyKes: Number(meta.monthlyKes) || 0,
+        savingKes,
+        windowEndsAtMs: w.windowEndsAtMs,
+      });
+    }
+  }
+  return offers;
+}
+
+/** Record used pairing ids on the paid order (fresh read, merged into config.bundle.applied). */
+async function recordAppliedPairings({ client, orderId, pairingIds }) {
+  const res = await client.get(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`);
+  const config = parseOrderConfig(res.data?.data?.config_json);
+  const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
+  const applied = Array.isArray(bundle.applied) ? bundle.applied.map(String) : [];
+  for (const id of pairingIds) if (!applied.includes(id)) applied.push(id);
+  await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
+    config_json: JSON.stringify({ ...config, bundle: { ...bundle, applied } }),
+  });
+}
+
+/**
+ * After an add-on invoice exists: reduce it by any open-window saving and record
+ * the used pairings. `amountKes` is the amount the caller already knows (never
+ * read back). No saving => no writes at all. A saving with an unknown amount
+ * throws 500 before anything is written.
+ */
+async function applyAddOnSaving({ client, webAccountName, invoiceDocName, amountKes, serviceIds, nowMs }) {
+  if (!bundlesEnabled()) return { savingKes: 0 };
+  const windows = await activeBundleWindows({ client, webAccountName, nowMs });
+  const { savingKes, applied } = savingForAddOn({ windows, serviceIds, nowMs });
+  if (!(savingKes > 0)) return { savingKes: 0 };
+
+  const known = Number(amountKes);
+  if (!Number.isFinite(known) || known <= 0 || !invoiceDocName) {
+    const e = new Error("Could not determine the invoice amount for this bundle.");
+    e.statusCode = 500;
+    throw e;
+  }
+  await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+    amount: Math.max(0, known - savingKes),
+  });
+  const byOrder = new Map();
+  for (const a of applied) byOrder.set(a.orderId, [...(byOrder.get(a.orderId) || []), a.pairingId]);
+  for (const [orderId, pairingIds] of byOrder) await recordAppliedPairings({ client, orderId, pairingIds });
+  return { savingKes, applied };
+}
+
+module.exports = {
+  bundlesEnabled,
+  BUNDLE_WINDOW_MS,
+  MAX_COMPANIONS,
+  validateCompanions,
+  computeBundle,
+  footprintOf,
+  isAllowedCompanion,
+  activeBundleWindows,
+  savingForAddOn,
+  offersForWindows,
+  applyAddOnSaving,
+};
