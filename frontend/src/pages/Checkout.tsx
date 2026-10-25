@@ -405,7 +405,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // all pricing, so re-send the remaining entries (config intact) and render
   // whatever order comes back.
   const handleRemoveCompanion = async (removedId: string) => {
-    if (!orderId || !order || removingId) return;
+    if (!orderId || !order || removingId || preparingPayment || invoice || order.invoiceDocName) return;
     const stored = Array.isArray(order.config?.bundle?.companions) ? order.config.bundle.companions : [];
     const source: Array<{ serviceId: string; config?: any }> = stored.length
       ? stored
@@ -470,7 +470,16 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const bundleSavingKes = order?.bundleSavingKes ?? 0;
   const hasCompanions = companionLines.length > 0;
   // Companions can only change before any invoice exists (server: 409 otherwise).
-  const canEditCompanions = !!order && order.status === 'Draft' && !order.invoiceDocName && !invoice;
+  // Also locked while prepare-payment runs: the server reads the companion list
+  // mid-request, so a removal landing then could be billed anyway.
+  const canEditCompanions = !!order && order.status === 'Draft' && !order.invoiceDocName && !invoice && !preparingPayment;
+  // What the server bills for each term on a bundle order (mirrors prepare-payment):
+  // monthly = totalDueKes; annual = annualPrepay(sum of ALL monthly rows) - saving.
+  const bundleMonthlySumKes = (order?.monthlyKes ?? 0) + companionLines.reduce((n, c) => n + c.monthlyKes, 0);
+  const bundleAnnualKes = Math.max(0, annualPrepayKes(bundleMonthlySumKes) - bundleSavingKes);
+  const dueNowDisplayKes = hasCompanions
+    ? (invoice ? invoice.chargeKes : order?.totalDueKes ?? 0)
+    : period === "/yr" ? order?.monthlyKes ?? 0 : dueNowKes;
   const afterPaymentCopy = svcForOrder ? postPurchaseCopy(svcForOrder) : GENERIC_POST_PURCHASE_COPY;
 
   const chrome = (children: React.ReactNode) => (
@@ -630,7 +639,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             ) : null}
           </div>
           <span className="text-left sm:text-right whitespace-nowrap">
-            {period === "/yr" || annualPrepaid ? (
+            {period === "/yr" || (annualPrepaid && !hasCompanions) ? (
               <>
                 <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
                   {formatKes(period === "/yr" ? monthlyEquivalentKes(order.monthlyKes) : Math.round(dueNowKes / 12))}/mo
@@ -676,10 +685,17 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
                 <span>{'−'}{formatKes(bundleSavingKes)}</span>
               </div>
             )}
+            {!invoice && !order.invoiceDocName && (
             <div data-testid="order-total-row" className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100 pt-2 border-t border-murzak-border">
               <span>Order total</span>
               <span>{formatKes(order.totalDueKes)}</span>
             </div>
+            )}
+            {!canEditCompanions && order.status === 'Draft' && (
+              <p data-testid="companions-locked" className="text-xs font-semibold text-slate-500">
+                Your extras are locked in once payment is being prepared.
+              </p>
+            )}
             {companionError && (
               <p data-testid="companion-error" role="alert" className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-start gap-2">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" /> {companionError}
@@ -690,9 +706,9 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
           <div className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100">
             <span>Due now</span>
-            <span>{formatKes(period === "/yr" ? order.monthlyKes : !invoice && hasCompanions ? order.totalDueKes : dueNowKes)}</span>
+            <span data-testid="due-now-amount">{formatKes(dueNowDisplayKes)}</span>
           </div>
-          {order.setupKes > 0 && (
+          {order.setupKes > 0 && !hasCompanions && (
             <p className="text-xs font-semibold text-slate-500 pt-1">
               This service also lists a one-time setup fee of {formatKes(order.setupKes)}, which is not part of
               today's charge.
@@ -717,10 +733,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               }`}
             >
               <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
-                {formatKes(order.monthlyKes)}/mo
+                {hasCompanions ? formatKes(order.totalDueKes) : `${formatKes(order.monthlyKes)}/mo`}
               </span>
               <span className="block text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">
-                Billed monthly
+                {hasCompanions ? 'Due today, then billed monthly' : 'Billed monthly'}
               </span>
             </button>
             <button
@@ -733,7 +749,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               }`}
             >
               <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
-                {formatKes(annualPrepayKes(order.monthlyKes))}/yr
+                {formatKes(hasCompanions ? bundleAnnualKes : annualPrepayKes(order.monthlyKes))}/yr
               </span>
               <span className="block text-xs font-bold text-murzak-accent mt-1">
                 Save {ANNUAL_DISCOUNT_PCT}% — paid once a year
@@ -743,7 +759,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           <button
             type="button"
             onClick={handleConfirmTerm}
-            disabled={preparingPayment}
+            disabled={preparingPayment || !!removingId}
             className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {preparingPayment ? <Loader2 size={16} className="animate-spin" /> : null}
