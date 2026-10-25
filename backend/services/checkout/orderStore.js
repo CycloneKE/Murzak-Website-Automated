@@ -348,7 +348,7 @@ async function getOrder({ client, webAccountName, orderId, nowMs, renew }) {
   if (doc.invoice_doc_name && doc.status !== "Paid") {
     const invoice = await fetchInvoice(client, doc.invoice_doc_name);
     if (invoice && String(invoice.status || "").toLowerCase() === "paid") {
-      doc = await markOrderPaid({ client, orderId, nowMs, doc });
+      doc = await markOrderPaid({ client, orderId, nowMs });
     }
   }
 
@@ -465,10 +465,12 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
  * Flip an order to Paid and stamp the bundle add-on window
  * (config.bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS), creating
  * config.bundle when the order had none. Idempotent: an already-stamped
- * window is kept, never extended. Pass `doc` to skip the fresh read.
+ * window is kept, never extended. Always re-reads the order immediately
+ * before writing (any caller-held doc is ignored) so a concurrent writer of
+ * other config keys is not reverted.
  */
-async function markOrderPaid({ client, orderId, nowMs, doc }) {
-  const current = doc || (await fetchOrderDoc(client, orderId));
+async function markOrderPaid({ client, orderId, nowMs }) {
+  const current = await fetchOrderDoc(client, orderId);
   const config = parseConfig(current.config_json);
   const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
   if (!Number.isFinite(bundle.windowEndsAtMs)) bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS;
@@ -502,6 +504,7 @@ async function setCompanions({ client, webAccountName, orderId, companions, nowM
       throw err;
     }
 
+    if (!getServiceMeta(doc.service_id)) throw badRequest(`Unknown service on this order: ${doc.service_id}`);
     const bundle = buildBundle(doc.service_id, companions);
     const footprint = bundle
       ? footprintOf(doc.service_id, bundle.companions)
