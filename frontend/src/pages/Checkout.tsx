@@ -3,11 +3,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck, ChevronLeft, AlertCircle, Clock3, Loader2, Info,
 } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
-import { clearHandoff, readHandoff, toCompanionInputs } from "../services/bundles";
+import { clearHandoff, gateCompanions, readHandoff } from "../services/bundles";
 import { APP_CHECKOUT } from '../config/appCheckout';
 import { AppId } from '../config/serviceCatalog';
 
@@ -63,6 +63,7 @@ function paidDestination(order: { id?: string; config?: { app?: string } } | nul
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
+  const routeNotice = (useLocation().state as { notice?: string } | null)?.notice || '';
   const [searchParams] = useSearchParams();
   const deepLinkServiceId = (searchParams.get('serviceId') || '').trim();
 
@@ -117,18 +118,34 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
       try {
         setLoading(true);
         setError('');
-        const res = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            serviceId: deepLinkServiceId,
-            source: 'deep-link',
-            // Bundle add-ons picked on the product page (ERP/CRM); absent => body unchanged.
-            ...(handoff ? { companions: toCompanionInputs(handoff.ids, handoff.domain) } : {}),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
+        const post = async (companions: unknown[]) => {
+          const r = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            // No companions => the body is exactly the pre-bundle deep-link body.
+            body: JSON.stringify({
+              serviceId: deepLinkServiceId,
+              source: 'deep-link',
+              ...(companions.length ? { companions } : {}),
+            }),
+          });
+          return { res: r, data: await r.json().catch(() => ({})) };
+        };
+
+        // Bundle add-ons picked on the product page (ERP/CRM), filtered by the shared gate.
+        const companions = handoff ? await gateCompanions(deepLinkServiceId, handoff.ids, handoff.domain) : [];
+        if (handoff && !companions.length) clearHandoff();
+        let { res, data } = await post(companions);
+        let notice = '';
+        // A companion-caused rejection (400/422) or capacity 409 must not block the
+        // main purchase: drop the handoff and place the plain primary order once.
+        if (companions.length && (res.status === 400 || res.status === 422 || (res.status === 409 && data?.code === 'CAPACITY'))) {
+          notice = toUserMessage(data?.error, "We couldn't add your extras to this order. You can add them later from your portal.");
+          clearHandoff();
+          if (cancelled) return;
+          ({ res, data } = await post([]));
+        }
         if (cancelled) return;
 
         if (res.status === 409 && data?.code === 'CAPACITY') {
@@ -145,7 +162,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           throw new Error(data?.error || 'Failed to start checkout.');
         }
         if (handoff) clearHandoff();
-        navigate(`/checkout/${data.order.id}`, { replace: true });
+        navigate(`/checkout/${data.order.id}`, { replace: true, state: notice ? { notice } : undefined });
       } catch (e: any) {
         if (!cancelled) {
           setError(toUserMessage(e, 'Failed to start checkout.'));
@@ -442,6 +459,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             </p>
           )}
         </div>
+        {routeNotice && (
+          <p role="status" className="mb-4 p-4 rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-sm font-bold text-amber-900 dark:text-amber-200">
+            {routeNotice}
+          </p>
+        )}
         {children}
       </div>
     </div>

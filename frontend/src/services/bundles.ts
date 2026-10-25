@@ -2,7 +2,7 @@
 // rule (backend/services/checkout/bundles.js); this file only fetches what to
 // display and shapes the `companions` list that POST /api/orders accepts.
 
-import { domainCatalogIdForTld } from "../config/serviceCatalog";
+import { domainCatalogIdForTld, getService } from "../config/serviceCatalog";
 import { TLD_OPTIONS } from "./domains";
 import { toUserMessage } from "./errors";
 
@@ -103,6 +103,45 @@ export function toCompanionInputs(ids: string[], domain: string): CompanionInput
   );
 }
 
+export const isBusinessApp = (id: string) => id === "biz-crm-helpdesk" || id.startsWith("biz-erp-");
+
+/** biz-erp-light and biz-erp-configured share the family "biz-erp". */
+export function productFamily(serviceId: string): string {
+  return serviceId.split("-").slice(0, 2).join("-");
+}
+
+/** Whether the picker would list this id for this primary (shared by picker and send-gate). */
+export function isPickableCompanion(id: string, primaryId: string, allowedIds: string[]): boolean {
+  if (!allowedIds.includes(id)) return false;
+  if (productFamily(id) === productFamily(primaryId)) return false;
+  if (isDomainCompanionId(id)) return true;
+  const svc = getService(id);
+  return !!svc && !svc.app;
+}
+
+/**
+ * The single gate every order path uses before sending companions: only what the
+ * loaded availability allows and the picker could show. No availability, a
+ * disabled feature or a failed fetch yields none, so nothing hidden is ever sent.
+ */
+export async function gateCompanions(primaryId: string, ids: string[], domain: string): Promise<CompanionInput[]> {
+  if (!ids.length) return [];
+  let a: Availability;
+  try {
+    a = await fetchAvailability();
+  } catch {
+    return [];
+  }
+  if (!a.enabled) return [];
+  const full = a.headroom.level === "full";
+  const kept = [...new Set(ids)]
+    .filter((id) => isPickableCompanion(id, primaryId, a.allowedCompanionIds))
+    .filter((id) => !(full && isBusinessApp(id)))
+    .filter((id) => !isDomainCompanionId(id) || (!!domain && domainServiceIdFor(domain) === id))
+    .slice(0, MAX_COMPANIONS);
+  return toCompanionInputs(kept, domain);
+}
+
 // ---- Product page -> checkout handoff (ERP / CRM) ----
 // Those pages send people to /checkout/new?serviceId=<id>. A short-lived
 // sessionStorage entry carries the picked companions across that navigation
@@ -117,11 +156,6 @@ interface Handoff {
   ids: string[];
   domain: string;
   at: number;
-}
-
-/** biz-erp-light and biz-erp-configured share the family "biz-erp". */
-export function productFamily(serviceId: string): string {
-  return serviceId.split("-").slice(0, 2).join("-");
 }
 
 export function saveHandoff(primaryId: string, ids: string[], domain: string): void {

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
 import { formatKes, getService } from "../config/serviceCatalog";
-import { MAX_COMPANIONS, domainServiceIdFor, isDomainCompanionId, saveHandoff, type Pairing } from "../services/bundles";
+import { MAX_COMPANIONS, domainServiceIdFor, isBusinessApp, isDomainCompanionId, isPickableCompanion, saveHandoff, type Pairing } from "../services/bundles";
 import AvailabilityNotice, { useAvailability } from "./AvailabilityNotice";
 import DomainSearch from "./DomainSearch";
 
@@ -15,8 +15,6 @@ interface Props {
   domain: string;
   onDomainChange: (domain: string) => void;
 }
-
-const isBusinessApp = (id: string) => id === "biz-crm-helpdesk" || id.startsWith("biz-erp-");
 
 function savingText(p: Pairing | undefined): string {
   if (!p) return "";
@@ -37,10 +35,10 @@ const CompanionPicker: React.FC<Props> = ({ primaryId, value, onChange, domain, 
   const model = useMemo(() => {
     if (!availability) return null;
     const pairingFor = (id: string) => availability.pairings.find((p) => p.companionId === id && p.primaryIds.includes(primaryId));
-    const allowed = availability.allowedCompanionIds.filter((id) => id !== primaryId);
+    const allowed = availability.allowedCompanionIds.filter((id) => isPickableCompanion(id, primaryId, availability.allowedCompanionIds));
     const domainIds = allowed.filter(isDomainCompanionId);
     const rows = allowed
-      .filter((id) => !isDomainCompanionId(id) && !!getService(id) && !getService(id)?.app)
+      .filter((id) => !isDomainCompanionId(id))
       .sort((a, b) => Number(!!pairingFor(b)) - Number(!!pairingFor(a)));
     return { pairingFor, domainIds, rows };
   }, [availability, primaryId]);

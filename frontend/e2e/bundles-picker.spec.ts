@@ -74,6 +74,7 @@ test('email + domain companions are sent in the POST /api/orders body', async ({
   const reqPromise = page.waitForRequest((q) => q.url().endsWith('/api/orders') && q.method() === 'POST');
   await page.getByRole('button', { name: /Continue to payment/ }).filter({ visible: true }).click();
   await reqPromise;
+  await expect.poll(() => captured.body).not.toBeNull();
   expect(captured.body.serviceId).toBe('biz-pos-duka');
   expect(captured.body.companions).toEqual([
     { serviceId: 'starter-email' },
@@ -90,6 +91,7 @@ test('POS order without companions sends no companions key', async ({ page }) =>
   const reqPromise = page.waitForRequest((q) => q.url().endsWith('/api/orders') && q.method() === 'POST');
   await page.getByRole('button', { name: /Continue to payment/ }).filter({ visible: true }).click();
   await reqPromise;
+  await expect.poll(() => captured.body).not.toBeNull();
   expect(captured.body).not.toHaveProperty('companions');
 });
 
@@ -101,6 +103,7 @@ test('ERP page: chosen companion travels with the deep-link order', async ({ pag
   const reqPromise = page.waitForRequest((q) => q.url().endsWith('/api/orders') && q.method() === 'POST');
   await page.getByRole('button', { name: 'Select Light' }).click();
   await reqPromise;
+  await expect.poll(() => captured.body).not.toBeNull();
   expect(captured.body.serviceId).toBe('biz-erp-light');
   expect(captured.body.companions).toEqual([{ serviceId: 'starter-email' }]);
 });
@@ -112,6 +115,7 @@ test('ERP deep-link with no companion selected is unchanged', async ({ page }) =
   const reqPromise = page.waitForRequest((q) => q.url().endsWith('/api/orders') && q.method() === 'POST');
   await page.getByRole('button', { name: 'Select Light' }).click();
   await reqPromise;
+  await expect.poll(() => captured.body).not.toBeNull();
   expect(captured.body).toEqual({ serviceId: 'biz-erp-light', source: 'deep-link' });
 });
 
@@ -146,4 +150,82 @@ test('availability fetch failure hides the picker', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Set up your shop' })).toBeVisible();
   await expect(picker(page)).toHaveCount(0);
   await expect(page.getByTestId('availability-notice')).toHaveCount(0);
+});
+
+// ---- Fix round 1: hidden/stale companions are never sent ----
+
+const seedHandoff = (page: Page, family: string, ids: string[], domain = '') =>
+  page.addInitScript(
+    ([f, i, d]) => sessionStorage.setItem('murzak.companions.handoff', JSON.stringify({ family: f, ids: i, domain: d, at: Date.now() })),
+    [family, ids, domain] as [string, string[], string]
+  );
+
+async function submitPos(page: Page, captured: { body: any }) {
+  await page.getByLabel('Shop name').fill('Acme Shop');
+  await expect(page.locator('#shop-address-status')).toContainText('acme.pos.murzaktech.tech', { timeout: 10_000 });
+  const reqPromise = page.waitForRequest((q) => q.url().endsWith('/api/orders') && q.method() === 'POST');
+  await page.getByRole('button', { name: /Continue to payment/ }).filter({ visible: true }).click();
+  await reqPromise;
+  await expect.poll(() => captured.body).not.toBeNull();
+}
+
+test('stale handoff ids not in allowedCompanionIds are not sent', async ({ page }) => {
+  await mockBase(page, availability());
+  await seedHandoff(page, 'biz-pos', ['starter-email', 'domain-net', 'biz-pos-chain']);
+  const captured = await captureOrder(page, 'ord-4');
+  await page.goto('/get/pos?service=biz-pos-duka');
+  await submitPos(page, captured);
+  // domain-net is not allowed, biz-pos-chain is an app tier, so only the email remains
+  expect(captured.body.companions).toEqual([{ serviceId: 'starter-email' }]);
+});
+
+test('availability disabled with a stored handoff sends no companions', async ({ page }) => {
+  await mockBase(page, { enabled: false, pairings: [], allowedCompanionIds: [], headroom: { benchSlotsLeft: 0, level: 'ok' } });
+  await seedHandoff(page, 'biz-pos', ['starter-email']);
+  const captured = await captureOrder(page, 'ord-5');
+  await page.goto('/get/pos?service=biz-pos-duka');
+  await submitPos(page, captured);
+  expect(captured.body).not.toHaveProperty('companions');
+});
+
+test('availability fetch failure with a stored handoff sends no companions', async ({ page }) => {
+  await mockBase(page, null, { fail: true });
+  await seedHandoff(page, 'biz-pos', ['starter-email']);
+  const captured = await captureOrder(page, 'ord-6');
+  await page.goto('/get/pos?service=biz-pos-duka');
+  await submitPos(page, captured);
+  expect(captured.body).not.toHaveProperty('companions');
+});
+
+test('deep-link 400 with a handoff retries once without companions, clears it and shows the notice', async ({ page }) => {
+  await mockBase(page, availability());
+  await seedHandoff(page, 'biz-erp', ['starter-email']);
+  const bodies: any[] = [];
+  await page.route('**/api/orders', async (r) => {
+    if (r.request().method() !== 'POST') return r.fallback();
+    const b = r.request().postDataJSON();
+    bodies.push(b);
+    if (b.companions) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Starter Email cannot be bundled.' }) });
+    return r.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ order: { id: 'ord-9' } }) });
+  });
+  await page.goto('/checkout/new?serviceId=biz-erp-light');
+  await expect(page).toHaveURL(/\/checkout\/ord-9/, { timeout: 10_000 });
+  await expect(page.getByRole('status').filter({ hasText: /cannot be bundled|couldn't add/i })).toBeVisible();
+  // React StrictMode (dev) runs the effect twice, so allow duplicate first attempts;
+  // the retry without companions must happen exactly once and be the last request.
+  const plain = bodies.filter((x) => !x.companions);
+  expect(plain).toEqual([{ serviceId: 'biz-erp-light', source: 'deep-link' }]);
+  expect(bodies[bodies.length - 1]).toEqual({ serviceId: 'biz-erp-light', source: 'deep-link' });
+  for (const x of bodies.filter((y) => y.companions)) expect(x.companions).toEqual([{ serviceId: 'starter-email' }]);
+  expect(await page.evaluate(() => sessionStorage.getItem('murzak.companions.handoff'))).toBeNull();
+});
+
+test('ERP picker does not offer another ERP tier', async ({ page }) => {
+  const a = availability();
+  a.allowedCompanionIds = ['starter-email', 'biz-erp-light', 'biz-erp-configured', 'biz-crm-helpdesk'];
+  await mockBase(page, a);
+  await page.goto('/products/erp');
+  await expect(picker(page).getByRole('checkbox', { name: /Business Email/ })).toBeVisible();
+  await expect(picker(page).getByRole('checkbox', { name: /Murzak ERP/ })).toHaveCount(0);
+  await expect(picker(page).getByRole('checkbox', { name: /CRM/ })).toHaveCount(1);
 });

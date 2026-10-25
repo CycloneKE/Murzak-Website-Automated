@@ -9,7 +9,7 @@ import { APP_CHECKOUT, appIdFromRoute, annualKes } from "../../config/appCheckou
 import { AppOrderError, createAppOrder } from "../../services/appCheckout";
 import CompanionPicker from "../../components/CompanionPicker";
 import AvailabilityNotice from "../../components/AvailabilityNotice";
-import { clearHandoff, readHandoff, toCompanionInputs } from "../../services/bundles";
+import { clearHandoff, gateCompanions, readHandoff } from "../../services/bundles";
 
 interface AppSetupProps {
   user: any | null;
@@ -61,12 +61,13 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
     setErrorCode("");
     setServerSuggestions([]);
     try {
+      const companions = await gateCompanions(tier.id, companionIds, companionDomain);
       const { orderId } = await createAppOrder({
         serviceId: tier.id,
         term,
         shopName: shopName.trim(),
         slug,
-        companions: toCompanionInputs(companionIds, companionDomain),
+        companions,
       });
       clearHandoff();
       navigate(`/checkout/${encodeURIComponent(orderId)}`);
