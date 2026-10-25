@@ -522,6 +522,37 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     ok(client.docs[o.id].ram_mb === posRam, "row untouched on failure");
   }
 
+
+  section("bundles: markOrderPaid idempotency + preserves concurrent config writes");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await markOrderPaid({ client, orderId: o.id, nowMs: T0 });
+    await markOrderPaid({ client, orderId: o.id, nowMs: T0 + 99_000 });
+    ok(JSON.parse(client.docs[o.id].config_json).bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "second call does not extend the window");
+
+    const c2 = makeClient({ invoices: { "INV-C": { name: "INV-C", status: "Paid" } } });
+    const o2 = await createOrder({ client: c2, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client: c2, orderId: o2.id, invoiceDocName: "INV-C" });
+    const staleDoc = { ...c2.docs[o2.id] };
+    c2.docs[o2.id].config_json = JSON.stringify({ ...JSON.parse(c2.docs[o2.id].config_json), reconcile: { state: "done" }, slug: "shop" });
+    await markOrderPaid({ client: c2, orderId: o2.id, nowMs: T0, doc: staleDoc });
+    const cfg = JSON.parse(c2.docs[o2.id].config_json);
+    ok(cfg.reconcile?.state === "done" && cfg.slug === "shop" && cfg.bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "config written after the caller's read survives the Paid transition");
+  }
+
+  section("bundles: setCompanions with an empty list works while bundles are disabled");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    delete process.env.BUNDLES_ENABLED;
+    const upd = await setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 });
+    ok(upd.companions.length === 0 && upd.bundleSavingKes === 0, "empty list accepted with BUNDLES_ENABLED off");
+    client.docs[o.id].service_id = "ghost";
+    await throws(() => setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 }), 400, "unknown order service_id -> 400");
+    process.env.BUNDLES_ENABLED = "true";
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
