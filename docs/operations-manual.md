@@ -208,6 +208,58 @@ you hit the wall, not after.
 - Brand voice: **plain, human, reassuring** — no jargon. Match the rest of the
   portal ("Usually replies same day", not "SLA 12ms").
 
+### Bundles (companions at checkout)
+
+Bundles let a customer add a companion service (for example email or a domain)
+to a business-system order and get a saving. It is **off by default** and
+controlled by two settings in `backend/.env`.
+
+- `BUNDLES_ENABLED` — default off. Only the exact value `true` turns it on.
+- `BUNDLES_LIMITED_SLOTS` — default `2`. When the bench slots left are at or
+  below this number, the storefront shows a "limited availability" notice. At 0
+  slots left it shows "full".
+
+**14-day saving after purchase.** After a paid order, the customer has 14 days
+to add a companion from the portal and still get the bundle saving. The saving
+is applied once per pairing per order. Savings are listed in
+`backend/data/bundlePairings.json`.
+
+**How availability is worked out.** A business-system tenant (ERP/POS/CRM) is
+charged about **480 MB** against capacity, not the advertised 2 GB. Slots left =
+(sellableRamMb × 85% − RAM already reserved) ÷ 480 MB, rounded down. That is the
+same 85% threshold as above, so adding a second box raises the slots
+automatically.
+
+**Pre-enable checklist** (do all five, in order):
+
+1. Re-check the domain savings in `backend/data/bundlePairings.json` (domain-com
+   1575, domain-org/net 1425, domain-io 5812) against Hostinger's live wholesale
+   prices. They were derived from the 60%-margin note on `DOMAIN_TLD_PRICES` in
+   `backend/server.js`, not from live data.
+2. Confirm the live `Checkout Order` doctype's `config_json` field is Long Text
+   or JSON and accepts the longer content. The mock Frappe accepts anything; the
+   live site does not, so check the real schema before enabling.
+3. Confirm `Portal Invoice` accepts the amount update used to apply the saving.
+4. Run the backend tests one file at a time (the combined `npm test` currently
+   stops at an unrelated failure in `backend/test/benchLaneApps.test.js`), and
+   run the three Playwright specs `frontend/e2e/bundles-picker.spec.ts`,
+   `bundles-checkout.spec.ts` and `bundles-offers.spec.ts`.
+5. Enable on a staging account first and walk one POS + email + domain purchase
+   end to end. Never charge real money until the invoice amount equals the
+   checkout total.
+
+**Known limitations and follow-ups**
+
+- The companion picker is wired into POS, ERP and CRM only, not `/cloud` or `/deploy`.
+- The 14-day saving claim is guarded by an in-memory lock inside one Node
+  process. That is fine for one process, not for several.
+- Annual billing excludes one-time setup fees (existing behaviour).
+- A saving recorded on an unpaid invoice is dropped if that invoice is later
+  merged after its window has expired.
+- `GET /api/bundles/availability` needs no login, makes two Frappe reads per
+  request and has no server-side cache. Add a 30-second in-process cache before
+  heavy traffic.
+
 ---
 
 ## 10. Billing & payments
