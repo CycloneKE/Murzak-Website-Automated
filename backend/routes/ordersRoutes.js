@@ -26,6 +26,8 @@ const isAppService = require("../services/apps/appOrder").isAppService;
 const tenantSlugs = require("../services/apps/tenantSlugStore");
 const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 const shopSetup = require("../services/apps/shopSetup");
+const setCompanions = require("../services/checkout/orderStore").setCompanions;
+const getServiceMeta = require("../services/provisioning/catalog").getServiceMeta;
 
 // Shared by POST /api/orders (order-creation, purely informational — the
 // order's own stored config.billingTerm is never read back by
@@ -116,7 +118,7 @@ module.exports = function (ctx) {
       const webAccountName = webAccountOf(req);
       if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-      const { serviceId, config, planKey, source, billingTerm } = req.body || {};
+      const { serviceId, config, planKey, source, billingTerm, companions } = req.body || {};
       if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
 
       // Per-order cap (422) before touching fleet capacity/reservations.
@@ -171,6 +173,12 @@ module.exports = function (ctx) {
         ...(app ? { app: app.app, slug: app.slug, shopName: app.shopName } : {}),
       };
 
+      // A companion list is only forwarded when non-empty, so an order without
+      // companions behaves exactly as before (validateCompanions 422s whenever
+      // bundles are disabled, even for an empty list).
+      if (companions !== undefined && !Array.isArray(companions)) {
+        return res.status(422).json({ error: "companions must be a list." });
+      }
       const order = await createOrder({
         client,
         webAccountName,
@@ -180,6 +188,7 @@ module.exports = function (ctx) {
         source,
         fleetReservedRamMb,
         nowMs,
+        ...(companions && companions.length ? { companions } : {}),
       });
 
       if (app) {
@@ -201,6 +210,30 @@ module.exports = function (ctx) {
       return res.json({ ok: true, order: { ...order, billingTerm: normalizedTerm } });
     } catch (err) {
       return sendError(res, err, "Failed to create order.", "CREATE ORDER");
+    }
+  });
+
+  // Replace the companion list on a Draft order that has no invoice yet.
+  router.put("/api/orders/:id/companions", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      const companions = (req.body || {}).companions;
+      if (!Array.isArray(companions)) return res.status(422).json({ error: "companions must be a list." });
+
+      const client = frappeClient();
+      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
+      const order = await setCompanions({
+        client,
+        webAccountName,
+        orderId: req.params.id,
+        companions,
+        nowMs: Date.now(),
+        fleetReservedRamMb,
+      });
+      return res.json({ ok: true, order });
+    } catch (err) {
+      return sendError(res, err, "Failed to update companions.", "SET COMPANIONS");
     }
   });
 
@@ -378,6 +411,24 @@ module.exports = function (ctx) {
           : (order.config?.domainChoice || ""),
       };
 
+      // One row per line: the primary, then each bundled companion. A domain
+      // companion carries the domain string from its own config.domain, the
+      // same convention a domain primary uses above.
+      const companionRows = (Array.isArray(order.config?.bundle?.companions) ? order.config.bundle.companions : [])
+        .map((c) => {
+          const m = getServiceMeta(c.serviceId) || {};
+          return {
+            serviceId: c.serviceId,
+            serviceName: m.name || c.serviceId,
+            tier: m.tier || "",
+            domainChoice: m.category === "Domain Registration"
+              ? String(c.config?.domain || "").trim()
+              : (c.config?.domainChoice || ""),
+          };
+        });
+      const serviceRows = [serviceRow, ...companionRows];
+      const bundleSavingKes = companionRows.length ? Number(order.bundleSavingKes) || 0 : 0;
+
       let invoiceDocName;
       if (hasPaidPlan) {
         // Never eligible for a term choice (eligible is false whenever
@@ -387,7 +438,7 @@ module.exports = function (ctx) {
         const result = await createAddonInvoice({
           client,
           webAccountName,
-          services: [serviceRow],
+          services: serviceRows,
           // This order already quoted the buyer one specific total
           // (order.totalDueKes, shown on the checkout page). Adopting an
           // existing open invoice would recompute the amount across every row
@@ -420,7 +471,7 @@ module.exports = function (ctx) {
         // point in the flow.
         const acctForAddon = await fetchWebAccount(client, webAccountName);
         const existingForAddon = normalizeExistingAccountServiceRows(asArray(acctForAddon?.[WEB_ACCOUNT_SERVICES_FIELD]));
-        const mergedForAddon = mergeServicesById(existingForAddon, [serviceRow]);
+        const mergedForAddon = mergeServicesById(existingForAddon, serviceRows);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(mergedForAddon));
       } else {
         // First purchase: apply the order's plan and bill it, then attach
@@ -430,7 +481,7 @@ module.exports = function (ctx) {
         // opts object here makes applyPlanAndCreateInvoice default
         // selectedServices to [], bill KES 0, and skip invoice creation
         // entirely (server.js's zero_amount early-return).
-        const result = await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
+        const result = await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", serviceRows, {
           force: true,
           creditKes: 0,
         });
@@ -443,7 +494,7 @@ module.exports = function (ctx) {
 
         const acct = await fetchWebAccount(client, webAccountName);
         const existingServices = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
-        const merged = mergeServicesById(existingServices, [serviceRow]);
+        const merged = mergeServicesById(existingServices, serviceRows);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(merged));
 
         // applyPlanAndCreateInvoice has no billing-term awareness — it
@@ -457,13 +508,24 @@ module.exports = function (ctx) {
         // own pro-ration, and re-applying annualPrepayKes there would
         // 12x-overcharge an add-on.
         if (effectiveBillingTerm === "annual") {
-          const monthlySumKes = sumSelectedServicesMonthlyKes([serviceRow]);
+          const monthlySumKes = sumSelectedServicesMonthlyKes(serviceRows);
           const annualAmountKes = annualPrepayKes(monthlySumKes);
           await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
             amount: annualAmountKes,
             billing_term: "annual",
           });
         }
+      }
+
+      // Bundle saving: applied last, after any annual correction, so both
+      // compose. Re-read the stored invoice so the reduction is relative to
+      // whatever amount the branch above actually settled on.
+      if (bundleSavingKes > 0) {
+        const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
+        const current = Number(invRes.data?.data?.amount) || 0;
+        await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+          amount: Math.max(0, current - bundleSavingKes),
+        });
       }
 
       // Slug BEFORE order: once the order carries invoice_doc_name the early
