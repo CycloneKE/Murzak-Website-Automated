@@ -227,3 +227,38 @@ Keep both until the wildcard has survived one real renewal, then retire
    nginx's local webroot and 404. Harmless — failed authorizations don't
    consume the certificate limit — but it is recurring noise in
    `docker logs coolify-proxy`.
+
+## Murzak Cloud WordPress (`*.cloud.murzaktech.tech`)
+
+The `starter-wordpress` product (KES 1,500/mo, 1GB RAM, 10GB disk) uses its own
+wildcard zone instead of `APP_DOMAIN_BASE`.
+
+One-time setup (already done on the production box):
+
+1. DNS: `A *.cloud` pointing at the server IP.
+2. A wildcard certificate for `*.cloud.murzaktech.tech` (Certbot DNS-01).
+3. A host nginx vhost for `*.cloud.murzaktech.tech` that proxies to Coolify's Traefik.
+
+Backend environment:
+
+```
+CLOUD_DOMAIN_BASE=cloud.murzaktech.tech
+COOLIFY_BASE_URL=...        # Coolify panel URL
+COOLIFY_TOKEN=...           # API token (keep secret)
+COOLIFY_PROJECT_UUID=...    # the "Clients" project
+COOLIFY_SERVER_UUID=...
+COOLIFY_ENV_NAME=production
+PROVISIONING_RUNNER_ENABLED=true
+```
+
+If `CLOUD_DOMAIN_BASE` is unset the product falls back to `APP_DOMAIN_BASE`.
+Any product can opt in by setting `domainBaseEnv` in its `CURATED_APP_CONFIG` entry.
+The admin URL, username and generated password are returned in the job `access` field.
+
+### Adding another Murzak Cloud app
+
+1. Add one entry to `backend/services/provisioning/lanes/cloudApps.js` (images, environment, storage, health check, and what login details to show the customer).
+2. Add one product block to `frontend/src/config/serviceCatalog.ts` (name, price, RAM, disk). Use an existing category or add one to `CloudLaunchCategory`.
+3. Run `node scripts/generate-catalog-snapshot.js` and `npm test` in `backend`. The test `cloudApps.test.js` checks every entry automatically (valid Compose, hardened containers, only one public service).
+
+Apps like n8n, Ghost and Uptime Kuma let the first visitor create the owner account, so customers are told to open the address straight away.
