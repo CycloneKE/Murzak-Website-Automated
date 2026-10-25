@@ -23,7 +23,7 @@ const LIMITS = { ramMb: 1024, cpus: 1, pidsLimit: 512 };
 const FQDN = "https://acme-ab12.cloud.murzaktech.tech";
 const JOB = { web_account: "client@example.com" };
 
-const apps = { ...CLOUD_APPS, "starter-wordpress": coolify.__test_wordpressConfig };
+const apps = { ...CLOUD_APPS, "starter-wordpress": coolify.__test_wordpressConfig, "starter-woocommerce": coolify.__test_woocommerceConfig };
 
 // docker compose can validate offline; skip that extra check if it is absent.
 function composeAvailable() {
