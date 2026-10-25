@@ -13,6 +13,7 @@ export type ServiceCategory =
   | "E-Signature"
   | "Invoicing"
   | "Scheduling"
+  | "Business Apps"
   | "Apps"
   | "Security & Backup"
   | "POS & Inventory"
@@ -434,6 +435,76 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
       highlights: ["Auto-installed in minutes", "Free SSL", "Own cloud.murzaktech.tech address", "Admin login in your portal"],
       sortOrder: 15,
+    },
+    {
+      id: "starter-ghost",
+      name: "Ghost (Managed)",
+      description: "Publishing and newsletters on your own cloud.murzaktech.tech address. Installed automatically with HTTPS.",
+      category: "Website Hosting",
+      tier: "Standard",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1024, diskGb: 10 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
+      highlights: ["Blog and newsletters", "Free SSL", "Installed automatically"],
+      sortOrder: 16,
+    },
+    {
+      id: "starter-n8n",
+      name: "n8n Automation",
+      description: "Connect your apps and automate business workflows. Your own private n8n, installed and running in minutes.",
+      category: "Business Apps",
+      tier: "Standard",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1024, diskGb: 10 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
+      highlights: ["Workflow automation", "Webhooks included", "Free SSL"],
+      sortOrder: 10,
+    },
+    {
+      id: "starter-nextcloud",
+      name: "Nextcloud (Files & Collaboration)",
+      description: "Your own private file storage, sharing, calendar and contacts. Admin login delivered to your portal.",
+      category: "Business Apps",
+      tier: "Heavy",
+      capacityClass: "volume",
+      specs: { ram: "2GB", storage: "50GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 2048, diskGb: 50 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 2500, setupKes: 0 },
+      highlights: ["File sync and sharing", "Calendar and contacts", "Admin login in your portal"],
+      sortOrder: 20,
+    },
+    {
+      id: "starter-nocodb",
+      name: "NocoDB (No-code Database)",
+      description: "A spreadsheet-style database and no-code backend. Build internal tools and APIs without writing code.",
+      category: "Business Apps",
+      tier: "Standard",
+      capacityClass: "volume",
+      specs: { ram: "1GB", storage: "10GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1024, diskGb: 10 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
+      highlights: ["Spreadsheet interface", "Auto-generated APIs", "Admin login in your portal"],
+      sortOrder: 30,
+    },
+    {
+      id: "starter-uptime-kuma",
+      name: "Uptime Monitoring",
+      description: "Watch your websites and services and get alerted the moment something goes down.",
+      category: "Business Apps",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "512MB", storage: "5GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 512, diskGb: 5 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 1000, setupKes: 0 },
+      highlights: ["Uptime checks", "Alerts", "Free SSL"],
+      sortOrder: 40,
     },
     {
       id: "starter-web-hosting-plus",
@@ -1502,7 +1573,8 @@ export type CloudLaunchCategory =
   | "Storage"
   | "E-Signature"
   | "Invoicing"
-  | "Scheduling";
+  | "Scheduling"
+  | "Business Apps";
 
 export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   "Website Hosting",
@@ -1519,6 +1591,8 @@ export const CLOUD_LAUNCH_CATEGORIES: CloudLaunchCategory[] = [
   // builds end-to-end). Adding a curated-app product to the catalog means
   // adding its category here too, or the storefront silently can't sell it.
   "Scheduling",
+  // Murzak Cloud app templates (n8n, Nextcloud, NocoDB, Uptime Kuma, ...).
+  "Business Apps",
 ];
 
 /** Every self-serve, instantly-provisioned resource, grouped by category. */
