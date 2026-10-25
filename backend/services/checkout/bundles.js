@@ -9,6 +9,7 @@
 const PAIRINGS = require("../../data/bundlePairings.json");
 const { getServiceMeta } = require("../provisioning/catalog");
 const { effectiveFootprint } = require("../provisioning/capacity");
+const { ITEMS } = require("../provisioning/catalog");
 const { isAppService } = require("../apps/appOrder");
 
 const BUNDLE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -136,6 +137,52 @@ function pairingSaving(pairing, meta) {
   const setupKes = Number(meta?.setupKes || 0);
   const raw = pairing.saving.type === "firstMonthFree" ? monthlyKes : Number(pairing.saving.kes || 0);
   return Math.max(0, Math.min(raw, monthlyKes + setupKes));
+}
+
+// ---- Public availability ---------------------------------------------------
+
+/**
+ * How many more bench tenants fit under the capacity threshold (pure).
+ * benchSlotsLeft = max(0, floor((thresholdMb - reservedMb) / benchTenantRamMb));
+ * "full" at 0, "limited" when <= limitedSlots (env BUNDLES_LIMITED_SLOTS, default
+ * 2), else "ok". A non-finite or non-positive benchTenantRamMb (or non-numeric
+ * inputs) cannot be divided by, so it reads as "limited" with 0 slots rather
+ * than throwing.
+ */
+function computeHeadroom({ thresholdMb, reservedMb, benchTenantRamMb, limitedSlots } = {}) {
+  let limit = Number(limitedSlots);
+  if (limitedSlots === undefined || limitedSlots === null || !Number.isFinite(limit)) {
+    const env = Number(process.env.BUNDLES_LIMITED_SLOTS);
+    limit = process.env.BUNDLES_LIMITED_SLOTS !== undefined && process.env.BUNDLES_LIMITED_SLOTS !== "" && Number.isFinite(env) && env >= 0 ? env : 2;
+  }
+  const per = Number(benchTenantRamMb);
+  const threshold = Number(thresholdMb);
+  const reserved = Number(reservedMb) || 0;
+  if (!Number.isFinite(per) || per <= 0 || Number.isNaN(threshold)) return { benchSlotsLeft: 0, level: "limited" };
+  const benchSlotsLeft = Math.max(0, Math.floor((threshold - reserved) / per));
+  const level = benchSlotsLeft === 0 ? "full" : benchSlotsLeft <= limit ? "limited" : "ok";
+  return { benchSlotsLeft, level };
+}
+
+/** Customer-facing pairings (companion must exist in the catalog) for the storefront. */
+function publicPairings() {
+  const out = [];
+  for (const p of PAIRINGS) {
+    const meta = getServiceMeta(p.companionId);
+    if (!meta) continue;
+    out.push({
+      primaryIds: [...p.primaryIds],
+      companionId: p.companionId,
+      savingKes: pairingSaving(p, meta),
+      label: p.saving.type === "firstMonthFree" ? "First month free" : "Domain at cost",
+    });
+  }
+  return out;
+}
+
+/** Every catalog id passing the allowed-companion rule. */
+function allowedCompanionIds() {
+  return Object.keys(ITEMS || {}).filter((id) => isAllowedCompanion(null, id));
 }
 
 /**
@@ -377,6 +424,9 @@ module.exports = {
   computeBundle,
   footprintOf,
   isAllowedCompanion,
+  computeHeadroom,
+  publicPairings,
+  allowedCompanionIds,
   activeBundleWindows,
   savingForAddOn,
   offersForWindows,

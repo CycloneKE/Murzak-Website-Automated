@@ -31,6 +31,9 @@ function makeRes() {
   const r = { statusCode: 200, body: null };
   r.status = (c) => { r.statusCode = c; return r; };
   r.json = (b) => { r.body = b; return r; };
+  r.headers = {};
+  r.set = (k, v) => { r.headers[String(k).toLowerCase()] = v; return r; };
+  r.setHeader = r.set;
   return r;
 }
 function findHandler(router, method, path) {
@@ -1497,6 +1500,52 @@ function baseCtx(client, overrides = {}) {
     await applyAddOnSaving({ client, webAccountName: "acct-ad", invoiceDocName: r2.invoiceDocName, amountKes: r2.amountKes,
       serviceIds: ["domain-com"], nowMs: Date.now() });
     ok(client.puts.length === putsBefore && client.store["Portal Invoice"][r2.invoiceDocName].amount === r2.amountKes, "no window: no extra invoice PUT");
+  }
+
+  section("bundles task 5 — GET /api/bundles/availability");
+  {
+    const { getServiceMeta: meta } = require("../services/provisioning/catalog");
+    const call = async (ctxOver = {}, session) => {
+      const router = createOrdersRouter(baseCtx(makeMockFrappe(), ctxOver));
+      const res = makeRes();
+      await findHandler(router, "get", "/api/bundles/availability")({ session }, res);
+      return res;
+    };
+    // No session at all: public endpoint.
+    let res = await call({}, undefined);
+    ok(res.statusCode === 200 && res.body.enabled === true, "no auth needed, enabled with flag on");
+    ok(res.headers["cache-control"] === "public, max-age=30", "Cache-Control public, max-age=30: " + res.headers["cache-control"]);
+    ok(Object.keys(res.body).sort().join() === "allowedCompanionIds,enabled,headroom,pairings", "exact top-level keys");
+    const dom = res.body.pairings.find((p) => p.companionId === "domain-com" && p.primaryIds.includes("biz-pos-duka"));
+    ok(dom && dom.savingKes === 1575 && typeof dom.label === "string" && dom.label.length > 0, "domain-com POS pairing saves 1575 with a label");
+    const em = res.body.pairings.find((p) => p.companionId === "starter-email");
+    ok(em && em.savingKes === meta("starter-email").monthlyKes && em.savingKes > 0, "email firstMonthFree equals catalog monthlyKes");
+    ok(em.label === "First month free", "email label: " + em.label);
+    ok(res.body.pairings.length === 9, "all 9 pairings present: " + res.body.pairings.length);
+    ok(Object.keys(res.body.pairings[0]).sort().join() === "companionId,label,primaryIds,savingKes", "pairing shape");
+    const allowed = res.body.allowedCompanionIds;
+    ok(!allowed.includes("db-mysql") && !allowed.some((i) => i.startsWith("biz-pos-")), "no databases or POS tiers allowed");
+    ok(["domain-com", "starter-email", "starter-storage", "biz-erp-light", "biz-crm-helpdesk"].every((i) => allowed.includes(i)), "expected companions allowed");
+    ok(allowed.every((i) => meta(i)), "every allowed id exists in the catalog");
+    ok(["ok", "limited", "full"].includes(res.body.headroom.level) && Number.isInteger(res.body.headroom.benchSlotsLeft), "headroom shape");
+
+    res = await call({ getReservedRamMb: async () => { throw new Error("frappe down"); } });
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited" && res.body.headroom.benchSlotsLeft === 0, "fleet read failure -> 200, limited, 0 slots");
+    ok(res.body.pairings.length === 9, "pairings still returned on read failure");
+
+    const brokenFrappe = makeMockFrappe();
+    brokenFrappe.get = async () => { throw new Error("boom"); };
+    const router = createOrdersRouter(baseCtx(brokenFrappe));
+    res = makeRes();
+    await findHandler(router, "get", "/api/bundles/availability")({}, res);
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited", "draft read failure -> 200, limited");
+
+    process.env.BUNDLES_ENABLED = "false";
+    res = await call();
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 200 && res.body.enabled === false && res.body.pairings.length === 0 && res.body.allowedCompanionIds.length === 0, "flag off: disabled, empty");
+    ok(res.body.headroom.level === "ok" && res.body.headroom.benchSlotsLeft === 0, "flag off: neutral headroom");
+    ok(res.headers["cache-control"] === "public, max-age=30", "flag off response is cached too");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

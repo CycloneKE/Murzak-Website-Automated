@@ -270,6 +270,39 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
     ok(r.savingKes === 0 && client.puts.length === 0, "flag off: untouched");
   }
 
+  section("bundles task 5 — computeHeadroom");
+  {
+    const H = (reservedMb, extra = {}) => bundles.computeHeadroom({ thresholdMb: 1000, reservedMb, benchTenantRamMb: 100, limitedSlots: 2, ...extra });
+    let h = H(0);
+    ok(h.benchSlotsLeft === 10 && h.level === "ok", "10 slots -> ok");
+    h = H(700);
+    ok(h.benchSlotsLeft === 3 && h.level === "ok", "limitedSlots+1 (3) -> ok");
+    h = H(800);
+    ok(h.benchSlotsLeft === 2 && h.level === "limited", "slots == limitedSlots (2) -> limited");
+    h = H(900);
+    ok(h.benchSlotsLeft === 1 && h.level === "limited", "1 slot -> limited");
+    h = H(950);
+    ok(h.benchSlotsLeft === 0 && h.level === "full", "partial slot floors to 0 -> full");
+    h = H(1000);
+    ok(h.benchSlotsLeft === 0 && h.level === "full", "exactly at threshold -> full");
+    h = H(5000);
+    ok(h.benchSlotsLeft === 0 && h.level === "full", "negative-after-subtraction clamps to 0 -> full");
+    h = H(0, { limitedSlots: 0 });
+    ok(h.level === "ok", "limitedSlots 0 with slots left -> ok");
+    for (const bad of [0, -5, NaN, Infinity, undefined, "x"]) {
+      h = H(0, { benchTenantRamMb: bad });
+      ok(h.level === "limited" && h.benchSlotsLeft === 0, `bad benchTenantRamMb ${String(bad)} -> limited, 0 slots`);
+    }
+    h = H(0, { thresholdMb: Infinity });
+    ok(h.level === "ok" && h.benchSlotsLeft > 1000, "infinite threshold (E2E) -> ok");
+    h = bundles.computeHeadroom({ thresholdMb: 1000, reservedMb: 800, benchTenantRamMb: 100 });
+    ok(h.level === "limited", "limitedSlots defaults to 2 when env unset");
+    process.env.BUNDLES_LIMITED_SLOTS = "4";
+    h = bundles.computeHeadroom({ thresholdMb: 1000, reservedMb: 600, benchTenantRamMb: 100 });
+    delete process.env.BUNDLES_LIMITED_SLOTS;
+    ok(h.benchSlotsLeft === 4 && h.level === "limited", "limitedSlots read from BUNDLES_LIMITED_SLOTS");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { console.error(fails.join("\n")); process.exit(1); }
   process.exit(0);

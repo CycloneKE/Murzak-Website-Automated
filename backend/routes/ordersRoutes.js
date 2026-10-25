@@ -27,6 +27,8 @@ const tenantSlugs = require("../services/apps/tenantSlugStore");
 const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 const shopSetup = require("../services/apps/shopSetup");
 const setCompanions = require("../services/checkout/orderStore").setCompanions;
+const reservedDraftRamMb = require("../services/checkout/orderStore").reservedDraftRamMb;
+const capacity = require("../services/provisioning/capacity");
 const getServiceMeta = require("../services/provisioning/catalog").getServiceMeta;
 const bundles = require("../services/checkout/bundles");
 
@@ -236,6 +238,37 @@ module.exports = function (ctx) {
     } catch (err) {
       return sendError(res, err, "Failed to update companions.", "SET COMPANIONS");
     }
+  });
+
+  // Public storefront data: which pairings save money, which items may be added
+  // as companions, and how much bench capacity is left. No auth, cached 30 s.
+  // Flag off => disabled, empty lists and a neutral headroom (the storefront
+  // hides everything). Any capacity read failure => level "limited" with 0 slots
+  // (never a 500); pairings are still returned.
+  router.get("/api/bundles/availability", async (req, res) => {
+    res.set("Cache-Control", "public, max-age=30");
+    if (!bundles.bundlesEnabled()) {
+      return res.json({ enabled: false, pairings: [], allowedCompanionIds: [], headroom: { benchSlotsLeft: 0, level: "ok" } });
+    }
+    let headroom = { benchSlotsLeft: 0, level: "limited" };
+    try {
+      const client = frappeClient();
+      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
+      const draftMb = (await reservedDraftRamMb(client, Date.now())) || 0;
+      headroom = bundles.computeHeadroom({
+        thresholdMb: capacity.thresholdMb(),
+        reservedMb: fleetReservedRamMb + draftMb,
+        benchTenantRamMb: capacity.benchTenantRamMb(),
+      });
+    } catch (err) {
+      console.error("BUNDLE AVAILABILITY headroom read failed:", err.message);
+    }
+    return res.json({
+      enabled: true,
+      pairings: bundles.publicPairings(),
+      allowedCompanionIds: bundles.allowedCompanionIds(),
+      headroom,
+    });
   });
 
   // Post-purchase offers: allowed companions the account does not own yet, with
