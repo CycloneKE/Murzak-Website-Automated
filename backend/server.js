@@ -97,6 +97,7 @@ const {
   sumSelectedServicesSetupKes,
 } = require("./services/provisioning/catalog");
 const { createAddonInvoice } = require("./services/addonInvoiceService");
+const { applyAddOnSaving } = require("./services/checkout/bundles");
 const { assertNotAnnualBeforePlanChange, getCurrentBillingTerm } = require("./services/checkoutBillingTerm");
 const { PAID_SERVICE_STATUSES } = require("./services/addonEligibility");
 
@@ -1250,6 +1251,17 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
       },
     });
     const createdInvoiceId = result.invoiceDocName;
+
+    // Post-purchase bundle saving (14-day window). No-op, with no writes, when
+    // BUNDLES_ENABLED is off or no saving applies.
+    await applyAddOnSaving({
+      client,
+      webAccountName,
+      invoiceDocName: createdInvoiceId,
+      amountKes: result.amountKes,
+      serviceIds: normalizeSelectedServices(services).map((s) => s.serviceId),
+      nowMs: Date.now(),
+    });
 
     // Attach the newly purchased add-on service(s) to the Web Account
     // (status "Selected", pending until payment) — same as before extraction.

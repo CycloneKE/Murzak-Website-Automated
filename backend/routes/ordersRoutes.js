@@ -28,6 +28,7 @@ const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 const shopSetup = require("../services/apps/shopSetup");
 const setCompanions = require("../services/checkout/orderStore").setCompanions;
 const getServiceMeta = require("../services/provisioning/catalog").getServiceMeta;
+const bundles = require("../services/checkout/bundles");
 
 // Shared by POST /api/orders (order-creation, purely informational — the
 // order's own stored config.billingTerm is never read back by
@@ -234,6 +235,35 @@ module.exports = function (ctx) {
       return res.json({ ok: true, order });
     } catch (err) {
       return sendError(res, err, "Failed to update companions.", "SET COMPANIONS");
+    }
+  });
+
+  // Post-purchase offers: allowed companions the account does not own yet, with
+  // the saving still available inside each open 14-day window.
+  router.get("/api/bundles/offers", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      if (!bundles.bundlesEnabled()) return res.json({ enabled: false, offers: [] });
+
+      const client = frappeClient();
+      const nowMs = Date.now();
+      const windows = await bundles.activeBundleWindows({ client, webAccountName, nowMs });
+      if (!windows.length) return res.json({ enabled: true, offers: [] });
+
+      let acct = null;
+      try {
+        acct = await fetchWebAccount(client, webAccountName);
+      } catch (fe) {
+        if (fe.response?.status !== 404) throw fe;
+      }
+      const owned = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD])).map((s) => s.serviceId);
+      return res.json({
+        enabled: true,
+        offers: bundles.offersForWindows({ windows, ownedServiceIds: owned, nowMs }),
+      });
+    } catch (err) {
+      return sendError(res, err, "Failed to load offers.", "BUNDLE OFFERS");
     }
   });
 

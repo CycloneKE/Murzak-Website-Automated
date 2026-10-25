@@ -1426,6 +1426,79 @@ function baseCtx(client, overrides = {}) {
     ok(JSON.parse(still.config_json).bundle.companions.length === 2, "the refused calls changed nothing");
   }
 
+  section("bundles task 4 — GET /api/bundles/offers");
+  {
+    const END = Date.now() + 5 * 24 * 60 * 60 * 1000;
+    const paid = (name, over = {}, bundle = { windowEndsAtMs: END }) => ({
+      name, web_account: "acct-o", status: "Paid", service_id: "biz-pos-duka",
+      config_json: JSON.stringify({ bundle }), ...over,
+    });
+    const mk = (orders, services = []) => makeMockFrappe({
+      "Checkout Order": orders,
+      "Web Account": { "acct-o": { name: "acct-o", plan: "Enterprise", selected_services: services } },
+    });
+    const call = async (client, session = { webAccount: "acct-o" }) => {
+      const router = createOrdersRouter(baseCtx(client));
+      const res = makeRes();
+      await findHandler(router, "get", "/api/bundles/offers")({ session }, res);
+      return res;
+    };
+
+    let res = await call(mk({ "CHK-1": paid("CHK-1") }, [{ service_id: "domain-org", status: "Active" }]));
+    ok(res.statusCode === 200 && res.body.enabled === true, "enabled with flag on");
+    const ids = res.body.offers.map((o) => o.serviceId).sort();
+    ok(JSON.stringify(ids) === JSON.stringify(["domain-com", "domain-io", "domain-net", "starter-email"]),
+      "owned domain-org omitted, others offered: " + ids);
+    const dc = res.body.offers.find((o) => o.serviceId === "domain-com");
+    ok(dc.savingKes === 1575 && dc.windowEndsAtMs === END && dc.monthlyKes > 0 && typeof dc.name === "string", "offer carries saving + window end");
+
+    res = await call(mk({ "CHK-D": paid("CHK-D", { status: "Draft" }, {}) }));
+    ok(res.body.enabled === true && res.body.offers.length === 0, "unpaid order yields no offers");
+    res = await call(mk({ "CHK-E": paid("CHK-E", {}, { windowEndsAtMs: Date.now() - 1 }) }));
+    ok(res.body.offers.length === 0, "expired window yields no offers");
+    res = await call(mk({ "CHK-1": paid("CHK-1") }), {});
+    ok(res.statusCode === 401, "unauthenticated -> 401");
+
+    process.env.BUNDLES_ENABLED = "false";
+    res = await call(mk({ "CHK-1": paid("CHK-1") }));
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 200 && JSON.stringify(res.body) === '{"enabled":false,"offers":[]}', "flag off: {enabled:false, offers:[]}");
+  }
+
+  section("bundles task 4 — add-on invoice (real createAddonInvoice) is reduced by exactly the saving");
+  {
+    const { applyAddOnSaving } = require("../services/checkout/bundles");
+    const END = Date.now() + 1000 * 60 * 60;
+    const build = () => makeMockFrappe({
+      "Checkout Order": { "CHK-1": { name: "CHK-1", web_account: "acct-ad", status: "Paid", service_id: "biz-pos-duka",
+        config_json: JSON.stringify({ bundle: { windowEndsAtMs: END } }) } },
+      "Web Account": { "acct-ad": { name: "acct-ad", plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+    const deps = {
+      fetchWebAccount, hasPaidSubscriptionForPlan: async () => true, normalizeSelectedServices,
+      findOpenInvoice: async () => null, normalizeInvoiceServiceRow: (r) => r,
+      buildInvoiceServiceRows: (rows) => rows, PORTAL_INVOICE_SERVICES_FIELD: "services",
+    };
+    const services = [{ serviceId: "domain-com", config: { domain: "acme.com" } }];
+    let client = build();
+    const r = await realCreateAddonInvoice({ client, webAccountName: "acct-ad", services, deps });
+    const full = client.store["Portal Invoice"][r.invoiceDocName].amount;
+    ok(full === r.amountKes && full > 1575, `full invoice ${full}`);
+    await applyAddOnSaving({ client, webAccountName: "acct-ad", invoiceDocName: r.invoiceDocName, amountKes: r.amountKes,
+      serviceIds: normalizeSelectedServices(services).map((s) => s.serviceId), nowMs: Date.now() });
+    ok(client.store["Portal Invoice"][r.invoiceDocName].amount === full - 1575, `invoice ${full} -> ${full - 1575}`);
+
+    // Without a window nothing extra is PUT (non-bundle add-ons unchanged).
+    client = build();
+    client.store["Checkout Order"]["CHK-1"].status = "Draft";
+    const r2 = await realCreateAddonInvoice({ client, webAccountName: "acct-ad", services, deps });
+    const putsBefore = client.puts.length;
+    await applyAddOnSaving({ client, webAccountName: "acct-ad", invoiceDocName: r2.invoiceDocName, amountKes: r2.amountKes,
+      serviceIds: ["domain-com"], nowMs: Date.now() });
+    ok(client.puts.length === putsBefore && client.store["Portal Invoice"][r2.invoiceDocName].amount === r2.amountKes, "no window: no extra invoice PUT");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
 })();
