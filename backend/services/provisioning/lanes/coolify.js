@@ -571,8 +571,8 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  * (verified both recovered URLs went 503 -> 200 only after this).
  */
 async function attachServiceUrl(client, uuid, job, name) {
-  const slug = appDomain.slugWithSuffix(name, job.name);
   const appConfig = CURATED_APP_CONFIG[job.service_id];
+  const slug = curatedSlug(appConfig, name, job);
   const fqdn = curatedFqdn(appConfig, slug);
   if (!fqdn) return "";
   const containerName = appConfig?.primaryService || "app";
@@ -867,6 +867,19 @@ const WOOCOMMERCE_INSTALL_SCRIPT = [...WORDPRESS_BASE_STEPS, ...WOOCOMMERCE_INST
 function curatedFqdn(appConfig, slug) {
   const override = appConfig?.domainBaseEnv ? process.env[appConfig.domainBaseEnv] : "";
   return appDomain.fqdnFor(slug, override);
+}
+
+/**
+ * The first label of a curated app's address. Normally the account and product
+ * with a short job hash, so two customers can never collide. An app that
+ * declares `useShopSlug` (the online storefront) takes the buyer's own shop
+ * address instead, so the shop is <shop>.cloud.murzaktech.tech and matches
+ * their POS at <shop>.pos.murzaktech.tech. The shop address was already
+ * validated and reserved to this one buyer when they chose it.
+ */
+function curatedSlug(appConfig, name, job) {
+  if (appConfig?.useShopSlug && job?.site_slug) return String(job.site_slug);
+  return appDomain.slugWithSuffix(name, job.name);
 }
 
 const CURATED_APP_CONFIG = {
@@ -1327,8 +1340,8 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job
   return (
     `services:\n` +
     serviceBlocks +
-    `volumes:\n` +
-    volumeDecls.map((v) => `  ${v}:\n`).join("")
+    // A stack with no storage (the online storefront) declares no volumes; an empty "volumes:" is invalid Compose.
+    (volumeDecls.length ? `volumes:\n` + volumeDecls.map((v) => `  ${v}:\n`).join("") : "")
   );
 }
 
@@ -1459,7 +1472,7 @@ async function provision(job, opts) {
   // seeds into HOST is what attachServiceUrl (below, after creation) PATCHes
   // onto the service. No chicken-and-egg: both derive the identical value.
   const curatedAppFqdn = curatedAppConfig
-    ? curatedFqdn(curatedAppConfig, appDomain.slugWithSuffix(name, job.name))
+    ? curatedFqdn(curatedAppConfig, curatedSlug(curatedAppConfig, name, job))
     : null;
   // Multi-service apps: generate secrets here so we can also hand the
   // customer-facing ones (admin login) back in `access`.
@@ -1772,6 +1785,7 @@ module.exports = {
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
   __test_curatedFqdn: curatedFqdn,
+  __test_curatedSlug: curatedSlug,
   __test_wordpressConfig: CURATED_APP_CONFIG["starter-wordpress"],
   __test_woocommerceConfig: CURATED_APP_CONFIG["starter-woocommerce"],
   __test_calcomConfig: CURATED_APP_CONFIG["starter-scheduling"],

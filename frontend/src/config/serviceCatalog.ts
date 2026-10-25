@@ -451,6 +451,20 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       sortOrder: 15,
     },
     {
+      id: "starter-storefront",
+      name: "Online Storefront (Managed)",
+      description: "Your own online shop for customers, on your shop's own yourname.cloud.murzaktech.tech address. It shows the products and prices from Murzak POS, takes orders with M-Pesa or cash, and works on any phone. Needs a Murzak POS shop.",
+      category: "Website Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "256MB", storage: "1GB", cpu: "0.25 vCPU (shared)", bandwidth: "Generous", backups: "Nothing to back up, your data stays in Murzak POS", sla: "99.5%" },
+      resources: { ramMb: 256, diskGb: 1 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 500, setupKes: 0 },
+      highlights: ["Your own shop link", "M-Pesa and cash orders", "Delivery fees by area or distance", "Free SSL"],
+      sortOrder: 14,
+    },
+    {
       id: "starter-ghost",
       name: "Ghost (Managed)",
       description: "Publishing and newsletters on your own cloud.murzaktech.tech address. Installed automatically with HTTPS.",
