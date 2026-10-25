@@ -42,6 +42,7 @@ const OverviewTab: React.FC = () => {
     localUpdates,
     onTabClick,
     openAddonsModal,
+    buyOfferedDomain,
     pendingServiceAction,
     provisionProgress,
     selectedServices,
@@ -233,7 +234,7 @@ const OverviewTab: React.FC = () => {
         ))}
       </div>
 
-      <CompleteSetupCards onChoose={(serviceId) => openAddonsModal("overview", serviceId)} />
+      <CompleteSetupCards onChoose={(serviceId) => openAddonsModal("overview", serviceId)} onChooseDomain={buyOfferedDomain} />
 
       {serviceActionNotice && (
         <div className={`px-6 py-4 rounded-2xl border text-label font-bold flex items-center justify-between gap-4 ${

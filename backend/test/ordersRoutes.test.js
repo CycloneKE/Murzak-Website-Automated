@@ -1756,7 +1756,7 @@ function baseCtx(client, overrides = {}) {
       findOpenInvoice: async () => null, normalizeInvoiceServiceRow: (r) => r,
       buildInvoiceServiceRows: (rows) => rows, PORTAL_INVOICE_SERVICES_FIELD: "services",
     };
-    const services = [{ serviceId: "domain-com", config: { domain: "acme.com" } }];
+    const services = [{ serviceId: "domain-com", domainChoice: "acme.com" }];
     let client = build();
     const r = await realCreateAddonInvoice({ client, webAccountName: "acct-ad", services, deps });
     const full = client.store["Portal Invoice"][r.invoiceDocName].amount;

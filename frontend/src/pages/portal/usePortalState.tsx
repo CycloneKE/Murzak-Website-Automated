@@ -39,7 +39,8 @@ import {
   ProvisioningActivityEntry,
   DeploymentEntry,
 } from "../../services/serviceActivity";
-import { SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
+import { SERVICE_CATALOG, getService, type PlanCode } from "../../config/serviceCatalog";
+import { isDomainCompanionId } from "../../services/bundles";
 import { normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 import { useCustomerDomains } from "./state/useCustomerDomains";
@@ -552,7 +553,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing", preselectId?: string) => {
     setAddonsSourceTab(sourceTab);
-    setAddonsPreselectId(preselectId || null);
+    // The modal has no name field, so a domain is never preselected in it
+    // (it would be bought with no name); domain offers buy via buyOfferedDomain.
+    setAddonsPreselectId(preselectId && !isDomainCompanionId(preselectId) ? preselectId : null);
     setAddonsOpenRaw(true);
   };
 
@@ -899,8 +902,11 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const applyAddonsSelection = async ({
     chargeable,
+    destination,
   }: {
     chargeable: any[];
+    /** Tab to land on afterwards; defaults to where the Add-ons modal was opened. */
+    destination?: Tab;
   }) => {
     try {
       // Create invoice + attach the selected add-ons (always billed — there
@@ -917,7 +923,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
               serviceId: s.id,
               serviceName: s.name,
               tier: s.tier,
-              domainChoice: "",
+              // Only an offered-domain purchase carries a name; catalog add-ons have none.
+              domainChoice: s.domainChoice || "",
             })),
           }),
         });
@@ -931,11 +938,22 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
         }
       }
 
-      onTabClick(addonsSourceTab);
+      onTabClick(destination || addonsSourceTab);
       setAddonsOpen(false);
     } catch (err) {
       throw err;
     }
+  };
+
+  // A "Complete your setup" domain offer: the customer picked a full name on
+  // the card, so it is bought with that name (never through the modal), and
+  // they land on Billing to pay it.
+  const buyOfferedDomain = async (serviceId: string, domain: string) => {
+    const svc = getService(serviceId);
+    await applyAddonsSelection({
+      chargeable: [{ id: serviceId, name: svc?.name || serviceId, tier: svc?.tier || "", domainChoice: domain }],
+      destination: "billing",
+    });
   };
 
   const activeServices = selectedServices.filter((s) => s.status === "Active");
@@ -1046,7 +1064,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
         serviceId: s.id,
         serviceName: s.name,
         tier: s.tier,
-        domainChoice: "",
+        domainChoice: s.domainChoice || "",
       })),
     };
 
@@ -1233,6 +1251,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     adminUnread,
     allMenuItems,
     applyAddonsSelection,
+    buyOfferedDomain,
     cloudAccessUrl,
     cloudJob,
     cloudServiceId,

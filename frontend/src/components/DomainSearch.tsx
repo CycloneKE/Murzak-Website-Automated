@@ -1,16 +1,18 @@
 
 import React, { useState } from "react";
 import { Search, Loader2, Check, CircleSlash } from "lucide-react";
-import { checkDomain, normalizeLabel, type DomainResult } from "../services/domains";
+import { checkDomain, normalizeLabel, type DomainResult, type TldOption } from "../services/domains";
 import { formatKes, monthlyEquivalentKes } from "../config/serviceCatalog";
 
 interface Props {
   /** Currently chosen domain (full, e.g. "acme.co.ke"), if any. */
   selectedDomain?: string;
   onSelect: (domain: string, priceKes: number) => void;
+  /** Endings to search; defaults to every TLD we sell. */
+  tlds?: TldOption[];
 }
 
-export default function DomainSearch({ selectedDomain, onSelect }: Props) {
+export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DomainResult[] | null>(null);
@@ -21,7 +23,7 @@ export default function DomainSearch({ selectedDomain, onSelect }: Props) {
     if (!label || loading) return;
     setLoading(true);
     try {
-      const r = await checkDomain(query);
+      const r = await checkDomain(query, tlds);
       setResults(r);
     } finally {
       setLoading(false);

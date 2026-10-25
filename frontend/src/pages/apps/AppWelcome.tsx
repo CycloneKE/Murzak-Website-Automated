@@ -9,6 +9,7 @@ import { APP_CHECKOUT } from "../../config/appCheckout";
 import { SUPPORT_EMAIL } from "../../config/contact";
 import { AppId } from "../../config/serviceCatalog";
 import { toUserMessage } from "../../services/errors";
+import { purchaseOfferedDomain } from "../../services/bundles";
 
 const POLL_MS = 5000;
 // Typical POS setup is ~2 minutes; after this, say so honestly.
@@ -228,7 +229,13 @@ const AppWelcome: React.FC = () => {
             </section>
           )}
           <div className="mt-8">
-            <CompleteSetupCards onChoose={(serviceId) => navigate("/portal/overview", { state: { addonsPreselect: serviceId } })} />
+            <CompleteSetupCards
+              onChoose={(serviceId) => navigate("/portal/overview", { state: { addonsPreselect: serviceId } })}
+              onChooseDomain={async (serviceId, domain) => {
+                await purchaseOfferedDomain(serviceId, domain);
+                navigate("/portal/billing");
+              }}
+            />
           </div>
           <button type="button" onClick={() => navigate("/portal/overview")} className={`mt-6 ${linkClass}`}>
             Go to my portal

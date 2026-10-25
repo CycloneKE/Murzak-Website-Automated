@@ -80,6 +80,37 @@ export async function fetchOffers(): Promise<Offer[]> {
   return d.offers;
 }
 
+/**
+ * Buy an offered domain from a "Complete your setup" card. A domain is a NAME,
+ * so this always sends the chosen full domain (the server refuses an add-on
+ * domain without one: 422 DOMAIN_NAME_REQUIRED). Same two calls the portal's
+ * Add-ons flow makes: price/invoice (applies the open bundle-window saving),
+ * then attach to the account. Returns the refreshed user, when sent.
+ */
+export async function purchaseOfferedDomain(serviceId: string, domain: string): Promise<any | null> {
+  const svc = getService(serviceId);
+  const services = [{ serviceId, serviceName: svc?.name || serviceId, tier: svc?.tier || "", domainChoice: domain }];
+  const post = async (url: string, fallback: string) => {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ services }),
+      });
+    } catch (e) {
+      throw new Error(toUserMessage(e, fallback));
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(toUserMessage(data?.error, fallback));
+    return data;
+  };
+  await post("/api/addons/invoice/create", "We couldn't add that domain. Please try again.");
+  const attached = await post("/api/services/addons/add", "We couldn't add that domain to your account. Please try again.");
+  return attached?.user ?? null;
+}
+
 // ---- Companion selection helpers ----
 
 /** The TLD of a full domain ("acme.co.ke" -> ".co.ke"), longest match first. */

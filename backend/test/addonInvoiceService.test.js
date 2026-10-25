@@ -206,6 +206,23 @@ const deps = {
     ok(res.amountKes === 3800, "second domain priced from snapshot (domain-net = 3800)");
   }
 
+  section("I4 — an add-on domain must carry its name (422 DOMAIN_NAME_REQUIRED, no invoice)");
+  {
+    const acct = { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] };
+    for (const [label, domainChoice] of [["no name", ""], ["wrong TLD", "acme.org"], ["bare TLD", ".com"], ["not a domain", "acme com"]]) {
+      const client = makeClient({ account: acct });
+      let err = null;
+      try {
+        await createAddonInvoice({ client, webAccountName: "acct-1", deps, services: [{ serviceId: "domain-com", domainChoice }] });
+      } catch (e) { err = e; }
+      ok(err?.statusCode === 422 && err?.code === "DOMAIN_NAME_REQUIRED", `${label} -> 422 DOMAIN_NAME_REQUIRED (got ${err?.statusCode} ${err?.code})`);
+      ok(client.posts.length === 0 && client.puts.length === 0, `${label} -> no invoice written`);
+    }
+    const client = makeClient({ account: acct });
+    const res = await createAddonInvoice({ client, webAccountName: "acct-1", deps, services: [{ serviceId: "domain-com", domainChoice: "Acme.com" }] });
+    ok(res.amountKes === 4200, `a named .com is billed 4,200 (got ${res.amountKes})`);
+  }
+
   section("FIX ROUND 2 — Requirement 3: real-hosting-only account keeps full add-on rights");
   {
     const client = makeClient({
@@ -249,7 +266,7 @@ const deps = {
     });
     const resDomain = await createAddonInvoice({
       client: client2, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "domain-net" }],
+      services: [{ serviceId: "domain-net", domainChoice: "another.net" }],
     });
     ok(!!resDomain.invoiceDocName, "hosting+domain account can buy another domain");
   }
@@ -617,7 +634,7 @@ const deps = {
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "domain-net" }],
+      services: [{ serviceId: "domain-net", domainChoice: "another.net" }],
     });
     ok(!!res.invoiceDocName, "domain-only account buying another domain still succeeds");
     ok(client.listCalls.length === 0, "buying a domain never triggers the paid-invoice scan at all");

@@ -143,3 +143,95 @@ test('AppWelcome card lands on the portal with the modal preselected; reload doe
   await expect(page.getByText('System Health')).toBeVisible();
   await expect(page.getByText('Purchase extra services')).toHaveCount(0);
 });
+
+// ---- I4: a domain offer is bought WITH a name, never through the Add-ons modal ----
+const domainOffer = offer({ serviceId: 'domain-com', name: 'Domain: .com', monthlyKes: 4200, savingKes: 1575 });
+
+async function mockDomainPurchase(page: Page, invoiceStatus = 200) {
+  const state: { checkBodies: any[]; invoiceBodies: any[]; attachBodies: any[] } = { checkBodies: [], invoiceBodies: [], attachBodies: [] };
+  await page.route('**/api/domains/check', async (r) => {
+    const body = r.request().postDataJSON();
+    state.checkBodies.push(body);
+    await r.fulfill(json({ results: body.tlds.map((tld: string) => ({ domain: `${body.label}${tld}`, tld, available: true, priceKes: 4200 })) }));
+  });
+  await page.route('**/api/addons/invoice/create', async (r) => {
+    state.invoiceBodies.push(r.request().postDataJSON());
+    await r.fulfill(invoiceStatus === 200
+      ? json({ ok: true, user: USER, invoiceId: 'PINV-9' })
+      : json({ error: 'Choose the domain name to register (it must end in .com).', code: 'DOMAIN_NAME_REQUIRED' }, invoiceStatus));
+  });
+  await page.route('**/api/services/addons/add', async (r) => {
+    state.attachBodies.push(r.request().postDataJSON());
+    await r.fulfill(json({ ok: true, user: USER }));
+  });
+  return state;
+}
+
+async function pickDomain(page: Page) {
+  const card = page.getByTestId('complete-setup-card-domain-com');
+  await card.getByRole('button', { name: /Choose your name/ }).click();
+  await card.getByPlaceholder('yourbusiness').fill('acme');
+  await card.getByRole('button', { name: 'Search' }).click();
+  await card.getByRole('button', { name: 'Select' }).click();
+  return card;
+}
+
+test('domain offer: card shows the yearly price and saving, search is limited to the offered ending', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [domainOffer] } });
+  const state = await mockDomainPurchase(page);
+  await page.goto('/portal/overview');
+  const card = page.getByTestId('complete-setup-card-domain-com');
+  await expect(card).toContainText('KES 4,200/yr');
+  await expect(card).toContainText('Save KES 1,575');
+  await pickDomain(page);
+  expect(state.checkBodies).toEqual([{ label: 'acme', tlds: ['.com'] }]);
+  await expect(card.getByRole('button', { name: 'Add acme.com' })).toBeVisible();
+  await expect(page.getByText('Purchase extra services')).toHaveCount(0);
+});
+
+test('domain offer: buying sends the chosen name on both calls and lands on Billing', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [domainOffer] } });
+  const state = await mockDomainPurchase(page);
+  await page.goto('/portal/overview');
+  const card = await pickDomain(page);
+  await card.getByRole('button', { name: 'Add acme.com' }).click();
+  await expect(page).toHaveURL(/\/portal\/billing/);
+  expect(state.invoiceBodies).toEqual([{ services: [{ serviceId: 'domain-com', serviceName: 'Domain: .com', tier: 'Light', domainChoice: 'acme.com' }] }]);
+  expect(state.attachBodies.map((b) => b.services[0].domainChoice)).toEqual(['acme.com']);
+});
+
+test('domain offer: no name picked means no purchase button and nothing sent', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [domainOffer] } });
+  const state = await mockDomainPurchase(page);
+  await page.goto('/portal/overview');
+  const card = page.getByTestId('complete-setup-card-domain-com');
+  await card.getByRole('button', { name: /Choose your name/ }).click();
+  await expect(card.getByRole('button', { name: 'Pick a name first' })).toBeDisabled();
+  expect(state.invoiceBodies).toEqual([]);
+});
+
+test('domain offer: a refused purchase shows the server reason and stays on the page', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [domainOffer] } });
+  await mockDomainPurchase(page, 422);
+  await page.goto('/portal/overview');
+  const card = await pickDomain(page);
+  await card.getByRole('button', { name: 'Add acme.com' }).click();
+  await expect(card.getByRole('alert')).toContainText('Choose the domain name to register');
+  await expect(page).toHaveURL(/\/portal\/overview/);
+});
+
+test('AppWelcome domain card buys the named domain and lands on Billing', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [domainOffer] } });
+  const state = await mockDomainPurchase(page);
+  await page.route('**/api/orders/ord-w2', (r) =>
+    r.fulfill(json({ order: { id: 'ord-w2', status: 'Paid', serviceId: 'biz-pos-duka', config: { app: 'pos' } } }))
+  );
+  await page.route('**/api/portal/services/biz-pos-duka/activity', (r) =>
+    r.fulfill(json({ ok: true, jobs: [{ id: 'j1', serviceId: 'biz-pos-duka', status: 'active', statusDetail: '', attempts: 0, accessUrl: 'https://acme.pos.murzaktech.tech', posLogin: null }] }))
+  );
+  await page.goto('/welcome/ord-w2');
+  const card = await pickDomain(page);
+  await card.getByRole('button', { name: 'Add acme.com' }).click();
+  await expect(page).toHaveURL(/\/portal\/billing/);
+  expect(state.invoiceBodies[0].services[0].domainChoice).toBe('acme.com');
+});

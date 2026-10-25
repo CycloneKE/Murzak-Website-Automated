@@ -90,6 +90,24 @@ function assertNotFreeAnnualAddonInvoice({ term, amount, anchorDate, serviceRows
   throw err;
 }
 
+// Same TLD map and domain shape orderStore.js checks a domain order against
+// (assertDomainConfigMatchesService); required lazily to keep load order flat.
+const DOMAIN_NAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+function assertAddonDomainNamed(serviceId, domainChoice) {
+  const { DOMAIN_PRODUCT_TLDS } = require("./checkout/orderStore");
+  const tld = DOMAIN_PRODUCT_TLDS[serviceId];
+  const name = String(domainChoice || "").trim().toLowerCase();
+  if (tld && DOMAIN_NAME_RE.test(name) && name.endsWith(tld) && name.length > tld.length) return;
+  const err = new Error(
+    tld
+      ? `Choose the domain name to register (it must end in ${tld}).`
+      : `This domain ending cannot be bought as an add-on: ${serviceId}.`
+  );
+  err.statusCode = 422;
+  err.code = "DOMAIN_NAME_REQUIRED";
+  throw err;
+}
+
 /**
  * FIX ROUND 3, second signal: does this account have a PAID invoice
  * (Subscription or Add-on, never Trial Verification) carrying a non-domain
@@ -264,6 +282,11 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
       err.statusCode = 400;
       throw err;
     }
+    // A domain is a NAME: selling "a .com" with no name bills the customer
+    // for something nobody can register (the Complete-your-setup domain
+    // cards used to do exactly this). Every add-on domain must carry a
+    // well-formed name ending in the TLD its catalog id prices.
+    if (meta.category === "Domain Registration") assertAddonDomainNamed(s.serviceId, s.domainChoice);
     // A domain add-on never needs the history flag (isAddonEligible
     // short-circuits on category before reading it) — pass true explicitly
     // so buying a domain never triggers the paid-invoice scan.
