@@ -479,6 +479,98 @@ async function applyAddOnSaving({ client, webAccountName, invoiceDocName, amount
   return { savingKes: totalKes, newSavingKes: newKes, applied: claims.flatMap((c) => c.claimed) };
 }
 
+/**
+ * Checkout (prepare-payment) side of the same ledger: record the pairings
+ * whose saving this order's own invoice is about to carry, as
+ * { pairingId, invoiceDocName, savingKes } in config.bundle.applied, BEFORE the
+ * invoice PUT (claim-first, serialized per order). Once recorded,
+ * savingForAddOn/offersForWindows treat the pairing as used, so deleting the
+ * companion and re-buying it inside the window never earns the saving twice.
+ * The order is still a Draft (no window yet, so no add-on can have claimed on
+ * it): an entry for the same pairing can only come from an earlier failed
+ * prepare attempt of this order, and the new invoice replaces it.
+ * Returns the recorded entries; release with releaseCheckoutSaving on failure.
+ */
+function recordCheckoutSaving({ client, orderId, invoiceDocName, savings }) {
+  return withOrderLock(orderId, async () => {
+    const { config, bundle } = await readOrderBundle(client, orderId);
+    const ids = new Set(savings.map((s) => s.pairingId));
+    const kept = appliedEntries(bundle).filter((e) => !ids.has(e.pairingId));
+    const entries = savings.map((s) => ({ pairingId: s.pairingId, invoiceDocName, savingKes: s.savingKes }));
+    await writeOrderBundle(client, orderId, config, bundle, [...kept, ...entries]);
+    return entries;
+  });
+}
+
+function releaseCheckoutSaving({ client, orderId, invoiceDocName, entries }) {
+  return releasePairings({ client, orderId, claimed: entries, invoiceDocName });
+}
+
+function bundleHasCompanions(bundle) {
+  return !!bundle && typeof bundle === "object" && Array.isArray(bundle.companions) && bundle.companions.length > 0;
+}
+
+/** The Checkout Order rows linked to an invoice (re-filtered in JS). */
+async function ordersLinkedToInvoice(client, invoiceDocName) {
+  const res = await client.get(`/api/resource/${ORDER_DOCTYPE}`, {
+    params: {
+      fields: JSON.stringify(["name", "service_id", "invoice_doc_name", "config_json"]),
+      filters: JSON.stringify([["invoice_doc_name", "=", invoiceDocName]]),
+      limit_page_length: 0,
+    },
+  });
+  return (res.data?.data || []).filter((r) => r && r.invoice_doc_name === invoiceDocName);
+}
+
+/**
+ * May the portal's add-on endpoint merge new services into this open invoice?
+ * Not when it is a bundle order's checkout invoice: that invoice is one
+ * order's quoted total (with its saving already taken off), and a merge
+ * re-prices every row at catalog price, silently dropping the saving. The
+ * add-on gets its own invoice instead. Flag off => true with no I/O (unchanged).
+ * An unreadable order list => false (a separate invoice is the safe side).
+ */
+async function isMergeableAddonInvoice(client, invoiceDocName) {
+  if (!bundlesEnabled() || !invoiceDocName) return true;
+  try {
+    const rows = await ordersLinkedToInvoice(client, invoiceDocName);
+    return !rows.some((r) => bundleHasCompanions(parseOrderConfig(r.config_json).bundle));
+  } catch (e) {
+    if (e.__doctypeMissing || e.response?.status === 404 || e.response?.status === 417) return true;
+    console.warn(`BUNDLE MERGE CHECK failed for ${invoiceDocName}, not merging:`, e.message);
+    return false;
+  }
+}
+
+/**
+ * When a service is deleted from an unpaid bundle checkout invoice, how much of
+ * its recorded saving still applies to the rows that remain: a pairing's
+ * saving survives only while both the order's primary and that pairing's
+ * companion are still on the invoice. null => not a bundle checkout invoice
+ * (or flag off): the caller prices exactly as before.
+ */
+async function remainingCheckoutSavingKes({ client, invoiceDocName, remainingServiceIds }) {
+  if (!bundlesEnabled() || !invoiceDocName) return null;
+  let rows;
+  try {
+    rows = await ordersLinkedToInvoice(client, invoiceDocName);
+  } catch (e) {
+    if (e.__doctypeMissing || e.response?.status === 404 || e.response?.status === 417) return null;
+    throw e;
+  }
+  const row = rows.find((r) => bundleHasCompanions(parseOrderConfig(r.config_json).bundle));
+  if (!row) return null;
+  const remaining = new Set(remainingServiceIds || []);
+  if (!remaining.has(row.service_id)) return 0;
+  return appliedEntries(parseOrderConfig(row.config_json).bundle)
+    .filter((e) => e.invoiceDocName === invoiceDocName)
+    .filter((e) => {
+      const p = PAIRINGS.find((x) => x.id === e.pairingId);
+      return p && remaining.has(p.companionId);
+    })
+    .reduce((n, e) => n + e.savingKes, 0);
+}
+
 async function rollbackClaims({ client, claims, invoiceDocName }) {
   for (const { orderId, claimed } of claims) {
     try {
@@ -506,4 +598,9 @@ module.exports = {
   savingForAddOn,
   offersForWindows,
   applyAddOnSaving,
+  recordCheckoutSaving,
+  releaseCheckoutSaving,
+  isMergeableAddonInvoice,
+  remainingCheckoutSavingKes,
+  withOrderLock,
 };

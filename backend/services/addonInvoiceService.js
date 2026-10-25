@@ -190,7 +190,7 @@ async function resolveNonDomainPaidHistory({ client, webAccountName, accountServ
  *
  * @returns {Promise<{invoiceDocName: string, amountKes: number, lines: Array<{serviceId: string, amountKes: number}>}>}
  */
-async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true }) {
+async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true, canMergeInto }) {
   const {
     fetchWebAccount, hasPaidSubscriptionForPlan, normalizeSelectedServices,
     findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
@@ -338,10 +338,13 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // Find any open unpaid add-on invoice
-  const open = mergeIntoOpenInvoice
+  // Find any open unpaid add-on invoice. `canMergeInto` (optional) may veto
+  // adopting it — the add-on endpoint uses it to keep a bundle order's
+  // checkout invoice (a quoted total with its saving) out of the merge.
+  let open = mergeIntoOpenInvoice
     ? await findOpenInvoice(client, webAccountName, "Add-on")
     : null;
+  if (open?.name && typeof canMergeInto === "function" && !(await canMergeInto(open))) open = null;
 
   let createdInvoiceId = null;
   let invoiceAmountKes = amount;
@@ -458,8 +461,38 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
   return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes, lines: invoiceLines };
 }
 
+/**
+ * Everything POST /api/addons/invoice/create does to price an add-on purchase,
+ * in one testable place: create (or merge into an open) Add-on invoice, never
+ * merging into a bundle order's checkout invoice, then apply any open 14-day
+ * bundle-window saving to the amount just computed (never read back). With
+ * BUNDLES_ENABLED off both bundle steps are no-ops with no I/O.
+ */
+async function createAddonPurchaseInvoice({ client, webAccountName, services, deps, nowMs = Date.now() }) {
+  // Required lazily: bundles.js -> catalog etc. never needs this module, but
+  // keep the dependency one-way and late.
+  const bundles = require("./checkout/bundles");
+  const result = await createAddonInvoice({
+    client,
+    webAccountName,
+    services,
+    deps,
+    canMergeInto: (open) => bundles.isMergeableAddonInvoice(client, open.name),
+  });
+  await bundles.applyAddOnSaving({
+    client,
+    webAccountName,
+    invoiceDocName: result.invoiceDocName,
+    amountKes: result.amountKes,
+    serviceIds: deps.normalizeSelectedServices(services).map((s) => s.serviceId),
+    nowMs,
+  });
+  return result;
+}
+
 module.exports = {
   createAddonInvoice,
+  createAddonPurchaseInvoice,
   resolveNonDomainPaidHistory,
   accountHasPaidNonDomainInvoiceLine,
   PAID_BILLING_INVOICE_TYPES,

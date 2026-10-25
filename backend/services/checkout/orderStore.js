@@ -28,7 +28,7 @@
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
 const { thresholdMb, effectiveFootprint } = require("../provisioning/capacity");
-const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS } = require("./bundles");
+const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS, withOrderLock } = require("./bundles");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -470,16 +470,21 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
  * other config keys is not reverted.
  */
 async function markOrderPaid({ client, orderId, nowMs }) {
-  const current = await fetchOrderDoc(client, orderId);
-  const config = parseConfig(current.config_json);
-  const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
-  if (!Number.isFinite(bundle.windowEndsAtMs)) bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS;
-  const configJson = JSON.stringify({ ...config, bundle });
-  const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
-    status: "Paid",
-    config_json: configJson,
+  // Same per-order lock as the bundle ledger's claims (bundles.js), so this
+  // read-modify-write of config_json can never drop a concurrently recorded
+  // config.bundle.applied entry (which would let that saving be taken again).
+  return withOrderLock(orderId, async () => {
+    const current = await fetchOrderDoc(client, orderId);
+    const config = parseConfig(current.config_json);
+    const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
+    if (!Number.isFinite(bundle.windowEndsAtMs)) bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS;
+    const configJson = JSON.stringify({ ...config, bundle });
+    const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
+      status: "Paid",
+      config_json: configJson,
+    });
+    return updated.data?.data || { ...current, status: "Paid", config_json: configJson };
   });
-  return updated.data?.data || { ...current, status: "Paid", config_json: configJson };
 }
 
 /**

@@ -627,9 +627,20 @@ module.exports = function (ctx) {
           knownKes: known,
         });
         if (plan.totalKes > 0) {
-          await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-            amount: known - plan.totalKes,
-          });
+          // Claim first (recorded on the order, serialized per order), then the
+          // invoice PUT; a failed PUT releases the claim. The recorded entries
+          // are what stop the same pairing's saving being taken again later.
+          const entries = await bundles.recordCheckoutSaving({ client, orderId, invoiceDocName, savings: plan.savings });
+          try {
+            await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+              amount: known - plan.totalKes,
+            });
+          } catch (putErr) {
+            await bundles.releaseCheckoutSaving({ client, orderId, invoiceDocName, entries }).catch((relErr) => {
+              console.error(`BUNDLE CHECKOUT CLAIM ROLLBACK FAILED for order ${orderId}:`, relErr.message);
+            });
+            throw putErr;
+          }
         } else {
           console.warn(`PREPARE PAYMENT: bundle saving on ${orderId} not applied (it would leave the invoice below 1).`);
         }

@@ -1435,6 +1435,123 @@ function baseCtx(client, overrides = {}) {
     ok(plan2.totalKes === 39 && plan2.savings[0].pairingId === "pos-email" && plan2.savings[0].savingKes === 39, "capped at the 39 line");
   }
 
+  // ---- I1: the checkout saving is recorded on the order (claim-first) and can
+  // be neither lost by a later add-on merge nor taken a second time. ----
+  const addonInvoiceService = require("../services/addonInvoiceService");
+  function paidPlanClient(acct) {
+    return makeMockFrappe({
+      "Web Account": { [acct]: { name: acct, plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+  }
+  // What server.js's findOpenInvoice returns: the newest Unpaid Add-on invoice.
+  const openAddonInvoice = async (client, acct, type) =>
+    Object.values(client.store["Portal Invoice"] || {}).filter((i) => i.web_account === acct && i.type === type && i.status === "Unpaid").pop() || null;
+  const addonDeps = {
+    fetchWebAccount, hasPaidSubscriptionForPlan: async () => true, normalizeSelectedServices,
+    findOpenInvoice: openAddonInvoice, normalizeInvoiceServiceRow: (r) => r,
+    buildInvoiceServiceRows: (rows) => rows, PORTAL_INVOICE_SERVICES_FIELD: "services",
+  };
+  async function paidPlanCheckout(acct, companions, slug) {
+    const client = paidPlanClient(acct);
+    const router = createOrdersRouter(baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+      findOpenInvoice: openAddonInvoice,
+    }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: acct }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop " + slug, slug }, companions } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: acct }, params: { id: cr.body.order.id }, body: {} }, res);
+    return { client, router, orderId: cr.body.order.id, invoiceDocName: res.body.invoiceDocName, res };
+  }
+
+  section("I1 — prepare-payment records the applied pairing on the order with its invoice and amount");
+  {
+    const { client, orderId, invoiceDocName, res } = await paidPlanCheckout("acct-i1a",
+      [{ serviceId: "domain-com", config: { domain: "i1a.com" } }], "i1a-shop");
+    ok(res.statusCode === 200, "prepare 200");
+    ok(client.store["Portal Invoice"][invoiceDocName].amount === 5125, `checkout invoice 2,500 + 4,200 - 1,575 = 5,125 (got ${client.store["Portal Invoice"][invoiceDocName].amount})`);
+    const applied = JSON.parse(client.store["Checkout Order"][orderId].config_json).bundle.applied;
+    ok(JSON.stringify(applied) === JSON.stringify([{ pairingId: "pos-domain-com", invoiceDocName, savingKes: 1575 }]),
+      `applied entry recorded: ${JSON.stringify(applied)}`);
+  }
+
+  section("I1 — claim-first: a failed invoice PUT rolls the claim back and writes no saving");
+  {
+    const client = paidPlanClient("acct-i1f");
+    const router = createOrdersRouter(baseCtx(client, { hasPaidSubscriptionForPlan: async () => true, createAddonInvoice: realCreateAddonInvoice }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i1f" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop F", slug: "i1f-shop" },
+        companions: [{ serviceId: "domain-com", config: { domain: "i1f.com" } }] } }, cr);
+    const order = client.store["Checkout Order"][cr.body.order.id];
+    let sawClaimBeforePut = false;
+    const realPut = client.put;
+    client.put = async (url, body, ...r) => {
+      if (String(url).includes("Portal Invoice/") && "amount" in body) {
+        sawClaimBeforePut = (JSON.parse(order.config_json).bundle.applied || []).length === 1;
+        throw new Error("frappe down");
+      }
+      return realPut(url, body, ...r);
+    };
+    const res = makeRes();
+    const origErr = console.error; console.error = () => {};
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-i1f" }, params: { id: cr.body.order.id }, body: {} }, res);
+    console.error = origErr;
+    ok(res.statusCode === 500, `500 (got ${res.statusCode})`);
+    ok(sawClaimBeforePut, "the pairing was claimed BEFORE the invoice PUT");
+    ok((JSON.parse(order.config_json).bundle.applied || []).length === 0, "claim rolled back after the failed PUT");
+    ok(!order.invoice_doc_name, "order not linked");
+  }
+
+  section("I1(a) — adding storage while the checkout invoice is open: saving never lost, never doubled");
+  {
+    const { client, invoiceDocName } = await paidPlanCheckout("acct-i1b",
+      [{ serviceId: "domain-com", config: { domain: "i1b.com" } }], "i1b-shop");
+    const before = JSON.stringify(client.store["Portal Invoice"][invoiceDocName]);
+    const r = await addonInvoiceService.createAddonPurchaseInvoice({
+      client, webAccountName: "acct-i1b", services: [{ serviceId: "starter-storage" }], deps: addonDeps, nowMs: Date.now(),
+    });
+    ok(r.invoiceDocName !== invoiceDocName, "the add-on did NOT merge into the bundle checkout invoice");
+    ok(JSON.stringify(client.store["Portal Invoice"][invoiceDocName]) === before, "checkout invoice untouched (still 5,125, same rows)");
+    const storage = client.store["Portal Invoice"][r.invoiceDocName].amount;
+    ok(storage === 1200, `storage on its own invoice at 1,200 (got ${storage})`);
+    const total = client.store["Portal Invoice"][invoiceDocName].amount + storage;
+    ok(total === 2500 + 4200 + 1200 - 1575 && total === 6325, `customer owes full sum - 1,575 = 6,325 (got ${total})`);
+
+    // A plain add-on (no bundle checkout invoice open) still merges as before.
+    const client2 = paidPlanClient("acct-i1c");
+    const a = await addonInvoiceService.createAddonPurchaseInvoice({ client: client2, webAccountName: "acct-i1c", services: [{ serviceId: "starter-storage" }], deps: addonDeps, nowMs: Date.now() });
+    const b = await addonInvoiceService.createAddonPurchaseInvoice({ client: client2, webAccountName: "acct-i1c", services: [{ serviceId: "starter-email" }], deps: addonDeps, nowMs: Date.now() });
+    ok(a.invoiceDocName === b.invoiceDocName && client2.store["Portal Invoice"][a.invoiceDocName].amount === 2700, "non-bundle add-ons still merge (1,200 + 1,500)");
+  }
+
+  section("I1(b) — pay POS + email (first month free), delete the email, re-buy it in the window: full price");
+  {
+    const { client, router, orderId, invoiceDocName } = await paidPlanCheckout("acct-i1d", [{ serviceId: "starter-email" }], "i1d-shop");
+    ok(client.store["Portal Invoice"][invoiceDocName].amount === 2500, `checkout invoice 2,500 + 1,500 - 1,500 = 2,500 (got ${client.store["Portal Invoice"][invoiceDocName].amount})`);
+    client.store["Portal Invoice"][invoiceDocName].status = "Paid";
+    const g = makeRes();
+    await findHandler(router, "get", "/api/orders/:id")({ session: { webAccount: "acct-i1d" }, params: { id: orderId } }, g);
+    ok(g.body.order.status === "Paid" && g.body.order.bundleWindowEndsAtMs > Date.now(), "order paid, window open");
+    // Customer deletes the email service from their account.
+    const wa = client.store["Web Account"]["acct-i1d"];
+    wa.selected_services = wa.selected_services.filter((s) => (s.serviceId || s.service_id) !== "starter-email");
+    const offers = makeRes();
+    await findHandler(router, "get", "/api/bundles/offers")({ session: { webAccount: "acct-i1d" } }, offers);
+    ok(!offers.body.offers.some((o) => o.serviceId === "starter-email"), "no 'Complete your setup' card for the already-used email pairing");
+    const r = await addonInvoiceService.createAddonPurchaseInvoice({
+      client, webAccountName: "acct-i1d", services: [{ serviceId: "starter-email" }], deps: addonDeps, nowMs: Date.now(),
+    });
+    ok(client.store["Portal Invoice"][r.invoiceDocName].amount === 1500, `re-bought email billed at full 1,500 (got ${client.store["Portal Invoice"][r.invoiceDocName].amount})`);
+    const applied = JSON.parse(client.store["Checkout Order"][orderId].config_json).bundle.applied;
+    ok(applied.length === 1 && applied[0].invoiceDocName === invoiceDocName, "still exactly the one checkout entry");
+  }
+
   section("bundles — an order without companions leaves the invoice amount untouched");
   {
     const client = makeMockFrappe({ "Web Account": { "acct-b8": { name: "acct-b8", plan: "None", selected_services: [] } } });
