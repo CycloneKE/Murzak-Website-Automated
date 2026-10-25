@@ -48,7 +48,7 @@ import ProfileTab from "./tabs/ProfileTab";
 const PortalShell: React.FC = () => {
   const {
     accountSuspended, activeLogServiceId, activeTab, addonCandidates, addonsDisabledReason,
-    addonsOpen, addonsSourceTab, adminUnread, allMenuItems, applyAddonsSelection, commandActions,
+    addonsOpen, addonsPreselectId, addonsSourceTab, adminUnread, allMenuItems, applyAddonsSelection, commandActions,
     deleteConfirmText, deleteError, deleteLoading, deleteTarget, developerUpsellError,
     developerUpsellSvc, dismissOnboarding, dueSubscriptionInvoice, handleDelete,
     handleDeveloperUpsell, isAdmin, isCommandPaletteOpen, isContactOpen, isSidebarOpen,
@@ -378,6 +378,7 @@ const PortalShell: React.FC = () => {
         planLabel={user.plan}
         disabledReason={addonsDisabledReason}
         addons={addonCandidates}
+        preselectedId={addonsPreselectId}
         onClose={() => {
           setAddonsOpen(false);
           onTabClick(addonsSourceTab);

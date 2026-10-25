@@ -20,6 +20,7 @@ import MetricCard from "../../../components/portal/MetricCard";
 import ResourceUtilizationCard from "../../../components/portal/ResourceUtilizationCard";
 import SecurityOverviewCard from "../../../components/portal/SecurityOverviewCard";
 import ServiceHealthCard, { ServiceHealth } from "../../../components/portal/ServiceHealthCard";
+import CompleteSetupCards from "../../../components/CompleteSetupCards";
 import { classifyActivity } from "../helpers";
 import { usePortal } from "../PortalContext";
 import { formatKes, getService, isYearlyBilled } from "../../../config/serviceCatalog";
@@ -40,6 +41,7 @@ const OverviewTab: React.FC = () => {
     localInvoices,
     localUpdates,
     onTabClick,
+    openAddonsModal,
     pendingServiceAction,
     provisionProgress,
     selectedServices,
@@ -230,6 +232,8 @@ const OverviewTab: React.FC = () => {
           <MetricCard key={i} {...metric} />
         ))}
       </div>
+
+      <CompleteSetupCards onChoose={(serviceId) => openAddonsModal("overview", serviceId)} />
 
       {serviceActionNotice && (
         <div className={`px-6 py-4 rounded-2xl border text-label font-bold flex items-center justify-between gap-4 ${

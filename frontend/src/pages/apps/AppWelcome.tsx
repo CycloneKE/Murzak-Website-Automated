@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, Loader2, ExternalLink, LifeBuoy } from "lucide-react";
+import CompleteSetupCards from "../../components/CompleteSetupCards";
 import PosLoginPanel from "../../components/portal/cloud/PosLoginPanel";
 import ShopSetupCard from "../../components/apps/ShopSetupCard";
 import { fetchServiceActivity, ProvisioningActivityEntry } from "../../services/serviceActivity";
@@ -226,6 +227,9 @@ const AppWelcome: React.FC = () => {
               </p>
             </section>
           )}
+          <div className="mt-8">
+            <CompleteSetupCards onChoose={(serviceId) => navigate("/portal/overview", { state: { addonsPreselect: serviceId } })} />
+          </div>
           <button type="button" onClick={() => navigate("/portal/overview")} className={`mt-6 ${linkClass}`}>
             Go to my portal
           </button>

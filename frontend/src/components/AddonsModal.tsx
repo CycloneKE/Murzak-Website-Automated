@@ -10,6 +10,8 @@ type Props = {
   planLabel: string;
   disabledReason?: string | null; // e.g. "Pay subscription first"
   addons: ServiceItem[];
+  /** Optional service selected as soon as the modal opens. */
+  preselectedId?: string | null;
   onClose: () => void;
   onApplySelection: (args: { chargeable: ServiceItem[] }) => Promise<void>;
 };
@@ -19,6 +21,7 @@ export default function AddonsModal({
   planLabel,
   disabledReason,
   addons,
+  preselectedId,
   onClose,
   onApplySelection,
 }: Props) {
@@ -56,6 +59,13 @@ export default function AddonsModal({
       bodyRef.current?.scrollTo({ top: 0, behavior: "auto" });
     }, 0);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !preselectedId) return;
+    if (!addons.some((a) => a.id === preselectedId)) return;
+    setSelectedIds({ [preselectedId]: true });
+    setSelectedOrder([preselectedId]);
+  }, [isOpen, preselectedId, addons]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -217,6 +227,7 @@ return createPortal(
               key={a.id}
               type="button"
               onClick={() => toggle(a.id)}
+              aria-pressed={on}
               className={`text-left rounded-[1.75rem] p-5 border transition-all ${
                 on
                   ? "border-murzak-accent bg-murzak-accent/10 shadow-[0_0_0_3px_rgba(34,211,238,0.12)]"

@@ -89,6 +89,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const [addonsOpen, setAddonsOpen] = useState(false);
   const [addonsSourceTab, setAddonsSourceTab] = useState<"overview" | "cloud" | "billing">("overview");
   const [addonsLoading, setAddonsLoading] = useState(false);
+  // Optional service the Add-ons modal opens with already selected (set by the
+  // "Complete your setup" cards); cleared whenever the modal closes.
+  const [addonsPreselectId, setAddonsPreselectId] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<SelectedServiceView | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -540,10 +543,22 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
 
 
-  const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing") => {
+  const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing", preselectId?: string) => {
     setAddonsSourceTab(sourceTab);
+    setAddonsPreselectId(preselectId || null);
     setAddonsOpen(true);
   };
+
+  // Arrival from a "Complete your setup" card on the checkout-welcome/thank-you
+  // pages: navigate("/portal/overview", { state: { addonsPreselect: <id> } })
+  // opens the Add-ons modal with that service already selected.
+  useEffect(() => {
+    const id = (location.state as any)?.addonsPreselect;
+    if (typeof id !== "string" || !id) return;
+    openAddonsModal("overview", id);
+    // Consume it so a refresh/back doesn't reopen the modal.
+    window.history.replaceState({}, document.title);
+  }, [location.state]);
 
   // --------------------------
   // Services (derived)
@@ -1206,6 +1221,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     setDomainNotice,
     addonsDisabledReason,
     addonsOpen,
+    addonsPreselectId,
     addonsSourceTab,
     adminUnread,
     allMenuItems,
