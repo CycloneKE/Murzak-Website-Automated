@@ -127,7 +127,8 @@ registrar or mail provider elsewhere.
    *effective* footprints (`effectiveFootprint`), checked against both the
    per-order cap and fleet headroom, before any payment is taken. A companion
    that would push the order over either limit is shown disabled with the
-   reason, not hidden. Storefront copy keeps the honest advertised specs.
+   reason, not hidden. Storefront copy keeps the honest advertised specs. When
+   headroom is low the storefront shows a limited-availability notice.
 
 ## Backend changes
 
@@ -155,7 +156,8 @@ registrar or mail provider elsewhere.
 - `Checkout.tsx` summary lists primary, companions, saving and total, with a
   remove control per companion.
 - `AppWelcome`, `ThankYou` and portal Overview get "Complete your setup" cards.
-- Product pages show the bundle saving next to the price.
+- Product pages show the bundle saving next to the price, and a limited-
+  availability notice when headroom is low (Decision 7).
 
 ## Rollout and risk
 
@@ -167,15 +169,19 @@ registrar or mail provider elsewhere.
   Each needs a test: partial-failure job state, add-on invoice amount with and
   without the saving window, and the domain-at-cost case.
 
-## Open questions
+## Resolved by the owner (2026-10-25)
 
-1. Should a second business app be a companion at all, or only zero-RAM items?
-   This revision allows it (it fits by effective footprint), but with roughly
-   five bench tenants of fleet headroom, a combined ERP + POS sale consumes
-   two of them. The owner may prefer to keep this off until capacity grows.
-2. Is the live headroom check at picker time good enough, or should the
-   storefront also show a plain "limited availability" notice as the fleet
-   fills?
+- **A second business app may be a companion.** The server will be grown as
+  clients arrive, so fleet headroom is not a reason to withhold the sale.
+  Capacity is still checked by effective footprint before payment, so an
+  order is never taken for room that does not exist.
+- **The storefront shows limited availability.** When fleet headroom for a
+  bench tenant drops below a threshold, product pages and the companion
+  picker show a plain "limited availability" notice. At zero headroom the
+  existing capacity error and waitlist apply. The threshold and the wording
+  are the builder's call, to be set against `sellableRamMb` and the 85%
+  auto-commit line. The headroom figure comes from a read-only backend
+  endpoint so the storefront never computes capacity itself.
 
 ## Left to the builder
 
