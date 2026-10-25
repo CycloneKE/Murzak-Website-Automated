@@ -571,9 +571,9 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  */
 async function attachServiceUrl(client, uuid, job, name) {
   const slug = appDomain.slugWithSuffix(name, job.name);
-  const fqdn = appDomain.fqdnFor(slug);
-  if (!fqdn) return "";
   const appConfig = CURATED_APP_CONFIG[job.service_id];
+  const fqdn = curatedFqdn(appConfig, slug);
+  if (!fqdn) return "";
   const containerName = appConfig?.primaryService || "app";
   try {
     await client.patch(`/api/v1/services/${encodeURIComponent(uuid)}`, {
@@ -800,6 +800,49 @@ const INVOICE_NINJA_NGINX_LARAVEL_CONF =
  * points don't yet justify one shared abstraction. When a third curated app
  * is added, that's the point to unify both into one generic mechanism.
  */
+
+function wpAdminUser() {
+  return process.env.WP_ADMIN_USER || "siteadmin";
+}
+
+/** web_account is the portal user (normally an email); fall back to a Murzak address. */
+function wpAdminEmail(job) {
+  const acct = String((job && job.web_account) || "");
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(acct)) return acct;
+  return process.env.SMTP_FROM_EMAIL || process.env.WP_FALLBACK_ADMIN_EMAIL || "admin@murzaktech.tech";
+}
+
+/**
+ * One-shot installer run by the wpcli container (a shell script; "$$" is
+ * Compose escaping for "$"). Idempotent: if WordPress is already installed it
+ * does nothing, so restarts and redeploys never overwrite a client's site.
+ */
+const WORDPRESS_INSTALL_SCRIPT = [
+  "cd /var/www/html",
+  "until [ -f wp-config.php ]; do sleep 3; done",
+  `until php -r '$$m=@new mysqli(getenv("WORDPRESS_DB_HOST"),getenv("WORDPRESS_DB_USER"),getenv("WORDPRESS_DB_PASSWORD"),getenv("WORDPRESS_DB_NAME")); exit($$m->connect_errno?1:0);'; do sleep 3; done`,
+  "if ! wp core is-installed 2>/dev/null; then",
+  '  wp core install --url="$$WP_SITE_URL" --title="$$WP_SITE_TITLE" --admin_user="$$WP_ADMIN_USER" --admin_password="$$WP_ADMIN_PASSWORD" --admin_email="$$WP_ADMIN_EMAIL" --skip-email',
+  "  wp option update timezone_string Africa/Nairobi",
+  "  wp rewrite structure '/%postname%/'",
+  '  echo "MURZAK: WordPress installed for $$WP_SITE_URL"',
+  "else",
+  '  echo "MURZAK: WordPress already installed, nothing to do"',
+  "fi",
+  "exec sleep infinity",
+].join("\n");
+
+/**
+ * Customer hostname for a curated app. A product may declare `domainBaseEnv`
+ * (e.g. WordPress uses CLOUD_DOMAIN_BASE = cloud.murzaktech.tech so every
+ * client lands under the pre-wired *.cloud wildcard DNS, certificate and nginx
+ * vhost). If that env var is unset we fall back to APP_DOMAIN_BASE.
+ */
+function curatedFqdn(appConfig, slug) {
+  const override = appConfig?.domainBaseEnv ? process.env[appConfig.domainBaseEnv] : "";
+  return appDomain.fqdnFor(slug, override);
+}
+
 const CURATED_APP_CONFIG = {
   "starter-esign": {
     image: "docuseal/docuseal:latest",
@@ -887,6 +930,84 @@ const CURATED_APP_CONFIG = {
       },
     },
   },
+  "starter-wordpress": {
+    // Murzak Cloud WordPress: wordpress:6-apache + MariaDB + a one-shot WP-CLI
+    // helper that runs `wp core install` so the client never sees the setup
+    // screen. Lives under *.cloud.murzaktech.tech (CLOUD_DOMAIN_BASE).
+    primaryService: "wordpress",
+    primaryPort: 80,
+    domainBaseEnv: "CLOUD_DOMAIN_BASE",
+    secrets: { dbPassword: "random", dbRootPassword: "random", adminPassword: "random" },
+    // Returned to the portal in the job's `access` field.
+    accessDetails: (ctx, job) => ({
+      adminUrl: `${ctx.fqdn}/wp-admin`,
+      username: wpAdminUser(),
+      password: ctx.adminPassword,
+      adminEmail: wpAdminEmail(job),
+    }),
+    services: {
+      mariadb: {
+        image: "mariadb:11",
+        volumeName: "db-data",
+        volumePath: "/var/lib/mysql",
+        // Entry point starts as root, fixes ownership, then drops to mysql.
+        extraCaps: ["DAC_OVERRIDE", "FOWNER"],
+        environment: (ctx) => ({
+          MARIADB_DATABASE: "wordpress",
+          MARIADB_USER: "wordpress",
+          MARIADB_PASSWORD: ctx.dbPassword,
+          MARIADB_ROOT_PASSWORD: ctx.dbRootPassword,
+        }),
+        healthcheck: () =>
+          `      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]\n` +
+          `      interval: 5s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 20\n`,
+      },
+      wordpress: {
+        image: "wordpress:6-apache",
+        volumeName: "wp-data",
+        volumePath: "/var/www/html",
+        // Apache binds :80 as root then drops to www-data and signals its
+        // workers; the image entrypoint copies core files and chowns them.
+        extraCaps: ["DAC_OVERRIDE", "FOWNER", "KILL", "NET_BIND_SERVICE"],
+        environment: (ctx) => ({
+          WORDPRESS_DB_HOST: "mariadb",
+          WORDPRESS_DB_USER: "wordpress",
+          WORDPRESS_DB_PASSWORD: ctx.dbPassword,
+          WORDPRESS_DB_NAME: "wordpress",
+          // "$$" is Compose escaping for a literal "$". Single line, no double quotes.
+          WORDPRESS_CONFIG_EXTRA:
+            "if (isset($$_SERVER['HTTP_X_FORWARDED_PROTO']) && $$_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') { $$_SERVER['HTTPS'] = 'on'; } define('FORCE_SSL_ADMIN', true);",
+        }),
+        dependsOn: { mariadb: "service_healthy" },
+        healthcheck: () =>
+          `      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/80'"]\n` +
+          `      interval: 10s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 12\n`,
+      },
+      wpcli: {
+        image: "wordpress:cli",
+        user: "33:33", // www-data, so files it writes stay owned correctly
+        sharedVolumesFrom: "wordpress",
+        sharedVolumesRw: true,
+        dependsOn: { wordpress: "service_healthy" },
+        environment: (ctx, job) => ({
+          WORDPRESS_DB_HOST: "mariadb",
+          WORDPRESS_DB_USER: "wordpress",
+          WORDPRESS_DB_PASSWORD: ctx.dbPassword,
+          WORDPRESS_DB_NAME: "wordpress",
+          WP_SITE_URL: ctx.fqdn,
+          WP_SITE_TITLE: "My Murzak Site",
+          WP_ADMIN_USER: wpAdminUser(),
+          WP_ADMIN_EMAIL: wpAdminEmail(job),
+          WP_ADMIN_PASSWORD: ctx.adminPassword,
+        }),
+        command: WORDPRESS_INSTALL_SCRIPT,
+      },
+    },
+  },
   "starter-scheduling": {
     primaryService: "app",
     primaryPort: 3000,
@@ -953,8 +1074,8 @@ const CURATED_APP_CONFIG = {
 };
 
 /** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
-function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase) {
-  if (appConfig.services) return buildMultiServiceComposeYaml(name, limits, appConfig, fqdn);
+function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase, preCtx, job) {
+  if (appConfig.services) return buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job);
   const volumeName = `${name}-data`;
   const envLines = Object.entries(appConfig.envVars(fqdn, secretKeyBase))
     .map(([k, v]) => `      ${k}: "${v}"\n`)
@@ -993,7 +1114,8 @@ function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase
  * primary/public-facing one. A database container run as root during its own
  * init is exactly the same category of risk this hardening exists for.
  */
-function hardeningBlock(limits) {
+function hardeningBlock(limits, extraCaps = []) {
+  const extra = extraCaps.map((c) => `      - ${c}\n`).join("");
   return (
     `    restart: unless-stopped\n` +
     `    mem_limit: ${limits.ramMb}m\n` +
@@ -1005,6 +1127,7 @@ function hardeningBlock(limits) {
     `      - CHOWN\n` +
     `      - SETUID\n` +
     `      - SETGID\n` +
+    extra +
     `    security_opt:\n` +
     `      - no-new-privileges:true\n`
   );
@@ -1043,14 +1166,16 @@ function buildSecretCtx(appConfig, fqdn) {
  * Ninja). RAM/CPU limits apply per-container, not summed across the stack —
  * a known, accepted looseness (see the design doc), not silently ignored.
  */
-function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
-  const ctx = buildSecretCtx(appConfig, fqdn);
+function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job) {
+  // preCtx lets provision() generate the secrets first so it can also return
+  // them (e.g. the WordPress admin password) in the job's `access` field.
+  const ctx = preCtx || buildSecretCtx(appConfig, fqdn);
 
   const volumeDecls = [];
   let serviceBlocks = "";
 
   for (const [serviceName, svc] of Object.entries(appConfig.services)) {
-    const envEntries = svc.environment ? svc.environment(ctx) : null;
+    const envEntries = svc.environment ? svc.environment(ctx, job) : null;
     const envLines = envEntries
       ? `    environment:\n` +
         Object.entries(envEntries).map(([k, v]) => `      ${k}: "${v}"\n`).join("")
@@ -1066,7 +1191,7 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
       ];
       volumeLines =
         `    volumes:\n` +
-        allShared.map((v) => `      - ${name}-${v.name}:${v.path}:ro\n`).join("");
+        allShared.map((v) => `      - ${name}-${v.name}:${v.path}${svc.sharedVolumesRw ? "" : ":ro"}\n`).join("");
     } else if (svc.volumeName) {
       const allVolumes = [{ name: svc.volumeName, path: svc.volumePath }, ...(svc.extraVolumes || [])];
       volumeLines =
@@ -1092,7 +1217,14 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
       : "";
 
     let commandLines = "";
-    if (serviceName === "nginx") {
+    if (svc.command) {
+      commandLines =
+        `    command:\n` +
+        `      - sh\n` +
+        `      - -c\n` +
+        `      - |\n` +
+        svc.command.split("\n").map((l) => `        ${l}\n`).join("");
+    } else if (serviceName === "nginx") {
       commandLines =
         `    command:\n` +
         `      - sh\n` +
@@ -1110,7 +1242,8 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn) {
     serviceBlocks +=
       `  ${serviceName}:\n` +
       `    image: ${svc.image}\n` +
-      hardeningBlock(limits) +
+      (svc.user ? `    user: "${svc.user}"\n` : "") +
+      hardeningBlock(limits, svc.extraCaps) +
       commandLines +
       envLines +
       volumeLines +
@@ -1254,13 +1387,16 @@ async function provision(job, opts) {
   // seeds into HOST is what attachServiceUrl (below, after creation) PATCHes
   // onto the service. No chicken-and-egg: both derive the identical value.
   const curatedAppFqdn = curatedAppConfig
-    ? appDomain.fqdnFor(appDomain.slugWithSuffix(name, job.name))
+    ? curatedFqdn(curatedAppConfig, appDomain.slugWithSuffix(name, job.name))
     : null;
+  // Multi-service apps: generate secrets here so we can also hand the
+  // customer-facing ones (admin login) back in `access`.
+  const curatedCtx = curatedAppConfig?.services ? buildSecretCtx(curatedAppConfig, curatedAppFqdn) : null;
   const curatedAppSecret = curatedAppConfig ? generateRandomSecret() : null;
   const composeYaml = dbConfig
     ? buildDbComposeYaml(name, limits, dbConfig, dbPassword, Number(job.external_port) > 0 ? Number(job.external_port) : null)
     : curatedAppConfig
-    ? buildCuratedAppComposeYaml(name, limits, curatedAppConfig, curatedAppFqdn, curatedAppSecret)
+    ? buildCuratedAppComposeYaml(name, limits, curatedAppConfig, curatedAppFqdn, curatedAppSecret, curatedCtx, job)
     : `services:\n` +
       `  app:\n` +
       `    image: ${job.docker_image || "nginx:alpine"}\n` +
@@ -1325,6 +1461,7 @@ async function provision(job, opts) {
             password: dbPassword,
           }
         : {}),
+      ...(curatedCtx && curatedAppConfig.accessDetails ? curatedAppConfig.accessDetails(curatedCtx, job) : {}),
     },
     // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
     // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
@@ -1562,6 +1699,8 @@ module.exports = {
   buildCuratedAppComposeYaml,
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
+  __test_curatedFqdn: curatedFqdn,
+  __test_wordpressConfig: CURATED_APP_CONFIG["starter-wordpress"],
   __test_calcomConfig: CURATED_APP_CONFIG["starter-scheduling"],
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).

@@ -227,3 +227,30 @@ Keep both until the wildcard has survived one real renewal, then retire
    nginx's local webroot and 404. Harmless — failed authorizations don't
    consume the certificate limit — but it is recurring noise in
    `docker logs coolify-proxy`.
+
+## Murzak Cloud WordPress (`*.cloud.murzaktech.tech`)
+
+The `starter-wordpress` product (KES 1,500/mo, 1GB RAM, 10GB disk) uses its own
+wildcard zone instead of `APP_DOMAIN_BASE`.
+
+One-time setup (already done on the production box):
+
+1. DNS: `A *.cloud` pointing at the server IP.
+2. A wildcard certificate for `*.cloud.murzaktech.tech` (Certbot DNS-01).
+3. A host nginx vhost for `*.cloud.murzaktech.tech` that proxies to Coolify's Traefik.
+
+Backend environment:
+
+```
+CLOUD_DOMAIN_BASE=cloud.murzaktech.tech
+COOLIFY_BASE_URL=...        # Coolify panel URL
+COOLIFY_TOKEN=...           # API token (keep secret)
+COOLIFY_PROJECT_UUID=...    # the "Clients" project
+COOLIFY_SERVER_UUID=...
+COOLIFY_ENV_NAME=production
+PROVISIONING_RUNNER_ENABLED=true
+```
+
+If `CLOUD_DOMAIN_BASE` is unset the product falls back to `APP_DOMAIN_BASE`.
+Any product can opt in by setting `domainBaseEnv` in its `CURATED_APP_CONFIG` entry.
+The admin URL, username and generated password are returned in the job `access` field.

@@ -16,13 +16,17 @@
 
 const crypto = require("crypto");
 
-function domainBase() {
-  return String(process.env.APP_DOMAIN_BASE || "")
+function normalizeBase(value) {
+  return String(value || "")
     .trim()
     .toLowerCase()
     // tolerate operators pasting a scheme or trailing dot/slash
     .replace(/^https?:\/\//, "")
     .replace(/[/.]+$/, "");
+}
+
+function domainBase() {
+  return normalizeBase(process.env.APP_DOMAIN_BASE);
 }
 
 function isConfigured() {
@@ -44,9 +48,13 @@ function slugWithSuffix(slug, jobName) {
   return `${base}-${slugSuffix(jobName)}`;
 }
 
-/** Full customer URL for a slug. Empty string when unconfigured (degrade, don't guess). */
-function fqdnFor(slug) {
-  const base = domainBase();
+/**
+ * Full customer URL for a slug. Empty string when unconfigured (degrade, don't guess).
+ * `baseOverride` lets one product use its own wildcard zone (e.g. WordPress on
+ * *.cloud.murzaktech.tech) while BYOA apps keep APP_DOMAIN_BASE.
+ */
+function fqdnFor(slug, baseOverride) {
+  const base = baseOverride ? normalizeBase(baseOverride) : domainBase();
   if (!base || !slug) return "";
   return `https://${slug}.${base}`;
 }
