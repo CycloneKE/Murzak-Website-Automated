@@ -226,6 +226,8 @@ module.exports = function (ctx) {
     try {
       const webAccountName = webAccountOf(req);
       if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      // Gated like the rest of the bundle surface: off => not there at all.
+      if (!bundles.bundlesEnabled()) return res.status(404).json({ error: "Not found." });
       const companions = (req.body || {}).companions;
       if (!Array.isArray(companions)) return res.status(422).json({ error: "companions must be a list." });
 
@@ -245,29 +247,59 @@ module.exports = function (ctx) {
     }
   });
 
+  // Headroom for the public availability endpoint, memoized in-process for
+  // 30 s with a single flight: one public, unauthenticated URL must not turn
+  // every storefront page view into two full Frappe list scans. A failed read
+  // is answered "limited" but never memoized, so the next request retries.
+  const HEADROOM_MEMO_MS = 30 * 1000;
+  let headroomMemo = null; // { at, promise }
+  async function computeAvailabilityHeadroom() {
+    const limited = { benchSlotsLeft: 0, level: "limited" };
+    try {
+      const client = frappeClient();
+      const fleetReservedRamMb = await getReservedRamMb(client);
+      // getReservedRamMb answers null when it could not read the fleet:
+      // unknown is not empty, so it must never read as 0 / "ok".
+      if (fleetReservedRamMb === null || fleetReservedRamMb === undefined || !Number.isFinite(Number(fleetReservedRamMb))) {
+        console.error("BUNDLE AVAILABILITY headroom read failed: fleet reservation unknown");
+        return { headroom: limited, ok: false };
+      }
+      const draftMb = (await reservedDraftRamMb(client, Date.now())) || 0;
+      return {
+        ok: true,
+        headroom: bundles.computeHeadroom({
+          thresholdMb: capacity.thresholdMb(),
+          reservedMb: Number(fleetReservedRamMb) + draftMb,
+          benchTenantRamMb: capacity.benchTenantRamMb(),
+        }),
+      };
+    } catch (err) {
+      console.error("BUNDLE AVAILABILITY headroom read failed:", err.message);
+      return { headroom: limited, ok: false };
+    }
+  }
+  function availabilityHeadroom(nowMs) {
+    if (headroomMemo && nowMs - headroomMemo.at < HEADROOM_MEMO_MS) return headroomMemo.promise.then((r) => r.headroom);
+    const memo = { at: nowMs, promise: computeAvailabilityHeadroom() };
+    headroomMemo = memo;
+    memo.promise.then((r) => { if (!r.ok && headroomMemo === memo) headroomMemo = null; });
+    return memo.promise.then((r) => r.headroom);
+  }
+
   // Public storefront data: which pairings save money, which items may be added
-  // as companions, and how much bench capacity is left. No auth; the HTTP response carries Cache-Control max-age=30 but there is no server-side cache.
+  // as companions, and how much bench capacity is left. No auth; the HTTP
+  // response carries Cache-Control max-age=30 and the headroom is memoized
+  // in-process for 30 s (single flight, failures not memoized).
   // Flag off => disabled, empty lists and a neutral headroom (the storefront
-  // hides everything). Any capacity read failure => level "limited" with 0 slots
-  // (never a 500); pairings are still returned.
+  // hides everything). Any capacity read failure, including an unknown (null)
+  // fleet reservation => level "limited" with 0 slots (never a 500); pairings
+  // are still returned.
   router.get("/api/bundles/availability", async (req, res) => {
     res.set("Cache-Control", "public, max-age=30");
     if (!bundles.bundlesEnabled()) {
       return res.json({ enabled: false, pairings: [], allowedCompanionIds: [], headroom: { benchSlotsLeft: 0, level: "ok" } });
     }
-    let headroom = { benchSlotsLeft: 0, level: "limited" };
-    try {
-      const client = frappeClient();
-      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
-      const draftMb = (await reservedDraftRamMb(client, Date.now())) || 0;
-      headroom = bundles.computeHeadroom({
-        thresholdMb: capacity.thresholdMb(),
-        reservedMb: fleetReservedRamMb + draftMb,
-        benchTenantRamMb: capacity.benchTenantRamMb(),
-      });
-    } catch (err) {
-      console.error("BUNDLE AVAILABILITY headroom read failed:", err.message);
-    }
+    const headroom = await availabilityHeadroom(Date.now());
     return res.json({
       enabled: true,
       pairings: bundles.publicPairings(),

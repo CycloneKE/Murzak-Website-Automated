@@ -554,6 +554,23 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     ok(cfg.reconcile?.state === "done" && cfg.slug === "shop" && cfg.bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "config written after the caller's read survives the Paid transition");
   }
 
+  section("minor: with BUNDLES_ENABLED off, markOrderPaid writes exactly { status: 'Paid' } (no window stamp)");
+  {
+    const client = makeClient({ invoices: { "INV-OFF": { name: "INV-OFF", status: "Paid" } } });
+    delete process.env.BUNDLES_ENABLED;
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: { domainChoice: "x" }, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-OFF" });
+    const cfgBefore = client.docs[o.id].config_json;
+    const bodies = [];
+    const realPut = client.put;
+    client.put = async (url, body) => { bodies.push(body); return realPut(url, body); };
+    const g = await getOrder({ client, webAccountName: "a", orderId: o.id, nowMs: T0 + 10 });
+    process.env.BUNDLES_ENABLED = "true";
+    ok(g.status === "Paid", "flipped to Paid");
+    ok(JSON.stringify(bodies) === JSON.stringify([{ status: "Paid" }]), `only { status: "Paid" } written: ${JSON.stringify(bodies)}`);
+    ok(client.docs[o.id].config_json === cfgBefore && g.bundleWindowEndsAtMs === null, "config_json byte-identical, no window");
+  }
+
   section("bundles: setCompanions with an empty list works while bundles are disabled");
   {
     const client = makeClient();

@@ -1678,6 +1678,23 @@ function baseCtx(client, overrides = {}) {
       `amount unchanged (${amount1} === totalDueKes ${cr.body.order.totalDueKes})`);
   }
 
+  section("minor — PUT /api/orders/:id/companions is unavailable with BUNDLES_ENABLED off (404, no write)");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-m1" }, body: { serviceId: "starter-web-hosting" } }, cr);
+    const before = JSON.stringify(client.store["Checkout Order"][cr.body.order.id]);
+    process.env.BUNDLES_ENABLED = "false";
+    const res = makeRes();
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-m1" }, params: { id: cr.body.order.id }, body: { companions: [] } }, res);
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 404, `404 (got ${res.statusCode})`);
+    ok(JSON.stringify(client.store["Checkout Order"][cr.body.order.id]) === before, "order untouched");
+  }
+
   section("bundles fix round 1 — non-array companions and companions-route authz");
   {
     const client = makeMockFrappe();
@@ -1812,6 +1829,38 @@ function baseCtx(client, overrides = {}) {
     res = makeRes();
     await findHandler(router, "get", "/api/bundles/availability")({}, res);
     ok(res.statusCode === 200 && res.body.headroom.level === "limited", "draft read failure -> 200, limited");
+
+    // A null fleet read (getReservedRamMb's failure value) is "unknown", never 0.
+    res = await call({ getReservedRamMb: async () => null });
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited" && res.body.headroom.benchSlotsLeft === 0, `null fleet read -> limited, 0 slots (got ${JSON.stringify(res.body.headroom)})`);
+
+    // 30 s in-process memo, single flight: one computation for many requests.
+    {
+      let reads = 0;
+      const router2 = createOrdersRouter(baseCtx(makeMockFrappe(), {
+        getReservedRamMb: async () => { reads++; await new Promise((r) => setTimeout(r, 20)); return 0; },
+      }));
+      const h = findHandler(router2, "get", "/api/bundles/availability");
+      const rs = [makeRes(), makeRes(), makeRes()];
+      await Promise.all(rs.map((r) => h({}, r)));
+      const r4 = makeRes(); await h({}, r4);
+      ok(reads === 1, `4 requests (3 concurrent) -> 1 headroom computation (got ${reads})`);
+      ok([...rs, r4].every((r) => JSON.stringify(r.body.headroom) === JSON.stringify(rs[0].body.headroom)), "all got the same headroom");
+    }
+    {
+      let reads = 0;
+      const router3 = createOrdersRouter(baseCtx(makeMockFrappe(), {
+        getReservedRamMb: async () => { reads++; if (reads === 1) throw new Error("down"); return 0; },
+      }));
+      const h = findHandler(router3, "get", "/api/bundles/availability");
+      const origErr = console.error; console.error = () => {};
+      const a = makeRes(); await h({}, a);
+      console.error = origErr;
+      const b = makeRes(); await h({}, b);
+      ok(a.body.headroom.level === "limited" && a.body.headroom.benchSlotsLeft === 0, "first (failed) read -> limited, 0 slots");
+      ok(reads === 2 && b.body.headroom.benchSlotsLeft > 0,
+        `a failed computation is not memoized (reads ${reads}, second ${JSON.stringify(b.body.headroom)})`);
+    }
 
     process.env.BUNDLES_ENABLED = "false";
     res = await call();

@@ -29,7 +29,7 @@
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
 const { thresholdMb, effectiveFootprint } = require("../provisioning/capacity");
 const { assertOrderWithinCapacity } = require("../orderCapacity");
-const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS, withOrderLock } = require("./bundles");
+const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS, withOrderLock, bundlesEnabled } = require("./bundles");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -463,7 +463,7 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
 }
 
 /**
- * Flip an order to Paid and stamp the bundle add-on window
+ * Flip an order to Paid and (BUNDLES_ENABLED only) stamp the bundle add-on window
  * (config.bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS), creating
  * config.bundle when the order had none. Idempotent: an already-stamped
  * window is kept, never extended. Always re-reads the order immediately
@@ -471,6 +471,12 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
  * other config keys is not reverted.
  */
 async function markOrderPaid({ client, orderId, nowMs }) {
+  // Bundles off: exactly the pre-bundles write, { status: "Paid" } and nothing
+  // else, so a flag-off paid order's record is byte-identical to before.
+  if (!bundlesEnabled()) {
+    const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, { status: "Paid" });
+    return updated.data?.data || { ...(await fetchOrderDoc(client, orderId)), status: "Paid" };
+  }
   // Same per-order lock as the bundle ledger's claims (bundles.js), so this
   // read-modify-write of config_json can never drop a concurrently recorded
   // config.bundle.applied entry (which would let that saving be taken again).

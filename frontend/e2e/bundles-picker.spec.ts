@@ -127,11 +127,32 @@ test('enabled:false hides the picker and notice', async ({ page }) => {
   await expect(page.getByTestId('availability-notice')).toHaveCount(0);
 });
 
-test('limited headroom shows the Limited availability notice and disables nothing', async ({ page }) => {
-  await mockBase(page, availability('limited'));
+test('limited headroom with 2 bench slots shows the notice and disables nothing', async ({ page }) => {
+  const a = availability('limited');
+  a.headroom.benchSlotsLeft = 2;
+  await mockBase(page, a);
   await page.goto('/get/pos?service=biz-pos-duka');
   await expect(page.getByTestId('availability-notice')).toContainText(/Limited availability/);
   await expect(picker(page).getByRole('checkbox', { name: /Murzak ERP/ })).toBeEnabled();
+});
+
+test('1 bench slot left: a bench-lane primary (POS) cannot add a second business app (needs 2)', async ({ page }) => {
+  await mockBase(page, availability('limited')); // benchSlotsLeft 1
+  await page.goto('/get/pos?service=biz-pos-duka');
+  await expect(page.getByTestId('availability-notice')).toContainText(/Limited availability/);
+  await expect(picker(page).getByRole('checkbox', { name: /Murzak ERP/ })).toBeDisabled();
+  await expect(picker(page).getByRole('checkbox', { name: /CRM/ })).toBeDisabled();
+  await expect(picker(page)).toContainText(/room for only one more business app/i);
+  await expect(picker(page).getByRole('checkbox', { name: /Business Email/ })).toBeEnabled();
+});
+
+test('1 bench slot left: a handed-off second business app is not sent with a POS order', async ({ page }) => {
+  await mockBase(page, availability('limited'));
+  await seedHandoff(page, 'biz-pos', ['starter-email', 'biz-erp-light']);
+  const captured = await captureOrder(page, 'ord-7');
+  await page.goto('/get/pos?service=biz-pos-duka');
+  await submitPos(page, captured);
+  expect(captured.body.companions).toEqual([{ serviceId: 'starter-email' }]);
 });
 
 test('full headroom disables the second business app with a reason', async ({ page }) => {

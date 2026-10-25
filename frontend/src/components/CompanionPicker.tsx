@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Check, X } from "lucide-react";
 import { formatKes, getService } from "../config/serviceCatalog";
-import { MAX_COMPANIONS, domainServiceIdFor, isBusinessApp, isDomainCompanionId, isPickableCompanion, saveHandoff, type Pairing } from "../services/bundles";
+import { MAX_COMPANIONS, businessAppBlockedReason, domainServiceIdFor, isBusinessApp, isDomainCompanionId, isPickableCompanion, saveHandoff, type Pairing } from "../services/bundles";
 import AvailabilityNotice, { useAvailability } from "./AvailabilityNotice";
 import DomainSearch from "./DomainSearch";
 
@@ -46,7 +46,8 @@ const CompanionPicker: React.FC<Props> = ({ primaryId, value, onChange, domain, 
   if (!availability || !model) return null;
   if (!model.rows.length && !model.domainIds.length) return null;
 
-  const full = availability.headroom.level === "full";
+  // A bench-lane primary plus a business app needs two free bench slots.
+  const appBlockedReason = businessAppBlockedReason(primaryId, availability.headroom);
   const atMax = value.length >= MAX_COMPANIONS;
   const chosenDomainId = value.find(isDomainCompanionId);
 
@@ -86,7 +87,7 @@ const CompanionPicker: React.FC<Props> = ({ primaryId, value, onChange, domain, 
           const checked = value.includes(id);
           const pairing = model.pairingFor(id);
           let reason = "";
-          if (!checked && isBusinessApp(id) && full) reason = "Not available right now: there's no room for another business app.";
+          if (!checked && isBusinessApp(id) && appBlockedReason) reason = appBlockedReason;
           else if (!checked && atMax) reason = `You can add up to ${MAX_COMPANIONS}.`;
           const disabled = !!reason;
           const inputId = `companion-${id}`;

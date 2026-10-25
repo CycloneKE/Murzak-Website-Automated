@@ -136,6 +136,25 @@ export function toCompanionInputs(ids: string[], domain: string): CompanionInput
 
 export const isBusinessApp = (id: string) => id === "biz-crm-helpdesk" || id.startsWith("biz-erp-");
 
+/** A bench-lane (Frappe) primary takes a bench slot itself. */
+export function isBenchLanePrimary(primaryId: string): boolean {
+  const svc = getService(primaryId);
+  return !!svc && svc.capacityClass === "premium" && Array.isArray(svc.benchApps) && svc.benchApps.length > 0;
+}
+
+/**
+ * Why a business-app companion can't be added right now, or "" if it can.
+ * The box must hold every bench tenant in the order: a bench-lane primary
+ * (POS, ERP, CRM) plus a business app needs 2 free slots, any other primary 1.
+ */
+export function businessAppBlockedReason(primaryId: string, headroom: Availability["headroom"]): string {
+  if (headroom.level === "full") return "Not available right now: there's no room for another business app.";
+  if (isBenchLanePrimary(primaryId) && headroom.benchSlotsLeft < 2) {
+    return "Not available right now: there's room for only one more business app, and this order already includes one.";
+  }
+  return "";
+}
+
 /** biz-erp-light and biz-erp-configured share the family "biz-erp". */
 export function productFamily(serviceId: string): string {
   return serviceId.split("-").slice(0, 2).join("-");
@@ -164,10 +183,10 @@ export async function gateCompanions(primaryId: string, ids: string[], domain: s
     return [];
   }
   if (!a.enabled) return [];
-  const full = a.headroom.level === "full";
+  const appBlocked = !!businessAppBlockedReason(primaryId, a.headroom);
   const kept = [...new Set(ids)]
     .filter((id) => isPickableCompanion(id, primaryId, a.allowedCompanionIds))
-    .filter((id) => !(full && isBusinessApp(id)))
+    .filter((id) => !(appBlocked && isBusinessApp(id)))
     .filter((id) => !isDomainCompanionId(id) || (!!domain && domainServiceIdFor(domain) === id))
     .slice(0, MAX_COMPANIONS);
   return toCompanionInputs(kept, domain);
