@@ -1355,6 +1355,86 @@ function baseCtx(client, overrides = {}) {
       "Web Account keeps the existing row and gains every line");
   }
 
+  // ---- I3: paid-plan ANNUAL account, pro-rated lines; the saving is capped
+  // at the line it belongs to and the invoice never drops below 1. ----
+  function annualAccountClient(acct, daysLeft) {
+    const start = new Date(Date.now() - (365 - daysLeft) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return makeMockFrappe({
+      // Seeded first: the mock ignores filters, so this is the "last paid Subscription".
+      "Portal Invoice": { "PINV-ANNUAL": { name: "PINV-ANNUAL", web_account: acct, type: "Subscription", status: "Paid",
+        billing_term: "annual", invoice_date: start } },
+      "Web Account": { [acct]: { name: acct, plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+  }
+  async function prepareOnAnnualAccount(acct, daysLeft, companions, slug) {
+    const client = annualAccountClient(acct, daysLeft);
+    const router = createOrdersRouter(baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+    }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: acct }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop " + slug, slug }, companions } }, cr);
+    const invoicePuts = [];
+    const realPut = client.put;
+    client.put = async (url, body, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts.push(body); return realPut(url, body, ...r); };
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: acct }, params: { id: cr.body.order.id }, body: {} }, res);
+    const inv = res.body?.invoiceDocName ? client.store["Portal Invoice"][res.body.invoiceDocName] : null;
+    const order = client.store["Checkout Order"][cr.body.order.id];
+    return { client, cr, res, inv, invoicePuts, order };
+  }
+
+  section("I3 — 8 days left: POS Duka 526 + .com 884; saving capped at the .com line (884), invoice 526");
+  {
+    const { res, inv, invoicePuts } = await prepareOnAnnualAccount("acct-i3a", 8,
+      [{ serviceId: "domain-com", config: { domain: "i3a.com" } }], "i3a-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode} ${JSON.stringify(res.body)})`);
+    ok(inv?.amount === 526, `invoice 1,410 - 884 = 526 (got ${inv?.amount})`);
+    ok(!invoicePuts.some((b) => "amount" in b && !(b.amount >= 1)), "never wrote an amount below 1");
+  }
+
+  section("I3 — 8 days left, tiny line: Duka 526 + Business Email 316; first month free capped at 316, invoice 526");
+  {
+    const { res, inv } = await prepareOnAnnualAccount("acct-i3b", 8, [{ serviceId: "starter-email" }], "i3b-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    ok(inv?.amount === 526, `invoice 842 - 316 = 526 (got ${inv?.amount})`);
+  }
+
+  section("I3 — 200 days left (mid-term): Duka 13,151 + .com 22,093; full 1,575 saving, invoice 33,669");
+  {
+    const { res, inv } = await prepareOnAnnualAccount("acct-i3c", 200,
+      [{ serviceId: "domain-com", config: { domain: "i3c.com" } }], "i3c-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    ok(inv?.amount === 33669, `invoice 35,244 - 1,575 = 33,669 (got ${inv?.amount})`);
+  }
+
+  section("I3 — a saving that would leave less than 1 is not applied (no invoice PUT, never 0)");
+  {
+    // 1 day left: Duka round(24,000/365) = 66, Business Email round(14,400/365) = 39.
+    // The route cannot reach a 0 primary line with real catalog prices, so the
+    // floor rule is pinned on the planner the route uses: a 0 primary line plus a
+    // fully-saved email would leave 0, so nothing is applied.
+    const plan = require("../services/checkout/bundles").planCheckoutSaving({
+      primaryId: "biz-pos-duka",
+      companions: [{ serviceId: "starter-email" }],
+      quotedSavingKes: 1500,
+      lineAmounts: new Map([["biz-pos-duka", 0], ["starter-email", 39]]),
+      knownKes: 39,
+    });
+    ok(plan.totalKes === 0 && plan.savings.length === 0, `saving that would zero the invoice is skipped (got ${plan.totalKes})`);
+    const plan2 = require("../services/checkout/bundles").planCheckoutSaving({
+      primaryId: "biz-pos-duka",
+      companions: [{ serviceId: "starter-email" }],
+      quotedSavingKes: 1500,
+      lineAmounts: new Map([["biz-pos-duka", 66], ["starter-email", 39]]),
+      knownKes: 105,
+    });
+    ok(plan2.totalKes === 39 && plan2.savings[0].pairingId === "pos-email" && plan2.savings[0].savingKes === 39, "capped at the 39 line");
+  }
+
   section("bundles — an order without companions leaves the invoice amount untouched");
   {
     const client = makeMockFrappe({ "Web Account": { "acct-b8": { name: "acct-b8", plan: "None", selected_services: [] } } });

@@ -78,6 +78,7 @@ function computeBundle({ primaryId, companions }) {
     if (savingKes > 0) {
       savings.push({
         serviceId: c.serviceId,
+        pairingId: p.id,
         savingKes,
         reason: p.saving.type === "firstMonthFree" ? "First month free" : "Bundle saving",
       });
@@ -85,6 +86,37 @@ function computeBundle({ primaryId, companions }) {
   }
   const savingKes = Math.min(savings.reduce((s, x) => s + x.savingKes, 0), monthlyAndSetup);
   return { lines, savingKes, savings };
+}
+
+/**
+ * The saving prepare-payment may take off a checkout invoice it just wrote.
+ * Pure. `lineAmounts` (Map serviceId -> what that line ACTUALLY costs on this
+ * invoice: pro-rated, annual or monthly, setup included) caps each pairing's
+ * saving at its own line, so a fixed saving can never eat other lines (an
+ * annual account 8 days from renewal pays ~884 for a .com line, not 4,200).
+ * The total never exceeds what the order quoted. If what is left would be
+ * below 1 the saving is not applied at all (same skip rule as the add-on
+ * path): the invoice is never 0. A line with no known amount => throws 500.
+ * Returns { savings: [{ pairingId, serviceId, savingKes }], totalKes }.
+ */
+function planCheckoutSaving({ primaryId, companions, quotedSavingKes, lineAmounts, knownKes }) {
+  const { savings: raw } = computeBundle({ primaryId, companions });
+  let budget = Math.max(0, Number(quotedSavingKes) || 0);
+  const savings = [];
+  for (const s of raw) {
+    const line = lineAmounts && lineAmounts.get(s.serviceId);
+    if (!Number.isFinite(line)) {
+      const e = new Error("Could not determine the invoice amount for this bundle.");
+      e.statusCode = 500;
+      throw e;
+    }
+    const savingKes = Math.max(0, Math.min(s.savingKes, line, budget));
+    budget -= savingKes;
+    if (savingKes > 0) savings.push({ pairingId: s.pairingId, serviceId: s.serviceId, savingKes });
+  }
+  const totalKes = savings.reduce((n, s) => n + s.savingKes, 0);
+  if (!(totalKes > 0) || Number(knownKes) - totalKes < 1) return { savings: [], totalKes: 0 };
+  return { savings, totalKes };
 }
 
 function isYearlyPriced(meta) {
@@ -464,6 +496,7 @@ module.exports = {
   validateCompanions,
   computeBundle,
   annualBundleAmounts,
+  planCheckoutSaving,
   footprintOf,
   isAllowedCompanion,
   computeHeadroom,

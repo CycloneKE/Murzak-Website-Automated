@@ -188,7 +188,7 @@ async function resolveNonDomainPaidHistory({ client, webAccountName, accountServ
  * recomputed amountKes to its caller, so the total it charges is the total it
  * reports.
  *
- * @returns {Promise<{invoiceDocName: string, amountKes: number}>}
+ * @returns {Promise<{invoiceDocName: string, amountKes: number, lines: Array<{serviceId: string, amountKes: number}>}>}
  */
 async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true }) {
   const {
@@ -324,6 +324,18 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
       : monthlySum;
   const amount = recurringAmount + setupFee;
 
+  // What each row costs on this invoice, by the SAME arithmetic as the totals
+  // (recurring, pro-rated on annual terms, plus one-time setup). Informational:
+  // ordersRoutes caps a bundle saving at the line it belongs to with it.
+  const lineAmountsFor = (rows) =>
+    rows.map((s) => {
+      const meta = getServiceMeta(s.serviceId);
+      const monthly = Number(meta?.monthlyKes) || 0;
+      const recurring = term === "annual" ? proRatedAddonKes(monthly, daysRemainingInTerm(anchorDate)) : monthly;
+      return { serviceId: s.serviceId, amountKes: recurring + (Number(meta?.setupKes) || 0) };
+    });
+  let invoiceLines = lineAmountsFor(norm);
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Find any open unpaid add-on invoice
@@ -414,6 +426,7 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     });
     createdInvoiceId = open.name;
     invoiceAmountKes = mergedAmount;
+    invoiceLines = lineAmountsFor(mergedServices);
   } else {
     assertNotFreeAnnualAddonInvoice({ term, amount: recurringAmount, anchorDate, serviceRows: norm });
 
@@ -442,7 +455,7 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     invoiceAmountKes = amount;
   }
 
-  return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes };
+  return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes, lines: invoiceLines };
 }
 
 module.exports = {

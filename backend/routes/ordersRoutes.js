@@ -495,6 +495,9 @@ module.exports = function (ctx) {
       let invoiceDocName;
       // The amount the branch itself settled on (never read back from Frappe).
       let branchAmountKes = null;
+      // What each line costs on that invoice (Map serviceId -> KES), known by
+      // the branch alongside its total; only read when a saving applies.
+      let lineAmountsKes = null;
       if (hasPaidPlan) {
         // Never eligible for a term choice (eligible is false whenever
         // hasPaidPlan is true) — createAddonInvoice's own pro-rata (via
@@ -523,6 +526,9 @@ module.exports = function (ctx) {
         });
         invoiceDocName = result.invoiceDocName;
         branchAmountKes = result.amountKes;
+        // Pro-rated per-line amounts on an annual-term account; the saving is
+        // capped by these, never by the catalog price.
+        lineAmountsKes = new Map((Array.isArray(result.lines) ? result.lines : []).map((l) => [l.serviceId, Number(l.amountKes)]));
 
         // createAddonInvoice deliberately only prices/invoices — attaching the
         // service to the Web Account is documented as "the caller's
@@ -558,6 +564,12 @@ module.exports = function (ctx) {
         }
         invoiceDocName = result.invoice.name;
         branchAmountKes = result.invoice.amount;
+        // applyPlanAndCreateInvoice bills each new row its monthly price plus
+        // its one-time setup.
+        lineAmountsKes = new Map(serviceRows.map((r) => {
+          const m = getServiceMeta(r.serviceId) || {};
+          return [r.serviceId, (Number(m.monthlyKes) || 0) + (Number(m.setupKes) || 0)];
+        }));
 
         const acct = await fetchWebAccount(client, webAccountName);
         const existingServices = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
@@ -578,9 +590,14 @@ module.exports = function (ctx) {
           // A bundle order bills each companion line by its own rule (a
           // domain's price is already yearly; companion setup once) — see
           // bundles.annualBundleAmounts. No companions: exactly as before.
-          const annualAmountKes = companionRows.length
-            ? bundles.annualBundleAmounts({ primaryId: order.serviceId, companionIds: companionRows.map((r) => r.serviceId) }).totalKes
-            : annualPrepayKes(sumSelectedServicesMonthlyKes(serviceRows));
+          let annualAmountKes;
+          if (companionRows.length) {
+            const annual = bundles.annualBundleAmounts({ primaryId: order.serviceId, companionIds: companionRows.map((r) => r.serviceId) });
+            annualAmountKes = annual.totalKes;
+            lineAmountsKes = new Map(annual.lines.map((l) => [l.serviceId, l.amountKes]));
+          } else {
+            annualAmountKes = annualPrepayKes(sumSelectedServicesMonthlyKes(serviceRows));
+          }
           await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
             amount: annualAmountKes,
             billing_term: "annual",
@@ -592,6 +609,9 @@ module.exports = function (ctx) {
       // Bundle saving: applied last, after any annual correction, so both
       // compose. Reduces the amount the branch above already knows; it is never
       // read back, so a missing/partial read can never write a free invoice.
+      // Each pairing's saving is capped at what its own line costs on this
+      // invoice (a pro-rated annual line can be far below the catalog price),
+      // and a saving that would leave less than 1 is not applied at all.
       if (bundleSavingKes > 0) {
         const known = Number(branchAmountKes);
         if (!Number.isFinite(known) || known <= 0) {
@@ -599,9 +619,20 @@ module.exports = function (ctx) {
           e.statusCode = 500;
           throw e;
         }
-        await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-          amount: Math.max(0, known - bundleSavingKes),
+        const plan = bundles.planCheckoutSaving({
+          primaryId: order.serviceId,
+          companions: order.config?.bundle?.companions,
+          quotedSavingKes: bundleSavingKes,
+          lineAmounts: lineAmountsKes,
+          knownKes: known,
         });
+        if (plan.totalKes > 0) {
+          await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+            amount: known - plan.totalKes,
+          });
+        } else {
+          console.warn(`PREPARE PAYMENT: bundle saving on ${orderId} not applied (it would leave the invoice below 1).`);
+        }
       }
 
       // Slug BEFORE order: once the order carries invoice_doc_name the early
