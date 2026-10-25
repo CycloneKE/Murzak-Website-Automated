@@ -130,7 +130,7 @@ export type ServiceOption = {
   description: string;
   category: ServiceCategory;
 
-  tier: "Demo" | "Light" | "Medium" | "Large" | "Enterprise";
+  tier: "Demo" | "Light" | "Standard" | "Medium" | "Large" | "Heavy" | "Enterprise";
 
   /** Which part of the infrastructure this is sold from. */
   capacityClass: CapacityClass;
