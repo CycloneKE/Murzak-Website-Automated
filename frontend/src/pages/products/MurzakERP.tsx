@@ -105,7 +105,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               The first ERP purpose-built for how Kenyan companies actually do business. Stop bridging gaps between spreadsheets and legacy accounting software.
             </p>
             <div className="mt-9 flex flex-col sm:flex-row gap-4">
-              <Button onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>
+              <Button onClick={() => onNavigate('/checkout/new?serviceId=biz-erp-light')}>
                 Start from {formatKes(serviceMonthlyKes('biz-erp-light'))}/mo <ArrowRight size={18} />
               </Button>
               <Button variant="outline" onClick={() => setSalesOpen(true)}>
@@ -229,13 +229,13 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               <h3 className="text-xl font-black mb-2 text-murzak-ink dark:text-slate-100">Light (1-3 Users)</h3>
               <div className="text-3xl font-black text-murzak-gradient mb-6">{formatKes(serviceMonthlyKes('biz-erp-light'))}<span className="text-sm text-slate-500 dark:text-slate-400">/mo</span></div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Perfect for small businesses graduating from spreadsheets.</p>
-              <Button className="w-full" variant="ghost" onClick={() => onNavigate('/pricing?configure=biz-erp-light')}>Select Light</Button>
+              <Button className="w-full" variant="ghost" onClick={() => onNavigate('/checkout/new?serviceId=biz-erp-light')}>Select Light</Button>
            </div>
            <div className="p-8 rounded-3xl border border-murzak-accent/40 bg-murzak-accent/5">
               <h3 className="text-xl font-black mb-2">Configured (5-20 Users)</h3>
               <div className="text-3xl font-black text-murzak-ink dark:text-slate-100 mb-6">{formatKes(serviceMonthlyKes('biz-erp-configured'))}<span className="text-sm text-slate-500 dark:text-slate-400">/mo</span></div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Data migration, training, and tailored workflows included.</p>
-              <Button className="w-full" onClick={() => onNavigate('/pricing?configure=biz-erp-configured')}>Select Configured</Button>
+              <Button className="w-full" onClick={() => onNavigate('/checkout/new?serviceId=biz-erp-configured')}>Select Configured</Button>
            </div>
         </div>
       </Section>

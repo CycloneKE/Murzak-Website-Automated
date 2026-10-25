@@ -298,7 +298,7 @@ const App: React.FC = () => {
     setUser(u);
     setIsLoggedIn(true);
     sessionExpiredHandled.current = false;
-    navigate(safeReturnTo(returnTo, "/portal/overview"));
+    navigate(safeReturnTo(returnTo, "/portal"));
   };
 
   const handleUserUpdate = (u: User) => {

@@ -47,7 +47,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
             Stop losing leads in personal WhatsApp threads. Centralize your sales and customer support in one place.
           </p>
           <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('/pricing?configure=biz-crm-helpdesk')}>
+            <Button onClick={() => onNavigate('/checkout/new?serviceId=biz-crm-helpdesk')}>
               Start from {formatKes(serviceMonthlyKes('biz-crm-helpdesk'))}/mo <ArrowRight size={18} />
             </Button>
             <Button variant="outline" onClick={() => setSalesOpen(true)}>
@@ -121,7 +121,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-2xl mx-auto px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Never miss a follow-up.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="primary" onClick={() => onNavigate('/pricing?configure=biz-crm-helpdesk')}>
+            <Button variant="primary" onClick={() => onNavigate('/checkout/new?serviceId=biz-crm-helpdesk')}>
               Configure CRM <ArrowRight size={17} />
             </Button>
           </div>
