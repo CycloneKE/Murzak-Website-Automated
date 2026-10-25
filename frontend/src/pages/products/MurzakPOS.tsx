@@ -6,6 +6,7 @@ import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import Breadcrumbs from '../../components/Breadcrumbs';
 import AppPlans from '../../components/apps/AppPlans';
+import { ProductCompanions } from '../../components/CompanionPicker';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -151,6 +152,10 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
         app="pos"
         onChoose={(serviceId, term) => onNavigate(`/get/pos?service=${encodeURIComponent(serviceId)}&term=${term}`)}
       />
+
+      <div className="px-4 sm:px-6 -mt-8 mb-16">
+        <ProductCompanions primaryId="biz-pos-duka" />
+      </div>
 
       {/* Final CTA */}
       <section className="relative py-24 overflow-hidden">

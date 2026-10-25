@@ -1,5 +1,6 @@
 import { AppId, planForService } from "../config/serviceCatalog";
 import { toUserMessage } from "./errors";
+import type { CompanionInput } from "./bundles";
 
 export interface AddressCheck {
   slug: string;
@@ -36,6 +37,8 @@ export async function createAppOrder(args: {
   term: "monthly" | "annual";
   shopName: string;
   slug: string;
+  /** Bundle add-ons; omitted from the body when empty so a plain order is byte-identical to before. */
+  companions?: CompanionInput[];
 }): Promise<{ orderId: string }> {
   let res: Response;
   try {
@@ -49,6 +52,7 @@ export async function createAppOrder(args: {
         planKey: planForService(args.serviceId) || "Business",
         source: "app-checkout",
         config: { shopName: args.shopName, slug: args.slug },
+        ...(args.companions && args.companions.length ? { companions: args.companions } : {}),
       }),
     });
   } catch {

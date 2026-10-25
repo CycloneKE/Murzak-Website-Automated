@@ -7,6 +7,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
+import { clearHandoff, readHandoff, toCompanionInputs } from "../services/bundles";
 import { APP_CHECKOUT } from '../config/appCheckout';
 import { AppId } from '../config/serviceCatalog';
 
@@ -111,6 +112,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     }
 
     let cancelled = false;
+    const handoff = readHandoff(deepLinkServiceId);
     (async () => {
       try {
         setLoading(true);
@@ -119,7 +121,12 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ serviceId: deepLinkServiceId, source: 'deep-link' }),
+          body: JSON.stringify({
+            serviceId: deepLinkServiceId,
+            source: 'deep-link',
+            // Bundle add-ons picked on the product page (ERP/CRM); absent => body unchanged.
+            ...(handoff ? { companions: toCompanionInputs(handoff.ids, handoff.domain) } : {}),
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
@@ -137,6 +144,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         if (!res.ok || !data?.order) {
           throw new Error(data?.error || 'Failed to start checkout.');
         }
+        if (handoff) clearHandoff();
         navigate(`/checkout/${data.order.id}`, { replace: true });
       } catch (e: any) {
         if (!cancelled) {
