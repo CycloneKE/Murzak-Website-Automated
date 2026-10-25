@@ -194,25 +194,12 @@ directly with the customer.
 Rule of thumb: **~4–8 business-system tenants per box.** Plan the next box before
 you hit the wall, not after.
 
----
-
-## 9. Support — the Admin Inbox
-
-**Portal → admin → Inbox.**
-
-- Every customer conversation is a **thread** with a status (New, Waiting on
-  admin, Waiting on user, Resolved).
-- Click a thread → read it → type a reply (you can attach files). Statuses update
-  automatically when you reply.
-- Threads refresh live. Prioritise **"Waiting on admin"** (red).
-- Brand voice: **plain, human, reassuring** — no jargon. Match the rest of the
-  portal ("Usually replies same day", not "SLA 12ms").
-
 ### Bundles (companions at checkout)
 
 Bundles let a customer add a companion service (for example email or a domain)
-to a business-system order and get a saving. It is **off by default** and
-controlled by two settings in `backend/.env`.
+to a business-system order. The picker shows on the POS, ERP and CRM pages, but
+only POS and ERP orders earn a saving; a CRM order's companions are always full
+price. It is **off by default** and controlled by two settings in `backend/.env`.
 
 - `BUNDLES_ENABLED` — default off. Only the exact value `true` turns it on.
 - `BUNDLES_LIMITED_SLOTS` — default `2`. When the bench slots left are at or
@@ -225,16 +212,19 @@ is applied once per pairing per order. Savings are listed in
 `backend/data/bundlePairings.json`.
 
 **How availability is worked out.** A business-system tenant (ERP/POS/CRM) is
-charged about **480 MB** against capacity, not the advertised 2 GB. Slots left =
+charged about **480 MB** against capacity, although premium products advertise
+roughly 1.5-4 GB (POS and ERP Light list 2 GB). Slots left =
 (sellableRamMb × 85% − RAM already reserved) ÷ 480 MB, rounded down. That is the
 same 85% threshold as above, so adding a second box raises the slots
-automatically.
+automatically. Two overrides move the count: `PROVISIONING_RAM_THRESHOLD_PCT`
+(default 85) and `BENCH_TENANT_RAM_MB` (default 480).
 
 **Pre-enable checklist** (do all five, in order):
 
 1. Re-check the domain savings in `backend/data/bundlePairings.json` (domain-com
    1575, domain-org/net 1425, domain-io 5812) against Hostinger's live wholesale
-   prices. They were derived from the 60%-margin note on `DOMAIN_TLD_PRICES` in
+   prices. The email pairing is "first month free" (the price comes from the
+   catalog, not a fixed KES amount). They were derived from the 60%-margin note on `DOMAIN_TLD_PRICES` in
    `backend/server.js`, not from live data.
 2. Confirm the live `Checkout Order` doctype's `config_json` field is Long Text
    or JSON and accepts the longer content. The mock Frappe accepts anything; the
@@ -251,6 +241,8 @@ automatically.
 **Known limitations and follow-ups**
 
 - The companion picker is wired into POS, ERP and CRM only, not `/cloud` or `/deploy`.
+- CRM has no pairings in `bundlePairings.json` (only POS and ERP do), so CRM
+  companions never get a saving.
 - The 14-day saving claim is guarded by an in-memory lock inside one Node
   process. That is fine for one process, not for several.
 - Annual billing excludes one-time setup fees (existing behaviour).
@@ -259,6 +251,20 @@ automatically.
 - `GET /api/bundles/availability` needs no login, makes two Frappe reads per
   request and has no server-side cache. Add a 30-second in-process cache before
   heavy traffic.
+
+---
+
+## 9. Support — the Admin Inbox
+
+**Portal → admin → Inbox.**
+
+- Every customer conversation is a **thread** with a status (New, Waiting on
+  admin, Waiting on user, Resolved).
+- Click a thread → read it → type a reply (you can attach files). Statuses update
+  automatically when you reply.
+- Threads refresh live. Prioritise **"Waiting on admin"** (red).
+- Brand voice: **plain, human, reassuring** — no jargon. Match the rest of the
+  portal ("Usually replies same day", not "SLA 12ms").
 
 ---
 

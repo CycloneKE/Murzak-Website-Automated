@@ -241,7 +241,7 @@ module.exports = function (ctx) {
   });
 
   // Public storefront data: which pairings save money, which items may be added
-  // as companions, and how much bench capacity is left. No auth, cached 30 s.
+  // as companions, and how much bench capacity is left. No auth; the HTTP response carries Cache-Control max-age=30 but there is no server-side cache.
   // Flag off => disabled, empty lists and a neutral headroom (the storefront
   // hides everything). Any capacity read failure => level "limited" with 0 slots
   // (never a 500); pairings are still returned.
