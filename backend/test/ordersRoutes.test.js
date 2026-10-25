@@ -22,9 +22,8 @@ const createOrdersRouter = require("../routes/ordersRoutes");
 const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
-const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const { sumSelectedServicesMonthlyKes, sumSelectedServicesSetupKes } = require("../services/provisioning/catalog");
 const { annualPrepayKes } = require("../services/billingTerm");
-const { sumSelectedServicesSetupKes } = require("../services/provisioning/catalog");
 const realCreateAddonInvoice = require("../services/addonInvoiceService").createAddonInvoice;
 process.env.BUNDLES_ENABLED = "true";
 
@@ -1352,6 +1351,80 @@ function baseCtx(client, overrides = {}) {
     ok(r2.statusCode === 409 && r2.body.code === "ORDER_HAS_INVOICE", "409 after prepare-payment");
   }
 
+
+  section("bundles fix round 1 — a missing branch amount never writes a free invoice");
+  {
+    for (const branch of ["first-purchase", "add-on"]) {
+      const acct = branch === "add-on"
+        ? { name: "acct-f1", plan: "Enterprise", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] }
+        : { name: "acct-f1", plan: "None", selected_services: [] };
+      const client = makeMockFrappe({ "Web Account": { "acct-f1": acct } });
+      const overrides = branch === "add-on"
+        ? { hasPaidSubscriptionForPlan: async () => true, createAddonInvoice: async () => ({ invoiceDocName: "PINV-NOAMT" }) }
+        : { applyPlanAndCreateInvoice: async () => ({ ok: true, invoice: { name: "PINV-NOAMT" } }) };
+      const router = createOrdersRouter(baseCtx(client, overrides));
+      const cr = makeRes();
+      await findHandler(router, "post", "/api/orders")(
+        { session: { webAccount: "acct-f1" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+      const realPut = client.put; const invoicePuts = [];
+      client.put = async (url, body, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts.push(body); return realPut(url, body, ...r); };
+      const res = makeRes();
+      const origErr = console.error; console.error = () => {};
+      await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+        { session: { webAccount: "acct-f1" }, params: { id: cr.body.order.id }, body: {} }, res);
+      console.error = origErr;
+      ok(res.statusCode === 500, `${branch}: unknown branch amount -> 500 (got ${res.statusCode})`);
+      ok(invoicePuts.length === 0, `${branch}: no Portal Invoice PUT written`);
+      ok(!invoicePuts.some((b) => b.amount === 0), `${branch}: never wrote amount 0`);
+      ok(!client.store["Checkout Order"][cr.body.order.id].invoice_doc_name, `${branch}: order not linked to an invoice`);
+    }
+  }
+
+  section("bundles fix round 1 — repeat prepare-payment is idempotent and leaves the amount alone");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-f2": { name: "acct-f2", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f2" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+    const r1 = makeRes();
+    await prep({ session: { webAccount: "acct-f2" }, params: { id: cr.body.order.id }, body: {} }, r1);
+    const amount1 = client.store["Portal Invoice"][r1.body.invoiceDocName].amount;
+    const realPut = client.put; let invoicePuts = 0;
+    client.put = async (url, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts++; return realPut(url, ...r); };
+    const r2 = makeRes();
+    await prep({ session: { webAccount: "acct-f2" }, params: { id: cr.body.order.id }, body: {} }, r2);
+    ok(r2.body.invoiceDocName === r1.body.invoiceDocName, "same invoiceDocName on repeat");
+    ok(invoicePuts === 0, "no second invoice PUT");
+    ok(Object.keys(client.store["Portal Invoice"]).length === 1, "still exactly one invoice");
+    ok(client.store["Portal Invoice"][r1.body.invoiceDocName].amount === amount1 && amount1 === cr.body.order.totalDueKes,
+      `amount unchanged (${amount1} === totalDueKes ${cr.body.order.totalDueKes})`);
+  }
+
+  section("bundles fix round 1 — non-array companions and companions-route authz");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const bad = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f3" }, body: { serviceId: BUNDLE_PRIMARY, companions: "starter-email" } }, bad);
+    ok(bad.statusCode === 422, `non-array companions -> 422 (got ${bad.statusCode})`);
+    ok(draftCount(client) === 0, "non-array companions -> no Draft row");
+
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f3" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const put = findHandler(router, "put", "/api/orders/:id/companions");
+    const other = makeRes();
+    await put({ session: { webAccount: "intruder" }, params: { id: cr.body.order.id }, body: { companions: [] } }, other);
+    ok(other.statusCode === 403, `another account's order -> 403 (got ${other.statusCode})`);
+    const anon = makeRes();
+    await put({ session: {}, params: { id: cr.body.order.id }, body: { companions: [] } }, anon);
+    ok(anon.statusCode === 401, `unauthenticated -> 401 (got ${anon.statusCode})`);
+    const still = client.store["Checkout Order"][cr.body.order.id];
+    ok(JSON.parse(still.config_json).bundle.companions.length === 2, "the refused calls changed nothing");
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { fails.forEach((f) => console.error(" -", f)); process.exit(1); }
