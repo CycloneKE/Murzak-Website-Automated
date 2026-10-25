@@ -523,6 +523,19 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
   }
 
 
+  section("I2: setCompanions enforces the per-order cap on primary + companions (422, no write)");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "biz-scalable-webapp", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const before = JSON.stringify(client.docs[o.id]);
+    const writes = [];
+    const realPut = client.put;
+    client.put = async (url, body) => { writes.push(url); return realPut(url, body); };
+    await throws(() => setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [{ serviceId: "biz-crm-helpdesk" }], nowMs: T0, fleetReservedRamMb: 0 }),
+      422, "2,048 + 480 = 2,528 over the 2,048 cap");
+    ok(writes.length === 0 && JSON.stringify(client.docs[o.id]) === before, "nothing written");
+  }
+
   section("bundles: markOrderPaid idempotency + preserves concurrent config writes");
   {
     const client = makeClient();

@@ -28,6 +28,7 @@
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
 const { thresholdMb, effectiveFootprint } = require("../provisioning/capacity");
+const { assertOrderWithinCapacity } = require("../orderCapacity");
 const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS, withOrderLock } = require("./bundles");
 
 const ORDER_DOCTYPE = "Checkout Order";
@@ -511,6 +512,9 @@ async function setCompanions({ client, webAccountName, orderId, companions, nowM
 
     if (!getServiceMeta(doc.service_id)) throw badRequest(`Unknown service on this order: ${doc.service_id}`);
     const bundle = buildBundle(doc.service_id, companions);
+    // Per-order cap on the primary plus the new companion list (422), before
+    // any read of fleet state or any write.
+    assertOrderWithinCapacity([{ serviceId: doc.service_id }, ...(bundle ? bundle.companions : [])]);
     const footprint = bundle
       ? footprintOf(doc.service_id, bundle.companions)
       : effectiveFootprint(getServiceMeta(doc.service_id));

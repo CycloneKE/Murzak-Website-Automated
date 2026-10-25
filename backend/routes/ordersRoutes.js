@@ -124,8 +124,13 @@ module.exports = function (ctx) {
       const { serviceId, config, planKey, source, billingTerm, companions } = req.body || {};
       if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
 
-      // Per-order cap (422) before touching fleet capacity/reservations.
-      assertOrderWithinCapacity([{ serviceId }]);
+      // Per-order cap (422) before touching fleet capacity/reservations: the
+      // primary PLUS every companion is one order on the box. Unknown ids
+      // weigh 0 here and are rejected by companion validation later.
+      assertOrderWithinCapacity([
+        { serviceId },
+        ...(Array.isArray(companions) ? companions : []).map((c) => ({ serviceId: String(c?.serviceId || "") })),
+      ]);
 
       const client = frappeClient();
 

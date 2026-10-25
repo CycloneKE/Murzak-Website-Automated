@@ -1225,6 +1225,32 @@ function baseCtx(client, overrides = {}) {
     ok(draftCount(client) === 0, "no Draft row");
   }
 
+  section("I2 — per-order cap counts companions: Scalable Web App 2,048 + CRM 480 = 2,528 > 2,048 -> 422, no row");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i2" }, body: { serviceId: "biz-scalable-webapp", companions: [{ serviceId: "biz-crm-helpdesk" }] } }, res);
+    ok(res.statusCode === 422, `422 (got ${res.statusCode})`);
+    ok(draftCount(client) === 0, "no Draft row");
+    const alone = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i2" }, body: { serviceId: "biz-scalable-webapp" } }, alone);
+    ok(alone.statusCode === 200, "the primary alone (2,048) is still accepted");
+
+    const put = makeRes();
+    const before = JSON.stringify(client.store["Checkout Order"][alone.body.order.id]);
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-i2" }, params: { id: alone.body.order.id }, body: { companions: [{ serviceId: "biz-crm-helpdesk" }] } }, put);
+    ok(put.statusCode === 422, `PUT companions over the cap -> 422 (got ${put.statusCode})`);
+    ok(JSON.stringify(client.store["Checkout Order"][alone.body.order.id]) === before, "order untouched");
+    const zero = makeRes();
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-i2" }, params: { id: alone.body.order.id }, body: { companions: [{ serviceId: "starter-email" }] } }, zero);
+    ok(zero.statusCode === 200, "a zero-RAM companion still fits");
+  }
+
   section("bundles — a client-sent config.bundle is dropped");
   {
     const client = makeMockFrappe();
