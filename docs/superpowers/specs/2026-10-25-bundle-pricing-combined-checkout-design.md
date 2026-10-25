@@ -1,9 +1,10 @@
 # Bundle Pricing and Combined Checkout — Design
 
 **Date:** 2026-10-25
-**Status:** Draft for review (no code written). Amends
-`2026-07-23-unified-checkout-design.md` ("No cart") in one narrow way, see
-Decisions.
+**Status:** Revised 2026-10-25 after owner review (savings approved, 14-day
+window approved, databases excluded, capacity figures corrected). No code
+written. Amends `2026-07-23-unified-checkout-design.md` ("No cart") in one
+narrow way, see Decisions.
 
 ## Problem
 
@@ -34,7 +35,8 @@ registrar or mail provider elsewhere.
 
 ## Non-goals
 
-- A general shopping cart or multi-heavy-product orders (ERP + POS, two apps).
+- A general shopping cart. Combined orders stay capped at one primary plus a
+  few companions.
 - A discount engine, coupon codes, or per-customer pricing.
 - Changing capacity, adding servers, or the self-serve RAM cap itself.
 - Changing how any single product is provisioned.
@@ -42,10 +44,11 @@ registrar or mail provider elsewhere.
 ## Anti-goals
 
 - Selling a combination the box cannot host. A combo that fails after payment
-  is worse than not offering it.
+  is worse than not offering it. Because the fleet holds only about five bench
+  tenants, the picker must reflect live headroom.
 - Checkout asking configuration questions. All choosing still happens in the
   storefront; checkout confirms and pays.
-- Discounting RAM-heavy items. The bundle saving comes only out of
+- Discounting bench or container tenants. The bundle saving comes only out of
   zero-RAM items, where our marginal cost is near nothing.
 
 ## Constraints (from the code today)
@@ -54,9 +57,23 @@ registrar or mail provider elsewhere.
   `createAddonInvoice({ services: [serviceRow] })`, an array, so extending to
   several rows on one invoice is a small step. `mergeIntoOpenInvoice` must stay
   `false`: one order, one invoice, one quoted total.
-- Per-order cap: `SELF_SERVE_ORDER_RAM_CAP_MB` (3200 MB). ERP and POS are each
-  2048 MB, so the heavy pair can never share an order. Zero-RAM items
-  (domains, Business Email, storage, `ramMb: 0`) add nothing to it.
+- **Capacity is charged by effective footprint, not the advertised spec.**
+  ERP, CRM and POS tiers are bench-lane tenants (`capacityClass: premium` with
+  `benchApps`). They advertise 2 GB on the product page but are charged
+  `benchTenantRamMb` = 480 MB and 1 GB disk against the box
+  (`effectiveFootprint`, used by both `orderCapacity.js` and the frontend
+  `sumFootprint`). The advertised spec stays honest for customers; the gate
+  charges what the box really loses. *An earlier draft of this document treated
+  them as 2048 MB each and concluded ERP + POS could never share an order. That
+  was wrong.* ERP + POS is 960 MB, ERP + POS + CRM is 1,440 MB, both under the
+  self-serve per-order cap (frontend constant 2048 MB; backend
+  `SELF_SERVE_ORDER_RAM_CAP_MB` env-configurable).
+- Per-order cap is not the binding limit; **fleet headroom is.** `sellableRamMb`
+  is 3000 MB with an 85% auto-commit threshold (about 2,550 MB), so the box
+  holds roughly five bench tenants in total across all customers. Zero-RAM
+  items (domains, Business Email, storage) add nothing.
+- Container-lane items (databases 768 MB, app hosting 1024 MB) are still
+  charged at their declared footprint.
 - One live shop per app per account, and the shop address is reserved against
   the order.
 - Annual prepay (20% off) is only offered to first-purchase, plan-less
@@ -68,11 +85,14 @@ registrar or mail provider elsewhere.
 ## Decisions
 
 1. **Companions, not a cart.** An order has one *primary* product and up to
-   three *companions*. Companions are limited to catalog items whose
-   `resources.ramMb` is 0, plus at most one database of the existing 768 MB
-   engines when the primary leaves room under the per-order cap. This keeps
-   "no cart" intact for anything heavy. *This is the single amendment to the
-   2026-07-23 spec.*
+   three *companions*. Allowed companions: zero-RAM catalog items (domains,
+   Business Email, storage), and **one other business app** (ERP, CRM or POS
+   tier) when its effective footprint fits under the per-order cap and fleet
+   headroom. **Databases are not allowed as companions** (owner decision):
+   they are charged at 768 MB each and the box cannot spare it. App hosting
+   and other container-lane items are also excluded. One live shop per app per
+   account still applies. *This is the single amendment to the 2026-07-23
+   spec.*
 2. **Companions are chosen on the storefront**, on the primary product's page
    and on the product's pre-checkout step, as an "Add to your order" row with
    checkboxes. Checkout only displays them and lets the buyer remove one.
@@ -87,7 +107,8 @@ registrar or mail provider elsewhere.
    proposal (all numbers are tunable and are my guesses, not agreed):
    - POS (any tier) + Business Email (Starter): first month of email free.
    - POS or ERP + one domain: domain registration at cost (no margin).
-   - Any primary + database: setup fee (KES 500) waived.
+   Approved by the owner as acceptable margin. A cross-app saving (for
+   example ERP + POS together) is out of scope for now.
    Savings show as a negative line on the checkout summary, never hidden
    inside a changed unit price.
 5. **Billing term.** Companions follow the primary's term when the primary is
@@ -97,14 +118,16 @@ registrar or mail provider elsewhere.
 6. **Post-purchase cards.** The welcome screen and the portal Overview show
    "Complete your setup" cards for companions the buyer skipped, using the
    same catalog table. These go through the existing Add-ons invoice path,
-   so no new payment flow is needed. The bundle saving applies for 14 days
-   after the primary's payment (proposal), so skipping at checkout is not a
-   penalty.
+   so no new payment flow is needed. **The bundle saving stays available for
+   14 days after the primary's payment** (owner decision), so skipping at
+   checkout is not a penalty. The window is measured from the primary order's
+   paid time, stored on the order, and checked server-side when the add-on
+   invoice is created; after it lapses the item is sold at full price.
 7. **Capacity.** The order's reservation is the sum of primary and companion
-   footprints (`effectiveFootprint`), checked against both the per-order cap
-   and fleet headroom, before any payment is taken. A companion that would
-   push the order over either limit is shown disabled with the reason, not
-   hidden.
+   *effective* footprints (`effectiveFootprint`), checked against both the
+   per-order cap and fleet headroom, before any payment is taken. A companion
+   that would push the order over either limit is shown disabled with the
+   reason, not hidden. Storefront copy keeps the honest advertised specs.
 
 ## Backend changes
 
@@ -138,20 +161,21 @@ registrar or mail provider elsewhere.
 
 - Ship behind a flag. Order shape is backward compatible: no `companions`
   field means today's behaviour.
-- Risks: partial fulfilment (one line provisions, another fails), pro-rating
+- Risks: a customer buying a second app consumes scarce fleet headroom (see
+  open question 1); partial fulfilment (one line provisions, another fails), pro-rating
   of companions bought later, and domain pricing interacting with the saving.
   Each needs a test: partial-failure job state, add-on invoice amount with and
   without the saving window, and the domain-at-cost case.
 
-## Open questions (need the owner's call)
+## Open questions
 
-1. Are the starting savings in Decision 4 acceptable margin-wise, or should
-   email and domain be sold at full price with only the setup-fee waiver?
-2. Is the 14-day post-purchase saving window wanted, or should the saving only
-   apply at checkout?
-3. Should one 768 MB database be allowed as a companion at all, given the
-   current free-RAM gap, or restrict companions to strictly zero-RAM items
-   until capacity is resolved?
+1. Should a second business app be a companion at all, or only zero-RAM items?
+   This revision allows it (it fits by effective footprint), but with roughly
+   five bench tenants of fleet headroom, a combined ERP + POS sale consumes
+   two of them. The owner may prefer to keep this off until capacity grows.
+2. Is the live headroom check at picker time good enough, or should the
+   storefront also show a plain "limited availability" notice as the fleet
+   fills?
 
 ## Left to the builder
 
