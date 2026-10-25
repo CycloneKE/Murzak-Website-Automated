@@ -73,6 +73,19 @@
       "setupKes": 500,
       "requiresRepo": false
     },
+    "starter-wordpress": {
+      "id": "starter-wordpress",
+      "name": "WordPress (Managed)",
+      "category": "Website Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 1024,
+      "diskGb": 10,
+      "pricingModel": "addon",
+      "monthlyKes": 1500,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
     "starter-web-hosting-plus": {
       "id": "starter-web-hosting-plus",
       "name": "Website Hosting (Growth)",
