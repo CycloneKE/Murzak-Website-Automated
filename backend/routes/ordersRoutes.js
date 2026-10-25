@@ -430,6 +430,8 @@ module.exports = function (ctx) {
       const bundleSavingKes = companionRows.length ? Number(order.bundleSavingKes) || 0 : 0;
 
       let invoiceDocName;
+      // The amount the branch itself settled on (never read back from Frappe).
+      let branchAmountKes = null;
       if (hasPaidPlan) {
         // Never eligible for a term choice (eligible is false whenever
         // hasPaidPlan is true) — createAddonInvoice's own pro-rata (via
@@ -457,6 +459,7 @@ module.exports = function (ctx) {
           },
         });
         invoiceDocName = result.invoiceDocName;
+        branchAmountKes = result.amountKes;
 
         // createAddonInvoice deliberately only prices/invoices — attaching the
         // service to the Web Account is documented as "the caller's
@@ -491,6 +494,7 @@ module.exports = function (ctx) {
           throw err;
         }
         invoiceDocName = result.invoice.name;
+        branchAmountKes = result.invoice.amount;
 
         const acct = await fetchWebAccount(client, webAccountName);
         const existingServices = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
@@ -514,17 +518,22 @@ module.exports = function (ctx) {
             amount: annualAmountKes,
             billing_term: "annual",
           });
+          branchAmountKes = annualAmountKes;
         }
       }
 
       // Bundle saving: applied last, after any annual correction, so both
-      // compose. Re-read the stored invoice so the reduction is relative to
-      // whatever amount the branch above actually settled on.
+      // compose. Reduces the amount the branch above already knows; it is never
+      // read back, so a missing/partial read can never write a free invoice.
       if (bundleSavingKes > 0) {
-        const invRes = await client.get(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`);
-        const current = Number(invRes.data?.data?.amount) || 0;
+        const known = Number(branchAmountKes);
+        if (!Number.isFinite(known) || known <= 0) {
+          const e = new Error("Could not determine the invoice amount for this bundle.");
+          e.statusCode = 500;
+          throw e;
+        }
         await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
-          amount: Math.max(0, current - bundleSavingKes),
+          amount: Math.max(0, known - bundleSavingKes),
         });
       }
 
