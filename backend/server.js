@@ -96,7 +96,8 @@ const {
   sumSelectedServicesMonthlyKes,
   sumSelectedServicesSetupKes,
 } = require("./services/provisioning/catalog");
-const { createAddonInvoice } = require("./services/addonInvoiceService");
+const { createAddonInvoice, createAddonPurchaseInvoice } = require("./services/addonInvoiceService");
+const { remainingCheckoutSavingKes } = require("./services/checkout/bundles");
 const { assertNotAnnualBeforePlanChange, getCurrentBillingTerm } = require("./services/checkoutBillingTerm");
 const { PAID_SERVICE_STATUSES } = require("./services/addonEligibility");
 
@@ -1239,7 +1240,10 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
     // Pricing/eligibility/capacity gates + invoice create-or-merge live in
     // addonInvoiceService so prepare-payment (ordersRoutes) can reuse the
     // exact same logic. See services/addonInvoiceService.js.
-    const result = await createAddonInvoice({
+    // Also applies the post-purchase bundle saving (14-day window) and never
+    // merges into a bundle order's checkout invoice; both are no-ops, with no
+    // I/O, when BUNDLES_ENABLED is off.
+    const result = await createAddonPurchaseInvoice({
       client,
       webAccountName,
       services,
@@ -1248,6 +1252,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
         findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
         PORTAL_INVOICE_SERVICES_FIELD,
       },
+      nowMs: Date.now(),
     });
     const createdInvoiceId = result.invoiceDocName;
 
@@ -2242,7 +2247,17 @@ async function reconcileServiceDeletionAgainstInvoices(client, webAccountName, s
     };
 
     if (isAddonInvoice) {
-      payload.amount = sumSelectedServicesMonthlyKes(filteredServices);
+      const repricedKes = sumSelectedServicesMonthlyKes(filteredServices);
+      // A bundle order's checkout invoice keeps the saving it recorded for
+      // pairings whose primary and companion are both still on it (null =>
+      // not a bundle checkout invoice, or bundles off: priced as before).
+      // The saving is the recorded figure, never derived from the invoice.
+      const keptSavingKes = await remainingCheckoutSavingKes({
+        client,
+        invoiceDocName: invoiceName,
+        remainingServiceIds: filteredServices.map((s) => s.serviceId),
+      });
+      payload.amount = keptSavingKes > 0 && repricedKes - keptSavingKes >= 1 ? repricedKes - keptSavingKes : repricedKes;
     }
 
     await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceName)}`, payload);
@@ -3932,4 +3947,5 @@ module.exports = {
   mergeServicesById,
   findExistingUnpaidSubscriptionInvoice,
   buildInvoiceServiceRows,
+  reconcileServiceDeletionAgainstInvoices,
 };

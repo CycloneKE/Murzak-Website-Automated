@@ -24,7 +24,10 @@ async function throws(fn, code, msg) {
 const {
   createOrder, getOrder, cancelOrder, linkInvoice, reservedDraftRamMb, reconcileDraftOrders, RESERVATION_TTL_MS,
 } = require("../services/checkout/orderStore");
-const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const { sumSelectedServicesMonthlyKes, getServiceMeta } = require("../services/provisioning/catalog");
+const { markOrderPaid, setCompanions } = require("../services/checkout/orderStore");
+const { BUNDLE_WINDOW_MS } = require("../services/checkout/bundles");
+const { effectiveFootprint, thresholdMb } = require("../services/provisioning/capacity");
 
 function makeClient({ invoices = {} } = {}) {
   const docs = {}; let seq = 0;
@@ -396,6 +399,188 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     };
     const summary = await reconcileDraftOrders({ client: brokenClient, nowMs: T0 });
     ok(summary.errors === 1 && summary.checked === 0, "degrades cleanly instead of throwing into the sweep loop");
+  }
+
+
+  // ------------------------------------------------------------------
+  // Bundles: companions, saving, 14-day window
+  // ------------------------------------------------------------------
+  section("bundles: createOrder with companions stores summed footprint, saving and totalDue");
+  {
+    process.env.BUNDLES_ENABLED = "true";
+    const client = makeClient();
+    const pos = getServiceMeta("biz-pos-inventory");
+    const email = getServiceMeta("starter-email");
+    const o = await createOrder({
+      client, webAccountName: "a", serviceId: "biz-pos-inventory", config: { bundle: { savingKes: 999999, companions: [] } },
+      companions: [{ serviceId: "starter-email", config: {} }], fleetReservedRamMb: 0, nowMs: T0,
+    });
+    const raw = client.docs[o.id];
+    const expRam = effectiveFootprint(pos).ramMb + effectiveFootprint(email).ramMb;
+    ok(raw.ram_mb === expRam, `ram_mb is the summed effective footprint (${raw.ram_mb} vs ${expRam})`);
+    ok(o.totalDueKes === pos.monthlyKes + pos.setupKes + email.monthlyKes + email.setupKes - email.monthlyKes, "totalDue = primary + setup + companion - saving (first month free)");
+    ok(o.bundleSavingKes === email.monthlyKes, "bundleSavingKes reported");
+    ok(o.companions.length === 1 && o.companions[0].serviceId === "starter-email" && o.companions[0].monthlyKes === email.monthlyKes && !!o.companions[0].serviceName, "companions in API shape");
+    ok(o.bundleWindowEndsAtMs === null, "never-paid order has null window");
+    const stored = JSON.parse(raw.config_json);
+    ok(stored.bundle.savingKes === email.monthlyKes && stored.bundle.companions.length === 1, "client-sent config.bundle is ignored, server bundle stored");
+  }
+
+  section("bundles: no companions behaves as before (even with BUNDLES_ENABLED off)");
+  {
+    delete process.env.BUNDLES_ENABLED;
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: { bundle: { x: 1 } }, fleetReservedRamMb: 0, nowMs: T0 });
+    ok(o.companions.length === 0 && o.bundleSavingKes === 0 && o.totalDueKes === 1700, "plain order unchanged");
+    ok(!("bundle" in JSON.parse(client.docs[o.id].config_json)), "client bundle key dropped even without companions");
+    await throws(
+      () => createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "starter-email" }], fleetReservedRamMb: 0, nowMs: T0 }),
+      422, "companions with bundles disabled -> 422"
+    );
+    process.env.BUNDLES_ENABLED = "true";
+  }
+
+  section("bundles: capacity is checked against the summed footprint, no Draft row on failure");
+  {
+    const posRam = effectiveFootprint(getServiceMeta("biz-pos-inventory")).ramMb;
+    const crmRam = effectiveFootprint(getServiceMeta("biz-crm-helpdesk")).ramMb;
+    const fleet = thresholdMb() - posRam - Math.floor(crmRam / 2);
+    const client = makeClient();
+    const solo = await createOrder({ client: makeClient(), webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, fleetReservedRamMb: fleet, nowMs: T0 });
+    ok(solo.status === "Draft", "primary alone fits");
+    await throws(
+      () => createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "biz-crm-helpdesk" }], fleetReservedRamMb: fleet, nowMs: T0 }),
+      409, "primary + companion over threshold -> 409"
+    );
+    ok(Object.keys(client.docs).length === 0, "no Draft row written");
+  }
+
+  section("bundles: drafts with different companions are not de-duplicated");
+  {
+    const client = makeClient();
+    const a = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const b = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "starter-email" }], fleetReservedRamMb: 0, nowMs: T0 + 100 });
+    const c = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "starter-email" }], fleetReservedRamMb: 0, nowMs: T0 + 200 });
+    ok(a.id !== b.id, "with vs without companion are distinct");
+    ok(b.id === c.id, "identical companions still dedup");
+  }
+
+  section("bundles: markOrderPaid stamps the 14-day window");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "starter-email" }], fleetReservedRamMb: 0, nowMs: T0 });
+    await markOrderPaid({ client, orderId: o.id, nowMs: T0 + 5000 });
+    ok(client.docs[o.id].status === "Paid", "status Paid");
+    ok(JSON.parse(client.docs[o.id].config_json).bundle.windowEndsAtMs === T0 + 5000 + BUNDLE_WINDOW_MS, "windowEndsAtMs = nowMs + 14 days");
+    ok(JSON.parse(client.docs[o.id].config_json).bundle.companions.length === 1, "companions preserved");
+    const api = await getOrder({ client, webAccountName: "a", orderId: o.id, nowMs: T0 + 6000 });
+    ok(api.bundleWindowEndsAtMs === T0 + 5000 + BUNDLE_WINDOW_MS, "API exposes window");
+
+    const plain = await createOrder({ client, webAccountName: "a", serviceId: "starter-storage", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await markOrderPaid({ client, orderId: plain.id, nowMs: T0 });
+    ok(JSON.parse(client.docs[plain.id].config_json).bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "creates config.bundle when absent");
+  }
+
+  section("bundles: getOrder and reconcileDraftOrders paid flips stamp the window");
+  {
+    const client = makeClient({ invoices: { "INV-B1": { name: "INV-B1", status: "Paid" }, "INV-B2": { name: "INV-B2", status: "Paid" } } });
+    const o1 = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o1.id, invoiceDocName: "INV-B1" });
+    const g = await getOrder({ client, webAccountName: "a", orderId: o1.id, nowMs: T0 + 1000 });
+    ok(g.status === "Paid" && g.bundleWindowEndsAtMs === T0 + 1000 + BUNDLE_WINDOW_MS, "getOrder flip stamps window");
+    const o2 = await createOrder({ client, webAccountName: "a", serviceId: "starter-storage", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o2.id, invoiceDocName: "INV-B2" });
+    await reconcileDraftOrders({ client, nowMs: T0 + 2000 });
+    ok(JSON.parse(client.docs[o2.id].config_json).bundle.windowEndsAtMs === T0 + 2000 + BUNDLE_WINDOW_MS, "sweep flip stamps window");
+  }
+
+  section("bundles: setCompanions");
+  {
+    const client = makeClient();
+    const pos = getServiceMeta("biz-pos-inventory");
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, companions: [{ serviceId: "starter-email" }, { serviceId: "domain-com", config: { domain: "x.com" } }], fleetReservedRamMb: 0, nowMs: T0 });
+    const before = client.docs[o.id].ram_mb;
+    const upd = await setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [{ serviceId: "domain-com", config: { domain: "x.com" } }], nowMs: T0, fleetReservedRamMb: 0 });
+    ok(upd.companions.length === 1 && upd.companions[0].serviceId === "domain-com", "email removed");
+    ok(client.docs[o.id].ram_mb === effectiveFootprint(pos).ramMb && client.docs[o.id].ram_mb <= before, "ram_mb recomputed");
+    const dom = getServiceMeta("domain-com");
+    ok(upd.bundleSavingKes === 1575 && upd.totalDueKes === pos.monthlyKes + pos.setupKes + dom.monthlyKes + dom.setupKes - 1575, "saving + totalDue recomputed");
+    await throws(() => setCompanions({ client, webAccountName: "intruder", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 }), 403, "non-owner 403");
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-X" });
+    try { await setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 }); ok(false, "invoice refuses"); }
+    catch (e) { ok(e.statusCode === 409 && e.code === "ORDER_HAS_INVOICE", "refuses with 409 ORDER_HAS_INVOICE once invoiced"); }
+  }
+
+  section("bundles: setCompanions capacity");
+  {
+    const posRam = effectiveFootprint(getServiceMeta("biz-pos-inventory")).ramMb;
+    const crmRam = effectiveFootprint(getServiceMeta("biz-crm-helpdesk")).ramMb;
+    const fleet = thresholdMb() - posRam - Math.floor(crmRam / 2);
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "biz-pos-inventory", config: {}, fleetReservedRamMb: fleet, nowMs: T0 });
+    await throws(() => setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [{ serviceId: "biz-crm-helpdesk" }], nowMs: T0, fleetReservedRamMb: fleet }), 409, "own reservation excluded, summed footprint still breaks threshold");
+    ok(client.docs[o.id].ram_mb === posRam, "row untouched on failure");
+  }
+
+
+  section("I2: setCompanions enforces the per-order cap on primary + companions (422, no write)");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "biz-scalable-webapp", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    const before = JSON.stringify(client.docs[o.id]);
+    const writes = [];
+    const realPut = client.put;
+    client.put = async (url, body) => { writes.push(url); return realPut(url, body); };
+    await throws(() => setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [{ serviceId: "biz-crm-helpdesk" }], nowMs: T0, fleetReservedRamMb: 0 }),
+      422, "2,048 + 480 = 2,528 over the 2,048 cap");
+    ok(writes.length === 0 && JSON.stringify(client.docs[o.id]) === before, "nothing written");
+  }
+
+  section("bundles: markOrderPaid idempotency + preserves concurrent config writes");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await markOrderPaid({ client, orderId: o.id, nowMs: T0 });
+    await markOrderPaid({ client, orderId: o.id, nowMs: T0 + 99_000 });
+    ok(JSON.parse(client.docs[o.id].config_json).bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "second call does not extend the window");
+
+    const c2 = makeClient({ invoices: { "INV-C": { name: "INV-C", status: "Paid" } } });
+    const o2 = await createOrder({ client: c2, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client: c2, orderId: o2.id, invoiceDocName: "INV-C" });
+    const staleDoc = { ...c2.docs[o2.id] };
+    c2.docs[o2.id].config_json = JSON.stringify({ ...JSON.parse(c2.docs[o2.id].config_json), reconcile: { state: "done" }, slug: "shop" });
+    await markOrderPaid({ client: c2, orderId: o2.id, nowMs: T0, doc: staleDoc });
+    const cfg = JSON.parse(c2.docs[o2.id].config_json);
+    ok(cfg.reconcile?.state === "done" && cfg.slug === "shop" && cfg.bundle.windowEndsAtMs === T0 + BUNDLE_WINDOW_MS, "config written after the caller's read survives the Paid transition");
+  }
+
+  section("minor: with BUNDLES_ENABLED off, markOrderPaid writes exactly { status: 'Paid' } (no window stamp)");
+  {
+    const client = makeClient({ invoices: { "INV-OFF": { name: "INV-OFF", status: "Paid" } } });
+    delete process.env.BUNDLES_ENABLED;
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: { domainChoice: "x" }, fleetReservedRamMb: 0, nowMs: T0 });
+    await linkInvoice({ client, orderId: o.id, invoiceDocName: "INV-OFF" });
+    const cfgBefore = client.docs[o.id].config_json;
+    const bodies = [];
+    const realPut = client.put;
+    client.put = async (url, body) => { bodies.push(body); return realPut(url, body); };
+    const g = await getOrder({ client, webAccountName: "a", orderId: o.id, nowMs: T0 + 10 });
+    process.env.BUNDLES_ENABLED = "true";
+    ok(g.status === "Paid", "flipped to Paid");
+    ok(JSON.stringify(bodies) === JSON.stringify([{ status: "Paid" }]), `only { status: "Paid" } written: ${JSON.stringify(bodies)}`);
+    ok(client.docs[o.id].config_json === cfgBefore && g.bundleWindowEndsAtMs === null, "config_json byte-identical, no window");
+  }
+
+  section("bundles: setCompanions with an empty list works while bundles are disabled");
+  {
+    const client = makeClient();
+    const o = await createOrder({ client, webAccountName: "a", serviceId: "starter-web-hosting", config: {}, fleetReservedRamMb: 0, nowMs: T0 });
+    delete process.env.BUNDLES_ENABLED;
+    const upd = await setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 });
+    ok(upd.companions.length === 0 && upd.bundleSavingKes === 0, "empty list accepted with BUNDLES_ENABLED off");
+    client.docs[o.id].service_id = "ghost";
+    await throws(() => setCompanions({ client, webAccountName: "a", orderId: o.id, companions: [], nowMs: T0, fleetReservedRamMb: 0 }), 400, "unknown order service_id -> 400");
+    process.env.BUNDLES_ENABLED = "true";
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

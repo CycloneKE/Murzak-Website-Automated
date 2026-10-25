@@ -26,6 +26,11 @@ const isAppService = require("../services/apps/appOrder").isAppService;
 const tenantSlugs = require("../services/apps/tenantSlugStore");
 const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 const shopSetup = require("../services/apps/shopSetup");
+const setCompanions = require("../services/checkout/orderStore").setCompanions;
+const reservedDraftRamMb = require("../services/checkout/orderStore").reservedDraftRamMb;
+const capacity = require("../services/provisioning/capacity");
+const getServiceMeta = require("../services/provisioning/catalog").getServiceMeta;
+const bundles = require("../services/checkout/bundles");
 
 // Shared by POST /api/orders (order-creation, purely informational — the
 // order's own stored config.billingTerm is never read back by
@@ -116,11 +121,16 @@ module.exports = function (ctx) {
       const webAccountName = webAccountOf(req);
       if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
 
-      const { serviceId, config, planKey, source, billingTerm } = req.body || {};
+      const { serviceId, config, planKey, source, billingTerm, companions } = req.body || {};
       if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
 
-      // Per-order cap (422) before touching fleet capacity/reservations.
-      assertOrderWithinCapacity([{ serviceId }]);
+      // Per-order cap (422) before touching fleet capacity/reservations: the
+      // primary PLUS every companion is one order on the box. Unknown ids
+      // weigh 0 here and are rejected by companion validation later.
+      assertOrderWithinCapacity([
+        { serviceId },
+        ...(Array.isArray(companions) ? companions : []).map((c) => ({ serviceId: String(c?.serviceId || "") })),
+      ]);
 
       const client = frappeClient();
 
@@ -163,7 +173,7 @@ module.exports = function (ctx) {
       // whether prepare-payment reserves/links a Tenant Slug. They are set only
       // from validateAppOrder's result (app tiers); whatever the client sent under
       // those names is dropped first, so a non-app order can never carry them.
-      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, ...clientConfig } =
+      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, bundle: _clientBundle, ...clientConfig } =
         config && typeof config === "object" ? config : {};
       const storedConfig = {
         ...clientConfig,
@@ -171,6 +181,12 @@ module.exports = function (ctx) {
         ...(app ? { app: app.app, slug: app.slug, shopName: app.shopName } : {}),
       };
 
+      // A companion list is only forwarded when non-empty, so an order without
+      // companions behaves exactly as before (validateCompanions 422s whenever
+      // bundles are disabled, even for an empty list).
+      if (companions !== undefined && !Array.isArray(companions)) {
+        return res.status(422).json({ error: "companions must be a list." });
+      }
       const order = await createOrder({
         client,
         webAccountName,
@@ -180,6 +196,7 @@ module.exports = function (ctx) {
         source,
         fleetReservedRamMb,
         nowMs,
+        ...(companions && companions.length ? { companions } : {}),
       });
 
       if (app) {
@@ -201,6 +218,122 @@ module.exports = function (ctx) {
       return res.json({ ok: true, order: { ...order, billingTerm: normalizedTerm } });
     } catch (err) {
       return sendError(res, err, "Failed to create order.", "CREATE ORDER");
+    }
+  });
+
+  // Replace the companion list on a Draft order that has no invoice yet.
+  router.put("/api/orders/:id/companions", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      // Gated like the rest of the bundle surface: off => not there at all.
+      if (!bundles.bundlesEnabled()) return res.status(404).json({ error: "Not found." });
+      const companions = (req.body || {}).companions;
+      if (!Array.isArray(companions)) return res.status(422).json({ error: "companions must be a list." });
+
+      const client = frappeClient();
+      const fleetReservedRamMb = (await getReservedRamMb(client)) || 0;
+      const order = await setCompanions({
+        client,
+        webAccountName,
+        orderId: req.params.id,
+        companions,
+        nowMs: Date.now(),
+        fleetReservedRamMb,
+      });
+      return res.json({ ok: true, order });
+    } catch (err) {
+      return sendError(res, err, "Failed to update companions.", "SET COMPANIONS");
+    }
+  });
+
+  // Headroom for the public availability endpoint, memoized in-process for
+  // 30 s with a single flight: one public, unauthenticated URL must not turn
+  // every storefront page view into two full Frappe list scans. A failed read
+  // is answered "limited" but never memoized, so the next request retries.
+  const HEADROOM_MEMO_MS = 30 * 1000;
+  let headroomMemo = null; // { at, promise }
+  async function computeAvailabilityHeadroom() {
+    const limited = { benchSlotsLeft: 0, level: "limited" };
+    try {
+      const client = frappeClient();
+      const fleetReservedRamMb = await getReservedRamMb(client);
+      // getReservedRamMb answers null when it could not read the fleet:
+      // unknown is not empty, so it must never read as 0 / "ok".
+      if (fleetReservedRamMb === null || fleetReservedRamMb === undefined || !Number.isFinite(Number(fleetReservedRamMb))) {
+        console.error("BUNDLE AVAILABILITY headroom read failed: fleet reservation unknown");
+        return { headroom: limited, ok: false };
+      }
+      const draftMb = (await reservedDraftRamMb(client, Date.now())) || 0;
+      return {
+        ok: true,
+        headroom: bundles.computeHeadroom({
+          thresholdMb: capacity.thresholdMb(),
+          reservedMb: Number(fleetReservedRamMb) + draftMb,
+          benchTenantRamMb: capacity.benchTenantRamMb(),
+        }),
+      };
+    } catch (err) {
+      console.error("BUNDLE AVAILABILITY headroom read failed:", err.message);
+      return { headroom: limited, ok: false };
+    }
+  }
+  function availabilityHeadroom(nowMs) {
+    if (headroomMemo && nowMs - headroomMemo.at < HEADROOM_MEMO_MS) return headroomMemo.promise.then((r) => r.headroom);
+    const memo = { at: nowMs, promise: computeAvailabilityHeadroom() };
+    headroomMemo = memo;
+    memo.promise.then((r) => { if (!r.ok && headroomMemo === memo) headroomMemo = null; });
+    return memo.promise.then((r) => r.headroom);
+  }
+
+  // Public storefront data: which pairings save money, which items may be added
+  // as companions, and how much bench capacity is left. No auth; the HTTP
+  // response carries Cache-Control max-age=30 and the headroom is memoized
+  // in-process for 30 s (single flight, failures not memoized).
+  // Flag off => disabled, empty lists and a neutral headroom (the storefront
+  // hides everything). Any capacity read failure, including an unknown (null)
+  // fleet reservation => level "limited" with 0 slots (never a 500); pairings
+  // are still returned.
+  router.get("/api/bundles/availability", async (req, res) => {
+    res.set("Cache-Control", "public, max-age=30");
+    if (!bundles.bundlesEnabled()) {
+      return res.json({ enabled: false, pairings: [], allowedCompanionIds: [], headroom: { benchSlotsLeft: 0, level: "ok" } });
+    }
+    const headroom = await availabilityHeadroom(Date.now());
+    return res.json({
+      enabled: true,
+      pairings: bundles.publicPairings(),
+      allowedCompanionIds: bundles.allowedCompanionIds(),
+      headroom,
+    });
+  });
+
+  // Post-purchase offers: allowed companions the account does not own yet, with
+  // the saving still available inside each open 14-day window.
+  router.get("/api/bundles/offers", requireAuth, async (req, res) => {
+    try {
+      const webAccountName = webAccountOf(req);
+      if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
+      if (!bundles.bundlesEnabled()) return res.json({ enabled: false, offers: [] });
+
+      const client = frappeClient();
+      const nowMs = Date.now();
+      const windows = await bundles.activeBundleWindows({ client, webAccountName, nowMs });
+      if (!windows.length) return res.json({ enabled: true, offers: [] });
+
+      let acct = null;
+      try {
+        acct = await fetchWebAccount(client, webAccountName);
+      } catch (fe) {
+        if (fe.response?.status !== 404) throw fe;
+      }
+      const owned = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD])).map((s) => s.serviceId);
+      return res.json({
+        enabled: true,
+        offers: bundles.offersForWindows({ windows, ownedServiceIds: owned, nowMs }),
+      });
+    } catch (err) {
+      return sendError(res, err, "Failed to load offers.", "BUNDLE OFFERS");
     }
   });
 
@@ -378,7 +511,30 @@ module.exports = function (ctx) {
           : (order.config?.domainChoice || ""),
       };
 
+      // One row per line: the primary, then each bundled companion. A domain
+      // companion carries the domain string from its own config.domain, the
+      // same convention a domain primary uses above.
+      const companionRows = (Array.isArray(order.config?.bundle?.companions) ? order.config.bundle.companions : [])
+        .map((c) => {
+          const m = getServiceMeta(c.serviceId) || {};
+          return {
+            serviceId: c.serviceId,
+            serviceName: m.name || c.serviceId,
+            tier: m.tier || "",
+            domainChoice: m.category === "Domain Registration"
+              ? String(c.config?.domain || "").trim()
+              : (c.config?.domainChoice || ""),
+          };
+        });
+      const serviceRows = [serviceRow, ...companionRows];
+      const bundleSavingKes = companionRows.length ? Number(order.bundleSavingKes) || 0 : 0;
+
       let invoiceDocName;
+      // The amount the branch itself settled on (never read back from Frappe).
+      let branchAmountKes = null;
+      // What each line costs on that invoice (Map serviceId -> KES), known by
+      // the branch alongside its total; only read when a saving applies.
+      let lineAmountsKes = null;
       if (hasPaidPlan) {
         // Never eligible for a term choice (eligible is false whenever
         // hasPaidPlan is true) — createAddonInvoice's own pro-rata (via
@@ -387,7 +543,7 @@ module.exports = function (ctx) {
         const result = await createAddonInvoice({
           client,
           webAccountName,
-          services: [serviceRow],
+          services: serviceRows,
           // This order already quoted the buyer one specific total
           // (order.totalDueKes, shown on the checkout page). Adopting an
           // existing open invoice would recompute the amount across every row
@@ -406,6 +562,10 @@ module.exports = function (ctx) {
           },
         });
         invoiceDocName = result.invoiceDocName;
+        branchAmountKes = result.amountKes;
+        // Pro-rated per-line amounts on an annual-term account; the saving is
+        // capped by these, never by the catalog price.
+        lineAmountsKes = new Map((Array.isArray(result.lines) ? result.lines : []).map((l) => [l.serviceId, Number(l.amountKes)]));
 
         // createAddonInvoice deliberately only prices/invoices — attaching the
         // service to the Web Account is documented as "the caller's
@@ -420,7 +580,7 @@ module.exports = function (ctx) {
         // point in the flow.
         const acctForAddon = await fetchWebAccount(client, webAccountName);
         const existingForAddon = normalizeExistingAccountServiceRows(asArray(acctForAddon?.[WEB_ACCOUNT_SERVICES_FIELD]));
-        const mergedForAddon = mergeServicesById(existingForAddon, [serviceRow]);
+        const mergedForAddon = mergeServicesById(existingForAddon, serviceRows);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(mergedForAddon));
       } else {
         // First purchase: apply the order's plan and bill it, then attach
@@ -430,7 +590,7 @@ module.exports = function (ctx) {
         // opts object here makes applyPlanAndCreateInvoice default
         // selectedServices to [], bill KES 0, and skip invoice creation
         // entirely (server.js's zero_amount early-return).
-        const result = await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", [serviceRow], {
+        const result = await applyPlanAndCreateInvoice(client, webAccountName, order.planKey || "Starter", serviceRows, {
           force: true,
           creditKes: 0,
         });
@@ -440,10 +600,17 @@ module.exports = function (ctx) {
           throw err;
         }
         invoiceDocName = result.invoice.name;
+        branchAmountKes = result.invoice.amount;
+        // applyPlanAndCreateInvoice bills each new row its monthly price plus
+        // its one-time setup.
+        lineAmountsKes = new Map(serviceRows.map((r) => {
+          const m = getServiceMeta(r.serviceId) || {};
+          return [r.serviceId, (Number(m.monthlyKes) || 0) + (Number(m.setupKes) || 0)];
+        }));
 
         const acct = await fetchWebAccount(client, webAccountName);
         const existingServices = normalizeExistingAccountServiceRows(asArray(acct?.[WEB_ACCOUNT_SERVICES_FIELD]));
-        const merged = mergeServicesById(existingServices, [serviceRow]);
+        const merged = mergeServicesById(existingServices, serviceRows);
         await updateWebAccountServices(client, webAccountName, buildWebAccountServiceRows(merged));
 
         // applyPlanAndCreateInvoice has no billing-term awareness — it
@@ -457,12 +624,62 @@ module.exports = function (ctx) {
         // own pro-ration, and re-applying annualPrepayKes there would
         // 12x-overcharge an add-on.
         if (effectiveBillingTerm === "annual") {
-          const monthlySumKes = sumSelectedServicesMonthlyKes([serviceRow]);
-          const annualAmountKes = annualPrepayKes(monthlySumKes);
+          // A bundle order bills each companion line by its own rule (a
+          // domain's price is already yearly; companion setup once) — see
+          // bundles.annualBundleAmounts. No companions: exactly as before.
+          let annualAmountKes;
+          if (companionRows.length) {
+            const annual = bundles.annualBundleAmounts({ primaryId: order.serviceId, companionIds: companionRows.map((r) => r.serviceId) });
+            annualAmountKes = annual.totalKes;
+            lineAmountsKes = new Map(annual.lines.map((l) => [l.serviceId, l.amountKes]));
+          } else {
+            annualAmountKes = annualPrepayKes(sumSelectedServicesMonthlyKes(serviceRows));
+          }
           await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
             amount: annualAmountKes,
             billing_term: "annual",
           });
+          branchAmountKes = annualAmountKes;
+        }
+      }
+
+      // Bundle saving: applied last, after any annual correction, so both
+      // compose. Reduces the amount the branch above already knows; it is never
+      // read back, so a missing/partial read can never write a free invoice.
+      // Each pairing's saving is capped at what its own line costs on this
+      // invoice (a pro-rated annual line can be far below the catalog price),
+      // and a saving that would leave less than 1 is not applied at all.
+      if (bundleSavingKes > 0) {
+        const known = Number(branchAmountKes);
+        if (!Number.isFinite(known) || known <= 0) {
+          const e = new Error("Could not determine the invoice amount for this bundle.");
+          e.statusCode = 500;
+          throw e;
+        }
+        const plan = bundles.planCheckoutSaving({
+          primaryId: order.serviceId,
+          companions: order.config?.bundle?.companions,
+          quotedSavingKes: bundleSavingKes,
+          lineAmounts: lineAmountsKes,
+          knownKes: known,
+        });
+        if (plan.totalKes > 0) {
+          // Claim first (recorded on the order, serialized per order), then the
+          // invoice PUT; a failed PUT releases the claim. The recorded entries
+          // are what stop the same pairing's saving being taken again later.
+          const entries = await bundles.recordCheckoutSaving({ client, orderId, invoiceDocName, savings: plan.savings });
+          try {
+            await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
+              amount: known - plan.totalKes,
+            });
+          } catch (putErr) {
+            await bundles.releaseCheckoutSaving({ client, orderId, invoiceDocName, entries }).catch((relErr) => {
+              console.error(`BUNDLE CHECKOUT CLAIM ROLLBACK FAILED for order ${orderId}:`, relErr.message);
+            });
+            throw putErr;
+          }
+        } else {
+          console.warn(`PREPARE PAYMENT: bundle saving on ${orderId} not applied (it would leave the invoice below 1).`);
         }
       }
 

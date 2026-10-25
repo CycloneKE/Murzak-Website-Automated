@@ -39,7 +39,8 @@ import {
   ProvisioningActivityEntry,
   DeploymentEntry,
 } from "../../services/serviceActivity";
-import { SERVICE_CATALOG, type PlanCode } from "../../config/serviceCatalog";
+import { SERVICE_CATALOG, getService, type PlanCode } from "../../config/serviceCatalog";
+import { isDomainCompanionId } from "../../services/bundles";
 import { normalizePlanToCode } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 import { useCustomerDomains } from "./state/useCustomerDomains";
@@ -86,9 +87,19 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const [addonsOpen, setAddonsOpen] = useState(false);
+  const [addonsOpen, setAddonsOpenRaw] = useState(false);
   const [addonsSourceTab, setAddonsSourceTab] = useState<"overview" | "cloud" | "billing">("overview");
   const [addonsLoading, setAddonsLoading] = useState(false);
+  // Optional service the Add-ons modal opens with already selected (set by the
+  // "Complete your setup" cards); cleared whenever the modal closes.
+  const [addonsPreselectId, setAddonsPreselectId] = useState<string | null>(null);
+  // Every open/close that goes through this setter drops any preselection, so
+  // a direct open (e.g. Profile's "Add Services") never inherits a stale one.
+  // Only openAddonsModal(tab, id) sets a preselection, after calling this.
+  const setAddonsOpen = (open: boolean) => {
+    setAddonsPreselectId(null);
+    setAddonsOpenRaw(open);
+  };
 
   const [deleteTarget, setDeleteTarget] = useState<SelectedServiceView | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -540,10 +551,24 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
 
 
-  const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing") => {
+  const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing", preselectId?: string) => {
     setAddonsSourceTab(sourceTab);
-    setAddonsOpen(true);
+    // The modal has no name field, so a domain is never preselected in it
+    // (it would be bought with no name); domain offers buy via buyOfferedDomain.
+    setAddonsPreselectId(preselectId && !isDomainCompanionId(preselectId) ? preselectId : null);
+    setAddonsOpenRaw(true);
   };
+
+  // Arrival from a "Complete your setup" card on the checkout-welcome/thank-you
+  // pages: navigate("/portal/overview", { state: { addonsPreselect: <id> } })
+  // opens the Add-ons modal with that service already selected.
+  useEffect(() => {
+    const id = (location.state as any)?.addonsPreselect;
+    if (typeof id !== "string" || !id) return;
+    openAddonsModal("overview", id);
+    // Consume it so a refresh/back doesn't reopen the modal.
+    window.history.replaceState({}, document.title);
+  }, [location.state]);
 
   // --------------------------
   // Services (derived)
@@ -877,8 +902,11 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const applyAddonsSelection = async ({
     chargeable,
+    destination,
   }: {
     chargeable: any[];
+    /** Tab to land on afterwards; defaults to where the Add-ons modal was opened. */
+    destination?: Tab;
   }) => {
     try {
       // Create invoice + attach the selected add-ons (always billed — there
@@ -895,7 +923,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
               serviceId: s.id,
               serviceName: s.name,
               tier: s.tier,
-              domainChoice: "",
+              // Only an offered-domain purchase carries a name; catalog add-ons have none.
+              domainChoice: s.domainChoice || "",
             })),
           }),
         });
@@ -909,11 +938,22 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
         }
       }
 
-      onTabClick(addonsSourceTab);
+      onTabClick(destination || addonsSourceTab);
       setAddonsOpen(false);
     } catch (err) {
       throw err;
     }
+  };
+
+  // A "Complete your setup" domain offer: the customer picked a full name on
+  // the card, so it is bought with that name (never through the modal), and
+  // they land on Billing to pay it.
+  const buyOfferedDomain = async (serviceId: string, domain: string) => {
+    const svc = getService(serviceId);
+    await applyAddonsSelection({
+      chargeable: [{ id: serviceId, name: svc?.name || serviceId, tier: svc?.tier || "", domainChoice: domain }],
+      destination: "billing",
+    });
   };
 
   const activeServices = selectedServices.filter((s) => s.status === "Active");
@@ -1024,7 +1064,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
         serviceId: s.id,
         serviceName: s.name,
         tier: s.tier,
-        domainChoice: "",
+        domainChoice: s.domainChoice || "",
       })),
     };
 
@@ -1206,10 +1246,12 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     setDomainNotice,
     addonsDisabledReason,
     addonsOpen,
+    addonsPreselectId,
     addonsSourceTab,
     adminUnread,
     allMenuItems,
     applyAddonsSelection,
+    buyOfferedDomain,
     cloudAccessUrl,
     cloudJob,
     cloudServiceId,

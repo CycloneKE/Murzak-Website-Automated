@@ -90,6 +90,24 @@ function assertNotFreeAnnualAddonInvoice({ term, amount, anchorDate, serviceRows
   throw err;
 }
 
+// Same TLD map and domain shape orderStore.js checks a domain order against
+// (assertDomainConfigMatchesService); required lazily to keep load order flat.
+const DOMAIN_NAME_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+function assertAddonDomainNamed(serviceId, domainChoice) {
+  const { DOMAIN_PRODUCT_TLDS } = require("./checkout/orderStore");
+  const tld = DOMAIN_PRODUCT_TLDS[serviceId];
+  const name = String(domainChoice || "").trim().toLowerCase();
+  if (tld && DOMAIN_NAME_RE.test(name) && name.endsWith(tld) && name.length > tld.length) return;
+  const err = new Error(
+    tld
+      ? `Choose the domain name to register (it must end in ${tld}).`
+      : `This domain ending cannot be bought as an add-on: ${serviceId}.`
+  );
+  err.statusCode = 422;
+  err.code = "DOMAIN_NAME_REQUIRED";
+  throw err;
+}
+
 /**
  * FIX ROUND 3, second signal: does this account have a PAID invoice
  * (Subscription or Add-on, never Trial Verification) carrying a non-domain
@@ -188,9 +206,9 @@ async function resolveNonDomainPaidHistory({ client, webAccountName, accountServ
  * recomputed amountKes to its caller, so the total it charges is the total it
  * reports.
  *
- * @returns {Promise<{invoiceDocName: string, amountKes: number}>}
+ * @returns {Promise<{invoiceDocName: string, amountKes: number, lines: Array<{serviceId: string, amountKes: number}>}>}
  */
-async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true }) {
+async function createAddonInvoice({ client, webAccountName, services, deps, mergeIntoOpenInvoice = true, canMergeInto }) {
   const {
     fetchWebAccount, hasPaidSubscriptionForPlan, normalizeSelectedServices,
     findOpenInvoice, normalizeInvoiceServiceRow, buildInvoiceServiceRows,
@@ -264,6 +282,11 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
       err.statusCode = 400;
       throw err;
     }
+    // A domain is a NAME: selling "a .com" with no name bills the customer
+    // for something nobody can register (the Complete-your-setup domain
+    // cards used to do exactly this). Every add-on domain must carry a
+    // well-formed name ending in the TLD its catalog id prices.
+    if (meta.category === "Domain Registration") assertAddonDomainNamed(s.serviceId, s.domainChoice);
     // A domain add-on never needs the history flag (isAddonEligible
     // short-circuits on category before reading it) — pass true explicitly
     // so buying a domain never triggers the paid-invoice scan.
@@ -324,12 +347,27 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
       : monthlySum;
   const amount = recurringAmount + setupFee;
 
+  // What each row costs on this invoice, by the SAME arithmetic as the totals
+  // (recurring, pro-rated on annual terms, plus one-time setup). Informational:
+  // ordersRoutes caps a bundle saving at the line it belongs to with it.
+  const lineAmountsFor = (rows) =>
+    rows.map((s) => {
+      const meta = getServiceMeta(s.serviceId);
+      const monthly = Number(meta?.monthlyKes) || 0;
+      const recurring = term === "annual" ? proRatedAddonKes(monthly, daysRemainingInTerm(anchorDate)) : monthly;
+      return { serviceId: s.serviceId, amountKes: recurring + (Number(meta?.setupKes) || 0) };
+    });
+  let invoiceLines = lineAmountsFor(norm);
+
   const today = new Date().toISOString().slice(0, 10);
 
-  // Find any open unpaid add-on invoice
-  const open = mergeIntoOpenInvoice
+  // Find any open unpaid add-on invoice. `canMergeInto` (optional) may veto
+  // adopting it — the add-on endpoint uses it to keep a bundle order's
+  // checkout invoice (a quoted total with its saving) out of the merge.
+  let open = mergeIntoOpenInvoice
     ? await findOpenInvoice(client, webAccountName, "Add-on")
     : null;
+  if (open?.name && typeof canMergeInto === "function" && !(await canMergeInto(open))) open = null;
 
   let createdInvoiceId = null;
   let invoiceAmountKes = amount;
@@ -414,6 +452,7 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     });
     createdInvoiceId = open.name;
     invoiceAmountKes = mergedAmount;
+    invoiceLines = lineAmountsFor(mergedServices);
   } else {
     assertNotFreeAnnualAddonInvoice({ term, amount: recurringAmount, anchorDate, serviceRows: norm });
 
@@ -442,11 +481,41 @@ async function createAddonInvoice({ client, webAccountName, services, deps, merg
     invoiceAmountKes = amount;
   }
 
-  return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes };
+  return { invoiceDocName: createdInvoiceId, amountKes: invoiceAmountKes, lines: invoiceLines };
+}
+
+/**
+ * Everything POST /api/addons/invoice/create does to price an add-on purchase,
+ * in one testable place: create (or merge into an open) Add-on invoice, never
+ * merging into a bundle order's checkout invoice, then apply any open 14-day
+ * bundle-window saving to the amount just computed (never read back). With
+ * BUNDLES_ENABLED off both bundle steps are no-ops with no I/O.
+ */
+async function createAddonPurchaseInvoice({ client, webAccountName, services, deps, nowMs = Date.now() }) {
+  // Required lazily: bundles.js -> catalog etc. never needs this module, but
+  // keep the dependency one-way and late.
+  const bundles = require("./checkout/bundles");
+  const result = await createAddonInvoice({
+    client,
+    webAccountName,
+    services,
+    deps,
+    canMergeInto: (open) => bundles.isMergeableAddonInvoice(client, open.name),
+  });
+  await bundles.applyAddOnSaving({
+    client,
+    webAccountName,
+    invoiceDocName: result.invoiceDocName,
+    amountKes: result.amountKes,
+    serviceIds: deps.normalizeSelectedServices(services).map((s) => s.serviceId),
+    nowMs,
+  });
+  return result;
 }
 
 module.exports = {
   createAddonInvoice,
+  createAddonPurchaseInvoice,
   resolveNonDomainPaidHistory,
   accountHasPaidNonDomainInvoiceLine,
   PAID_BILLING_INVOICE_TYPES,

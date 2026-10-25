@@ -6,6 +6,7 @@ import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import Breadcrumbs from '../../components/Breadcrumbs';
 import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
+import { ProductCompanions } from '../../components/CompanionPicker';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -119,6 +120,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
         <div className="max-w-2xl mx-auto px-6 text-center">
+          <ProductCompanions primaryId="biz-crm-helpdesk" className="mb-12 text-left" />
           <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Never miss a follow-up.</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="primary" onClick={() => onNavigate('/checkout/new?serviceId=biz-crm-helpdesk')}>

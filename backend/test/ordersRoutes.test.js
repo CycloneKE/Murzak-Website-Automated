@@ -22,13 +22,18 @@ const createOrdersRouter = require("../routes/ordersRoutes");
 const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
-const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const { sumSelectedServicesMonthlyKes, sumSelectedServicesSetupKes } = require("../services/provisioning/catalog");
 const { annualPrepayKes } = require("../services/billingTerm");
+const realCreateAddonInvoice = require("../services/addonInvoiceService").createAddonInvoice;
+process.env.BUNDLES_ENABLED = "true";
 
 function makeRes() {
   const r = { statusCode: 200, body: null };
   r.status = (c) => { r.statusCode = c; return r; };
   r.json = (b) => { r.body = b; return r; };
+  r.headers = {};
+  r.set = (k, v) => { r.headers[String(k).toLowerCase()] = v; return r; };
+  r.setHeader = r.set;
   return r;
 }
 function findHandler(router, method, path) {
@@ -1151,6 +1156,718 @@ function baseCtx(client, overrides = {}) {
     ok(owner.body?.available === true, "the signed-in holder sees their own address as available");
     const ownerViaUser = await call("pos", "takenshop", { user: { id: "acct-owner" } });
     ok(ownerViaUser.body?.available === true, "session.user.id is honoured too");
+  }
+
+  // ---- Bundles: companions, one combined invoice, saving applied ----
+  // Mirrors the real applyPlanAndCreateInvoice's relationship: monthly sum PLUS
+  // one-time setup for new rows (the base mock above omits setup).
+  async function applyWithSetup(client, webAccountName, planKey, rows = [], opts = {}) {
+    await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`, { plan: planKey, account_status: "Active" });
+    const amount = sumSelectedServicesMonthlyKes(rows) + sumSelectedServicesSetupKes(rows);
+    const created = await client.post("/api/resource/Portal Invoice", {
+      web_account: webAccountName, type: "Subscription", plan: planKey, status: "Unpaid", amount,
+      services: rows.map((r) => ({ ...r })),
+    });
+    return { ok: true, invoice: created.data?.data };
+  }
+  const BUNDLE_PRIMARY = "biz-erp-light";
+  const BUNDLE_COMPANIONS = [
+    { serviceId: "starter-email" },
+    { serviceId: "domain-com", config: { domain: "acme.com" } },
+  ];
+  const bundleRows = [BUNDLE_PRIMARY, "starter-email", "domain-com"].map((serviceId) => ({ serviceId }));
+  const draftCount = (client) => Object.keys(client.store["Checkout Order"] || {}).length;
+
+  section("bundles — POST /api/orders with companions returns the combined total");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b1" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, res);
+    const expected = sumSelectedServicesMonthlyKes(bundleRows) + sumSelectedServicesSetupKes(bundleRows) - 1575;
+    ok(res.statusCode === 200, "status 200");
+    ok(res.body?.order?.companions?.length === 2, "order lists 2 companions");
+    ok(res.body?.order?.bundleSavingKes === 1575, "saving is the domain-com pairing (1575)");
+    ok(res.body?.order?.totalDueKes === expected, `totalDueKes === ${expected} (got ${res.body?.order?.totalDueKes})`);
+  }
+
+  section("bundles — crafted companion lists are 422 and leave no Draft row");
+  {
+    const lists = {
+      "unknown id": [{ serviceId: "nope" }],
+      "primary repeated": [{ serviceId: BUNDLE_PRIMARY }],
+      "duplicates": [{ serviceId: "starter-email" }, { serviceId: "starter-email" }],
+      "a 4th companion": [{ serviceId: "starter-email" }, { serviceId: "starter-storage" },
+        { serviceId: "domain-com", config: { domain: "a.com" } }, { serviceId: "domain-org", config: { domain: "a.org" } }],
+      "a database": [{ serviceId: "db-mysql" }],
+      "POS as companion": [{ serviceId: "biz-pos-duka", config: { app: "pos", shopName: "X" } }],
+    };
+    for (const [label, companions] of Object.entries(lists)) {
+      const client = makeMockFrappe();
+      const router = createOrdersRouter(baseCtx(client));
+      const res = makeRes();
+      await findHandler(router, "post", "/api/orders")(
+        { session: { webAccount: "acct-b2" }, body: { serviceId: BUNDLE_PRIMARY, companions } }, res);
+      ok(res.statusCode === 422, `${label} -> 422 (got ${res.statusCode})`);
+      ok(draftCount(client) === 0, `${label} -> no Draft row`);
+    }
+  }
+
+  section("bundles — a capacity-breaking companion list is 409 CAPACITY with no row");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client, { getReservedRamMb: async () => 999999 }));
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b3" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, res);
+    ok(res.statusCode === 409 && res.body?.code === "CAPACITY", "409 CAPACITY");
+    ok(draftCount(client) === 0, "no Draft row");
+  }
+
+  section("I2 — per-order cap counts companions: Scalable Web App 2,048 + CRM 480 = 2,528 > 2,048 -> 422, no row");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i2" }, body: { serviceId: "biz-scalable-webapp", companions: [{ serviceId: "biz-crm-helpdesk" }] } }, res);
+    ok(res.statusCode === 422, `422 (got ${res.statusCode})`);
+    ok(draftCount(client) === 0, "no Draft row");
+    const alone = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i2" }, body: { serviceId: "biz-scalable-webapp" } }, alone);
+    ok(alone.statusCode === 200, "the primary alone (2,048) is still accepted");
+
+    const put = makeRes();
+    const before = JSON.stringify(client.store["Checkout Order"][alone.body.order.id]);
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-i2" }, params: { id: alone.body.order.id }, body: { companions: [{ serviceId: "biz-crm-helpdesk" }] } }, put);
+    ok(put.statusCode === 422, `PUT companions over the cap -> 422 (got ${put.statusCode})`);
+    ok(JSON.stringify(client.store["Checkout Order"][alone.body.order.id]) === before, "order untouched");
+    const zero = makeRes();
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-i2" }, params: { id: alone.body.order.id }, body: { companions: [{ serviceId: "starter-email" }] } }, zero);
+    ok(zero.statusCode === 200, "a zero-RAM companion still fits");
+  }
+
+  section("bundles — a client-sent config.bundle is dropped");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b4" }, body: { serviceId: "starter-web-hosting",
+        config: { bundle: { companions: [{ serviceId: "starter-email" }], savingKes: 99999 } } } }, res);
+    ok(res.statusCode === 200 && res.body.order.companions.length === 0 && res.body.order.bundleSavingKes === 0,
+      "forged bundle ignored");
+  }
+
+  section("bundles — prepare-payment first purchase (monthly): one row per line, amount === totalDueKes");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-b5": { name: "acct-b5", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b5" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const order = cr.body.order;
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-b5" }, params: { id: order.id }, body: {} }, res);
+    ok(res.statusCode === 200, "status 200");
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.services.length === 3, "invoice has one row per line (3)");
+    ok(inv.amount === order.totalDueKes, `invoice amount ${inv.amount} === order.totalDueKes ${order.totalDueKes}`);
+    const domRow = inv.services.find((r) => r.serviceId === "domain-com");
+    ok(domRow?.domainChoice === "acme.com", "domain companion row carries domainChoice acme.com");
+    const waIds = client.store["Web Account"]["acct-b5"].selected_services.map((r) => r.serviceId).sort();
+    ok(JSON.stringify(waIds) === JSON.stringify([BUNDLE_PRIMARY, "domain-com", "starter-email"].sort()),
+      "Web Account services include every line");
+    ok(client.store["Web Account"]["acct-b5"].selected_services.find((r) => r.serviceId === "domain-com")?.domainChoice === "acme.com",
+      "Web Account domain row carries domainChoice");
+  }
+
+  section("bundles — prepare-payment first purchase (annual): non-domain rows annualised, domain yearly price once, minus saving");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-b6": { name: "acct-b6", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b6" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-b6" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    // ERP Light 6,000 + Business Email 1,500 annualised: (6,000 + 1,500) x 12 x 0.8 = 72,000.
+    // .com is already a yearly price (4,200), added once. Saving 1,575.
+    // ERP's own 5,000 setup is not on an annual first purchase (unchanged primary rule).
+    ok(inv.amount === 74625, `annual invoice amount 74,625 (got ${inv.amount})`);
+    ok(inv.billing_term === "annual", "billing_term annual");
+  }
+
+  section("C1 — POS Duka + .com annual: 24,000 + 4,200 - 1,575 = 26,625 (domain never annualised)");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1": { name: "acct-c1", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Duka C1", slug: "duka-c1" },
+        companions: [{ serviceId: "domain-com", config: { domain: "dukac1.com" } }] } }, cr);
+    ok(cr.statusCode === 200 && cr.body.order.bundleSavingKes === 1575, `order created with saving 1,575 (status ${cr.statusCode})`);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.amount === 26625, `annual invoice 26,625 (got ${inv?.amount})`);
+    ok(inv.billing_term === "annual", "billing_term annual");
+  }
+
+  section("C1 — a companion's one-time setup fee is billed once on annual, un-annualised");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1s": { name: "acct-c1s", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1s" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Duka S", slug: "duka-c1s" },
+        companions: [{ serviceId: "biz-email" }] } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1s" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    // (2,500 + 2,500) x 9.6 = 48,000, plus biz-email's 500 setup once. No pairing, no saving.
+    ok(inv.amount === 48500, `annual invoice 48,500 (got ${inv?.amount})`);
+  }
+
+  section("C1 — a companion-less annual order is billed exactly as before");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1p": { name: "acct-c1p", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1p" }, body: { serviceId: BUNDLE_PRIMARY } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1p" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.amount === annualPrepayKes(6000) && inv.amount === 57600, `ERP Light alone annual 57,600 (got ${inv?.amount})`);
+  }
+
+  section("bundles — prepare-payment add-on branch (paid plan): combined invoice, amount === totalDueKes");
+  {
+    const client = makeMockFrappe({
+      "Web Account": { "acct-b7": { name: "acct-b7", plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+    const router = createOrdersRouter(baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+    }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b7" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const order = cr.body.order;
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-b7" }, params: { id: order.id }, body: {} }, res);
+    ok(res.statusCode === 200, "status 200");
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.services.length === 3, "invoice has one row per line (3)");
+    ok(inv.amount === order.totalDueKes, `invoice amount ${inv.amount} === order.totalDueKes ${order.totalDueKes}`);
+    const domRow = inv.services.find((r) => (r.serviceId || r.service_id) === "domain-com");
+    ok((domRow?.domainChoice || domRow?.domain_choice) === "acme.com", "domain companion row carries domainChoice");
+    const waIds = client.store["Web Account"]["acct-b7"].selected_services.map((r) => r.serviceId);
+    ok(["starter-app-hosting", BUNDLE_PRIMARY, "starter-email", "domain-com"].every((id) => waIds.includes(id)),
+      "Web Account keeps the existing row and gains every line");
+  }
+
+  // ---- I3: paid-plan ANNUAL account, pro-rated lines; the saving is capped
+  // at the line it belongs to and the invoice never drops below 1. ----
+  function annualAccountClient(acct, daysLeft) {
+    const start = new Date(Date.now() - (365 - daysLeft) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return makeMockFrappe({
+      // Seeded first: the mock ignores filters, so this is the "last paid Subscription".
+      "Portal Invoice": { "PINV-ANNUAL": { name: "PINV-ANNUAL", web_account: acct, type: "Subscription", status: "Paid",
+        billing_term: "annual", invoice_date: start } },
+      "Web Account": { [acct]: { name: acct, plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+  }
+  async function prepareOnAnnualAccount(acct, daysLeft, companions, slug) {
+    const client = annualAccountClient(acct, daysLeft);
+    const router = createOrdersRouter(baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+    }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: acct }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop " + slug, slug }, companions } }, cr);
+    const invoicePuts = [];
+    const realPut = client.put;
+    client.put = async (url, body, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts.push(body); return realPut(url, body, ...r); };
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: acct }, params: { id: cr.body.order.id }, body: {} }, res);
+    const inv = res.body?.invoiceDocName ? client.store["Portal Invoice"][res.body.invoiceDocName] : null;
+    const order = client.store["Checkout Order"][cr.body.order.id];
+    return { client, cr, res, inv, invoicePuts, order };
+  }
+
+  section("I3 — 8 days left: POS Duka 526 + .com 884; saving capped at the .com line (884), invoice 526");
+  {
+    const { res, inv, invoicePuts } = await prepareOnAnnualAccount("acct-i3a", 8,
+      [{ serviceId: "domain-com", config: { domain: "i3a.com" } }], "i3a-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode} ${JSON.stringify(res.body)})`);
+    ok(inv?.amount === 526, `invoice 1,410 - 884 = 526 (got ${inv?.amount})`);
+    ok(!invoicePuts.some((b) => "amount" in b && !(b.amount >= 1)), "never wrote an amount below 1");
+  }
+
+  section("I3 — 8 days left, tiny line: Duka 526 + Business Email 316; first month free capped at 316, invoice 526");
+  {
+    const { res, inv } = await prepareOnAnnualAccount("acct-i3b", 8, [{ serviceId: "starter-email" }], "i3b-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    ok(inv?.amount === 526, `invoice 842 - 316 = 526 (got ${inv?.amount})`);
+  }
+
+  section("I3 — 200 days left (mid-term): Duka 13,151 + .com 22,093; full 1,575 saving, invoice 33,669");
+  {
+    const { res, inv } = await prepareOnAnnualAccount("acct-i3c", 200,
+      [{ serviceId: "domain-com", config: { domain: "i3c.com" } }], "i3c-shop");
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    ok(inv?.amount === 33669, `invoice 35,244 - 1,575 = 33,669 (got ${inv?.amount})`);
+  }
+
+  section("I3 — a saving that would leave less than 1 is not applied (no invoice PUT, never 0)");
+  {
+    // 1 day left: Duka round(24,000/365) = 66, Business Email round(14,400/365) = 39.
+    // The route cannot reach a 0 primary line with real catalog prices, so the
+    // floor rule is pinned on the planner the route uses: a 0 primary line plus a
+    // fully-saved email would leave 0, so nothing is applied.
+    const plan = require("../services/checkout/bundles").planCheckoutSaving({
+      primaryId: "biz-pos-duka",
+      companions: [{ serviceId: "starter-email" }],
+      quotedSavingKes: 1500,
+      lineAmounts: new Map([["biz-pos-duka", 0], ["starter-email", 39]]),
+      knownKes: 39,
+    });
+    ok(plan.totalKes === 0 && plan.savings.length === 0, `saving that would zero the invoice is skipped (got ${plan.totalKes})`);
+    const plan2 = require("../services/checkout/bundles").planCheckoutSaving({
+      primaryId: "biz-pos-duka",
+      companions: [{ serviceId: "starter-email" }],
+      quotedSavingKes: 1500,
+      lineAmounts: new Map([["biz-pos-duka", 66], ["starter-email", 39]]),
+      knownKes: 105,
+    });
+    ok(plan2.totalKes === 39 && plan2.savings[0].pairingId === "pos-email" && plan2.savings[0].savingKes === 39, "capped at the 39 line");
+  }
+
+  // ---- I1: the checkout saving is recorded on the order (claim-first) and can
+  // be neither lost by a later add-on merge nor taken a second time. ----
+  const addonInvoiceService = require("../services/addonInvoiceService");
+  function paidPlanClient(acct) {
+    return makeMockFrappe({
+      "Web Account": { [acct]: { name: acct, plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+  }
+  // What server.js's findOpenInvoice returns: the newest Unpaid Add-on invoice.
+  const openAddonInvoice = async (client, acct, type) =>
+    Object.values(client.store["Portal Invoice"] || {}).filter((i) => i.web_account === acct && i.type === type && i.status === "Unpaid").pop() || null;
+  const addonDeps = {
+    fetchWebAccount, hasPaidSubscriptionForPlan: async () => true, normalizeSelectedServices,
+    findOpenInvoice: openAddonInvoice, normalizeInvoiceServiceRow: (r) => r,
+    buildInvoiceServiceRows: (rows) => rows, PORTAL_INVOICE_SERVICES_FIELD: "services",
+  };
+  async function paidPlanCheckout(acct, companions, slug) {
+    const client = paidPlanClient(acct);
+    const router = createOrdersRouter(baseCtx(client, {
+      hasPaidSubscriptionForPlan: async () => true,
+      createAddonInvoice: realCreateAddonInvoice,
+      findOpenInvoice: openAddonInvoice,
+    }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: acct }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop " + slug, slug }, companions } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: acct }, params: { id: cr.body.order.id }, body: {} }, res);
+    return { client, router, orderId: cr.body.order.id, invoiceDocName: res.body.invoiceDocName, res };
+  }
+
+  section("I1 — prepare-payment records the applied pairing on the order with its invoice and amount");
+  {
+    const { client, orderId, invoiceDocName, res } = await paidPlanCheckout("acct-i1a",
+      [{ serviceId: "domain-com", config: { domain: "i1a.com" } }], "i1a-shop");
+    ok(res.statusCode === 200, "prepare 200");
+    ok(client.store["Portal Invoice"][invoiceDocName].amount === 5125, `checkout invoice 2,500 + 4,200 - 1,575 = 5,125 (got ${client.store["Portal Invoice"][invoiceDocName].amount})`);
+    const applied = JSON.parse(client.store["Checkout Order"][orderId].config_json).bundle.applied;
+    ok(JSON.stringify(applied) === JSON.stringify([{ pairingId: "pos-domain-com", invoiceDocName, savingKes: 1575 }]),
+      `applied entry recorded: ${JSON.stringify(applied)}`);
+  }
+
+  section("I1 — claim-first: a failed invoice PUT rolls the claim back and writes no saving");
+  {
+    const client = paidPlanClient("acct-i1f");
+    const router = createOrdersRouter(baseCtx(client, { hasPaidSubscriptionForPlan: async () => true, createAddonInvoice: realCreateAddonInvoice }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-i1f" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Shop F", slug: "i1f-shop" },
+        companions: [{ serviceId: "domain-com", config: { domain: "i1f.com" } }] } }, cr);
+    const order = client.store["Checkout Order"][cr.body.order.id];
+    let sawClaimBeforePut = false;
+    const realPut = client.put;
+    client.put = async (url, body, ...r) => {
+      if (String(url).includes("Portal Invoice/") && "amount" in body) {
+        sawClaimBeforePut = (JSON.parse(order.config_json).bundle.applied || []).length === 1;
+        throw new Error("frappe down");
+      }
+      return realPut(url, body, ...r);
+    };
+    const res = makeRes();
+    const origErr = console.error; console.error = () => {};
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-i1f" }, params: { id: cr.body.order.id }, body: {} }, res);
+    console.error = origErr;
+    ok(res.statusCode === 500, `500 (got ${res.statusCode})`);
+    ok(sawClaimBeforePut, "the pairing was claimed BEFORE the invoice PUT");
+    ok((JSON.parse(order.config_json).bundle.applied || []).length === 0, "claim rolled back after the failed PUT");
+    ok(!order.invoice_doc_name, "order not linked");
+  }
+
+  section("I1(a) — adding storage while the checkout invoice is open: saving never lost, never doubled");
+  {
+    const { client, invoiceDocName } = await paidPlanCheckout("acct-i1b",
+      [{ serviceId: "domain-com", config: { domain: "i1b.com" } }], "i1b-shop");
+    const before = JSON.stringify(client.store["Portal Invoice"][invoiceDocName]);
+    const r = await addonInvoiceService.createAddonPurchaseInvoice({
+      client, webAccountName: "acct-i1b", services: [{ serviceId: "starter-storage" }], deps: addonDeps, nowMs: Date.now(),
+    });
+    ok(r.invoiceDocName !== invoiceDocName, "the add-on did NOT merge into the bundle checkout invoice");
+    ok(JSON.stringify(client.store["Portal Invoice"][invoiceDocName]) === before, "checkout invoice untouched (still 5,125, same rows)");
+    const storage = client.store["Portal Invoice"][r.invoiceDocName].amount;
+    ok(storage === 1200, `storage on its own invoice at 1,200 (got ${storage})`);
+    const total = client.store["Portal Invoice"][invoiceDocName].amount + storage;
+    ok(total === 2500 + 4200 + 1200 - 1575 && total === 6325, `customer owes full sum - 1,575 = 6,325 (got ${total})`);
+
+    // A plain add-on (no bundle checkout invoice open) still merges as before.
+    const client2 = paidPlanClient("acct-i1c");
+    const a = await addonInvoiceService.createAddonPurchaseInvoice({ client: client2, webAccountName: "acct-i1c", services: [{ serviceId: "starter-storage" }], deps: addonDeps, nowMs: Date.now() });
+    const b = await addonInvoiceService.createAddonPurchaseInvoice({ client: client2, webAccountName: "acct-i1c", services: [{ serviceId: "starter-email" }], deps: addonDeps, nowMs: Date.now() });
+    ok(a.invoiceDocName === b.invoiceDocName && client2.store["Portal Invoice"][a.invoiceDocName].amount === 2700, "non-bundle add-ons still merge (1,200 + 1,500)");
+  }
+
+  section("I1(b) — pay POS + email (first month free), delete the email, re-buy it in the window: full price");
+  {
+    const { client, router, orderId, invoiceDocName } = await paidPlanCheckout("acct-i1d", [{ serviceId: "starter-email" }], "i1d-shop");
+    ok(client.store["Portal Invoice"][invoiceDocName].amount === 2500, `checkout invoice 2,500 + 1,500 - 1,500 = 2,500 (got ${client.store["Portal Invoice"][invoiceDocName].amount})`);
+    client.store["Portal Invoice"][invoiceDocName].status = "Paid";
+    const g = makeRes();
+    await findHandler(router, "get", "/api/orders/:id")({ session: { webAccount: "acct-i1d" }, params: { id: orderId } }, g);
+    ok(g.body.order.status === "Paid" && g.body.order.bundleWindowEndsAtMs > Date.now(), "order paid, window open");
+    // Customer deletes the email service from their account.
+    const wa = client.store["Web Account"]["acct-i1d"];
+    wa.selected_services = wa.selected_services.filter((s) => (s.serviceId || s.service_id) !== "starter-email");
+    const offers = makeRes();
+    await findHandler(router, "get", "/api/bundles/offers")({ session: { webAccount: "acct-i1d" } }, offers);
+    ok(!offers.body.offers.some((o) => o.serviceId === "starter-email"), "no 'Complete your setup' card for the already-used email pairing");
+    const r = await addonInvoiceService.createAddonPurchaseInvoice({
+      client, webAccountName: "acct-i1d", services: [{ serviceId: "starter-email" }], deps: addonDeps, nowMs: Date.now(),
+    });
+    ok(client.store["Portal Invoice"][r.invoiceDocName].amount === 1500, `re-bought email billed at full 1,500 (got ${client.store["Portal Invoice"][r.invoiceDocName].amount})`);
+    const applied = JSON.parse(client.store["Checkout Order"][orderId].config_json).bundle.applied;
+    ok(applied.length === 1 && applied[0].invoiceDocName === invoiceDocName, "still exactly the one checkout entry");
+  }
+
+  section("bundles — an order without companions leaves the invoice amount untouched");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-b8": { name: "acct-b8", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b8" }, body: { serviceId: "starter-web-hosting" } }, cr);
+    const realPut = client.put; let invoicePuts = 0;
+    client.put = async (url, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts++; return realPut(url, ...r); };
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-b8" }, params: { id: cr.body.order.id }, body: {} }, res);
+    ok(res.statusCode === 200 && invoicePuts === 0, "no Portal Invoice PUT for a companion-less monthly order");
+  }
+
+  section("bundles — PUT /api/orders/:id/companions");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-b9": { name: "acct-b9", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-b9" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const id = cr.body.order.id;
+    const put = findHandler(router, "put", "/api/orders/:id/companions");
+
+    const r1 = makeRes();
+    await put({ session: { webAccount: "acct-b9" }, params: { id }, body: { companions: [{ serviceId: "starter-email" }] } }, r1);
+    ok(r1.statusCode === 200 && r1.body.order.companions.length === 1, "removal works before prepare-payment");
+    ok(r1.body.order.bundleSavingKes === 0, "saving recomputed (domain removed)");
+    const two = [{ serviceId: BUNDLE_PRIMARY }, { serviceId: "starter-email" }];
+    ok(r1.body.order.totalDueKes === sumSelectedServicesMonthlyKes(two) + sumSelectedServicesSetupKes(two),
+      "totalDueKes follows the new list");
+
+    const rBad = makeRes();
+    await put({ session: { webAccount: "acct-b9" }, params: { id }, body: { companions: [{ serviceId: "db-mysql" }] } }, rBad);
+    ok(rBad.statusCode === 422, "invalid list -> 422");
+    const rNon = makeRes();
+    await put({ session: { webAccount: "acct-b9" }, params: { id }, body: {} }, rNon);
+    ok(rNon.statusCode === 422, "missing companions -> 422");
+
+    const prep = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-b9" }, params: { id }, body: {} }, prep);
+    ok(prep.statusCode === 200, "prepare-payment ok");
+    const r2 = makeRes();
+    await put({ session: { webAccount: "acct-b9" }, params: { id }, body: { companions: [] } }, r2);
+    ok(r2.statusCode === 409 && r2.body.code === "ORDER_HAS_INVOICE", "409 after prepare-payment");
+  }
+
+
+  section("bundles fix round 1 — a missing branch amount never writes a free invoice");
+  {
+    for (const branch of ["first-purchase", "add-on"]) {
+      const acct = branch === "add-on"
+        ? { name: "acct-f1", plan: "Enterprise", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] }
+        : { name: "acct-f1", plan: "None", selected_services: [] };
+      const client = makeMockFrappe({ "Web Account": { "acct-f1": acct } });
+      const overrides = branch === "add-on"
+        ? { hasPaidSubscriptionForPlan: async () => true, createAddonInvoice: async () => ({ invoiceDocName: "PINV-NOAMT" }) }
+        : { applyPlanAndCreateInvoice: async () => ({ ok: true, invoice: { name: "PINV-NOAMT" } }) };
+      const router = createOrdersRouter(baseCtx(client, overrides));
+      const cr = makeRes();
+      await findHandler(router, "post", "/api/orders")(
+        { session: { webAccount: "acct-f1" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+      const realPut = client.put; const invoicePuts = [];
+      client.put = async (url, body, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts.push(body); return realPut(url, body, ...r); };
+      const res = makeRes();
+      const origErr = console.error; console.error = () => {};
+      await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+        { session: { webAccount: "acct-f1" }, params: { id: cr.body.order.id }, body: {} }, res);
+      console.error = origErr;
+      ok(res.statusCode === 500, `${branch}: unknown branch amount -> 500 (got ${res.statusCode})`);
+      ok(invoicePuts.length === 0, `${branch}: no Portal Invoice PUT written`);
+      ok(!invoicePuts.some((b) => b.amount === 0), `${branch}: never wrote amount 0`);
+      ok(!client.store["Checkout Order"][cr.body.order.id].invoice_doc_name, `${branch}: order not linked to an invoice`);
+    }
+  }
+
+  section("bundles fix round 1 — repeat prepare-payment is idempotent and leaves the amount alone");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-f2": { name: "acct-f2", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f2" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const prep = findHandler(router, "post", "/api/orders/:id/prepare-payment");
+    const r1 = makeRes();
+    await prep({ session: { webAccount: "acct-f2" }, params: { id: cr.body.order.id }, body: {} }, r1);
+    const amount1 = client.store["Portal Invoice"][r1.body.invoiceDocName].amount;
+    const realPut = client.put; let invoicePuts = 0;
+    client.put = async (url, ...r) => { if (String(url).includes("Portal Invoice/")) invoicePuts++; return realPut(url, ...r); };
+    const r2 = makeRes();
+    await prep({ session: { webAccount: "acct-f2" }, params: { id: cr.body.order.id }, body: {} }, r2);
+    ok(r2.body.invoiceDocName === r1.body.invoiceDocName, "same invoiceDocName on repeat");
+    ok(invoicePuts === 0, "no second invoice PUT");
+    ok(Object.keys(client.store["Portal Invoice"]).length === 1, "still exactly one invoice");
+    ok(client.store["Portal Invoice"][r1.body.invoiceDocName].amount === amount1 && amount1 === cr.body.order.totalDueKes,
+      `amount unchanged (${amount1} === totalDueKes ${cr.body.order.totalDueKes})`);
+  }
+
+  section("minor — PUT /api/orders/:id/companions is unavailable with BUNDLES_ENABLED off (404, no write)");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-m1" }, body: { serviceId: "starter-web-hosting" } }, cr);
+    const before = JSON.stringify(client.store["Checkout Order"][cr.body.order.id]);
+    process.env.BUNDLES_ENABLED = "false";
+    const res = makeRes();
+    await findHandler(router, "put", "/api/orders/:id/companions")(
+      { session: { webAccount: "acct-m1" }, params: { id: cr.body.order.id }, body: { companions: [] } }, res);
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 404, `404 (got ${res.statusCode})`);
+    ok(JSON.stringify(client.store["Checkout Order"][cr.body.order.id]) === before, "order untouched");
+  }
+
+  section("bundles fix round 1 — non-array companions and companions-route authz");
+  {
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client));
+    const bad = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f3" }, body: { serviceId: BUNDLE_PRIMARY, companions: "starter-email" } }, bad);
+    ok(bad.statusCode === 422, `non-array companions -> 422 (got ${bad.statusCode})`);
+    ok(draftCount(client) === 0, "non-array companions -> no Draft row");
+
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-f3" }, body: { serviceId: BUNDLE_PRIMARY, companions: BUNDLE_COMPANIONS } }, cr);
+    const put = findHandler(router, "put", "/api/orders/:id/companions");
+    const other = makeRes();
+    await put({ session: { webAccount: "intruder" }, params: { id: cr.body.order.id }, body: { companions: [] } }, other);
+    ok(other.statusCode === 403, `another account's order -> 403 (got ${other.statusCode})`);
+    const anon = makeRes();
+    await put({ session: {}, params: { id: cr.body.order.id }, body: { companions: [] } }, anon);
+    ok(anon.statusCode === 401, `unauthenticated -> 401 (got ${anon.statusCode})`);
+    const still = client.store["Checkout Order"][cr.body.order.id];
+    ok(JSON.parse(still.config_json).bundle.companions.length === 2, "the refused calls changed nothing");
+  }
+
+  section("bundles task 4 — GET /api/bundles/offers");
+  {
+    const END = Date.now() + 5 * 24 * 60 * 60 * 1000;
+    const paid = (name, over = {}, bundle = { windowEndsAtMs: END }) => ({
+      name, web_account: "acct-o", status: "Paid", service_id: "biz-pos-duka",
+      config_json: JSON.stringify({ bundle }), ...over,
+    });
+    const mk = (orders, services = []) => makeMockFrappe({
+      "Checkout Order": orders,
+      "Web Account": { "acct-o": { name: "acct-o", plan: "Enterprise", selected_services: services } },
+    });
+    const call = async (client, session = { webAccount: "acct-o" }) => {
+      const router = createOrdersRouter(baseCtx(client));
+      const res = makeRes();
+      await findHandler(router, "get", "/api/bundles/offers")({ session }, res);
+      return res;
+    };
+
+    let res = await call(mk({ "CHK-1": paid("CHK-1") }, [{ service_id: "domain-org", status: "Active" }]));
+    ok(res.statusCode === 200 && res.body.enabled === true, "enabled with flag on");
+    const ids = res.body.offers.map((o) => o.serviceId).sort();
+    ok(JSON.stringify(ids) === JSON.stringify(["domain-com", "domain-io", "domain-net", "starter-email"]),
+      "owned domain-org omitted, others offered: " + ids);
+    const dc = res.body.offers.find((o) => o.serviceId === "domain-com");
+    ok(dc.savingKes === 1575 && dc.windowEndsAtMs === END && dc.monthlyKes > 0 && typeof dc.name === "string", "offer carries saving + window end");
+
+    res = await call(mk({ "CHK-D": paid("CHK-D", { status: "Draft" }, {}) }));
+    ok(res.body.enabled === true && res.body.offers.length === 0, "unpaid order yields no offers");
+    res = await call(mk({ "CHK-E": paid("CHK-E", {}, { windowEndsAtMs: Date.now() - 1 }) }));
+    ok(res.body.offers.length === 0, "expired window yields no offers");
+    res = await call(mk({ "CHK-1": paid("CHK-1") }), {});
+    ok(res.statusCode === 401, "unauthenticated -> 401");
+
+    process.env.BUNDLES_ENABLED = "false";
+    res = await call(mk({ "CHK-1": paid("CHK-1") }));
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 200 && JSON.stringify(res.body) === '{"enabled":false,"offers":[]}', "flag off: {enabled:false, offers:[]}");
+  }
+
+  section("bundles task 4 — add-on invoice (real createAddonInvoice) is reduced by exactly the saving");
+  {
+    const { applyAddOnSaving } = require("../services/checkout/bundles");
+    const END = Date.now() + 1000 * 60 * 60;
+    const build = () => makeMockFrappe({
+      "Checkout Order": { "CHK-1": { name: "CHK-1", web_account: "acct-ad", status: "Paid", service_id: "biz-pos-duka",
+        config_json: JSON.stringify({ bundle: { windowEndsAtMs: END } }) } },
+      "Web Account": { "acct-ad": { name: "acct-ad", plan: "Enterprise", account_holder_name: "T",
+        selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] } },
+    });
+    const deps = {
+      fetchWebAccount, hasPaidSubscriptionForPlan: async () => true, normalizeSelectedServices,
+      findOpenInvoice: async () => null, normalizeInvoiceServiceRow: (r) => r,
+      buildInvoiceServiceRows: (rows) => rows, PORTAL_INVOICE_SERVICES_FIELD: "services",
+    };
+    const services = [{ serviceId: "domain-com", domainChoice: "acme.com" }];
+    let client = build();
+    const r = await realCreateAddonInvoice({ client, webAccountName: "acct-ad", services, deps });
+    const full = client.store["Portal Invoice"][r.invoiceDocName].amount;
+    ok(full === r.amountKes && full > 1575, `full invoice ${full}`);
+    await applyAddOnSaving({ client, webAccountName: "acct-ad", invoiceDocName: r.invoiceDocName, amountKes: r.amountKes,
+      serviceIds: normalizeSelectedServices(services).map((s) => s.serviceId), nowMs: Date.now() });
+    ok(client.store["Portal Invoice"][r.invoiceDocName].amount === full - 1575, `invoice ${full} -> ${full - 1575}`);
+
+    // Without a window nothing extra is PUT (non-bundle add-ons unchanged).
+    client = build();
+    client.store["Checkout Order"]["CHK-1"].status = "Draft";
+    const r2 = await realCreateAddonInvoice({ client, webAccountName: "acct-ad", services, deps });
+    const putsBefore = client.puts.length;
+    await applyAddOnSaving({ client, webAccountName: "acct-ad", invoiceDocName: r2.invoiceDocName, amountKes: r2.amountKes,
+      serviceIds: ["domain-com"], nowMs: Date.now() });
+    ok(client.puts.length === putsBefore && client.store["Portal Invoice"][r2.invoiceDocName].amount === r2.amountKes, "no window: no extra invoice PUT");
+  }
+
+  section("bundles task 5 — GET /api/bundles/availability");
+  {
+    const { getServiceMeta: meta } = require("../services/provisioning/catalog");
+    const call = async (ctxOver = {}, session) => {
+      const router = createOrdersRouter(baseCtx(makeMockFrappe(), ctxOver));
+      const res = makeRes();
+      await findHandler(router, "get", "/api/bundles/availability")({ session }, res);
+      return res;
+    };
+    // No session at all: public endpoint.
+    let res = await call({}, undefined);
+    ok(res.statusCode === 200 && res.body.enabled === true, "no auth needed, enabled with flag on");
+    ok(res.headers["cache-control"] === "public, max-age=30", "Cache-Control public, max-age=30: " + res.headers["cache-control"]);
+    ok(Object.keys(res.body).sort().join() === "allowedCompanionIds,enabled,headroom,pairings", "exact top-level keys");
+    const dom = res.body.pairings.find((p) => p.companionId === "domain-com" && p.primaryIds.includes("biz-pos-duka"));
+    ok(dom && dom.savingKes === 1575 && typeof dom.label === "string" && dom.label.length > 0, "domain-com POS pairing saves 1575 with a label");
+    const em = res.body.pairings.find((p) => p.companionId === "starter-email");
+    ok(em && em.savingKes === meta("starter-email").monthlyKes && em.savingKes > 0, "email firstMonthFree equals catalog monthlyKes");
+    ok(em.label === "First month free", "email label: " + em.label);
+    ok(res.body.pairings.length === 9, "all 9 pairings present: " + res.body.pairings.length);
+    ok(Object.keys(res.body.pairings[0]).sort().join() === "companionId,label,primaryIds,savingKes", "pairing shape");
+    const allowed = res.body.allowedCompanionIds;
+    ok(!allowed.includes("db-mysql") && !allowed.some((i) => i.startsWith("biz-pos-")), "no databases or POS tiers allowed");
+    ok(["domain-com", "starter-email", "starter-storage", "biz-erp-light", "biz-crm-helpdesk"].every((i) => allowed.includes(i)), "expected companions allowed");
+    ok(allowed.every((i) => meta(i)), "every allowed id exists in the catalog");
+    ok(["ok", "limited", "full"].includes(res.body.headroom.level) && Number.isInteger(res.body.headroom.benchSlotsLeft), "headroom shape");
+
+    res = await call({ getReservedRamMb: async () => { throw new Error("frappe down"); } });
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited" && res.body.headroom.benchSlotsLeft === 0, "fleet read failure -> 200, limited, 0 slots");
+    ok(res.body.pairings.length === 9, "pairings still returned on read failure");
+
+    const brokenFrappe = makeMockFrappe();
+    brokenFrappe.get = async () => { throw new Error("boom"); };
+    const router = createOrdersRouter(baseCtx(brokenFrappe));
+    res = makeRes();
+    await findHandler(router, "get", "/api/bundles/availability")({}, res);
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited", "draft read failure -> 200, limited");
+
+    // A null fleet read (getReservedRamMb's failure value) is "unknown", never 0.
+    res = await call({ getReservedRamMb: async () => null });
+    ok(res.statusCode === 200 && res.body.headroom.level === "limited" && res.body.headroom.benchSlotsLeft === 0, `null fleet read -> limited, 0 slots (got ${JSON.stringify(res.body.headroom)})`);
+
+    // 30 s in-process memo, single flight: one computation for many requests.
+    {
+      let reads = 0;
+      const router2 = createOrdersRouter(baseCtx(makeMockFrappe(), {
+        getReservedRamMb: async () => { reads++; await new Promise((r) => setTimeout(r, 20)); return 0; },
+      }));
+      const h = findHandler(router2, "get", "/api/bundles/availability");
+      const rs = [makeRes(), makeRes(), makeRes()];
+      await Promise.all(rs.map((r) => h({}, r)));
+      const r4 = makeRes(); await h({}, r4);
+      ok(reads === 1, `4 requests (3 concurrent) -> 1 headroom computation (got ${reads})`);
+      ok([...rs, r4].every((r) => JSON.stringify(r.body.headroom) === JSON.stringify(rs[0].body.headroom)), "all got the same headroom");
+    }
+    {
+      let reads = 0;
+      const router3 = createOrdersRouter(baseCtx(makeMockFrappe(), {
+        getReservedRamMb: async () => { reads++; if (reads === 1) throw new Error("down"); return 0; },
+      }));
+      const h = findHandler(router3, "get", "/api/bundles/availability");
+      const origErr = console.error; console.error = () => {};
+      const a = makeRes(); await h({}, a);
+      console.error = origErr;
+      const b = makeRes(); await h({}, b);
+      ok(a.body.headroom.level === "limited" && a.body.headroom.benchSlotsLeft === 0, "first (failed) read -> limited, 0 slots");
+      ok(reads === 2 && b.body.headroom.benchSlotsLeft > 0,
+        `a failed computation is not memoized (reads ${reads}, second ${JSON.stringify(b.body.headroom)})`);
+    }
+
+    process.env.BUNDLES_ENABLED = "false";
+    res = await call();
+    process.env.BUNDLES_ENABLED = "true";
+    ok(res.statusCode === 200 && res.body.enabled === false && res.body.pairings.length === 0 && res.body.allowedCompanionIds.length === 0, "flag off: disabled, empty");
+    ok(res.body.headroom.level === "ok" && res.body.headroom.benchSlotsLeft === 0, "flag off: neutral headroom");
+    ok(res.headers["cache-control"] === "public, max-age=30", "flag off response is cached too");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

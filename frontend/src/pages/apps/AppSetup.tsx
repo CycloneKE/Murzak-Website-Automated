@@ -7,6 +7,9 @@ import InlineAccount from "../../components/apps/InlineAccount";
 import { formatKes, getService, servicesForApp } from "../../config/serviceCatalog";
 import { APP_CHECKOUT, appIdFromRoute, annualKes } from "../../config/appCheckout";
 import { AppOrderError, createAppOrder } from "../../services/appCheckout";
+import CompanionPicker from "../../components/CompanionPicker";
+import AvailabilityNotice from "../../components/AvailabilityNotice";
+import { clearHandoff, gateCompanions, readHandoff } from "../../services/bundles";
 
 interface AppSetupProps {
   user: any | null;
@@ -37,6 +40,10 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
   const [waitlisted, setWaitlisted] = useState(false);
   const [joining, setJoining] = useState(false);
   const [notice, setNotice] = useState("");
+  // Bundle add-ons, optionally pre-picked on the product page (sessionStorage handoff).
+  const [handoff] = useState(() => readHandoff(requested?.id || "biz-pos-duka"));
+  const [companionIds, setCompanionIds] = useState<string[]>(handoff?.ids ?? []);
+  const [companionDomain, setCompanionDomain] = useState(handoff?.domain ?? "");
 
   // All hooks above run on every render; this early return must stay below them.
   if (!app) return <Navigate to="/products" replace />;
@@ -54,7 +61,15 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
     setErrorCode("");
     setServerSuggestions([]);
     try {
-      const { orderId } = await createAppOrder({ serviceId: tier.id, term, shopName: shopName.trim(), slug });
+      const companions = await gateCompanions(tier.id, companionIds, companionDomain);
+      const { orderId } = await createAppOrder({
+        serviceId: tier.id,
+        term,
+        shopName: shopName.trim(),
+        slug,
+        companions,
+      });
+      clearHandoff();
       navigate(`/checkout/${encodeURIComponent(orderId)}`);
     } catch (e: any) {
       if (e instanceof AppOrderError) {
@@ -162,6 +177,15 @@ const AppSetup: React.FC<AppSetupProps> = ({ user, onUserUpdate }) => {
               suggestionsFromServer={serverSuggestions}
             />
           </section>
+
+          <AvailabilityNotice />
+          <CompanionPicker
+            primaryId={serviceId}
+            value={companionIds}
+            onChange={setCompanionIds}
+            domain={companionDomain}
+            onDomainChange={setCompanionDomain}
+          />
 
           <section className="glass-card rounded-3xl p-6 sm:p-8">
             <h2 className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-4">Your details</h2>

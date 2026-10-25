@@ -7,6 +7,7 @@ import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import Breadcrumbs from '../../components/Breadcrumbs';
 import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
+import { ProductCompanions } from '../../components/CompanionPicker';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -238,6 +239,7 @@ const MurzakERP: React.FC<Props> = ({ onNavigate }) => {
               <Button className="w-full" onClick={() => onNavigate('/checkout/new?serviceId=biz-erp-configured')}>Select Configured</Button>
            </div>
         </div>
+        <ProductCompanions primaryId="biz-erp-light" className="mt-10" />
       </Section>
 
       {/* FAQ */}

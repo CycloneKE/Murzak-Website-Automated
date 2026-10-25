@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, Loader2, ExternalLink, LifeBuoy } from "lucide-react";
+import CompleteSetupCards from "../../components/CompleteSetupCards";
 import PosLoginPanel from "../../components/portal/cloud/PosLoginPanel";
 import ShopSetupCard from "../../components/apps/ShopSetupCard";
 import { fetchServiceActivity, ProvisioningActivityEntry } from "../../services/serviceActivity";
@@ -8,6 +9,7 @@ import { APP_CHECKOUT } from "../../config/appCheckout";
 import { SUPPORT_EMAIL } from "../../config/contact";
 import { AppId } from "../../config/serviceCatalog";
 import { toUserMessage } from "../../services/errors";
+import { purchaseOfferedDomain } from "../../services/bundles";
 
 const POLL_MS = 5000;
 // Typical POS setup is ~2 minutes; after this, say so honestly.
@@ -226,6 +228,15 @@ const AppWelcome: React.FC = () => {
               </p>
             </section>
           )}
+          <div className="mt-8">
+            <CompleteSetupCards
+              onChoose={(serviceId) => navigate("/portal/overview", { state: { addonsPreselect: serviceId } })}
+              onChooseDomain={async (serviceId, domain) => {
+                await purchaseOfferedDomain(serviceId, domain);
+                navigate("/portal/billing");
+              }}
+            />
+          </div>
           <button type="button" onClick={() => navigate("/portal/overview")} className={`mt-6 ${linkClass}`}>
             Go to my portal
           </button>

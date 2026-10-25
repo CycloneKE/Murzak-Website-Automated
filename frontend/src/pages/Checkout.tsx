@@ -3,10 +3,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ShieldCheck, ChevronLeft, AlertCircle, Clock3, Loader2, Info,
 } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PaymentMethods from '../components/PaymentMethods';
 import { getService, formatKes, monthlyEquivalentKes, postPurchaseCopy, GENERIC_POST_PURCHASE_COPY, isYearlyBilled, annualPrepayKes, ANNUAL_DISCOUNT_PCT } from '../config/serviceCatalog';
 import { toUserMessage } from "../services/errors";
+import { clearHandoff, gateCompanions, readHandoff } from "../services/bundles";
 import { APP_CHECKOUT } from '../config/appCheckout';
 import { AppId } from '../config/serviceCatalog';
 
@@ -28,6 +29,26 @@ interface OrderView {
   invoiceDocName: string | null;
   config: Record<string, any>;
   eligibleForTermChoice: boolean;
+  // Bundle fields (all server-computed; optional so older responses still work).
+  companions?: CompanionLine[];
+  bundleSavingKes?: number;
+  bundleWindowEndsAtMs?: number | null;
+}
+
+interface CompanionLine {
+  serviceId: string;
+  serviceName: string;
+  category?: string;
+  monthlyKes: number;
+  setupKes: number;
+}
+
+// A domain's catalog price is already its yearly price (isYearlyBilled), so the
+// annual term adds it once instead of annualising it.
+function isYearlyCompanion(c: CompanionLine): boolean {
+  if (c.category) return c.category === 'Domain Registration';
+  const svc = getService(c.serviceId);
+  return svc ? isYearlyBilled(svc) : c.serviceId.startsWith('domain-');
 }
 
 interface InvoicePricing {
@@ -62,6 +83,7 @@ function paidDestination(order: { id?: string; config?: { app?: string } } | nul
 const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const { orderId } = useParams<{ orderId: string }>();
+  const routeNotice = (useLocation().state as { notice?: string } | null)?.notice || '';
   const [searchParams] = useSearchParams();
   const deepLinkServiceId = (searchParams.get('serviceId') || '').trim();
 
@@ -94,6 +116,8 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // yearly-only pricing and are never eligible.
   const [billingTerm, setBillingTerm] = useState<'monthly' | 'annual'>('monthly');
   const [preparingPayment, setPreparingPayment] = useState(false);
+  const [removingId, setRemovingId] = useState('');
+  const [companionError, setCompanionError] = useState('');
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -111,17 +135,39 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     }
 
     let cancelled = false;
+    const handoff = readHandoff(deepLinkServiceId);
     (async () => {
       try {
         setLoading(true);
         setError('');
-        const res = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ serviceId: deepLinkServiceId, source: 'deep-link' }),
-        });
-        const data = await res.json().catch(() => ({}));
+        const post = async (companions: unknown[]) => {
+          const r = await fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            // No companions => the body is exactly the pre-bundle deep-link body.
+            body: JSON.stringify({
+              serviceId: deepLinkServiceId,
+              source: 'deep-link',
+              ...(companions.length ? { companions } : {}),
+            }),
+          });
+          return { res: r, data: await r.json().catch(() => ({})) };
+        };
+
+        // Bundle add-ons picked on the product page (ERP/CRM), filtered by the shared gate.
+        const companions = handoff ? await gateCompanions(deepLinkServiceId, handoff.ids, handoff.domain) : [];
+        if (handoff && !companions.length) clearHandoff();
+        let { res, data } = await post(companions);
+        let notice = '';
+        // A companion-caused rejection (400/422) or capacity 409 must not block the
+        // main purchase: drop the handoff and place the plain primary order once.
+        if (companions.length && (res.status === 400 || res.status === 422 || (res.status === 409 && data?.code === 'CAPACITY'))) {
+          notice = toUserMessage(data?.error, "We couldn't add your extras to this order. You can add them later from your portal.");
+          clearHandoff();
+          if (cancelled) return;
+          ({ res, data } = await post([]));
+        }
         if (cancelled) return;
 
         if (res.status === 409 && data?.code === 'CAPACITY') {
@@ -137,7 +183,8 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
         if (!res.ok || !data?.order) {
           throw new Error(data?.error || 'Failed to start checkout.');
         }
-        navigate(`/checkout/${data.order.id}`, { replace: true });
+        if (handoff) clearHandoff();
+        navigate(`/checkout/${data.order.id}`, { replace: true, state: notice ? { notice } : undefined });
       } catch (e: any) {
         if (!cancelled) {
           setError(toUserMessage(e, 'Failed to start checkout.'));
@@ -363,6 +410,39 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
     }
   };
 
+  // Replace the companion list without `removedId`. The server owns the list and
+  // all pricing, so re-send the remaining entries (config intact) and render
+  // whatever order comes back.
+  const handleRemoveCompanion = async (removedId: string) => {
+    if (!orderId || !order || removingId || preparingPayment || invoice || order.invoiceDocName) return;
+    const stored = Array.isArray(order.config?.bundle?.companions) ? order.config.bundle.companions : [];
+    const source: Array<{ serviceId: string; config?: any }> = stored.length
+      ? stored
+      : (order.companions || []).map((c) => ({ serviceId: c.serviceId }));
+    const remaining = source
+      .filter((c) => c && c.serviceId !== removedId)
+      .map((c) => (c.config && Object.keys(c.config).length ? { serviceId: c.serviceId, config: c.config } : { serviceId: c.serviceId }));
+    setRemovingId(removedId);
+    setCompanionError('');
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/companions`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ companions: remaining }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.order) {
+        throw new Error(data?.error || "We couldn't update your extras. Please try again.");
+      }
+      if (mountedRef.current) setOrder(data.order);
+    } catch (e: any) {
+      if (mountedRef.current) setCompanionError(toUserMessage(e, "We couldn't update your extras. Please try again."));
+    } finally {
+      if (mountedRef.current) setRemovingId('');
+    }
+  };
+
   const handleConfirmTerm = () => {
     preparePaymentAndPrice(billingTerm);
   };
@@ -395,6 +475,24 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // pay button.
   const annualPrepaid = !!invoice && invoice.term === 'annual' && period === "/mo";
   const dueNowKes = invoice ? invoice.chargeKes : order?.monthlyKes ?? 0;
+  const companionLines = order?.companions ?? [];
+  const bundleSavingKes = order?.bundleSavingKes ?? 0;
+  const hasCompanions = companionLines.length > 0;
+  // Companions can only change before any invoice exists (server: 409 otherwise).
+  // Also locked while prepare-payment runs: the server reads the companion list
+  // mid-request, so a removal landing then could be billed anyway.
+  const canEditCompanions = !!order && order.status === 'Draft' && !order.invoiceDocName && !invoice && !preparingPayment;
+  // What the server bills for each term on a bundle order (mirrors prepare-payment
+  // and backend bundles.annualBundleAmounts): monthly = totalDueKes; annual =
+  // annualPrepay(primary + non-domain companion monthly prices) + each domain's
+  // yearly price once + companion setup fees once - saving.
+  const bundleAnnualisedMonthlyKes = (order?.monthlyKes ?? 0)
+    + companionLines.filter((c) => !isYearlyCompanion(c)).reduce((n, c) => n + c.monthlyKes, 0);
+  const bundleOnceKes = companionLines.reduce((n, c) => n + c.setupKes + (isYearlyCompanion(c) ? c.monthlyKes : 0), 0);
+  const bundleAnnualKes = Math.max(0, annualPrepayKes(bundleAnnualisedMonthlyKes) + bundleOnceKes - bundleSavingKes);
+  const dueNowDisplayKes = hasCompanions
+    ? (invoice ? invoice.chargeKes : order?.totalDueKes ?? 0)
+    : period === "/yr" ? order?.monthlyKes ?? 0 : dueNowKes;
   const afterPaymentCopy = svcForOrder ? postPurchaseCopy(svcForOrder) : GENERIC_POST_PURCHASE_COPY;
 
   const chrome = (children: React.ReactNode) => (
@@ -434,6 +532,11 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             </p>
           )}
         </div>
+        {routeNotice && (
+          <p role="status" className="mb-4 p-4 rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-sm font-bold text-amber-900 dark:text-amber-200">
+            {routeNotice}
+          </p>
+        )}
         {children}
       </div>
     </div>
@@ -522,7 +625,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   return chrome(
     <div className="space-y-4">
       {/* Order summary */}
-      <div className="glass-card rounded-3xl p-6">
+      <div className="glass-card rounded-3xl p-6" data-testid="order-summary">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
@@ -549,7 +652,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             ) : null}
           </div>
           <span className="text-left sm:text-right whitespace-nowrap">
-            {period === "/yr" || annualPrepaid ? (
+            {period === "/yr" || (annualPrepaid && !hasCompanions) ? (
               <>
                 <span className="block text-2xl font-black text-murzak-ink dark:text-slate-100 tracking-tighter">
                   {formatKes(period === "/yr" ? monthlyEquivalentKes(order.monthlyKes) : Math.round(dueNowKes / 12))}/mo
@@ -565,12 +668,60 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
             )}
           </span>
         </div>
+        {hasCompanions && (
+          <div className="mt-4 pt-4 border-t border-murzak-border space-y-2">
+            <p className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+              Included with your order
+            </p>
+            {companionLines.map((c) => (
+              <div key={c.serviceId} data-testid="companion-line" className="flex items-center justify-between gap-3 text-sm font-bold text-murzak-ink dark:text-slate-100">
+                <span className="min-w-0 wrap-break-word">{c.serviceName}</span>
+                <span className="flex items-center gap-3 shrink-0">
+                  <span>{formatKes(c.monthlyKes + c.setupKes)}</span>
+                  {canEditCompanions && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCompanion(c.serviceId)}
+                      disabled={!!removingId}
+                      aria-label={`Remove ${c.serviceName}`}
+                      className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 transition-colors"
+                    >
+                      {removingId === c.serviceId ? <Loader2 size={14} className="animate-spin" /> : 'Remove'}
+                    </button>
+                  )}
+                </span>
+              </div>
+            ))}
+            {bundleSavingKes > 0 && (
+              <div data-testid="bundle-saving-row" className="flex items-center justify-between text-sm font-black text-emerald-700 dark:text-emerald-300">
+                <span>Bundle saving</span>
+                <span>{'−'}{formatKes(bundleSavingKes)}</span>
+              </div>
+            )}
+            {!invoice && !order.invoiceDocName && (
+            <div data-testid="order-total-row" className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100 pt-2 border-t border-murzak-border">
+              <span>Order total</span>
+              <span>{formatKes(order.totalDueKes)}</span>
+            </div>
+            )}
+            {!canEditCompanions && order.status === 'Draft' && (
+              <p data-testid="companions-locked" className="text-xs font-semibold text-slate-500">
+                Your extras are locked in once payment is being prepared.
+              </p>
+            )}
+            {companionError && (
+              <p data-testid="companion-error" role="alert" className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-sm font-bold flex items-start gap-2">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" /> {companionError}
+              </p>
+            )}
+          </div>
+        )}
         <div className="mt-4 pt-4 border-t border-murzak-border space-y-1">
           <div className="flex items-center justify-between text-sm font-black text-murzak-ink dark:text-slate-100">
             <span>Due now</span>
-            <span>{formatKes(period === "/yr" ? order.monthlyKes : dueNowKes)}</span>
+            <span data-testid="due-now-amount">{formatKes(dueNowDisplayKes)}</span>
           </div>
-          {order.setupKes > 0 && (
+          {order.setupKes > 0 && !hasCompanions && (
             <p className="text-xs font-semibold text-slate-500 pt-1">
               This service also lists a one-time setup fee of {formatKes(order.setupKes)}, which is not part of
               today's charge.
@@ -595,10 +746,10 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               }`}
             >
               <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
-                {formatKes(order.monthlyKes)}/mo
+                {hasCompanions ? formatKes(order.totalDueKes) : `${formatKes(order.monthlyKes)}/mo`}
               </span>
               <span className="block text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">
-                Billed monthly
+                {hasCompanions ? 'Due today, then billed monthly' : 'Billed monthly'}
               </span>
             </button>
             <button
@@ -611,7 +762,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
               }`}
             >
               <span className="block text-sm font-black text-murzak-ink dark:text-slate-100">
-                {formatKes(annualPrepayKes(order.monthlyKes))}/yr
+                {formatKes(hasCompanions ? bundleAnnualKes : annualPrepayKes(order.monthlyKes))}/yr
               </span>
               <span className="block text-xs font-bold text-murzak-accent mt-1">
                 Save {ANNUAL_DISCOUNT_PCT}% — paid once a year
@@ -621,7 +772,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           <button
             type="button"
             onClick={handleConfirmTerm}
-            disabled={preparingPayment}
+            disabled={preparingPayment || !!removingId}
             className="mt-4 w-full px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {preparingPayment ? <Loader2 size={16} className="animate-spin" /> : null}

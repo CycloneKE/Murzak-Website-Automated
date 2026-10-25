@@ -206,6 +206,23 @@ const deps = {
     ok(res.amountKes === 3800, "second domain priced from snapshot (domain-net = 3800)");
   }
 
+  section("I4 — an add-on domain must carry its name (422 DOMAIN_NAME_REQUIRED, no invoice)");
+  {
+    const acct = { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] };
+    for (const [label, domainChoice] of [["no name", ""], ["wrong TLD", "acme.org"], ["bare TLD", ".com"], ["not a domain", "acme com"]]) {
+      const client = makeClient({ account: acct });
+      let err = null;
+      try {
+        await createAddonInvoice({ client, webAccountName: "acct-1", deps, services: [{ serviceId: "domain-com", domainChoice }] });
+      } catch (e) { err = e; }
+      ok(err?.statusCode === 422 && err?.code === "DOMAIN_NAME_REQUIRED", `${label} -> 422 DOMAIN_NAME_REQUIRED (got ${err?.statusCode} ${err?.code})`);
+      ok(client.posts.length === 0 && client.puts.length === 0, `${label} -> no invoice written`);
+    }
+    const client = makeClient({ account: acct });
+    const res = await createAddonInvoice({ client, webAccountName: "acct-1", deps, services: [{ serviceId: "domain-com", domainChoice: "Acme.com" }] });
+    ok(res.amountKes === 4200, `a named .com is billed 4,200 (got ${res.amountKes})`);
+  }
+
   section("FIX ROUND 2 — Requirement 3: real-hosting-only account keeps full add-on rights");
   {
     const client = makeClient({
@@ -249,7 +266,7 @@ const deps = {
     });
     const resDomain = await createAddonInvoice({
       client: client2, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "domain-net" }],
+      services: [{ serviceId: "domain-net", domainChoice: "another.net" }],
     });
     ok(!!resDomain.invoiceDocName, "hosting+domain account can buy another domain");
   }
@@ -286,6 +303,24 @@ const deps = {
       Math.abs(res.amountKes - (expectedRecurring + setupFee)) <= 100,
       "roughly half the annual price with ~half the term left, plus the one-time setup fee"
     );
+  }
+
+  section("I3 — createAddonInvoice reports what each line costs (pro-rated recurring + setup)");
+  {
+    // 8 days left in the annual term.
+    const started = new Date(Date.now() - 357 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const client = makeClient({
+      account: { plan: "Starter", selected_services: [{ service_id: "starter-app-hosting", status: "Active" }] },
+      lastPaidInvoice: { name: "PINV-PAID-L", invoice_date: started, billing_term: "annual" },
+    });
+    const res = await createAddonInvoice({
+      client, webAccountName: "acct-1", deps,
+      services: [{ serviceId: "starter-web-hosting" }, { serviceId: "starter-email" }],
+    });
+    // starter-web-hosting: round(1,200 x 9.6 x 8/365) = 252 + 500 setup; starter-email: round(14,400 x 8/365) = 316.
+    ok(JSON.stringify(res.lines) === JSON.stringify([{ serviceId: "starter-web-hosting", amountKes: 752 }, { serviceId: "starter-email", amountKes: 316 }]),
+      `lines ${JSON.stringify(res.lines)}`);
+    ok(res.amountKes === 752 + 316, `lines sum to the invoice amount (${res.amountKes})`);
   }
 
   section("annual-term accounts: merged open invoice is pro-rated too, not flat monthly");
@@ -599,7 +634,7 @@ const deps = {
     });
     const res = await createAddonInvoice({
       client, webAccountName: "acct-1", deps,
-      services: [{ serviceId: "domain-net" }],
+      services: [{ serviceId: "domain-net", domainChoice: "another.net" }],
     });
     ok(!!res.invoiceDocName, "domain-only account buying another domain still succeeds");
     ok(client.listCalls.length === 0, "buying a domain never triggers the paid-invoice scan at all");
