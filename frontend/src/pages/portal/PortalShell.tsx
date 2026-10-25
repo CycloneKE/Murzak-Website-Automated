@@ -221,8 +221,10 @@ const PortalShell: React.FC = () => {
           paddingBottom: "calc(6rem + env(safe-area-inset-bottom))",
         }}
       >
-        <div className="absolute inset-0 -z-10 bg-linear-to-br from-white/70 via-cyan-50/40 to-white/60 backdrop-blur-md sm:backdrop-blur-xl" />
-        <div className="absolute inset-0 -z-10 opacity-50 bg-[radial-gradient(circle_at_15%_15%,rgba(34,211,238,0.25),transparent_55%),radial-gradient(circle_at_85%_25%,rgba(59,130,246,0.2),transparent_55%)]" />
+        {/* Portal canvas: a theme-aware mesh instead of a flat wash. Light is a
+            airy white->cyan tint; dark is deep ink with brand-purple/accent glows. */}
+        <div className="absolute inset-0 -z-10 bg-linear-to-br from-white/70 via-cyan-50/40 to-white/60 dark:from-murzak-ink/40 dark:via-[#0d1322]/60 dark:to-murzak-ink/40 backdrop-blur-md sm:backdrop-blur-xl" />
+        <div className="absolute inset-0 -z-10 opacity-50 dark:opacity-100 bg-[radial-gradient(circle_at_15%_15%,rgba(34,211,238,0.25),transparent_55%),radial-gradient(circle_at_85%_25%,rgba(59,130,246,0.2),transparent_55%)] dark:bg-[radial-gradient(circle_at_12%_8%,rgba(136,47,253,0.22),transparent_50%),radial-gradient(circle_at_88%_20%,rgba(0,189,252,0.14),transparent_50%),radial-gradient(circle_at_50%_100%,rgba(51,136,242,0.12),transparent_55%)]" />
 
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
           <div className="grow">

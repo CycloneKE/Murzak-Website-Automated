@@ -187,18 +187,18 @@ const OverviewTab: React.FC = () => {
           back" greeting, so this strip focuses on live status + quick actions
           instead of repeating it. */}
       <div className="glass-card rounded-4xl sm:rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden group border border-murzak-border">
-        <div className="absolute inset-0 bg-linear-to-r from-murzak-ink to-transparent opacity-90 dark:opacity-50"></div>
-        <div className="absolute right-0 top-0 w-1/2 h-full opacity-20 bg-[url('/portal-hero-bg.webp')] bg-cover mix-blend-overlay blur-xs transition-transform duration-1000 group-hover:scale-105"></div>
+        <div className="absolute inset-0 bg-linear-to-r from-murzak-brand1/90 via-murzak-brand2/80 to-murzak-accent/70 dark:from-murzak-brand1/45 dark:via-murzak-brand2/30 dark:to-murzak-accent/15"></div>
+        <div className="absolute right-0 top-0 w-1/2 h-full opacity-25 bg-[url('/portal-hero-bg.webp')] bg-cover mix-blend-overlay blur-xs transition-transform duration-1000 group-hover:scale-105"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
-              <Crown className="w-4 h-4 text-murzak-accent" />
-              <span className="text-micro font-black uppercase text-slate-100">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/25 rounded-full border border-white/25 backdrop-blur-md">
+              <Crown className="w-4 h-4 text-white" />
+              <span className="text-micro font-black uppercase text-white">
                 {user.plan} Plan
               </span>
             </div>
-            <p className="text-body font-bold text-slate-100">
+            <p className="text-body font-bold text-white">
               {selectedServices.length === 0
                 ? "No services deployed yet"
                 : hasDegradedService
@@ -212,12 +212,12 @@ const OverviewTab: React.FC = () => {
               <button
                 key={`quick-${s.id}`}
                 onClick={() => onTabClick("cloud")}
-                className="px-5 py-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent font-black text-micro uppercase border border-murzak-accent/20 hover:bg-murzak-accent hover:text-murzak-ink hover:shadow-[0_0_20px_rgba(0,189,252,0.3)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
+                className="px-5 py-3 rounded-2xl bg-white text-murzak-ink font-black text-micro uppercase border border-white hover:bg-murzak-accent hover:border-murzak-accent hover:shadow-[0_0_20px_rgba(0,189,252,0.4)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
               >
                 <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
               </button>
             ))}
-            <button onClick={() => setIsContactOpen(true)} className="px-5 py-3 rounded-2xl bg-black/5 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase border border-white/20 hover:bg-white/20 transition-all flex items-center gap-2 backdrop-blur-md">
+            <button onClick={() => setIsContactOpen(true)} className="px-5 py-3 rounded-2xl bg-black/20 text-white font-black text-micro uppercase border border-white/40 hover:bg-black/30 transition-all flex items-center gap-2 backdrop-blur-md">
               <Headphones className="w-4 h-4" /> Get Support
             </button>
           </div>

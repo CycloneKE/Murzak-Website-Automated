@@ -162,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({
                 {isLoggedIn ? (
                   <button
                     onClick={() => onNavigate("portal")}
-                    className="bg-brand-gradient text-murzak-ink px-5 sm:px-6 py-2.5 sm:py-3 rounded-full font-semibold text-sm hover:scale-[1.02] transition-all shadow-md flex items-center gap-2"
+                    className="bg-brand-gradient text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-full font-semibold text-sm hover:scale-[1.02] transition-all shadow-md flex items-center gap-2"
                   >
                     <User className="w-4 h-4" /> Dashboard
                   </button>
@@ -176,7 +176,7 @@ const Header: React.FC<HeaderProps> = ({
                     </button>
                     <button
                       onClick={handleSalesClick}
-                      className="bg-brand-gradient text-murzak-ink px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-sm hover:scale-[1.02] transition-all shadow-md whitespace-nowrap"
+                      className="bg-brand-gradient text-white px-5 sm:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-sm hover:scale-[1.02] transition-all shadow-md whitespace-nowrap"
                     >
                       Talk to Sales
                     </button>
