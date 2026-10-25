@@ -1,0 +1,11 @@
+[
+  { "id": "pos-email", "primaryIds": ["biz-pos-duka", "biz-pos-inventory", "biz-pos-chain"], "companionId": "starter-email", "saving": { "type": "firstMonthFree" } },
+  { "id": "pos-domain-com", "primaryIds": ["biz-pos-duka", "biz-pos-inventory", "biz-pos-chain"], "companionId": "domain-com", "saving": { "type": "fixedKes", "kes": 1575 } },
+  { "id": "pos-domain-org", "primaryIds": ["biz-pos-duka", "biz-pos-inventory", "biz-pos-chain"], "companionId": "domain-org", "saving": { "type": "fixedKes", "kes": 1425 } },
+  { "id": "pos-domain-net", "primaryIds": ["biz-pos-duka", "biz-pos-inventory", "biz-pos-chain"], "companionId": "domain-net", "saving": { "type": "fixedKes", "kes": 1425 } },
+  { "id": "pos-domain-io", "primaryIds": ["biz-pos-duka", "biz-pos-inventory", "biz-pos-chain"], "companionId": "domain-io", "saving": { "type": "fixedKes", "kes": 5812 } },
+  { "id": "erp-domain-com", "primaryIds": ["biz-erp-light", "biz-erp-configured"], "companionId": "domain-com", "saving": { "type": "fixedKes", "kes": 1575 } },
+  { "id": "erp-domain-org", "primaryIds": ["biz-erp-light", "biz-erp-configured"], "companionId": "domain-org", "saving": { "type": "fixedKes", "kes": 1425 } },
+  { "id": "erp-domain-net", "primaryIds": ["biz-erp-light", "biz-erp-configured"], "companionId": "domain-net", "saving": { "type": "fixedKes", "kes": 1425 } },
+  { "id": "erp-domain-io", "primaryIds": ["biz-erp-light", "biz-erp-configured"], "companionId": "domain-io", "saving": { "type": "fixedKes", "kes": 5812 } }
+]
