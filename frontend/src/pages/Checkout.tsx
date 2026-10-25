@@ -38,8 +38,17 @@ interface OrderView {
 interface CompanionLine {
   serviceId: string;
   serviceName: string;
+  category?: string;
   monthlyKes: number;
   setupKes: number;
+}
+
+// A domain's catalog price is already its yearly price (isYearlyBilled), so the
+// annual term adds it once instead of annualising it.
+function isYearlyCompanion(c: CompanionLine): boolean {
+  if (c.category) return c.category === 'Domain Registration';
+  const svc = getService(c.serviceId);
+  return svc ? isYearlyBilled(svc) : c.serviceId.startsWith('domain-');
 }
 
 interface InvoicePricing {
@@ -473,10 +482,14 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
   // Also locked while prepare-payment runs: the server reads the companion list
   // mid-request, so a removal landing then could be billed anyway.
   const canEditCompanions = !!order && order.status === 'Draft' && !order.invoiceDocName && !invoice && !preparingPayment;
-  // What the server bills for each term on a bundle order (mirrors prepare-payment):
-  // monthly = totalDueKes; annual = annualPrepay(sum of ALL monthly rows) - saving.
-  const bundleMonthlySumKes = (order?.monthlyKes ?? 0) + companionLines.reduce((n, c) => n + c.monthlyKes, 0);
-  const bundleAnnualKes = Math.max(0, annualPrepayKes(bundleMonthlySumKes) - bundleSavingKes);
+  // What the server bills for each term on a bundle order (mirrors prepare-payment
+  // and backend bundles.annualBundleAmounts): monthly = totalDueKes; annual =
+  // annualPrepay(primary + non-domain companion monthly prices) + each domain's
+  // yearly price once + companion setup fees once - saving.
+  const bundleAnnualisedMonthlyKes = (order?.monthlyKes ?? 0)
+    + companionLines.filter((c) => !isYearlyCompanion(c)).reduce((n, c) => n + c.monthlyKes, 0);
+  const bundleOnceKes = companionLines.reduce((n, c) => n + c.setupKes + (isYearlyCompanion(c) ? c.monthlyKes : 0), 0);
+  const bundleAnnualKes = Math.max(0, annualPrepayKes(bundleAnnualisedMonthlyKes) + bundleOnceKes - bundleSavingKes);
   const dueNowDisplayKes = hasCompanions
     ? (invoice ? invoice.chargeKes : order?.totalDueKes ?? 0)
     : period === "/yr" ? order?.monthlyKes ?? 0 : dueNowKes;

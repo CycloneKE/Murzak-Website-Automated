@@ -545,6 +545,9 @@ function toApiOrder(doc) {
     return {
       serviceId: c.serviceId,
       serviceName: m.name || c.serviceId,
+      // Lets the checkout page mirror the annual rule (a domain's price is
+      // already yearly) without guessing from the id.
+      category: m.category || "",
       monthlyKes: Number(m.monthlyKes) || 0,
       setupKes: Number(m.setupKes) || 0,
     };

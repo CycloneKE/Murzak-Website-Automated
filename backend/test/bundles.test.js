@@ -303,6 +303,19 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
     ok(h.benchSlotsLeft === 4 && h.level === "limited", "limitedSlots read from BUNDLES_LIMITED_SLOTS");
   }
 
+  section("C1 — annualBundleAmounts");
+  {
+    let a = bundles.annualBundleAmounts({ primaryId: "biz-pos-duka", companionIds: ["domain-com"] });
+    ok(a.totalKes === 28200, `Duka + .com = 24,000 + 4,200 = 28,200 (got ${a.totalKes})`);
+    ok(JSON.stringify(a.lines) === JSON.stringify([{ serviceId: "biz-pos-duka", amountKes: 24000 }, { serviceId: "domain-com", amountKes: 4200 }]), "per-line amounts");
+    a = bundles.annualBundleAmounts({ primaryId: "biz-pos-duka", companionIds: ["biz-email"] });
+    ok(a.totalKes === 48500, `Duka + Teams email = 48,000 + 500 setup once (got ${a.totalKes})`);
+    a = bundles.annualBundleAmounts({ primaryId: "biz-erp-light", companionIds: ["starter-email", "domain-com"] });
+    ok(a.totalKes === 76200, `ERP + email + .com = 72,000 + 4,200 (got ${a.totalKes})`);
+    a = bundles.annualBundleAmounts({ primaryId: "biz-erp-light", companionIds: [] });
+    ok(a.totalKes === 57600 && a.lines.length === 1, "no companions = annualPrepayKes(primary) exactly");
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { console.error(fails.join("\n")); process.exit(1); }
   process.exit(0);

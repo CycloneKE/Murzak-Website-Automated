@@ -575,8 +575,12 @@ module.exports = function (ctx) {
         // own pro-ration, and re-applying annualPrepayKes there would
         // 12x-overcharge an add-on.
         if (effectiveBillingTerm === "annual") {
-          const monthlySumKes = sumSelectedServicesMonthlyKes(serviceRows);
-          const annualAmountKes = annualPrepayKes(monthlySumKes);
+          // A bundle order bills each companion line by its own rule (a
+          // domain's price is already yearly; companion setup once) — see
+          // bundles.annualBundleAmounts. No companions: exactly as before.
+          const annualAmountKes = companionRows.length
+            ? bundles.annualBundleAmounts({ primaryId: order.serviceId, companionIds: companionRows.map((r) => r.serviceId) }).totalKes
+            : annualPrepayKes(sumSelectedServicesMonthlyKes(serviceRows));
           await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, {
             amount: annualAmountKes,
             billing_term: "annual",

@@ -11,6 +11,7 @@ const { getServiceMeta } = require("../provisioning/catalog");
 const { effectiveFootprint } = require("../provisioning/capacity");
 const { ITEMS } = require("../provisioning/catalog");
 const { isAppService } = require("../apps/appOrder");
+const { annualPrepayKes } = require("../billingTerm");
 
 const BUNDLE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_COMPANIONS = 3;
@@ -84,6 +85,46 @@ function computeBundle({ primaryId, companions }) {
   }
   const savingKes = Math.min(savings.reduce((s, x) => s + x.savingKes, 0), monthlyAndSetup);
   return { lines, savingKes, savings };
+}
+
+function isYearlyPriced(meta) {
+  return meta?.category === "Domain Registration";
+}
+
+/**
+ * First-purchase ANNUAL amount for a bundle order, and what each line costs in
+ * it. One rule, applied per line, so bundling never changes what a line costs:
+ *  - the primary is billed exactly as a companion-less annual order bills it
+ *    (annualPrepayKes of its monthly price; its setup fee is not on an annual
+ *    first purchase, which is the existing solo-order behaviour, left as is);
+ *  - a non-domain companion is annualised together with the primary (one
+ *    annualPrepayKes over the summed monthly prices, as before), plus its
+ *    one-time setup fee once, never annualised;
+ *  - a domain companion's catalog price is already its YEARLY price, so it is
+ *    added once, never x12 x0.8 (renewalService.js excludes domains for the
+ *    same reason), plus its setup fee once.
+ * With no companions this returns exactly annualPrepayKes(primary monthly).
+ */
+function annualBundleAmounts({ primaryId, companionIds }) {
+  const pMeta = getServiceMeta(primaryId);
+  const pMonthly = Number(pMeta?.monthlyKes || 0);
+  let annualisedMonthly = pMonthly;
+  let onceKes = 0;
+  const lines = [{ serviceId: primaryId, amountKes: annualPrepayKes(pMonthly) }];
+  for (const id of companionIds || []) {
+    const meta = getServiceMeta(id);
+    const monthly = Number(meta?.monthlyKes || 0);
+    const setup = Number(meta?.setupKes || 0);
+    if (isYearlyPriced(meta)) {
+      onceKes += monthly + setup;
+      lines.push({ serviceId: id, amountKes: monthly + setup });
+    } else {
+      annualisedMonthly += monthly;
+      onceKes += setup;
+      lines.push({ serviceId: id, amountKes: annualPrepayKes(monthly) + setup });
+    }
+  }
+  return { totalKes: annualPrepayKes(annualisedMonthly) + onceKes, lines };
 }
 
 function footprintOf(primaryId, companions) {
@@ -422,6 +463,7 @@ module.exports = {
   MAX_COMPANIONS,
   validateCompanions,
   computeBundle,
+  annualBundleAmounts,
   footprintOf,
   isAllowedCompanion,
   computeHeadroom,

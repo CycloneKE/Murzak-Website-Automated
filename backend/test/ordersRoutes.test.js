@@ -1261,7 +1261,7 @@ function baseCtx(client, overrides = {}) {
       "Web Account domain row carries domainChoice");
   }
 
-  section("bundles — prepare-payment first purchase (annual): annualPrepay(sum of ALL rows) minus saving");
+  section("bundles — prepare-payment first purchase (annual): non-domain rows annualised, domain yearly price once, minus saving");
   {
     const client = makeMockFrappe({ "Web Account": { "acct-b6": { name: "acct-b6", plan: "None", selected_services: [] } } });
     const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
@@ -1272,9 +1272,59 @@ function baseCtx(client, overrides = {}) {
     await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
       { session: { webAccount: "acct-b6" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
     const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
-    const expected = annualPrepayKes(sumSelectedServicesMonthlyKes(bundleRows)) - 1575;
-    ok(inv.amount === expected, `annual invoice amount ${expected} (got ${inv.amount})`);
+    // ERP Light 6,000 + Business Email 1,500 annualised: (6,000 + 1,500) x 12 x 0.8 = 72,000.
+    // .com is already a yearly price (4,200), added once. Saving 1,575.
+    // ERP's own 5,000 setup is not on an annual first purchase (unchanged primary rule).
+    ok(inv.amount === 74625, `annual invoice amount 74,625 (got ${inv.amount})`);
     ok(inv.billing_term === "annual", "billing_term annual");
+  }
+
+  section("C1 — POS Duka + .com annual: 24,000 + 4,200 - 1,575 = 26,625 (domain never annualised)");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1": { name: "acct-c1", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Duka C1", slug: "duka-c1" },
+        companions: [{ serviceId: "domain-com", config: { domain: "dukac1.com" } }] } }, cr);
+    ok(cr.statusCode === 200 && cr.body.order.bundleSavingKes === 1575, `order created with saving 1,575 (status ${cr.statusCode})`);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    ok(res.statusCode === 200, `prepare 200 (got ${res.statusCode})`);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.amount === 26625, `annual invoice 26,625 (got ${inv?.amount})`);
+    ok(inv.billing_term === "annual", "billing_term annual");
+  }
+
+  section("C1 — a companion's one-time setup fee is billed once on annual, un-annualised");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1s": { name: "acct-c1s", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1s" }, body: { serviceId: "biz-pos-duka", config: { shopName: "Duka S", slug: "duka-c1s" },
+        companions: [{ serviceId: "biz-email" }] } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1s" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    // (2,500 + 2,500) x 9.6 = 48,000, plus biz-email's 500 setup once. No pairing, no saving.
+    ok(inv.amount === 48500, `annual invoice 48,500 (got ${inv?.amount})`);
+  }
+
+  section("C1 — a companion-less annual order is billed exactly as before");
+  {
+    const client = makeMockFrappe({ "Web Account": { "acct-c1p": { name: "acct-c1p", plan: "None", selected_services: [] } } });
+    const router = createOrdersRouter(baseCtx(client, { applyPlanAndCreateInvoice: applyWithSetup }));
+    const cr = makeRes();
+    await findHandler(router, "post", "/api/orders")(
+      { session: { webAccount: "acct-c1p" }, body: { serviceId: BUNDLE_PRIMARY } }, cr);
+    const res = makeRes();
+    await findHandler(router, "post", "/api/orders/:id/prepare-payment")(
+      { session: { webAccount: "acct-c1p" }, params: { id: cr.body.order.id }, body: { billingTerm: "annual" } }, res);
+    const inv = client.store["Portal Invoice"][res.body.invoiceDocName];
+    ok(inv.amount === annualPrepayKes(6000) && inv.amount === 57600, `ERP Light alone annual 57,600 (got ${inv?.amount})`);
   }
 
   section("bundles — prepare-payment add-on branch (paid plan): combined invoice, amount === totalDueKes");
