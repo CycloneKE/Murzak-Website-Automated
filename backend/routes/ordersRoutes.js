@@ -163,7 +163,7 @@ module.exports = function (ctx) {
       // whether prepare-payment reserves/links a Tenant Slug. They are set only
       // from validateAppOrder's result (app tiers); whatever the client sent under
       // those names is dropped first, so a non-app order can never carry them.
-      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, ...clientConfig } =
+      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, bundle: _clientBundle, ...clientConfig } =
         config && typeof config === "object" ? config : {};
       const storedConfig = {
         ...clientConfig,

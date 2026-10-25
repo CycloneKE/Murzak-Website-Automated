@@ -28,6 +28,7 @@
 
 const { getServiceMeta, sumSelectedServicesMonthlyKes } = require("../provisioning/catalog");
 const { thresholdMb, effectiveFootprint } = require("../provisioning/capacity");
+const { validateCompanions, computeBundle, footprintOf, BUNDLE_WINDOW_MS } = require("./bundles");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -223,6 +224,39 @@ async function fetchInvoice(client, invoiceDocName) {
 }
 
 /**
+ * Validate a companion list and build the reserved config.bundle value, or
+ * null when there are none (so an order without companions is byte-identical
+ * to what it was before bundles existed — validateCompanions also 422s when
+ * bundles are disabled, which must only ever apply to a non-empty list).
+ */
+function buildBundle(primaryId, companions) {
+  if (!Array.isArray(companions) || companions.length === 0) return null;
+  const validated = validateCompanions({ primaryId, companions });
+  for (const c of validated) assertDomainConfigMatchesService(c.serviceId, c.meta, c.config);
+  const list = validated.map((c) => ({ serviceId: c.serviceId, config: c.config }));
+  const { savingKes } = computeBundle({ primaryId, companions: list });
+  return { companions: list, savingKes };
+}
+
+function capacityError() {
+  const err = new Error(
+    "Not enough shared capacity right now — please try again shortly or contact us for a dedicated quote."
+  );
+  err.statusCode = 409;
+  err.code = "CAPACITY";
+  return err;
+}
+
+function parseConfig(json) {
+  try {
+    const v = json ? JSON.parse(json) : {};
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Create a Draft Checkout Order, reserving its RAM footprint for
  * RESERVATION_TTL_MS. Throws 400 for an unknown/unpriced/quote-only service,
  * 409 (code "CAPACITY") when the shared box has no room right now.
@@ -236,6 +270,7 @@ async function createOrder({
   source,
   fleetReservedRamMb,
   nowMs,
+  companions,
 }) {
   const meta = getServiceMeta(serviceId);
   if (!meta || !(Number(meta.monthlyKes) > 0) || meta.capacityClass === "dedicated") {
@@ -243,7 +278,10 @@ async function createOrder({
   }
   assertDomainConfigMatchesService(serviceId, meta, config);
 
-  const configJson = JSON.stringify(config || {});
+  // `bundle` is RESERVED (companions + saving + window): never trust a client copy.
+  const { bundle: _clientBundle, ...cleanConfig } = config && typeof config === "object" ? config : {};
+  const bundle = buildBundle(serviceId, companions);
+  const configJson = JSON.stringify(bundle ? { ...cleanConfig, bundle } : cleanConfig);
 
   return serialize(async () => {
     const rows = await listDraftRows(client);
@@ -261,17 +299,10 @@ async function createOrder({
     // depending on whether its Draft or its Job row is doing the counting.
     // See provisioningService.js buildJobPayload's identical comment: the
     // read and write sides must agree.
-    const footprint = effectiveFootprint(meta);
+    const footprint = bundle ? footprintOf(serviceId, bundle.companions) : effectiveFootprint(meta);
     const ramMb = footprint.ramMb;
     const reserved = sumReservedFromRows(rows, nowMs);
-    if ((Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) {
-      const err = new Error(
-        "Not enough shared capacity right now — please try again shortly or contact us for a dedicated quote."
-      );
-      err.statusCode = 409;
-      err.code = "CAPACITY";
-      throw err;
-    }
+    if ((Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) throw capacityError();
 
     const payload = {
       web_account: webAccountName,
@@ -317,10 +348,7 @@ async function getOrder({ client, webAccountName, orderId, nowMs, renew }) {
   if (doc.invoice_doc_name && doc.status !== "Paid") {
     const invoice = await fetchInvoice(client, doc.invoice_doc_name);
     if (invoice && String(invoice.status || "").toLowerCase() === "paid") {
-      const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
-        status: "Paid",
-      });
-      doc = updated.data?.data || { ...doc, status: "Paid" };
+      doc = await markOrderPaid({ client, orderId, nowMs, doc });
     }
   }
 
@@ -416,7 +444,7 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
       if (row.invoice_doc_name) {
         const invoice = await fetchInvoice(client, row.invoice_doc_name);
         if (invoice && String(invoice.status || "").toLowerCase() === "paid") {
-          await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(row.name)}`, { status: "Paid" });
+          await markOrderPaid({ client, orderId: row.name, nowMs });
           summary.flippedPaid++;
           continue;
         }
@@ -431,6 +459,64 @@ async function reconcileDraftOrders({ client, nowMs, staleGraceMs = 24 * 60 * 60
     }
   }
   return summary;
+}
+
+/**
+ * Flip an order to Paid and stamp the bundle add-on window
+ * (config.bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS), creating
+ * config.bundle when the order had none. Idempotent: an already-stamped
+ * window is kept, never extended. Pass `doc` to skip the fresh read.
+ */
+async function markOrderPaid({ client, orderId, nowMs, doc }) {
+  const current = doc || (await fetchOrderDoc(client, orderId));
+  const config = parseConfig(current.config_json);
+  const bundle = config.bundle && typeof config.bundle === "object" ? { ...config.bundle } : {};
+  if (!Number.isFinite(bundle.windowEndsAtMs)) bundle.windowEndsAtMs = nowMs + BUNDLE_WINDOW_MS;
+  const configJson = JSON.stringify({ ...config, bundle });
+  const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, {
+    status: "Paid",
+    config_json: configJson,
+  });
+  return updated.data?.data || { ...current, status: "Paid", config_json: configJson };
+}
+
+/**
+ * Replace the companion list on a Draft order that has no invoice yet.
+ * Revalidates, recomputes the saving and the summed footprint, and re-checks
+ * capacity (this order's own reservation excluded from the sum).
+ */
+async function setCompanions({ client, webAccountName, orderId, companions, nowMs, fleetReservedRamMb }) {
+  return serialize(async () => {
+    const doc = await fetchOrderDoc(client, orderId);
+    if (doc.web_account !== webAccountName) throw forbidden("This checkout order belongs to another account.");
+    if (doc.invoice_doc_name) {
+      const err = new Error("This order already has an invoice, so its companions can no longer change.");
+      err.statusCode = 409;
+      err.code = "ORDER_HAS_INVOICE";
+      throw err;
+    }
+    if (doc.status !== "Draft") {
+      const err = new Error("Only a draft order can change its companions.");
+      err.statusCode = 409;
+      err.code = "ORDER_NOT_DRAFT";
+      throw err;
+    }
+
+    const bundle = buildBundle(doc.service_id, companions);
+    const footprint = bundle
+      ? footprintOf(doc.service_id, bundle.companions)
+      : effectiveFootprint(getServiceMeta(doc.service_id));
+
+    const rows = (await listDraftRows(client)).filter((r) => r.name !== doc.name);
+    const reserved = sumReservedFromRows(rows, nowMs);
+    if ((Number(fleetReservedRamMb) || 0) + reserved + footprint.ramMb > thresholdMb()) throw capacityError();
+
+    const { bundle: _old, ...rest } = parseConfig(doc.config_json);
+    const configJson = JSON.stringify(bundle ? { ...rest, bundle } : rest);
+    const patch = { config_json: configJson, ram_mb: footprint.ramMb, disk_gb: footprint.diskGb };
+    const updated = await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(orderId)}`, patch);
+    return toApiOrder(updated.data?.data || { ...doc, ...patch });
+  });
 }
 
 /** Link a Portal Invoice doc name to a Draft order (Task 3 calls this once the invoice is created). */
@@ -450,6 +536,18 @@ function toApiOrder(doc) {
   } catch {
     config = {};
   }
+  const bundle = config.bundle && typeof config.bundle === "object" ? config.bundle : {};
+  const companions = (Array.isArray(bundle.companions) ? bundle.companions : []).map((c) => {
+    const m = getServiceMeta(c.serviceId) || {};
+    return {
+      serviceId: c.serviceId,
+      serviceName: m.name || c.serviceId,
+      monthlyKes: Number(m.monthlyKes) || 0,
+      setupKes: Number(m.setupKes) || 0,
+    };
+  });
+  const bundleSavingKes = Number(bundle.savingKes) || 0;
+  const companionsTotal = companions.reduce((sum, c) => sum + c.monthlyKes + c.setupKes, 0);
   return {
     id: doc.name,
     status: doc.status,
@@ -459,7 +557,10 @@ function toApiOrder(doc) {
     category: doc.category,
     monthlyKes,
     setupKes,
-    totalDueKes: monthlyKes + setupKes,
+    totalDueKes: monthlyKes + setupKes + companionsTotal - bundleSavingKes,
+    companions,
+    bundleSavingKes,
+    bundleWindowEndsAtMs: Number.isFinite(bundle.windowEndsAtMs) ? bundle.windowEndsAtMs : null,
     // Re-emit as an unambiguous ISO 8601 UTC string — the DB stores the
     // naive MySQL DATETIME format (no timezone marker), which every API
     // consumer (frontend, tests) would otherwise have to know to parse as
@@ -480,6 +581,8 @@ module.exports = {
   getOrder,
   cancelOrder,
   linkInvoice,
+  markOrderPaid,
+  setCompanions,
   reservedDraftRamMb,
   reconcileDraftOrders,
   toApiOrder,

@@ -34,6 +34,7 @@
 const { getServiceMeta } = require("../provisioning/catalog");
 const { JOB_DOCTYPE } = require("../provisioning/constants");
 const { mergeOrderConfig } = require("./shopSetup");
+const { markOrderPaid } = require("../checkout/orderStore");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const INVOICE_DOCTYPE = "Portal Invoice";
@@ -174,7 +175,7 @@ async function sweepPaidAppOrders(client, opts = {}) {
         });
         // The buyer may never open the order page again, so settle its status here.
         if (row.status !== "Paid") {
-          await client.put(`/api/resource/${ORDER_DOCTYPE}/${encodeURIComponent(row.name)}`, { status: "Paid" }).catch(() => {});
+          await markOrderPaid({ client, orderId: row.name, nowMs }).catch(() => {});
         }
         out.reconciled++;
         console.log(`[paid-order] ${row.name}: started provisioning for hand-marked invoice ${row.invoice_doc_name}`);
