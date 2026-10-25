@@ -86,12 +86,19 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const [addonsOpen, setAddonsOpen] = useState(false);
+  const [addonsOpen, setAddonsOpenRaw] = useState(false);
   const [addonsSourceTab, setAddonsSourceTab] = useState<"overview" | "cloud" | "billing">("overview");
   const [addonsLoading, setAddonsLoading] = useState(false);
   // Optional service the Add-ons modal opens with already selected (set by the
   // "Complete your setup" cards); cleared whenever the modal closes.
   const [addonsPreselectId, setAddonsPreselectId] = useState<string | null>(null);
+  // Every open/close that goes through this setter drops any preselection, so
+  // a direct open (e.g. Profile's "Add Services") never inherits a stale one.
+  // Only openAddonsModal(tab, id) sets a preselection, after calling this.
+  const setAddonsOpen = (open: boolean) => {
+    setAddonsPreselectId(null);
+    setAddonsOpenRaw(open);
+  };
 
   const [deleteTarget, setDeleteTarget] = useState<SelectedServiceView | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -546,7 +553,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const openAddonsModal = (sourceTab: "overview" | "cloud" | "billing", preselectId?: string) => {
     setAddonsSourceTab(sourceTab);
     setAddonsPreselectId(preselectId || null);
-    setAddonsOpen(true);
+    setAddonsOpenRaw(true);
   };
 
   // Arrival from a "Complete your setup" card on the checkout-welcome/thank-you

@@ -91,3 +91,55 @@ test('less than a day left is worded honestly', async ({ page }) => {
   await page.goto('/portal/overview');
   await expect(page.getByTestId('complete-setup-card-starter-email')).toContainText('less than a day left');
 });
+
+// ---- countdown boundaries (clock fixed so "exactly N ms" is exact) ----
+const FIXED = new Date('2026-10-25T09:00:00Z').getTime();
+for (const [label, delta, expected] of [
+  ['exactly 0 ms left', 0, null],
+  ['-1 ms (just ended)', -1, null],
+  ['+1 ms left', 1, 'less than a day left'],
+  ['exactly 24 h left', DAY, '1 day left'],
+] as const) {
+  test(`boundary: ${label}`, async ({ page }) => {
+    await page.clock.setFixedTime(FIXED);
+    await mockPortal(page, { body: { enabled: true, offers: [offer({ windowEndsAtMs: FIXED + delta })] } });
+    await page.goto('/portal/overview');
+    await expect(page.getByText('System Health')).toBeVisible();
+    if (expected === null) await expect(cards(page)).toHaveCount(0);
+    else await expect(page.getByTestId('complete-setup-card-starter-email')).toContainText(expected);
+  });
+}
+
+test('a closed preselected modal does not leak its preselection into the Profile add-ons button', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [offer()] } });
+  await page.goto('/portal/overview');
+  await page.getByTestId('complete-setup-card-starter-email').click();
+  await expect(page.getByRole('button', { name: /Business Email/, pressed: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByText('Purchase extra services')).toHaveCount(0);
+  // Client-side navigation (no reload) so portal state survives, as in real use.
+  await page.getByText('Settings', { exact: true }).first().click();
+  await expect(page).toHaveURL(/\/portal\/profile/);
+  await page.getByRole('button', { name: /Add Services/ }).click();
+  await expect(page.getByText('Purchase extra services')).toBeVisible();
+  await expect(page.getByText('Selected: 0').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Business Email/, pressed: true })).toHaveCount(0);
+});
+
+test('AppWelcome card lands on the portal with the modal preselected; reload does not reopen it', async ({ page }) => {
+  await mockPortal(page, { body: { enabled: true, offers: [offer()] } });
+  await page.route('**/api/orders/ord-w1', (r) =>
+    r.fulfill(json({ order: { id: 'ord-w1', status: 'Paid', serviceId: 'biz-pos-duka', config: { app: 'pos' } } }))
+  );
+  await page.route('**/api/portal/services/biz-pos-duka/activity', (r) =>
+    r.fulfill(json({ ok: true, jobs: [{ id: 'j1', serviceId: 'biz-pos-duka', status: 'active', statusDetail: '', attempts: 0, accessUrl: 'https://acme.pos.murzaktech.tech', posLogin: null }] }))
+  );
+  await page.goto('/welcome/ord-w1');
+  await page.getByTestId('complete-setup-card-starter-email').click();
+  await expect(page).toHaveURL(/\/portal\/overview/);
+  await expect(page.getByText('Purchase extra services')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Business Email/, pressed: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByText('Purchase extra services')).toHaveCount(0);
+});

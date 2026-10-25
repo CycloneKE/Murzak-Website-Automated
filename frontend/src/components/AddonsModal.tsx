@@ -60,12 +60,16 @@ export default function AddonsModal({
     }, 0);
   }, [isOpen]);
 
+  // Applied only when the modal opens or the preselected id changes, never on a
+  // later `addons` identity change (that would wipe the user's own picks).
+  const addonsRef = useRef(addons);
+  addonsRef.current = addons;
   useEffect(() => {
     if (!isOpen || !preselectedId) return;
-    if (!addons.some((a) => a.id === preselectedId)) return;
+    if (!addonsRef.current.some((a) => a.id === preselectedId)) return;
     setSelectedIds({ [preselectedId]: true });
     setSelectedOrder([preselectedId]);
-  }, [isOpen, preselectedId, addons]);
+  }, [isOpen, preselectedId]);
 
   useEffect(() => {
     if (!isOpen) {

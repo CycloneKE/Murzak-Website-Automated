@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import CompleteSetupCards from '../components/CompleteSetupCards';
 import { Button } from '../components/ui/Button';
 
 interface Props {
@@ -17,7 +15,6 @@ interface Props {
 const REDIRECT_DELAY_MS = 2500;
 
 const ThankYou: React.FC<Props> = ({ onNavigate }) => {
-  const navigate = useNavigate();
   useEffect(() => {
     const timer = setTimeout(() => onNavigate('portal'), REDIRECT_DELAY_MS);
     return () => clearTimeout(timer);
@@ -44,9 +41,6 @@ const ThankYou: React.FC<Props> = ({ onNavigate }) => {
           <Button variant="primary" size="lg" onClick={() => onNavigate('portal')}>
             Go to your portal <ArrowRight size={18} />
           </Button>
-          <div className="mt-10 text-left">
-            <CompleteSetupCards onChoose={(serviceId) => navigate('/portal/overview', { state: { addonsPreselect: serviceId } })} />
-          </div>
         </div>
       </section>
     </div>
