@@ -194,6 +194,9 @@ function buildJobPayload({ webAccount, invoice, serviceId, repoUrl, appPort }) {
  */
 const HELD_JOB_ATTEMPTS = 999;
 
+/** Add-ons that run on the buyer's own POS shop address (see the lookup in runProvisioningForInvoice). */
+const SHOP_ADDON_IDS = new Set(["starter-storefront"]);
+
 /**
  * Create a queued Provisioning Job per service id (idempotent).
  * Returns { created:[], skipped:[], doctypeMissing:bool, error:string|null }.
@@ -334,6 +337,26 @@ async function enqueueProvisioningForInvoice({ client, webAccount, invoiceDocNam
     });
     const meta = getServiceMeta(serviceId);
     if (meta?.app && appSiteSlug) payload.site_slug = appSiteSlug;
+    // The online storefront is a paid add-on bought AFTER the POS. It belongs on
+    // the buyer's own shop address, which is looked up here, never guessed: with
+    // no POS shop on the account the job is held for staff instead of being
+    // built under an invented name.
+    if (SHOP_ADDON_IDS.has(serviceId)) {
+      let shopSlug = null;
+      let shopProblem = "no active Murzak POS shop on this account";
+      try {
+        const tenantSlugs = require("../apps/tenantSlugStore");
+        shopSlug = await tenantSlugs.findActiveSlugForAccount(client, { webAccount, app: "pos" });
+      } catch (e) {
+        shopProblem = `shop address lookup failed: ${e.message}`;
+      }
+      if (shopSlug) {
+        payload.site_slug = shopSlug;
+      } else {
+        console.error(`[provisioning] storefront held, ${shopProblem}: account=${webAccount} invoice=${invoiceDocName}`);
+        holdUnresolvedAddress(payload, shopProblem);
+      }
+    }
     let holdForAddress = false;
     if (meta?.app && !appSiteSlug) {
       const kind = appAccountLookupFailed ? "unknown" : await resolveProvenance();

@@ -65,6 +65,43 @@ function postgres({ user, db }) {
 
 const CLOUD_APPS = {
   // ------------------------------------------------------------------
+  // Online storefront: a shop's own web store, on the shop's own address
+  // ------------------------------------------------------------------
+  // One small nginx container serving the storefront-only build of the POS
+  // frontend (murzak-pos-frontend, deploy/storefront). It holds no data and no
+  // secrets. It passes only the storefront's own calls through to the owner's
+  // ERP site and refuses every other path, so it is not a way into the POS.
+  "starter-storefront": {
+    primaryService: "storefront",
+    primaryPort: 8080,
+    domainBaseEnv: DOMAIN_ENV,
+    // The address is the shop's own (<shop>.cloud...), not the account-derived one.
+    useShopSlug: true,
+    accessDetails: (ctx) => ({
+      storeUrl: `${ctx.fqdn}/shop/${hostOf(ctx.fqdn).split(".")[0]}`,
+      note: "This is your online store. Share the link with customers. Your products, prices and orders are managed in Murzak POS under Ecommerce.",
+    }),
+    services: {
+      storefront: {
+        image: process.env.STOREFRONT_IMAGE || "ghcr.io/murzaktech/murzak-storefront:latest",
+        environment: (ctx, job) => {
+          const slug = String((job && job.site_slug) || "");
+          if (!/^[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])$/.test(slug)) {
+            throw new Error("The storefront needs the shop's address (site_slug) and none was set.");
+          }
+          const suffix = String(process.env.BENCH_SITE_SUFFIX || "erp.murzaktech.tech").replace(/^\.+|\.+$/g, "");
+          return { SHOP_SLUG: slug, ERP_HOST: `${slug}.${suffix}` };
+        },
+        healthcheck: () =>
+          `      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/healthz"]\n` +
+          `      interval: 10s\n` +
+          `      timeout: 5s\n` +
+          `      retries: 6\n`,
+      },
+    },
+  },
+
+  // ------------------------------------------------------------------
   // n8n: workflow automation
   // ------------------------------------------------------------------
   "starter-n8n": {

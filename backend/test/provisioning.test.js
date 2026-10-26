@@ -828,6 +828,24 @@ const okLane = {
     const throwingClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) throw new Error("boom"); return store.get(url, opts); } });
     const emptyClient = (store) => ({ ...store, get: async (url, opts) => { if (/Tenant(%20| )Slug/.test(url)) return { data: { data: [] } }; return store.get(url, opts); } });
     const isHeld = (j) => j && j.status === "needs_human" && j.attempts === 999 && !("site_slug" in j) && /PINV-1/.test(j.error || "") && j.error.length <= 500;
+
+    // The online storefront add-on lands on the buyer's own POS shop address, looked up, never guessed.
+    {
+      const shopClient = (store) => ({ ...store, get: async (url, opts) => {
+        if (/Tenant(%20| )Slug/.test(url)) return { data: { data: [{ name: "lindamwananchi", slug: "lindamwananchi", web_account: "A", app: "pos", status: "active" }] } };
+        return store.get(url, opts);
+      } });
+      const sShop = makeStore([]);
+      await svc.enqueueProvisioningForInvoice({ client: shopClient(sShop), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["starter-storefront"] });
+      const shopJob = Object.values(PJ(sShop)).find((d) => d.service_id === "starter-storefront");
+      ok(shopJob?.site_slug === "lindamwananchi" && shopJob.status === "queued", "storefront add-on: job carries the buyer's own POS shop address and is queued");
+
+      const sNoShop = makeStore([]);
+      const noShopRun = await quietly(() => svc.enqueueProvisioningForInvoice({ client: emptyClient(sNoShop), webAccount: "A", invoiceDocName: "PINV-1", serviceIds: ["starter-storefront"] }));
+      const noShopJob = Object.values(PJ(sNoShop)).find((d) => d.service_id === "starter-storefront");
+      ok(isHeld(noShopJob) && /no active Murzak POS shop/.test(noShopJob.error), "storefront add-on with no POS shop on the account: held for staff, not built under an invented name");
+      ok(noShopRun.calls.some((c) => /storefront held/.test(c)), "the hold is logged");
+    }
     // Provenance: only an invoice that came from the app checkout has a Checkout
     // Order (config.app set) pointing at it. Like the rest of this suite the stub
     // ignores filters, so the code under test must re-filter on invoice_doc_name.

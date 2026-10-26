@@ -39,6 +39,38 @@ const FQDN = "https://acme-ab12.cloud.murzaktech.tech";
   ok((yaml.match(/expose:/g) || []).length === 1 && yaml.includes('- "80"'), "only wordpress exposes port 80");
   ok(/volumes:\n  client-starter-wordpress-db-data:\n  client-starter-wordpress-wp-data:\n/.test(yaml), "two named volumes declared");
 
+
+  section("starter-woocommerce: WordPress plus a shop ready for the POS");
+  const woo = coolify.__test_woocommerceConfig;
+  const wooYaml = coolify.buildMultiServiceComposeYaml("client-starter-woocommerce", LIMITS, woo, FQDN, null, job);
+  ok(wooYaml.includes("wp plugin install woocommerce --activate"), "installs and activates WooCommerce");
+  ok(wooYaml.includes("woocommerce_currency KES") && wooYaml.includes("woocommerce_default_country KE"), "shop starts in Kenyan shillings, Kenya");
+  ok(/WC_CONSUMER_KEY: "ck_[0-9a-f]{40}"/.test(wooYaml) && /WC_CONSUMER_SECRET: "cs_[0-9a-f]{40}"/.test(wooYaml), "API key pair is made at provisioning in WooCommerce's own shape");
+  ok(wooYaml.includes("$$wpdb->insert") && !/[^$]\$wpdb/.test(wooYaml.split("wp eval")[1] || ""), "key-writing PHP is Compose-escaped");
+  ok(wooYaml.indexOf("wp plugin install") < wooYaml.indexOf("exec sleep infinity"), "WooCommerce steps run before the container idles");
+  ok(!yaml.includes("woocommerce"), "plain WordPress product is unchanged");
+  const wooCtx = { fqdn: FQDN, adminPassword: "pw", wooConsumerKey: "ck_a", wooConsumerSecret: "cs_b" };
+  const wooAccess = woo.accessDetails(wooCtx, job);
+  ok(wooAccess.adminUrl === `${FQDN}/wp-admin` && wooAccess.storeUrl === FQDN && wooAccess.consumerKey === "ck_a" && wooAccess.consumerSecret === "cs_b", "portal shows the store address and both keys");
+  ok(woo.domainBaseEnv === "CLOUD_DOMAIN_BASE", "lives on the cloud zone");
+
+  section("starter-storefront: the online shop on the buyer's own address");
+  const { CLOUD_APPS } = require("../services/provisioning/lanes/cloudApps");
+  const sf = CLOUD_APPS["starter-storefront"];
+  const sfJob = { name: "PRV-9", web_account: "client@example.com", site_slug: "lindamwananchi" };
+  const sfYaml = coolify.buildMultiServiceComposeYaml("client-starter-storefront", LIMITS, sf, "https://lindamwananchi.cloud.murzaktech.tech", null, sfJob);
+  ok(sfYaml.includes('SHOP_SLUG: "lindamwananchi"') && sfYaml.includes('ERP_HOST: "lindamwananchi.erp.murzaktech.tech"'), "container is told its shop and that shop's own ERP site");
+  ok(!sfYaml.includes("volumes:"), "holds no data: no volumes declared");
+  ok(sfYaml.includes('- "8080"') && (sfYaml.match(/image:/g) || []).length === 1, "one unprivileged container on port 8080");
+  let threw = false;
+  try { coolify.buildMultiServiceComposeYaml("x", LIMITS, sf, "https://x.cloud.murzaktech.tech", null, { name: "PRV-1" }); } catch { threw = true; }
+  ok(threw, "refuses to build without the shop's address");
+  process.env.CLOUD_DOMAIN_BASE = "cloud.murzaktech.tech";
+  ok(coolify.__test_curatedSlug(sf, "n", sfJob) === "lindamwananchi", "address is the shop's own name");
+  ok(coolify.__test_curatedSlug(coolify.__test_wordpressConfig, "acme-wordpress", { name: "PRV-9", site_slug: "lindamwananchi" }) !== "lindamwananchi", "other products keep the account-derived address");
+  ok(sf.accessDetails({ fqdn: "https://lindamwananchi.cloud.murzaktech.tech" }).storeUrl === "https://lindamwananchi.cloud.murzaktech.tech/shop/lindamwananchi", "portal shows the shop link");
+  delete process.env.CLOUD_DOMAIN_BASE;
+
   section("access details returned to the portal");
   const ctx = { fqdn: FQDN, adminPassword: "pw123" };
   const acc = cfg.accessDetails(ctx, job);

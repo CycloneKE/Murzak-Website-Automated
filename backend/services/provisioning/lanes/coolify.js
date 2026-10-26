@@ -571,8 +571,8 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
  * (verified both recovered URLs went 503 -> 200 only after this).
  */
 async function attachServiceUrl(client, uuid, job, name) {
-  const slug = appDomain.slugWithSuffix(name, job.name);
   const appConfig = CURATED_APP_CONFIG[job.service_id];
+  const slug = curatedSlug(appConfig, name, job);
   const fqdn = curatedFqdn(appConfig, slug);
   if (!fqdn) return "";
   const containerName = appConfig?.primaryService || "app";
@@ -816,7 +816,7 @@ function wpAdminEmail(job) {
  * Compose escaping for "$"). Idempotent: if WordPress is already installed it
  * does nothing, so restarts and redeploys never overwrite a client's site.
  */
-const WORDPRESS_INSTALL_SCRIPT = [
+const WORDPRESS_BASE_STEPS = [
   "cd /var/www/html",
   "until [ -f wp-config.php ]; do sleep 3; done",
   `until php -r '$$m=@new mysqli(getenv("WORDPRESS_DB_HOST"),getenv("WORDPRESS_DB_USER"),getenv("WORDPRESS_DB_PASSWORD"),getenv("WORDPRESS_DB_NAME")); exit($$m->connect_errno?1:0);'; do sleep 3; done`,
@@ -828,8 +828,35 @@ const WORDPRESS_INSTALL_SCRIPT = [
   "else",
   '  echo "MURZAK: WordPress already installed, nothing to do"',
   "fi",
-  "exec sleep infinity",
-].join("\n");
+];
+
+/**
+ * Extra steps for the WooCommerce edition. Every step checks before it acts, so
+ * a restart or redeploy never reinstalls the plugin, resets the shop's settings
+ * or adds a second set of API keys. The keys are made by this lane (so the
+ * portal can show them) and written into WooCommerce's own key table the same
+ * way WooCommerce does it: the key is stored hashed, the secret as given.
+ * "$$" is Compose escaping for "$".
+ */
+const WOOCOMMERCE_INSTALL_STEPS = [
+  "if ! wp plugin is-installed woocommerce 2>/dev/null; then",
+  "  wp plugin install woocommerce --activate",
+  '  echo "MURZAK: WooCommerce installed"',
+  "elif ! wp plugin is-active woocommerce 2>/dev/null; then",
+  "  wp plugin activate woocommerce",
+  "fi",
+  "if [ \"$$(wp option get murzak_shop_defaults 2>/dev/null)\" != \"done\" ]; then",
+  "  wp option update woocommerce_currency KES",
+  "  wp option update woocommerce_default_country KE",
+  "  wp option update murzak_shop_defaults done",
+  "fi",
+  `wp eval 'if (!class_exists("WC_Install")) { exit(0); } global $$wpdb; $$t = $$wpdb->prefix . "woocommerce_api_keys"; $$wpdb->get_var($$wpdb->prepare("SHOW TABLES LIKE %s", $$t)) || WC_Install::install(); $$k = getenv("WC_CONSUMER_KEY"); $$h = hash_hmac("sha256", $$k, "wc-api"); if (!$$wpdb->get_var($$wpdb->prepare("SELECT key_id FROM $$t WHERE consumer_key = %s", $$h))) { $$wpdb->insert($$t, array("user_id" => 1, "description" => "Murzak POS", "permissions" => "read_write", "consumer_key" => $$h, "consumer_secret" => getenv("WC_CONSUMER_SECRET"), "truncated_key" => substr($$k, -7))); echo "MURZAK: WooCommerce API keys created\n"; }'`,
+];
+
+const WORDPRESS_FINISH = "exec sleep infinity";
+
+const WORDPRESS_INSTALL_SCRIPT = [...WORDPRESS_BASE_STEPS, WORDPRESS_FINISH].join("\n");
+const WOOCOMMERCE_INSTALL_SCRIPT = [...WORDPRESS_BASE_STEPS, ...WOOCOMMERCE_INSTALL_STEPS, WORDPRESS_FINISH].join("\n");
 
 /**
  * Customer hostname for a curated app. A product may declare `domainBaseEnv`
@@ -840,6 +867,19 @@ const WORDPRESS_INSTALL_SCRIPT = [
 function curatedFqdn(appConfig, slug) {
   const override = appConfig?.domainBaseEnv ? process.env[appConfig.domainBaseEnv] : "";
   return appDomain.fqdnFor(slug, override);
+}
+
+/**
+ * The first label of a curated app's address. Normally the account and product
+ * with a short job hash, so two customers can never collide. An app that
+ * declares `useShopSlug` (the online storefront) takes the buyer's own shop
+ * address instead, so the shop is <shop>.cloud.murzaktech.tech and matches
+ * their POS at <shop>.pos.murzaktech.tech. The shop address was already
+ * validated and reserved to this one buyer when they chose it.
+ */
+function curatedSlug(appConfig, name, job) {
+  if (appConfig?.useShopSlug && job?.site_slug) return String(job.site_slug);
+  return appDomain.slugWithSuffix(name, job.name);
 }
 
 const CURATED_APP_CONFIG = {
@@ -1075,6 +1115,40 @@ const CURATED_APP_CONFIG = {
 // Murzak Cloud app templates (n8n, Ghost, Nextcloud, ...) live in cloudApps.js.
 Object.assign(CURATED_APP_CONFIG, CLOUD_APPS);
 
+/**
+ * WordPress with WooCommerce installed and a shop ready for the Murzak POS:
+ * Kenyan shillings and Kenya as the shop country, and a read/write API key pair
+ * made at provisioning. It reuses the WordPress stack, changing only the install
+ * script, the extra secrets and what the customer is shown.
+ */
+function woocommerceEditionOf(wordpress) {
+  const wpcli = wordpress.services.wpcli;
+  return {
+    ...wordpress,
+    secrets: { ...wordpress.secrets, wooConsumerKey: "wooKey", wooConsumerSecret: "wooSecret" },
+    accessDetails: (ctx, job) => ({
+      ...wordpress.accessDetails(ctx, job),
+      storeUrl: ctx.fqdn,
+      consumerKey: ctx.wooConsumerKey,
+      consumerSecret: ctx.wooConsumerSecret,
+      note: "Open Ecommerce in your Murzak POS, choose WooCommerce, and paste the store address and these two keys.",
+    }),
+    services: {
+      ...wordpress.services,
+      wpcli: {
+        ...wpcli,
+        environment: (ctx, job) => ({
+          ...wpcli.environment(ctx, job),
+          WC_CONSUMER_KEY: ctx.wooConsumerKey,
+          WC_CONSUMER_SECRET: ctx.wooConsumerSecret,
+        }),
+        command: WOOCOMMERCE_INSTALL_SCRIPT,
+      },
+    },
+  };
+}
+CURATED_APP_CONFIG["starter-woocommerce"] = woocommerceEditionOf(CURATED_APP_CONFIG["starter-wordpress"]);
+
 /** Pure — same reasoning as buildDbComposeYaml: side-effect-free, unit-tested directly. */
 function buildCuratedAppComposeYaml(name, limits, appConfig, fqdn, secretKeyBase, preCtx, job) {
   if (appConfig.services) return buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job);
@@ -1146,6 +1220,9 @@ const SECRET_GENERATORS = {
   laravelAppKey: generateLaravelAppKey,
   // For apps that enforce password complexity (upper, lower, digit, symbol).
   complexPassword: () => `${generateRandomSecret().slice(0, 24)}Aa9!`,
+  // WooCommerce REST API credentials: the same ck_/cs_ + 40 hex shape WooCommerce makes itself.
+  wooKey: () => `ck_${crypto.randomBytes(20).toString("hex")}`,
+  wooSecret: () => `cs_${crypto.randomBytes(20).toString("hex")}`,
 };
 
 /**
@@ -1263,8 +1340,8 @@ function buildMultiServiceComposeYaml(name, limits, appConfig, fqdn, preCtx, job
   return (
     `services:\n` +
     serviceBlocks +
-    `volumes:\n` +
-    volumeDecls.map((v) => `  ${v}:\n`).join("")
+    // A stack with no storage (the online storefront) declares no volumes; an empty "volumes:" is invalid Compose.
+    (volumeDecls.length ? `volumes:\n` + volumeDecls.map((v) => `  ${v}:\n`).join("") : "")
   );
 }
 
@@ -1395,7 +1472,7 @@ async function provision(job, opts) {
   // seeds into HOST is what attachServiceUrl (below, after creation) PATCHes
   // onto the service. No chicken-and-egg: both derive the identical value.
   const curatedAppFqdn = curatedAppConfig
-    ? curatedFqdn(curatedAppConfig, appDomain.slugWithSuffix(name, job.name))
+    ? curatedFqdn(curatedAppConfig, curatedSlug(curatedAppConfig, name, job))
     : null;
   // Multi-service apps: generate secrets here so we can also hand the
   // customer-facing ones (admin login) back in `access`.
@@ -1708,7 +1785,9 @@ module.exports = {
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
   __test_curatedFqdn: curatedFqdn,
+  __test_curatedSlug: curatedSlug,
   __test_wordpressConfig: CURATED_APP_CONFIG["starter-wordpress"],
+  __test_woocommerceConfig: CURATED_APP_CONFIG["starter-woocommerce"],
   __test_calcomConfig: CURATED_APP_CONFIG["starter-scheduling"],
   buildDbComposeYaml,
   // Build-wait plumbing (exported for unit tests + the smoke probe).
