@@ -99,6 +99,19 @@
       "setupKes": 0,
       "requiresRepo": false
     },
+    "starter-storefront": {
+      "id": "starter-storefront",
+      "name": "Online Storefront (Managed)",
+      "category": "Website Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 256,
+      "diskGb": 1,
+      "pricingModel": "addon",
+      "monthlyKes": 500,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
     "starter-ghost": {
       "id": "starter-ghost",
       "name": "Ghost (Managed)",
