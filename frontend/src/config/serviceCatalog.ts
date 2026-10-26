@@ -437,6 +437,20 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       sortOrder: 15,
     },
     {
+      id: "starter-woocommerce",
+      name: "WordPress + WooCommerce (Managed)",
+      description: "An online shop on your own yourname.cloud.murzaktech.tech address, with WooCommerce installed and set to Kenyan shillings. Your shop address and keys are delivered to your portal, ready to connect to Murzak POS.",
+      category: "Website Hosting",
+      tier: "Standard",
+      capacityClass: "volume",
+      specs: { ram: "1.5GB", storage: "15GB NVMe", cpu: "1 vCPU (shared)", bandwidth: "Generous", backups: "Daily", sla: "99.5%" },
+      resources: { ramMb: 1536, diskGb: 15 },
+      // PLACEHOLDER PRICE: review before launch.
+      pricing: { model: "addon", monthlyKes: 2500, setupKes: 0 },
+      highlights: ["WooCommerce installed for you", "Connects to Murzak POS", "Free SSL", "Own cloud.murzaktech.tech address"],
+      sortOrder: 15,
+    },
+    {
       id: "starter-ghost",
       name: "Ghost (Managed)",
       description: "Publishing and newsletters on your own cloud.murzaktech.tech address. Installed automatically with HTTPS.",

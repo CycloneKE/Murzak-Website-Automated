@@ -86,6 +86,19 @@
       "setupKes": 0,
       "requiresRepo": false
     },
+    "starter-woocommerce": {
+      "id": "starter-woocommerce",
+      "name": "WordPress + WooCommerce (Managed)",
+      "category": "Website Hosting",
+      "tier": "Standard",
+      "capacityClass": "volume",
+      "ramMb": 1536,
+      "diskGb": 15,
+      "pricingModel": "addon",
+      "monthlyKes": 2500,
+      "setupKes": 0,
+      "requiresRepo": false
+    },
     "starter-ghost": {
       "id": "starter-ghost",
       "name": "Ghost (Managed)",
