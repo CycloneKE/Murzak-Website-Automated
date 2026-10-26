@@ -3526,6 +3526,7 @@ app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/ordersRoutes')(routeContext));
 app.use("/api/apps/", appAddressLimiter);
 app.use(require('./routes/appsRoutes')(routeContext));
+app.use(require('./routes/marketplaceRoutes')(routeContext));
 app.use(require('./routes/adminRoutes')(routeContext));
 
 // Unmatched API routes get a JSON 404, not the SPA's index.html — a wrong URL
