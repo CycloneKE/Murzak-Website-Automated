@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Send, RefreshCw, MessageSquare, AlertCircle } from "lucide-react";
 import { toUserMessage } from "../services/errors";
+import { redactStatusPath } from "../utils/safeUrl";
 
 interface ContactProps {
   isOpen: boolean;
@@ -139,7 +140,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
         email: user.email.trim(),
         message: draft.trim(),
         attachments: attachmentUrl || "",
-        pageUrl: window.location.href,
+        pageUrl: redactStatusPath(window.location.href),
       }),
     });
 

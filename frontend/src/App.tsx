@@ -43,6 +43,7 @@ import ForServices from "./pages/for/ForServices";
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
 import { safeReturnTo } from "./utils/safeReturnTo";
+import { isStatusPath } from "./utils/safeUrl";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -220,8 +221,11 @@ const App: React.FC = () => {
       sessionExpiredHandled.current = true;
       setUser(null);
       setIsLoggedIn(false);
-      const returnTo = encodeURIComponent(location.pathname + location.search);
-      navigate(`/login?returnTo=${returnTo}&reason=session-expired`);
+      // A status link is a capability URL: never carry it into /login.
+      const returnTo = isStatusPath(location.pathname)
+        ? ""
+        : `returnTo=${encodeURIComponent(location.pathname + location.search)}&`;
+      navigate(`/login?${returnTo}reason=session-expired`);
     };
     window.addEventListener('session-expired', handleSessionExpired);
     return () => window.removeEventListener('session-expired', handleSessionExpired);

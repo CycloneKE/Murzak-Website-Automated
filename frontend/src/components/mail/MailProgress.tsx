@@ -116,6 +116,7 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
   const [loading, setLoading] = useState(true);
   const [dead, setDead] = useState(false);
   const alive = useRef(true);
+  const statusLoaded = useRef(false);
 
   useEffect(() => {
     alive.current = true;
@@ -137,10 +138,14 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
     return () => { cancelled = true; };
   }, [tokenProp, orderId]);
 
+  // A new token starts fresh: forget any earlier dead/loaded state.
+  useEffect(() => { setDead(false); statusLoaded.current = false; }, [token]);
+
   const load = useCallback(async (t: string) => {
     try {
       const s = await fetchMailStatus(t);
       if (!alive.current) return;
+      statusLoaded.current = true;
       setStatus(s);
       setError("");
     } catch (e) {
@@ -148,7 +153,7 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
       // Keep showing the last good status; only surface an error if there is none.
       setError(e instanceof MailError ? e.message : "We couldn't load your email setup. Please try again.");
       // A bad link or signed-out session will not fix itself: stop polling.
-      if (e instanceof MailError && (e.status === 404 || e.status === 401)) setDead(true);
+      if (e instanceof MailError && (e.status === 404 || e.status === 401) && !statusLoaded.current) setDead(true);
     } finally {
       if (alive.current) setLoading(false);
     }
@@ -200,7 +205,7 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
               <p className="font-black text-murzak-ink dark:text-slate-100">{s.label}</p>
               <p className={`text-sm font-semibold ${s.state === "failed" ? "text-amber-700 dark:text-amber-400" : MUTED}`}>
                 {STATE_WORDS[s.state]}
-                {s.id === "domain" && s.state === "running" ? ". New domains can take up to 15 minutes to register." : ""}
+                {s.id === "domain" && s.state === "running" ? ". Waiting for your domain's records to be found." : ""}
               </p>
             </div>
           </li>

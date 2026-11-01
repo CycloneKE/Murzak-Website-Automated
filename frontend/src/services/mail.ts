@@ -8,6 +8,9 @@ import type { MailSetup, MailStatus } from "../types";
  * through toUserMessage(); raw error text is never rendered.
  */
 
+/** sessionStorage key carrying the form's M-Pesa number to the checkout page (read once there). */
+export const MPESA_PREFILL_KEY = "murzak_mpesa_prefill";
+
 export class MailError extends Error {
   status: number;
   code?: string;

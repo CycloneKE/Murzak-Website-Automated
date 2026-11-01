@@ -13,7 +13,7 @@
 // Google".
 
 import type { FirebaseApp } from "firebase/app";
-import { redactAnalyticsPath } from "../utils/analyticsPath";
+import { isStatusPath, redactStatusPath } from "../utils/safeUrl";
 import type { Analytics } from "firebase/analytics";
 import type { Auth } from "firebase/auth";
 
@@ -55,10 +55,12 @@ function ensureAnalytics(): void {
   analyticsInitStarted = true;
 
   import("firebase/analytics")
-    .then(async ({ getAnalytics, isSupported }) => {
+    .then(async ({ initializeAnalytics, isSupported }) => {
       if (!(await isSupported())) return;
       const app = await getApp();
-      analytics = getAnalytics(app);
+      // send_page_view:false stops the automatic gtag page_view (raw location);
+      // only logPageView below sends them, with redacted values.
+      analytics = initializeAnalytics(app, { config: { send_page_view: false } });
       if (pendingPageView) {
         const p = pendingPageView;
         pendingPageView = null;
@@ -71,8 +73,23 @@ function ensureAnalytics(): void {
 }
 
 /** Log a GA4 page_view. No-op unless Analytics is configured/supported. */
+/**
+ * gtag drops every hit while window['ga-disable-<id>'] is true. Status links
+ * switch analytics off entirely (belt and braces against gtag's own history
+ * listeners, which read the raw URL); it comes back on when the user leaves.
+ */
+function syncAnalyticsSwitch(path: string): boolean {
+  const off = isStatusPath(path);
+  if (typeof window !== "undefined" && firebaseConfig.measurementId) {
+    (window as any)[`ga-disable-${firebaseConfig.measurementId}`] = off;
+  }
+  return off;
+}
+if (typeof window !== "undefined") syncAnalyticsSwitch(window.location.pathname);
+
 export function logPageView(rawPath: string, title?: string): void {
-  const path = redactAnalyticsPath(rawPath);
+  if (syncAnalyticsSwitch(rawPath)) { pendingPageView = null; return; }
+  const path = redactStatusPath(rawPath);
   if (!firebaseEnabled || !firebaseConfig.measurementId) return;
   if (!analytics) {
     pendingPageView = { path, title };
@@ -84,7 +101,7 @@ export function logPageView(rawPath: string, title?: string): void {
       if (!analytics) return;
       logEvent(analytics, "page_view", {
         page_path: path,
-        page_location: typeof window !== "undefined" ? redactAnalyticsPath(window.location.href) : path,
+        page_location: typeof window !== "undefined" ? redactStatusPath(window.location.href) : path,
         page_title: title || (typeof document !== "undefined" ? document.title : undefined),
       });
     })

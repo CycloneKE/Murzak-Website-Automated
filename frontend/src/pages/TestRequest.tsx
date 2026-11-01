@@ -8,6 +8,7 @@ import { Page } from '../types';
 import { logLeadToCRM, generateReferenceId } from '../services/erpnext';
 import { createTestPlan } from "../services/testPlan";
 import { toUserMessage } from "../services/errors";
+import { redactStatusPath } from "../utils/safeUrl";
 
 interface TestRequestProps {
   onNavigate: (page: Page) => void;
@@ -62,7 +63,7 @@ const TestRequest: React.FC<TestRequestProps> = ({ onNavigate }) => {
         companyName: formData.companyName,
         testingGoal: formData.testingGoal,
         usageLevel: formData.usageLevel,
-        pageUrl: window.location.href,
+        pageUrl: redactStatusPath(window.location.href),
       });
 
       // Store so portal/login can recognize this user came from trial

@@ -3,7 +3,7 @@ import { AlertCircle, ArrowRight, Check, Loader2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import InlineAccount from "../apps/InlineAccount";
 import { checkDomain, TLD_OPTIONS } from "../../services/domains";
-import { MailError, mailboxNameProblem, normalizeMpesa } from "../../services/mail";
+import { MailError, MPESA_PREFILL_KEY, mailboxNameProblem, normalizeMpesa } from "../../services/mail";
 import { formatKes, getService } from "../../config/serviceCatalog";
 import { MAIL_NEW_DOMAIN_ENABLED } from "../../config/contact";
 import type { MailPlanId, MailSetup } from "../../types";
@@ -15,7 +15,6 @@ import type { MailPlanId, MailSetup } from "../../types";
  */
 
 export const MAIL_PLAN_IDS: MailPlanId[] = ["mail-starter", "mail-business", "mail-pro"];
-export const MPESA_PREFILL_KEY = "murzak_mpesa_prefill";
 
 const INPUT =
   "w-full rounded-2xl px-5 py-3.5 font-bold bg-white/70 dark:bg-white/5 border border-slate-200 dark:border-murzak-border text-murzak-ink dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent";
