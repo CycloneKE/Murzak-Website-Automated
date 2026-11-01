@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { fetchMailStatus, fetchMyMailLink, MailError } from "../../services/mail";
+import MailboxAccess from "./MailboxAccess";
 import type { MailDnsRecord, MailStage, MailStatus } from "../../types";
 
 /**
@@ -220,29 +221,7 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
 
       {!needsAttention && waitingOnDns && <DnsRecords records={status.dnsRecords!} />}
 
-      {finished && (
-        <section className="mt-8 rounded-3xl glass-card p-5 sm:p-6">
-          <h3 className="font-black text-murzak-ink dark:text-slate-100">Your mailboxes</h3>
-          <ul className="mt-3 space-y-2">
-            {status.mailboxes.map((m) => (
-              <li key={m.address} className="flex items-center justify-between gap-3 text-sm font-bold text-murzak-ink dark:text-slate-100">
-                <span className="break-all">{m.address}</span>
-                <span className={`shrink-0 text-xs font-black ${m.passwordSet ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"}`}>
-                  {m.passwordSet ? "Password set" : "Needs a password"}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <a
-            href={status.webmailUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm bg-murzak-accent text-murzak-ink"
-          >
-            Open webmail <ExternalLink size={15} />
-          </a>
-        </section>
-      )}
+      {finished && token && <MailboxAccess token={token} status={status} onChanged={() => load(token)} />}
 
       {error && <p className="sr-only" role="alert">{error}</p>}
     </div>
