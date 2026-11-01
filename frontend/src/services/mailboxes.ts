@@ -11,7 +11,8 @@ export interface Mailbox {
   id: string;
   address: string;
   localPart: string;
-  usedBytes: number;
+  /** null when usage is not tracked (new mailboxes): show "usage unavailable", never 0 B. */
+  usedBytes: number | null;
   quotaBytes: number;
 }
 
@@ -29,8 +30,9 @@ export interface MailboxesResponse {
   unlimited: boolean;
   canCreate: boolean;
   webmailUrl: string;
-  imap: MailboxSettings;
-  smtp: MailboxSettings;
+  /** Absent (null) for mailboxes that sign in with their own address and need no host details. */
+  imap: MailboxSettings | null;
+  smtp: MailboxSettings | null;
 }
 
 async function handleJson<T>(res: Response): Promise<T> {
@@ -57,8 +59,8 @@ export async function fetchMailboxes(serviceId: string): Promise<MailboxesRespon
     unlimited: !!data.unlimited,
     canCreate: !!data.canCreate,
     webmailUrl: data.webmailUrl || "",
-    imap: data.imap,
-    smtp: data.smtp,
+    imap: data.imap || null,
+    smtp: data.smtp || null,
   };
 }
 
