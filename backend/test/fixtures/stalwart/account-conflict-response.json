@@ -1,4 +1,5 @@
 {
-  "error": "alreadyExists",
-  "message": "Account already exists"
+  "methodResponses": [
+    ["x:Account/set", { "notCreated": { "k1": { "type": "alreadyExists", "description": "Account already exists" } } }, "c0"]
+  ]
 }

@@ -1,9 +1,19 @@
-[
-  {
-    "id": "a7m3",
-    "name": "info",
-    "domainId": "g4f2",
-    "emailAddress": "info@example.co.ke",
-    "quotas": { "maxDiskQuota": 5368709120 }
-  }
-]
+{
+  "methodResponses": [
+    [
+      "x:Account/get",
+      {
+        "list": [
+          {
+            "id": "a7m3",
+            "name": "info",
+            "domainId": "g4f2",
+            "emailAddress": "info@example.co.ke",
+            "quotas": { "maxDiskQuota": 5368709120 }
+          }
+        ]
+      },
+      "c0"
+    ]
+  ]
+}

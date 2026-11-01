@@ -1,6 +1,5 @@
 {
-  "id": "g4f2",
-  "name": "example.co.ke",
-  "dkimManagement": { "@type": "Automatic" },
-  "dnsManagement": { "@type": "Automatic", "dnsServerId": "srv-1" }
+  "methodResponses": [
+    ["x:Domain/set", { "created": { "k1": { "id": "g4f2" } } }, "c0"]
+  ]
 }

@@ -1,9 +1,19 @@
 {
-  "@type": "Individual",
-  "name": "info",
-  "domainId": "g4f2",
-  "credentials": {
-    "0": { "@type": "Password", "secret": "<REDACTED-24+CHAR-RANDOM>" }
-  },
-  "quotas": { "maxDiskQuota": 5368709120 }
+  "using": ["urn:ietf:params:jmap:core", "urn:stalwart:jmap"],
+  "methodCalls": [
+    [
+      "x:Account/set",
+      {
+        "create": {
+          "k1": {
+            "name": "info",
+            "domainId": "g4f2",
+            "credentials": { "0": { "@type": "Password", "secret": "<REDACTED-24+CHAR-RANDOM>" } },
+            "quotas": { "maxDiskQuota": 5368709120 }
+          }
+        }
+      },
+      "c0"
+    ]
+  ]
 }

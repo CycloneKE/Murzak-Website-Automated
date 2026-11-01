@@ -1,4 +1,5 @@
 {
-  "error": "alreadyExists",
-  "message": "Domain already exists"
+  "methodResponses": [
+    ["x:Domain/set", { "notCreated": { "k1": { "type": "alreadyExists", "description": "Domain already exists" } } }, "c0"]
+  ]
 }

@@ -1,6 +1,6 @@
 /**
- * Stalwart management client: idempotent domain/account ensure*, secret hygiene,
- * env config, and the STALWART_MOCK=1 in-memory mode.
+ * Stalwart management client (JMAP transport): idempotent domain/account
+ * ensure*, secret hygiene, auth modes, env config, and the STALWART_MOCK=1 mode.
  *   node test/stalwartClient.test.js   (or: npm test)
  */
 const fs = require("fs");
@@ -16,12 +16,15 @@ function ok(cond, msg) {
 function section(name) { console.log(`\n# ${name}`); }
 
 const client = require("../services/email/stalwartClient");
-const { createStalwartClient } = client;
+const { createStalwartClient, API_SHAPES } = client;
 
 const FIX = path.join(__dirname, "fixtures", "stalwart");
 const fixture = (name) => JSON.parse(fs.readFileSync(path.join(FIX, name), "utf8"));
+// The [methodName, result, tag] triple from a recorded JMAP response.
+const methodResponseOf = (name) => fixture(name).methodResponses[0];
+const resultOf = (name) => methodResponseOf(name)[1];
 
-const ENV_KEYS = ["STALWART_URL", "STALWART_API_KEY", "STALWART_DNS_SERVER_ID", "STALWART_MOCK"];
+const ENV_KEYS = ["STALWART_URL", "STALWART_API_KEY", "STALWART_DNS_SERVER_ID", "STALWART_MOCK", "STALWART_AUTH", "STALWART_API_USER"];
 const API_KEY = "sk_live_TESTKEY_0123456789abcdef";
 
 // Capture everything written to the console while fn runs.
@@ -40,30 +43,77 @@ async function captureConsole(fn) {
   }
 }
 
-// A scripted Stalwart: records every call and answers from a small state.
-function fakeStalwart({ domainExists = false, accountExists = false, failAccountWith } = {}) {
+const envelope = (name, result) => ({ status: 200, body: { methodResponses: [[name, result, "c0"]] } });
+const callsNamed = (stub, name) => stub.calls.filter((c) => c.body.methodCalls[0][0] === name);
+const argsOf = (c) => c.body.methodCalls[0][1];
+
+// A scripted JMAP Stalwart. Records every call; answers from a small state.
+//  initialDomains / initialAccounts: seed objects
+//  domainCreate / accountCreate: "ok" | "conflict" (notCreated alreadyExists)
+//  hideFirstDomainList / hideFirstAccountList: first /get returns empty (conflict-then-listed race)
+//  override(name, args): optional full HTTP response, to script errors
+function fakeStalwart(opts = {}) {
+  const {
+    initialDomains = [], initialAccounts = [],
+    domainCreate = "ok", accountCreate = "ok",
+    hideFirstDomainList = false, hideFirstAccountList = false,
+    override,
+  } = opts;
   const calls = [];
-  const state = { domains: domainExists ? [fixture("domain-list-response.json")[0]] : [], accounts: accountExists ? fixture("account-list-response.json") : [] };
-  async function http({ method, path: p, body, headers }) {
-    calls.push({ method, path: p, body, headers });
-    if (method === "GET" && p === "/api/domain") return { status: 200, body: state.domains };
-    if (method === "POST" && p === "/api/domain") {
-      if (domainExists) return { status: 409, body: fixture("domain-conflict-response.json") };
-      state.domains = fixture("domain-list-response.json").slice(0, 1);
-      return { status: 201, body: fixture("domain-create-response.json") };
+  const state = { domains: initialDomains.map((d) => ({ ...d })), accounts: initialAccounts.map((a) => ({ ...a })) };
+  let domainGets = 0;
+  let accountGets = 0;
+  async function http(req) {
+    calls.push(req);
+    const [name, args] = req.body.methodCalls[0];
+    if (override) {
+      const r = override(name, args);
+      if (r) return r;
     }
-    if (method === "GET" && p === "/api/account") return { status: 200, body: state.accounts };
-    if (method === "POST" && p === "/api/account") {
-      if (failAccountWith) return failAccountWith;
-      if (accountExists) return { status: 409, body: fixture("account-conflict-response.json") };
-      return { status: 201, body: fixture("account-create-response.json") };
+    if (name === "x:Domain/get") {
+      domainGets++;
+      if (hideFirstDomainList && domainGets === 1) return envelope(name, { list: [] });
+      const list = args.ids === null ? state.domains : state.domains.filter((d) => args.ids.includes(d.id));
+      return envelope(name, { list });
     }
-    if (method === "GET" && p === "/api/domain/g4f2/dkim") return { status: 200, body: fixture("dkim-record-response.json") };
-    if (method === "DELETE" && p.startsWith("/api/account/")) return { status: 204, body: null };
-    return { status: 200, body: {} };
+    if (name === "x:Domain/set" && args.create) {
+      if (domainCreate === "conflict") return envelope(name, { notCreated: { k1: { type: "alreadyExists", description: "Domain already exists" } } });
+      const id = "g4f2";
+      state.domains.push({ id, name: args.create.k1.name, dkimRecord: resultOf("dkim-record-response.json").list[0].dkimRecord });
+      return envelope(name, { created: { k1: { id } } });
+    }
+    if (name === "x:Account/get") {
+      accountGets++;
+      if (hideFirstAccountList && accountGets === 1) return envelope(name, { list: [] });
+      return envelope(name, { list: state.accounts });
+    }
+    if (name === "x:Account/set" && args.create) {
+      if (accountCreate === "conflict") return envelope(name, { notCreated: { k1: { type: "alreadyExists", description: "Account already exists" } } });
+      const a = args.create.k1;
+      const id = "a7m3";
+      state.accounts.push({ id, name: a.name, domainId: a.domainId, emailAddress: `${a.name}@example.co.ke`, quotas: a.quotas });
+      return envelope(name, { created: { k1: { id } } });
+    }
+    if (name === "x:Account/set" && args.update) {
+      return envelope(name, { updated: Object.fromEntries(Object.keys(args.update).map((k) => [k, null])) });
+    }
+    if (name === "x:Account/set" && args.destroy) {
+      state.accounts = state.accounts.filter((a) => !args.destroy.includes(a.id));
+      return envelope(name, { destroyed: args.destroy });
+    }
+    return envelope(name, {});
   }
   return { http, calls };
 }
+
+// The secret the client generated for the account create call.
+function createdSecret(stub) {
+  const c = callsNamed(stub, "x:Account/set").find((x) => argsOf(x).create);
+  return argsOf(c).create.k1.credentials["0"].secret;
+}
+
+const existingDomain = () => resultOf("domain-list-response.json").list[0];
+const existingAccount = () => resultOf("account-list-response.json").list[0];
 
 function liveClient(stub, extra = {}) {
   return createStalwartClient({
@@ -81,12 +131,15 @@ function liveClient(stub, extra = {}) {
   const clearEnv = () => { for (const k of ENV_KEYS) delete process.env[k]; };
   const restoreEnv = () => { for (const k of ENV_KEYS) { if (savedEnv[k] === undefined) delete process.env[k]; else process.env[k] = savedEnv[k]; } };
 
-  section("module surface");
+  section("module surface and JMAP envelope");
   for (const name of ["isConfigured", "configError", "ensureDomain", "ensureAccount", "setPassword", "findAccount", "deleteAccount", "setOutboundLimit", "listAccounts", "getDkimRecord"]) {
     ok(typeof client[name] === "function", `exports ${name}`);
   }
   const src = fs.readFileSync(path.join(__dirname, "..", "services", "email", "stalwartClient.js"), "utf8");
   ok(/API_SHAPES/.test(src) && /UNVERIFIED-LIVE/.test(src), "API_SHAPES table is marked UNVERIFIED-LIVE in the source");
+  ok(API_SHAPES.endpoint === "/jmap", "JMAP endpoint is /jmap");
+  ok(API_SHAPES.using.includes("urn:stalwart:jmap") && API_SHAPES.using.includes("urn:ietf:params:jmap:core"), "using lists core and urn:stalwart:jmap");
+  ok(API_SHAPES.domainCreate.method === "x:Domain/set" && API_SHAPES.accountGet.method === "x:Account/get", "server methods carry the x: prefix");
 
   section("config: env-driven isConfigured / configError");
   clearEnv();
@@ -96,35 +149,62 @@ function liveClient(stub, extra = {}) {
   process.env.STALWART_URL = "https://mail.example.test";
   process.env.STALWART_API_KEY = API_KEY;
   process.env.STALWART_DNS_SERVER_ID = "srv-1";
-  ok(client.isConfigured() === true, "configured when URL, API key and DNS server id are set");
+  ok(client.isConfigured() === true, "configured when URL, API key and DNS server id are set (bearer default)");
   ok(client.configError() === "", "configError is empty when configured");
+  process.env.STALWART_AUTH = "basic";
+  ok(client.configError().includes("STALWART_API_USER"), "basic auth without STALWART_API_USER is reported");
+  process.env.STALWART_AUTH = "digest";
+  ok(client.configError().includes("STALWART_AUTH"), "unknown STALWART_AUTH value is reported");
   clearEnv();
 
-  section("ensureDomain: create, then idempotent");
+  section("auth modes");
+  {
+    const stub = fakeStalwart();
+    const c = liveClient(stub);
+    await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
+    ok(stub.calls[0].headers.Authorization === `Bearer ${API_KEY}`, "default auth sends Bearer API key");
+  }
+  {
+    const stub = fakeStalwart();
+    const c = liveClient(stub, { authMode: "basic", apiUser: "admin" });
+    await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
+    const want = `Basic ${Buffer.from(`admin:${API_KEY}`).toString("base64")}`;
+    ok(stub.calls[0].headers.Authorization === want, "basic auth sends base64(user:key)");
+  }
+
+  section("ensureDomain: JMAP create, then idempotent");
   {
     const stub = fakeStalwart();
     const c = liveClient(stub);
     const first = await c.ensureDomain({ name: "example.co.ke", description: "Example Ltd mail domain", dnsServerId: "srv-1" });
     ok(first.id === "g4f2" && first.created === true, "first ensureDomain creates and returns id g4f2");
-    const post = stub.calls.find((x) => x.method === "POST" && x.path === "/api/domain");
-    const want = fixture("domain-create-request.json");
-    ok(JSON.stringify(post.body.dkimManagement) === JSON.stringify(want.dkimManagement), "domain body requests Automatic DKIM");
-    ok(post.body.dnsManagement["@type"] === "Automatic" && post.body.dnsManagement.dnsServerId === "srv-1", "domain body requests Automatic DNS on srv-1");
-    ok(post.body.name === "example.co.ke", "domain body carries the name");
+    ok(stub.calls.every((x) => x.method === "POST" && x.path === "/jmap" && x.url === "https://mail.example.test/jmap"), "every call is POST to /jmap");
+    ok(stub.calls[0].body.using.includes("urn:stalwart:jmap"), "envelope declares urn:stalwart:jmap");
+    const set = callsNamed(stub, "x:Domain/set")[0];
+    const wantK1 = fixture("domain-create-request.json").methodCalls[0][1].create.k1;
+    ok(set && JSON.stringify(argsOf(set).create.k1.dkimManagement) === JSON.stringify(wantK1.dkimManagement), "domain create requests Automatic DKIM (matches recorded request)");
+    ok(argsOf(set).create.k1.dnsManagement["@type"] === "Automatic" && argsOf(set).create.k1.dnsManagement.dnsServerId === "srv-1", "domain create requests Automatic DNS on srv-1");
+    ok(argsOf(set).create.k1.name === "example.co.ke", "domain create carries the name");
 
     const again = await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
     ok(again.id === "g4f2" && again.created === false, "second ensureDomain returns same id, created:false");
-    ok(stub.calls.filter((x) => x.method === "POST" && x.path === "/api/domain").length === 1, "second call does not POST again");
+    ok(callsNamed(stub, "x:Domain/set").length === 1, "second call does not create again");
   }
   {
-    const stub = fakeStalwart({ domainExists: true });
-    const c = liveClient(stub);
-    const r = await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
-    ok(r.created === false && r.id === "g4f2", "server 409 alreadyExists resolves to created:false with the existing id");
+    const stub = fakeStalwart({ initialDomains: [existingDomain()] });
+    const r = await liveClient(stub).ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
+    ok(r.created === false && r.id === "g4f2", "domain already listed resolves to created:false with the existing id");
+    ok(callsNamed(stub, "x:Domain/set").length === 0, "no create when the domain is already listed");
+  }
+  {
+    // Create reports alreadyExists after a list that did not show the domain; the relist finds it.
+    const stub = fakeStalwart({ initialDomains: [existingDomain()], hideFirstDomainList: true, domainCreate: "conflict" });
+    const r = await liveClient(stub).ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" });
+    ok(r.created === false && r.id === "g4f2", "notCreated alreadyExists resolves to created:false via relist");
+    ok(callsNamed(stub, "x:Domain/set").length === 1, "exactly one create attempt on the conflict path");
   }
 
   section("ensureAccount: body shape and conflict handling");
-  const SECRET_RE = /^[A-Za-z0-9_-]{24,}$/;
   {
     const stub = fakeStalwart();
     const c = liveClient(stub);
@@ -132,70 +212,93 @@ function liveClient(stub, extra = {}) {
     const r = await c.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes });
     ok(r.id === "a7m3" && r.created === true, "ensureAccount creates and returns id a7m3");
     ok(Object.keys(r).sort().join(",") === "created,id", "ensureAccount return value carries only id and created");
-    const post = stub.calls.find((x) => x.method === "POST" && x.path === "/api/account");
-    ok(post.body.name === "info" && post.body.domainId === "g4f2", "account body carries localPart and domainId");
-    ok(post.body.quotas.maxDiskQuota === quotaBytes, "account body maxDiskQuota equals quotaBytes (5 GiB)");
-    const pw = post.body.credentials && post.body.credentials["0"];
-    ok(pw && pw["@type"] === "Password", "account body carries a Password credential");
-    ok(pw && typeof pw.secret === "string" && SECRET_RE.test(pw.secret), "generated secret is 24+ url-safe chars");
-    const sent = stub.calls.filter((x) => x.method === "POST" && x.path === "/api/account");
-    ok(sent.length === 1, "one POST for a fresh account");
+    const set = callsNamed(stub, "x:Account/set").find((x) => argsOf(x).create);
+    const k1 = argsOf(set).create.k1;
+    ok(k1.name === "info" && k1.domainId === "g4f2", "account create carries localPart and domainId");
+    ok(k1.quotas.maxDiskQuota === quotaBytes, "account create maxDiskQuota equals quotaBytes (5 GiB)");
+    ok(k1.credentials["0"]["@type"] === "Password", "account create carries a Password credential");
+    const secret = createdSecret(stub);
+    ok(typeof secret === "string" && /^[A-Za-z0-9_-]{24,}$/.test(secret), "generated secret is 24+ url-safe chars");
+    ok(callsNamed(stub, "x:Account/set").filter((x) => argsOf(x).create).length === 1, "one create for a fresh account");
   }
   {
-    const stub = fakeStalwart({ accountExists: true });
-    const c = liveClient(stub);
-    const r = await c.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 5 * 1024 ** 3 });
-    ok(r.created === false && r.id === "a7m3", "server 409 alreadyExists resolves to created:false with existing id");
+    const stub = fakeStalwart({ initialAccounts: [existingAccount()] });
+    const r = await liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 5 * 1024 ** 3 });
+    ok(r.created === false && r.id === "a7m3", "account already listed resolves to created:false with existing id");
+  }
+  {
+    const stub = fakeStalwart({ initialAccounts: [existingAccount()], hideFirstAccountList: true, accountCreate: "conflict" });
+    const r = await liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 5 * 1024 ** 3 });
+    ok(r.created === false && r.id === "a7m3", "notCreated alreadyExists resolves to created:false via relist");
   }
 
   section("secret hygiene: never returned, logged, or in errors");
   {
     const stub = fakeStalwart();
-    const c = liveClient(stub);
-    const cap = await captureConsole(() => c.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }));
-    const sentSecret = stub.calls.find((x) => x.method === "POST" && x.path === "/api/account").body.credentials["0"].secret;
+    const cap = await captureConsole(() => liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }));
+    const sentSecret = createdSecret(stub);
     ok(!cap.out.includes(sentSecret), "generated secret is absent from console output (success path)");
     ok(!JSON.stringify(cap.result).includes(sentSecret), "generated secret is absent from the return value");
   }
   {
-    const stub = fakeStalwart({ failAccountWith: { status: 500, body: { message: "boom" } } });
-    const c = liveClient(stub);
+    const stub = fakeStalwart({ override: (name, args) => (name === "x:Account/set" && args.create ? { status: 500, body: { message: "boom" } } : undefined) });
     let captured;
     const cap = await captureConsole(async () => {
-      try { await c.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); }
+      try { await liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); }
       catch (e) { captured = e; }
     });
-    const sentSecret = stub.calls.find((x) => x.method === "POST" && x.path === "/api/account").body.credentials["0"].secret;
+    const sentSecret = createdSecret(stub);
     ok(captured instanceof Error, "a 500 from the server throws");
-    ok(!String(captured.message).includes(sentSecret), "thrown error message does not contain the secret");
-    ok(!cap.out.includes(sentSecret), "console output on failure does not contain the secret");
+    ok(!String(captured.message).includes(sentSecret), "thrown error message does not contain the secret (HTTP 500)");
+    ok(!cap.out.includes(sentSecret), "console output on HTTP 500 does not contain the secret");
   }
   {
-    // Server echoes the secret back in an error body; the client must not surface it.
-    const stub = { calls: [] };
-    stub.http = async ({ method, path: p, body }) => {
-      stub.calls.push({ method, path: p, body });
-      if (method === "POST" && p === "/api/account") return { status: 400, body: { message: `bad credential ${body.credentials["0"].secret}` } };
-      return { status: 200, body: [] };
-    };
-    const c = liveClient(stub);
+    // A JMAP method-level error whose description echoes the secret: only the type may surface.
+    let echoed;
+    const stub = fakeStalwart({
+      override: (name, args) => {
+        if (name === "x:Account/set" && args.create) {
+          echoed = args.create.k1.credentials["0"].secret;
+          return { status: 200, body: { methodResponses: [["error", { type: "invalidProperties", description: `bad credential ${echoed}` }, "c0"]] } };
+        }
+        return undefined;
+      },
+    });
     let thrown;
     const cap = await captureConsole(async () => {
-      try { await c.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); }
+      try { await liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); }
       catch (e) { thrown = e; }
     });
-    const echoed = stub.calls.find((x) => x.method === "POST" && x.path === "/api/account").body.credentials["0"].secret;
-    ok(thrown && !String(thrown.message).includes(echoed), "error echoing the secret is not re-thrown with the secret");
-    ok(!cap.out.includes(echoed), "error echoing the secret is not logged");
+    ok(thrown && /invalidProperties/.test(thrown.message), "method error surfaces its type");
+    ok(thrown && !String(thrown.message).includes(echoed), "method error description echoing the secret is not thrown");
+    ok(!cap.out.includes(echoed), "method error description echoing the secret is not logged");
+  }
+  {
+    // notCreated with an echoing description must also be stripped.
+    let echoed;
+    const stub = fakeStalwart({
+      override: (name, args) => {
+        if (name === "x:Account/set" && args.create) {
+          echoed = args.create.k1.credentials["0"].secret;
+          return { status: 200, body: { methodResponses: [[name, { notCreated: { k1: { type: "invalidProperties", description: `echo ${echoed}` } } }, "c0"]] } };
+        }
+        return undefined;
+      },
+    });
+    let thrown;
+    const cap = await captureConsole(async () => {
+      try { await liveClient(stub).ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); }
+      catch (e) { thrown = e; }
+    });
+    ok(thrown && !String(thrown.message).includes(echoed) && !cap.out.includes(echoed), "notCreated description echoing the secret is neither thrown nor logged");
   }
 
   section("API key is masked in log output");
   {
-    const stub = { http: async () => ({ status: 401, body: { message: `invalid key ${API_KEY}` } }), calls: [] };
-    const c = liveClient(stub);
+    const stub = { calls: [], http: async () => ({ status: 401, body: { message: `invalid key ${API_KEY}` } }) };
     let thrown;
     const cap = await captureConsole(async () => {
-      try { await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" }); }
+      try { await liveClient(stub).ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" }); }
       catch (e) { thrown = e; }
     });
     ok(thrown instanceof Error, "401 throws");
@@ -203,41 +306,69 @@ function liveClient(stub, extra = {}) {
     ok(!cap.out.includes(API_KEY.slice(4, 20)), "a long fragment of the API key is not logged either");
   }
   {
-    // A logger handed the masked key must still not leak it.
-    const cap = await captureConsole(() => {
-      const lines = [];
-      const c = createStalwartClient({ http: async () => ({ status: 200, body: [] }), baseUrl: "https://m.test", apiKey: API_KEY, dnsServerId: "srv-1", log: (m) => lines.push(m) });
-      return c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" }).then(() => lines.join("\n"));
+    const lines = [];
+    const c = createStalwartClient({
+      http: async () => ({ status: 403, body: null }),
+      baseUrl: "https://m.test", apiKey: API_KEY, dnsServerId: "srv-1",
+      log: (m) => lines.push(m),
     });
-    ok(!String(cap.result).includes(API_KEY), "custom log sink never receives the full API key");
+    await c.ensureDomain({ name: "example.co.ke", description: "x", dnsServerId: "srv-1" }).catch(() => {});
+    ok(lines.length > 0 && !lines.join("\n").includes(API_KEY), "custom log sink receives a line and never the full API key");
   }
 
   section("setPassword / findAccount / deleteAccount / setOutboundLimit");
   {
-    const stub = fakeStalwart({ accountExists: true });
+    const stub = fakeStalwart({ initialAccounts: [existingAccount()] });
     const c = liveClient(stub);
     const found = await c.findAccount("info@example.co.ke");
     ok(found && found.id === "a7m3", "findAccount finds the account by address");
     ok((await c.findAccount("nobody@example.co.ke")) === null, "findAccount returns null when absent");
     await c.setPassword("a7m3", "unused-test-password-value-123456");
-    const pwCall = stub.calls.filter((x) => x.method === "PATCH" && x.path === "/api/account/a7m3").pop();
-    ok(!!pwCall && pwCall.body.credentials["0"]["@type"] === "Password", "setPassword patches the account's Password credential");
+    const pw = callsNamed(stub, "x:Account/set").find((x) => argsOf(x).update);
+    ok(!!pw && argsOf(pw).update.a7m3.credentials["0"]["@type"] === "Password", "setPassword sends an x:Account/set update of the Password credential");
     await c.setOutboundLimit("a7m3", 100);
-    const lim = stub.calls.filter((x) => x.method === "PATCH" && x.path === "/api/account/a7m3").pop();
-    ok(!!lim && JSON.stringify(lim.body).includes("100"), "setOutboundLimit sends the per-hour limit");
+    const lim = callsNamed(stub, "x:Account/set").filter((x) => argsOf(x).update).pop();
+    ok(!!lim && argsOf(lim).update.a7m3.outboundRateLimit.perHour === 100, "setOutboundLimit sends perHour=100");
     await c.deleteAccount("a7m3");
-    ok(stub.calls.some((x) => x.method === "DELETE" && x.path === "/api/account/a7m3"), "deleteAccount issues DELETE");
+    const del = callsNamed(stub, "x:Account/set").find((x) => argsOf(x).destroy);
+    ok(!!del && argsOf(del).destroy[0] === "a7m3", "deleteAccount sends x:Account/set destroy");
+  }
+  {
+    // A notUpdated from the server must throw, with no secret in the message.
+    const stub = fakeStalwart({
+      initialAccounts: [existingAccount()],
+      override: (name, args) => (name === "x:Account/set" && args.update
+        ? { status: 200, body: { methodResponses: [[name, { notUpdated: { a7m3: { type: "forbidden" } } }, "c0"]] } }
+        : undefined),
+    });
+    let thrown;
+    await captureConsole(async () => {
+      try { await liveClient(stub).setPassword("a7m3", "unused-test-password-value-123456"); }
+      catch (e) { thrown = e; }
+    });
+    ok(thrown && /forbidden/.test(thrown.message) && !thrown.message.includes("unused-test-password"), "notUpdated throws with the type only");
   }
 
   section("listAccounts / getDkimRecord parse the recorded shapes");
   {
-    const stub = fakeStalwart({ accountExists: true });
+    const stub = fakeStalwart({ initialAccounts: [existingAccount()], initialDomains: resultOf("dkim-record-response.json").list });
     const c = liveClient(stub);
     const list = await c.listAccounts("g4f2");
     ok(Array.isArray(list) && list.length === 1, "listAccounts returns an array");
     ok(list[0].id === "a7m3" && list[0].address === "info@example.co.ke" && list[0].quotaBytes === 5368709120, "listAccounts maps id, address, quotaBytes");
     const dkim = await c.getDkimRecord("g4f2");
     ok(dkim.name === "default._domainkey.example.co.ke" && dkim.type === "TXT" && dkim.value.startsWith("v=DKIM1"), "getDkimRecord returns {name,type,value}");
+    ok(callsNamed(stub, "x:Domain/get").some((x) => JSON.stringify(argsOf(x).ids) === '["g4f2"]'), "getDkimRecord asks x:Domain/get for the domain id");
+  }
+  {
+    // A JMAP method-level error on a read must throw, not return empty.
+    const stub = { calls: [], http: async () => ({ status: 200, body: fixture("method-error-response.json") }) };
+    let thrown;
+    await captureConsole(async () => {
+      try { await liveClient(stub).listAccounts("g4f2"); }
+      catch (e) { thrown = e; }
+    });
+    ok(thrown && /forbidden/.test(thrown.message), "method error on a read throws with its type");
   }
 
   section("mock mode: STALWART_MOCK=1, in-memory, no network");
@@ -263,7 +394,6 @@ function liveClient(stub, extra = {}) {
     ok((await m.findAccount("hello@mock.co.ke")) === null, "mock deleteAccount removes the account");
     const dkim = await m.getDkimRecord(d1.id);
     ok(dkim && dkim.type === "TXT" && typeof dkim.name === "string", "mock getDkimRecord returns a TXT record");
-    restoreEnv();
   }
 
   restoreEnv();

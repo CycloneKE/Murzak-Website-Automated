@@ -1,4 +1,14 @@
-[
-  { "id": "g4f2", "name": "example.co.ke" },
-  { "id": "k9x1", "name": "other-tenant.co.ke" }
-]
+{
+  "methodResponses": [
+    [
+      "x:Domain/get",
+      {
+        "list": [
+          { "id": "g4f2", "name": "example.co.ke" },
+          { "id": "k9x1", "name": "other-tenant.co.ke" }
+        ]
+      },
+      "c0"
+    ]
+  ]
+}
