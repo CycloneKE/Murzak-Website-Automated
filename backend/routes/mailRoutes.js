@@ -88,6 +88,8 @@ function publicStatus(setup) {
 
 module.exports = function (ctx) {
   const { frappeClient } = ctx;
+  // Fail closed if a caller forgot to wire the session guard.
+  const requireAuth = ctx.requireAuth || ((req, res) => res.status(401).json({ error: "Not authenticated." }));
   const deps = ctx.mailDeps || {};
   const router = express.Router();
 
@@ -162,6 +164,29 @@ module.exports = function (ctx) {
 
   const setFlag = (orderName, local, value) =>
     persistMailboxes(orderName, (list) => list.map((m) => (m.localPart === local ? { ...m, passwordSet: value } : m)));
+
+  // The signed-in owner's way to their no-login status link (the post-payment page
+  // polls through it). Anything that is not "your own mail order" is the same 404.
+  router.get("/api/mail/my/:orderName/link", requireAuth, async (req, res) => {
+    const account = req.session && (req.session.webAccount || (req.session.user && req.session.user.id));
+    if (!account) return res.status(401).json({ error: "Not authenticated." });
+    const orderName = String(req.params.orderName || "");
+    try {
+      const r = await frappeClient().get(`/api/resource/Checkout Order/${encodeURIComponent(orderName)}`);
+      const doc = r.data && r.data.data;
+      let cfg = {};
+      try { cfg = JSON.parse((doc && doc.config_json) || "{}") || {}; } catch { cfg = {}; }
+      if (!doc || doc.web_account !== account || !cfg.mailSetup || typeof cfg.mailSetup !== "object") {
+        return res.status(404).json(NOT_VALID);
+      }
+      res.set("Cache-Control", "no-store");
+      return res.json({ statusUrl: mailAccess.statusUrlFor(orderName), token: mailAccess.signOrderToken(orderName) });
+    } catch (e) {
+      if (e.response && e.response.status === 404) return res.status(404).json(NOT_VALID);
+      console.error(`[mail] could not build a status link: ${e.name}`);
+      return res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  });
 
   router.get("/api/mail/status/:token", async (req, res) => {
     const hit = await resolve(req, res);
