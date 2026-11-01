@@ -109,7 +109,8 @@ const GB = 1024 ** 3;
     ok(list.length === 1 && list[0].localPart === "info", "lists only the info account on acme (postmaster hidden)");
     ok(!list.some((m) => m.id === foreign.id), "another tenant's account is never returned");
     ok(list[0].address === "info@acme.co.ke", "address is the full mailbox address");
-    ok(list[0].quotaBytes === 5 * GB && list[0].usedBytes === 0, "quota is reported, usage defaults to 0");
+    ok(list[0].quotaBytes === 5 * GB, "quota is reported");
+    ok(list[0].usedBytes === null, "usage is null (unknown), never a fake zero");
     ok(Object.keys(list[0]).sort().join(",") === "address,id,localPart,quotaBytes,usedBytes", "stalwart rows match the publicMailbox shape exactly");
     ok(typeof list[0].id === "string", "id is a string");
   }
@@ -158,6 +159,21 @@ const GB = 1024 ** 3;
     } finally {
       mailboxEntitlement.canCreate = realCanCreate;
     }
+  }
+
+  section("stalwart createMailbox name rules: strict, case-sensitive, reserved");
+  {
+    const rd = await stalwart.ensureDomain({ name: "rules.co.ke", description: "rules", dnsServerId: "srv-1" });
+    const rulesCtx = { orderId: "rules.co.ke", job: { service_id: "mail-pro" }, serviceId: "mail-pro", provider: "stalwart" };
+    for (const bad of ["a_b", "admin", "root", "abuse", "noreply", "Sales", "postmaster", "-lead", "a..b"]) {
+      const e = await thrownBy(() => facade.createMailbox(rulesCtx, { localPart: bad, password: "Passw0rdX" }));
+      ok(e && e.status === 400, `Stalwart create refuses ${JSON.stringify(bad)} with 400`);
+    }
+    ok((await stalwart.listAccounts(rd.id)).length === 0, "no refused name created an account");
+    const good = await thrownBy(() => facade.createMailbox(rulesCtx, { localPart: "sales.team", password: "Passw0rdX" }));
+    ok(good === null, "Stalwart create accepts a valid lowercase name (sales.team)");
+    const made = (await stalwart.listAccounts(rd.id)).find((a) => a.address === "sales.team@rules.co.ke");
+    ok(!!made, "the valid name was created on the domain");
   }
 
   section("stalwart: a domain that is not on the server is an error, not an empty list");

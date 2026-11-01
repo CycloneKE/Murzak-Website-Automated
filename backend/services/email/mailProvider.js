@@ -15,6 +15,7 @@ const mailboxPolicy = require("../mailboxPolicy");
 const mailboxEntitlement = require("../mailboxEntitlement");
 const stalwart = require("./stalwartClient");
 const { PLANS, isMailPlan } = require("../../config/emailPlans");
+const mailInput = require("./mailInput");
 
 const GB = 1024 ** 3;
 const POSTMASTER = "postmaster";
@@ -61,14 +62,17 @@ function localPartOf(address) {
   return at === -1 ? s : s.slice(0, at);
 }
 
+// Usage is not tracked for Stalwart accounts yet, so it is null (unknown), not a fake zero.
 function toPublic(account) {
-  return mailboxPolicy.publicMailbox({
-    id: account.id,
-    email: account.address,
-    local_part: localPartOf(account.address),
-    used_bytes: 0,
-    quota_bytes: account.quotaBytes,
-  });
+  return {
+    ...mailboxPolicy.publicMailbox({
+      id: account.id,
+      email: account.address,
+      local_part: localPartOf(account.address),
+      quota_bytes: account.quotaBytes,
+    }),
+    usedBytes: null,
+  };
 }
 
 /** Stalwart accounts on the domain, with the system postmaster@ removed. */
@@ -117,9 +121,12 @@ const stalwartProvider = {
     return accounts.map(toPublic);
   },
   async createMailbox(ctx, { localPart, password }) {
-    const local = String(localPart || "").trim().toLowerCase();
-    if (!mailboxPolicy.isValidLocalPart(local)) throw new MailError(400, "That mailbox name isn't valid.");
-    if (local === POSTMASTER) throw new MailError(400, "That mailbox name is reserved.");
+    // Strict and case-sensitive: "Sales" is refused, not silently lowercased.
+    const local = String(localPart == null ? "" : localPart).trim();
+    if (mailInput.RESERVED_LOCAL_PARTS.has(local)) throw new MailError(400, "That mailbox name is reserved.");
+    if (!mailInput.isValidMailboxLocalPart(local)) {
+      throw new MailError(400, "Use lowercase letters, numbers, dots and hyphens, and don't start or end with a symbol.");
+    }
     if (!password) throw new MailError(400, "A password is required.");
     const plan = isMailPlan(ctx.serviceId) ? PLANS[ctx.serviceId] : null;
     if (!plan) throw new MailError(409, "Your email plan couldn't be determined. Please contact support.");

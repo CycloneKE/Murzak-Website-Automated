@@ -14,6 +14,7 @@ const hostingerMailLib = require('../services/hostingerMail');
 const mailboxEntitlementLib = require('../services/mailboxEntitlement');
 const mailboxPolicyLib = require('../services/mailboxPolicy');
 const mailProviderLib = require('../services/email/mailProvider');
+const mailInputLib = require('../services/email/mailInput');
 // Not destructured at import time — see the routesContext.test.js note above
 // signBrokerToken: destructuring this require would trip that test's greedy
 // static guard for the ctx destructure below.
@@ -2007,8 +2008,14 @@ router.post("/api/portal/services/:serviceId/mailboxes", requireAuth, mailboxLim
   const ctx = await loadMailboxContext(req, res);
   if (ctx === null) return;
 
-  const localPart = String(req.body?.localPart || "").trim().toLowerCase();
-  if (!mailboxPolicyLib.isValidLocalPart(localPart)) {
+  // Stalwart: strict and case-sensitive, reserved names refused. Hostinger: unchanged.
+  const isStalwart = ctx.provider === "stalwart";
+  const rawLocal = String(req.body?.localPart || "").trim();
+  const localPart = isStalwart ? rawLocal : rawLocal.toLowerCase();
+  const localOk = isStalwart
+    ? mailInputLib.isValidMailboxLocalPart(localPart) && !mailInputLib.RESERVED_LOCAL_PARTS.has(localPart)
+    : mailboxPolicyLib.isValidLocalPart(localPart);
+  if (!localOk) {
     return res.status(400).json({ error: "Use letters, numbers, dots, dashes or underscores — and don't start or end with a symbol." });
   }
   const pwError = mailboxPolicyLib.validatePassword(req.body?.password);

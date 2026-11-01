@@ -109,4 +109,9 @@ function validateMailSetup(input, opts = {}) {
   };
 }
 
-module.exports = { validateMailSetup, RESERVED_LOCAL_PARTS, MAILBOX_LOCAL_RE };
+/** Strict local-part check (no case folding): the caller decides whether to lowercase first. */
+function isValidMailboxLocalPart(name) {
+  return typeof name === "string" && name.length > 0 && name.length <= MAILBOX_MAX_LEN && MAILBOX_LOCAL_RE.test(name);
+}
+
+module.exports = { validateMailSetup, RESERVED_LOCAL_PARTS, MAILBOX_LOCAL_RE, isValidMailboxLocalPart };
