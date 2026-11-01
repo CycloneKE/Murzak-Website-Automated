@@ -49,6 +49,25 @@ function outboundLimit() {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_OUTBOUND_PER_HOUR;
 }
 
+const HARD_RESERVED = ["murzaktech.tech", "murzaktech.com"];
+const SECOND_LEVEL = new Set(["co", "com", "org", "net", "ac", "or", "go", "ne"]);
+
+/** Registrable domain of a host: last two labels, or three under co.ke style suffixes. */
+function registrable(host) {
+  const labels = String(host || "").toLowerCase().replace(/\.$/, "").split(".").filter(Boolean);
+  if (labels.length <= 2) return labels.join(".");
+  const take = labels[labels.length - 1].length === 2 && SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
+  return labels.slice(-take).join(".");
+}
+
+function reservedDomains() {
+  const extra = String(process.env.MAIL_RESERVED_DOMAINS || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const set = new Set([...HARD_RESERVED, ...extra]);
+  const host = registrable(process.env.MAIL_HOST);
+  if (host) set.add(host);
+  return set;
+}
+
 /** Relative record name for display and verification ("default._domainkey", "@"). */
 function relName(name, zone) {
   const n = String(name || "").toLowerCase().replace(/\.$/, "");
@@ -76,13 +95,20 @@ async function provision(job, opts = {}) {
   }
   const { orderName, setup } = found;
   const domain = String(setup.domain || "").toLowerCase();
-  const plan = PLANS[setup.planId] || PLANS[job.service_id];
+  const plan = PLANS[setup.planId];
+  if (PLANS[job.service_id] && PLANS[job.service_id] !== plan) {
+    throw permanent(`Order ${orderName} is for plan ${setup.planId} but the job is for ${job.service_id}; refusing to guess. Fix and requeue.`);
+  }
   if (!domain || !plan) {
     throw permanent(`Mail setup on ${orderName} is incomplete (domain or plan missing). Fix it and requeue.`);
   }
   const mailboxes = (Array.isArray(setup.mailboxes) ? setup.mailboxes : [])
     .map((m) => String(m && m.localPart ? m.localPart : m || "").toLowerCase())
     .filter(Boolean);
+
+  if (reservedDomains().has(domain)) {
+    throw permanent(`${domain} is reserved for Murzak and cannot be provisioned as customer mail.`);
+  }
 
   // Do not demote an order that already got past "paid" (a re-run).
   if (setup.state !== "provisioned" && setup.state !== "live") {
@@ -111,8 +137,13 @@ async function provision(job, opts = {}) {
   const domainId = await stage("mail", async () => {
     const marker = `${ORDER_MARKER}${orderName}`;
     const d = await stalwart.ensureDomain({ name: domain, description: marker });
-    if (!d.created && d.description && d.description !== marker) {
-      throw permanent(`${domain} is already in use by another order. Staff must resolve the clash, then requeue.`);
+    // Fail closed: an existing domain is ours only if it carries exactly our marker.
+    // One with no accounts holds nothing, so it is safe to claim.
+    if (!d.created && d.description !== marker) {
+      const existing = await stalwart.listAccounts(d.id);
+      if (existing.length > 0) {
+        throw permanent(`${domain} is already in use by another order. Staff must resolve the clash, then requeue.`);
+      }
     }
     const quotaBytes = plan.quotaGb * 1024 ** 3;
     const names = [...new Set([...mailboxes, POSTMASTER])];
@@ -131,7 +162,14 @@ async function provision(job, opts = {}) {
     const mailHost = process.env.MAIL_HOST;
     if (!mailHost) throw permanent("MAIL_HOST is not set; cannot build the MX record. Set it and requeue.");
     const webmailTarget = process.env.WEBMAIL_TARGET || mailDns.DEFAULT_WEBMAIL_TARGET;
-    await ensureWebmailCname(domain);
+    try {
+      await ensureWebmailCname(domain);
+    } catch (err) {
+      // An own domain's DNS is usually not in the Murzak Hostinger account; the
+      // customer adds the CNAME from the record list. A new domain must succeed.
+      if (setup.domainMode !== "own") throw err;
+      log.push(`[dns] webmail CNAME not written for own domain ${domain}: ${scrub(err && err.message)}`);
+    }
     const dkim = await stalwart.getDkimRecord(domainId);
     records = [
       ...mailDns.requiredRecords(domain, { mailHost, webmailTarget }),
@@ -144,15 +182,21 @@ async function provision(job, opts = {}) {
 
   // (6) one DNS check; a later sweep flips the order live
   let dnsPending = true;
+  let checkFailed = "";
   await store.setProgress(client, orderName, "dns", "running");
   try {
     const res = await mailDns.verifyRecords(domain, records, resolverOpt);
     dnsPending = !(res && res.ok);
-  } catch {
+  } catch (err) {
     dnsPending = true;
+    checkFailed = scrub((err && err.code) || "unknown");
   }
   if (!dnsPending) await store.setProgress(client, orderName, "dns", "done");
-  log.push(`[dns] ${domain}: ${dnsPending ? "records not published yet" : "records verified"}`);
+  log.push(
+    checkFailed
+      ? `[dns] ${domain}: DNS check failed (${checkFailed})`
+      : `[dns] ${domain}: ${dnsPending ? "records not published yet" : "records verified"}`
+  );
 
   return {
     externalRef: domain,

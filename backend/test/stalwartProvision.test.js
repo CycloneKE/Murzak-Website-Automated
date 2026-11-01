@@ -149,7 +149,8 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     let e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
     ok(e && e.permanent === true && /mail setup/i.test(e.message), "missing mailSetup -> permanent, clear message");
 
-    await stalwart.ensureDomain({ name: "taken.com", description: "murzak-order:CHK-99" });
+    const td = stalwart.ensureDomain({ name: "taken.com", description: "murzak-order:CHK-99" });
+    await stalwart.ensureAccount({ domainId: td.id, localPart: "x", quotaBytes: 1 });
     client = seed({ domain: "taken.com" });
     e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
     ok(e && e.permanent === true && /already in use/.test(e.message), "domain owned by another order -> permanent");
@@ -161,6 +162,72 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
     ok(e && e.permanent === true && /MAIL_HOST/.test(e.message), "MAIL_HOST unset -> permanent");
     process.env.MAIL_HOST = prev;
+  }
+
+  section("domain ownership fails closed");
+  {
+    stalwart.__resetMockForTests();
+    let d = await stalwart.ensureDomain({ name: "legacy.com", description: "" });
+    await stalwart.ensureAccount({ domainId: d.id, localPart: "boss", quotaBytes: 1 });
+    let client = seed({ domain: "legacy.com" });
+    let e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+    ok(e && e.permanent === true && /already in use/.test(e.message), "empty description + accounts -> permanent");
+    ok((await stalwart.listAccounts(d.id)).length === 1, "no accounts created on the foreign domain");
+
+    d = await stalwart.ensureDomain({ name: "empty.com" });
+    client = seed({ domain: "empty.com" });
+    e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+    ok(e === null, "pre-existing domain with no accounts is claimed");
+    ok((await stalwart.listAccounts(d.id)).length === 3, "accounts built on the claimed domain");
+
+    d = await stalwart.ensureDomain({ name: "mine.com", description: "murzak-order:CHK-1" });
+    await stalwart.ensureAccount({ domainId: d.id, localPart: "info", quotaBytes: 1 });
+    client = seed({ domain: "mine.com" });
+    e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+    ok(e === null, "our own marker on re-run is fine");
+  }
+
+  section("reserved domains");
+  {
+    stalwart.__resetMockForTests();
+    for (const dom of ["murzaktech.tech", "murzaktech.com", "murzak.test"]) {
+      const client = seed({ domain: dom });
+      const e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+      ok(e && e.permanent === true && /reserved/.test(e.message), dom + " refused as reserved");
+      ok((await stalwart.findDomain(dom)) === null, dom + " never reached Stalwart");
+    }
+    process.env.MAIL_RESERVED_DOMAINS = "bank.com, other.org";
+    const client = seed({ domain: "other.org" });
+    const e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+    delete process.env.MAIL_RESERVED_DOMAINS;
+    ok(e && e.permanent === true, "MAIL_RESERVED_DOMAINS honoured");
+  }
+
+  section("own-domain CNAME failure is tolerated");
+  {
+    stalwart.__resetMockForTests();
+    const boom = async () => { throw new Error("Hostinger DNS read failed for own2.com: 404"); };
+    let client = seed({ domainMode: "own", domain: "own2.com" });
+    const out = await lane.provision(job, { client, deps: stubs(client, { ensureWebmailCname: boom }).deps });
+    const cfg = cfgOf(client).mailSetup;
+    ok(out.access.dnsPending === true && cfg.state === "provisioned", "own domain still provisions, dnsPending");
+    ok(cfg.dnsRecords.some((r) => r.type === "CNAME" && r.name === "webmail"), "records incl. webmail CNAME persisted");
+    client = withDomains(seed({ domainMode: "new", domain: "new2.com" }), [{ domain: "new2.com", status: "active" }]);
+    const e = await rejects(lane.provision(job, { client, deps: stubs(client, { ensureWebmailCname: boom }).deps }));
+    ok(e && !e.permanent, "new domain CNAME failure still throws (retryable)");
+  }
+
+  section("plan mismatch and DNS check errors");
+  {
+    stalwart.__resetMockForTests();
+    const client = seed({ domain: "plan.com" });
+    const e = await rejects(lane.provision({ ...job, service_id: "mail-pro" }, { client, deps: stubs(client).deps }));
+    ok(e && e.permanent === true && /plan/.test(e.message), "plan disagreement -> permanent");
+    const c2 = seed({ domain: "chk.com" });
+    const bad = async () => { const x = new Error("secret detail"); x.code = "ESERVFAIL"; throw x; };
+    const { deps } = stubs(c2, { resolver: { resolveMx: bad, resolveTxt: bad, resolveCname: bad } });
+    const out = await lane.provision(job, { client: c2, deps });
+    ok(out.access.dnsPending === true && !/secret detail/.test(out.log), "resolver failure keeps pending without leaking detail");
   }
 
   section("Stalwart unreachable / no secrets leak");
