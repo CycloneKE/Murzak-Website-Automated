@@ -85,7 +85,7 @@ Frontend (build-time, public, in `frontend/.env.example`):
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `VITE_MAIL_HOSTNAME` | Mail server name shown for phone/Outlook setup. Must equal `MAIL_HOST` | `mail.murzaktech.tech` |
+| `VITE_MAIL_HOSTNAME` | Mail server name shown for phone/Outlook setup. Must equal `MAIL_HOST` | `stalwart.cloud.murzaktech.tech` |
 | `VITE_MAIL_NEW_DOMAIN_ENABLED` | `1` lets the order form offer a new domain. Keep blank | off |
 
 VPS backup script (`/etc/murzak/stalwart-backup.env`, not the backend; see
@@ -123,6 +123,37 @@ placeholder), `BACKUP_DEST` (required), `BACKUP_RETENTION_DAYS` (14),
       the "Add to my phone" section; that section is deployed in this branch, but
       enable the sweep only after the dry run.
 - [ ] `MAIL_NEW_DOMAIN_ENABLED` and `VITE_MAIL_NEW_DOMAIN_ENABLED` left off.
+
+### PREFLIGHT FROM OUTSIDE (done 2026-11-01, public read-only probes, no credentials)
+
+What the live mail host looks like from the internet. These facts settle some
+settings above; they do NOT replace the dry run (no authenticated call was made).
+
+- The MX of `murzaktech.tech` is `stalwart.cloud.murzaktech.tech` (187.124.217.78,
+  the same IP as the site). **Use `MAIL_HOST=stalwart.cloud.murzaktech.tech` and
+  `STALWART_URL=https://stalwart.cloud.murzaktech.tech`.** `mail.murzaktech.tech`
+  does NOT exist in DNS: the earlier default for `VITE_MAIL_HOSTNAME` pointed at it
+  and was corrected.
+- `https://stalwart.cloud.murzaktech.tech/jmap/session` answers 200 with JMAP
+  capabilities (core, mail, calendars, contacts, filenode, principals, submission,
+  websocket...), consistent with a recent Stalwart (0.16 or newer). The
+  `urn:stalwart:jmap` management capability only shows once authenticated, so the
+  version check in BEFORE ENABLING is still open.
+- SMTP answers on 25 and 465 with the `Stalwart ESMTP` banner. **Port 587 timed out
+  from outside**, so phone setup must use SMTP 465 (implicit TLS) and IMAP 993; do
+  not tell customers to use 587.
+- The IMAP TLS certificate (Let's Encrypt, valid to 2027-01-29) covers
+  `murzaktech.tech` and `stalwart.cloud.murzaktech.tech`, so phones connecting to
+  `MAIL_HOST` get a valid certificate for any customer domain.
+- `murzaktech.tech` already has `v=spf1 mx -all`, `_dmarc` `p=none` and an
+  `autoconfig` CNAME to the mail host: Stalwart's automatic DNS did write records
+  for the Murzak domain. (Customer domains get `~all`, which this feature publishes.)
+- `webmail.cloud.murzaktech.tech` resolves (same IP) and serves the webmail over
+  HTTPS (a 307 to `/en`), so it is a valid `WEBMAIL_TARGET`.
+- `https://murzaktech.tech/api/health` returns 200.
+- NOT checkable from outside: backend env values (a read of the env file was
+  blocked), the Coolify API (VPS IP allowlist), the Stalwart management API
+  (needs the key), outbound port 25 from the VPS, PTR, and the real M-Pesa payment.
 
 ### LIVE DRY RUN (needs the owner)
 

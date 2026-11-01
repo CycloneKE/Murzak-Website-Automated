@@ -21,7 +21,7 @@ export const SUPPORT_EMAIL = "murzaktechnologies@gmail.com";
  * is the shared Murzak mail host.
  */
 export const MAIL_HOSTNAME: string =
-  ((import.meta as any).env?.VITE_MAIL_HOSTNAME as string | undefined)?.trim() || "mail.murzaktech.tech";
+  ((import.meta as any).env?.VITE_MAIL_HOSTNAME as string | undefined)?.trim() || "stalwart.cloud.murzaktech.tech";
 
 /**
  * Release 1 sells email on a domain the customer already owns. Registering a
