@@ -132,3 +132,46 @@ export type SelectedServiceView = {
   /** Looked up from the service catalog by serviceId — matches ServiceHealth's looseness. */
   capacityClass?: string;
 };
+// ---- Business email (mail plans) ----
+
+export type MailPlanId = 'mail-starter' | 'mail-business' | 'mail-pro';
+
+/** What the order form sends with a mail plan order (POST /api/orders `mailSetup`). */
+export interface MailSetup {
+  planId: MailPlanId;
+  businessName: string;
+  domain: string;
+  /** 'new' = we register it; 'own' = the customer already owns it. */
+  domainMode: 'new' | 'own';
+  contactEmail: string;
+  mailboxes: string[];
+  logoUrl?: string;
+}
+
+export type MailStageState = 'pending' | 'running' | 'done' | 'failed';
+
+export interface MailStage {
+  id: 'payment' | 'domain' | 'mail' | 'webmail';
+  label: string;
+  state: MailStageState;
+}
+
+export interface MailDnsRecord {
+  type: string;
+  name: string;
+  value: string;
+  priority?: number;
+}
+
+/** GET /api/mail/status/:token. Never carries ids, hashes or secrets. */
+export interface MailStatus {
+  state: string;
+  stages: MailStage[];
+  mailboxes: Array<{ address: string; passwordSet: boolean }>;
+  webmailUrl: string;
+  plan: { planId: MailPlanId | null; mailboxLimit: number; mailboxCount: number };
+  /** Fixed support sentence; present only when state is needs_attention. */
+  message?: string;
+  /** Only while the customer still has to publish records at their own registrar. */
+  dnsRecords?: MailDnsRecord[];
+}

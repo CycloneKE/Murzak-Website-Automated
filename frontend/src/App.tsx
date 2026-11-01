@@ -30,6 +30,8 @@ import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
 import AppSetup from "./pages/apps/AppSetup";
 import AppWelcome from "./pages/apps/AppWelcome";
+import MailSetup from "./pages/MailSetup";
+import MailOrder from "./pages/MailOrder";
 import MurzakCRM from "./pages/products/MurzakCRM";
 import CustomSoftware from "./pages/products/CustomSoftware";
 
@@ -138,7 +140,7 @@ const App: React.FC = () => {
   // :orderId, or the nested /portal/* sub-routes) — pathToPage only has
   // exact-match entries, so these need their own check below or they'd
   // wrongly count as unmatched.
-  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/", "/welcome/"];
+  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/", "/welcome/", "/mail/", "/email/"];
 
   // True only when the URL matched no real route (the catch-all renders
   // NotFound) — activePage still resolves to "home" above so the rest of
@@ -467,6 +469,17 @@ const App: React.FC = () => {
                 element={
                   <RequireAuth user={user}>
                     <ThankYou onNavigate={onNavigate} />
+                  </RequireAuth>
+                }
+              />
+
+              <Route path="/email/setup" element={<MailSetup user={user} onUserUpdate={handleUserUpdate} />} />
+              <Route path="/mail/status/:token" element={<MailOrder />} />
+              <Route
+                path="/mail/order/:orderId"
+                element={
+                  <RequireAuth user={user}>
+                    <MailOrder />
                   </RequireAuth>
                 }
               />

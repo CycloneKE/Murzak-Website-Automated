@@ -30,7 +30,10 @@ export default function PaymentMethods({
 }: PaymentMethodsProps) {
   const [method, setMethod] = useState<PaymentMethod>('mpesa');
   const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    // The business email form asks for the M-Pesa number up front; reuse it here.
+    try { return sessionStorage.getItem('murzak_mpesa_prefill') || ''; } catch { return ''; }
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [pollTimedOut, setPollTimedOut] = useState(false);

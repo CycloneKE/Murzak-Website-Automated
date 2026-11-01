@@ -14,3 +14,11 @@
  * read instead of a second, independently-maintained guess.
  */
 export const SUPPORT_EMAIL = "murzaktechnologies@gmail.com";
+
+/**
+ * Public mail server name customers type into phone and desktop mail apps
+ * (IMAP/SMTP). Set VITE_MAIL_HOSTNAME to override per environment; the default
+ * is the shared Murzak mail host.
+ */
+export const MAIL_HOSTNAME: string =
+  ((import.meta as any).env?.VITE_MAIL_HOSTNAME as string | undefined)?.trim() || "mail.murzaktech.tech";
