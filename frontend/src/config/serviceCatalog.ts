@@ -216,6 +216,14 @@ export type ServiceOption = {
   deprecated?: boolean;
 
   /**
+   * Stalwart business-email plan (mail-starter/mail-business/mail-pro). Sold
+   * only through the email order form (/email/setup), which collects the
+   * domain, mailbox names and contact address the order needs. The generic
+   * configurator cannot, so it never lists these (see configuratorServices).
+   */
+  mailPlan?: boolean;
+
+  /**
    * Business app this item is a TIER of (Murzak POS today). App tiers are sold
    * through the app's own checkout (/get/:app), never the hosting configurator,
    * and are priced by their own id — so each tier is a separate catalog item
@@ -589,6 +597,57 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       pricing: { model: "addon", monthlyKes: 1500, setupKes: 0 },
       highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 5 mailboxes"],
       sortOrder: 30,
+    },
+    {
+      id: "mail-starter",
+      name: "Business Email (Starter)",
+      description: "Professional email on your domain: up to 3 mailboxes, 5GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "5GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailPlan: true,
+      mailboxes: 3,
+      pricing: { model: "addon", monthlyKes: 450, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 3 mailboxes"],
+      sortOrder: 31,
+    },
+    {
+      id: "mail-business",
+      name: "Business Email (Business)",
+      description: "Professional email on your domain: up to 10 mailboxes, 10GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "10GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailPlan: true,
+      mailboxes: 10,
+      pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 10 mailboxes"],
+      sortOrder: 32,
+    },
+    {
+      id: "mail-pro",
+      name: "Business Email (Pro)",
+      description: "Professional email on your domain: up to 30 mailboxes, 15GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "15GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailPlan: true,
+      mailboxes: 30,
+      pricing: { model: "addon", monthlyKes: 2900, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 30 mailboxes"],
+      sortOrder: 33,
     },
     {
       id: "starter-storage",
@@ -1453,7 +1512,9 @@ export function configuratorServices(planCode: PlanCode): ServiceItem[] {
   const pool = planCode === "Test" || planCode === "Enterprise" ? base : [...base, ...UNIVERSAL_ADDONS];
   // App tiers (Murzak POS) have their own checkout — selling them here would
   // put RAM meters and domain choices in front of a shop owner.
-  return pool.filter((s) => !s.deprecated && !s.app);
+  // Mail plans need their own order form (domain + mailbox names), so they are
+  // sold at /email/setup only.
+  return pool.filter((s) => !s.deprecated && !s.app && !s.mailPlan);
 }
 
 // ---- Helpers ----

@@ -1,3 +1,4 @@
+import { redactStatusPath } from "../utils/safeUrl";
 interface ClientErrorPayload {
   message: string;
   stack?: string;
@@ -17,7 +18,7 @@ export function reportClientError(payload: ClientErrorPayload): void {
 
   const body = JSON.stringify({
     ...payload,
-    url: payload.url || window.location.href,
+    url: redactStatusPath(payload.url || window.location.href),
     ua: navigator.userAgent,
     ts: new Date().toISOString(),
   });

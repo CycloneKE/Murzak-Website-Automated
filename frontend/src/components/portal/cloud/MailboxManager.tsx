@@ -15,7 +15,8 @@ interface MailboxManagerProps {
   isActive: boolean;
 }
 
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined) return "usage unavailable";
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
@@ -191,8 +192,10 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
                 {mb.address || `${mb.localPart}@`}
               </span>
               {mb.quotaBytes > 0 && (
-                <span className="text-micro font-medium text-slate-400 shrink-0 hidden sm:inline">
-                  {formatBytes(mb.usedBytes)} / {formatBytes(mb.quotaBytes)}
+                <span className="text-micro font-medium text-slate-500 dark:text-slate-400 shrink-0 hidden sm:inline">
+                  {mb.usedBytes === null || mb.usedBytes === undefined
+                    ? `usage unavailable · ${formatBytes(mb.quotaBytes)} quota`
+                    : `${formatBytes(mb.usedBytes)} / ${formatBytes(mb.quotaBytes)}`}
                 </span>
               )}
               <button
@@ -287,6 +290,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       {(webmailUrl || imap || smtp) && (
         <div className="mt-5 pt-4 border-t border-slate-200 dark:border-murzak-border">
           <h5 className="text-micro font-black uppercase text-slate-500 mb-2">Connect your mail app</h5>
+          {(imap || smtp) && (
           <div className="grid sm:grid-cols-2 gap-2">
             {imap && (
               <p className="text-micro font-medium text-slate-500">
@@ -299,6 +303,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               </p>
             )}
           </div>
+          )}
           {webmailUrl && (
             <a
               href={webmailUrl}

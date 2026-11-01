@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { createClientRequest } from "../services/requests";
 import { toUserMessage } from "../services/errors";
+import { redactStatusPath } from "../utils/safeUrl";
 
 interface SalesModalProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ const SalesModal: React.FC<SalesModalProps> = ({ isOpen, onClose, initialMode })
       const fullName = formData.name.trim().replace(/\s+/g, " ");
       const [firstName, ...rest] = fullName.split(" ");
       const lastName = rest.join(" ") || ".";
-      const pageUrl = window.location.href;
+      const pageUrl = redactStatusPath(window.location.href);
       const requestType = mode === "demo" ? "Demo Request" : "Sales Inquiry";
 
       // Build a message that includes the mode-specific fields you added

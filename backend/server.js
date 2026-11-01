@@ -1,4 +1,5 @@
 const express = require("express");
+const { rejectMailPlans } = require("./services/email/mailPlanGuard");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const axios = require("axios");
@@ -1229,7 +1230,7 @@ function mergeServicesById(existing = [], incoming = []) {
   return Array.from(merged.values());
 }
 
-app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
+app.post("/api/addons/invoice/create", requireAuth, rejectMailPlans("services"), async (req, res) => {
   try {
     const webAccountName = req.session?.webAccount || req.session?.user?.id;
     if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
@@ -1311,7 +1312,7 @@ app.post("/api/addons/invoice/create", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/api/services/addons/add", requireAuth, async (req, res) => {
+app.post("/api/services/addons/add", requireAuth, rejectMailPlans("services"), async (req, res) => {
   try {
     const webAccountName = req.session?.webAccount || req.session?.user?.id || req.session?.user?.name;
     if (!webAccountName) return res.status(401).json({ error: "Not authenticated." });
@@ -1405,7 +1406,7 @@ await client.put(`/api/resource/Web Account/${encodeURIComponent(webAccountName)
   }
 });
 
-app.post("/api/services/add", requireAuth, async (req, res) => {
+app.post("/api/services/add", requireAuth, rejectMailPlans("services"), async (req, res) => {
   try {
     const { services } = req.body || {};
     if (!Array.isArray(services) || services.length === 0) {
@@ -1884,7 +1885,7 @@ async function fetchSelectedServicesForUser(client, webAccountName) {
   });
 }
 
-app.post("/api/plan/attach-selection", requireAuth, async (req, res) => {
+app.post("/api/plan/attach-selection", requireAuth, rejectMailPlans("selectedServices"), async (req, res) => {
   try {
     const webAccountName = req.session?.webAccount || req.session?.user?.id;
     if (!webAccountName) {
@@ -2514,7 +2515,7 @@ app.post("/api/paypal/webhook", async (req, res) => {
 // --- REGISTER ---
 // -------------
 
-app.post("/api/plan/select-with-services", async (req, res) => {
+app.post("/api/plan/select-with-services", rejectMailPlans("selectedServices"), async (req, res) => {
   try {
     const { planName, selectedServices } = req.body;
 
@@ -3524,6 +3525,7 @@ app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/ordersRoutes')(routeContext));
+app.use(require('./routes/mailRoutes')(routeContext));
 app.use("/api/apps/", appAddressLimiter);
 app.use(require('./routes/appsRoutes')(routeContext));
 app.use(require('./routes/marketplaceRoutes')(routeContext));
@@ -3705,6 +3707,33 @@ const server = IS_ENTRYPOINT
     setTimeout(run, 210000).unref();
     setInterval(run, everyMs).unref();
     console.log(`[capacity-sweep] scheduled every ${Math.round(everyMs / 60000)}m`);
+  }
+
+  // Mail go-live sweep (Stalwart business mail): a provisioned mail setup goes
+  // live once its DNS verifies and its webmail answers, then the hand-over email
+  // goes out exactly once. MAIL_LIVE_SWEEP_MS=0 disables. See services/email/mailLiveSweep.js.
+  {
+    const rawMs = process.env.MAIL_LIVE_SWEEP_MS;
+    const parsedMs = rawMs === undefined || rawMs === "" ? 120000 : Number(rawMs);
+    if (Number.isFinite(parsedMs) && parsedMs > 0) {
+      const { runMailLiveSweep } = require("./services/email/mailLiveSweep");
+      const { sendMailReadyEmail } = require("./utils/mailer");
+      const everyMs = Math.max(30000, parsedMs);
+      let running = false;
+      const run = () => {
+        if (running) return;
+        running = true;
+        runMailLiveSweep(frappeClient(), { sendMailReadyEmail })
+          .then((r) => {
+            if (r.wentLive || r.errored) console.log(`[mail-live] checked=${r.checked} wentLive=${r.wentLive} stillWaiting=${r.stillWaiting} errored=${r.errored}`);
+          })
+          .catch((e) => console.warn("[mail-live] error:", e.message))
+          .finally(() => { running = false; });
+      };
+      setTimeout(run, 150000).unref();
+      setInterval(run, everyMs).unref();
+      console.log(`[mail-live] sweep scheduled every ${Math.round(everyMs / 1000)}s`);
+    }
   }
 
   // Welcome email for new app shops (Murzak POS). The VPS runner finishes a

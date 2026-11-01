@@ -1,0 +1,5 @@
+{
+  "methodResponses": [
+    ["error", { "type": "forbidden", "description": "API key lacks x:Account/set" }, "c0"]
+  ]
+}

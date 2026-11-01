@@ -46,6 +46,7 @@ import { isTab, type PortalProps, type Tab } from "./types";
 import { useCustomerDomains } from "./state/useCustomerDomains";
 import { useUploads } from "./state/useUploads";
 import { toUserMessage } from "../../services/errors";
+import { redactStatusPath } from "../../utils/safeUrl";
 
 export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: PortalProps) {
   const navigate = useNavigate();
@@ -199,7 +200,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
           email: user.email,
           subject: `Developer Access Request: ${svcName}`,
           message: `I would like to upgrade my managed service (${svcName}) to the Developer Tier to get Administrator UI, DB access, and Jailed SSH access. Please arrange this upgrade.`,
-          pageUrl: window.location.href,
+          pageUrl: redactStatusPath(window.location.href),
           attachments: ""
         })
       });

@@ -1,5 +1,6 @@
 
 const express = require('express');
+const { newMailPlanIds, MAIL_PLAN_SETUP_REQUIRED } = require('../services/email/mailPlanGuard');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
 // These are used by the M-Pesa STK push and callback handlers below. They were
 // never imported here, so every STK push died with a ReferenceError that the
@@ -341,6 +342,14 @@ router.post("/api/account/services/update", requireAuth, async (req, res) => {
     // Read parent doc so we can update its child table safely
     const accRes = await client.get(`/api/resource/Web Account/${encodeURIComponent(webAccountName)}`);
     const account = accRes.data?.data || {};
+
+    // Business email is bought only from the email setup page. A mail plan the account
+    // already holds may be resent with its other services; a NEW one is refused, before any write.
+    const heldIds = new Set((Array.isArray(account[WEB_ACCOUNT_SERVICES_FIELD]) ? account[WEB_ACCOUNT_SERVICES_FIELD] : [])
+      .map((r) => String(r?.[CHILD_SERVICE_ID_FIELD] || "").trim()).filter(Boolean));
+    if (newMailPlanIds(selectedServices, heldIds).length) {
+      return res.status(400).json(MAIL_PLAN_SETUP_REQUIRED);
+    }
 
     // Build child rows (status default Awaiting Payment)
     const childRows = selectedServices.map(s => ({

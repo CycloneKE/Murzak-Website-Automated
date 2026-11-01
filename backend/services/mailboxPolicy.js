@@ -35,6 +35,13 @@ function validatePassword(pw) {
   return null;
 }
 
+/** What the portal says when a new mailbox name is refused; the Stalwart rules are stricter (no underscores, reserved names). */
+function localPartRefusal(provider) {
+  return provider === "stalwart"
+    ? "Use lowercase letters, numbers, dots or hyphens, and not a reserved name like admin or postmaster."
+    : "Use letters, numbers, dots, dashes or underscores — and don't start or end with a symbol.";
+}
+
 /**
  * Is `mailboxId` genuinely one of `mailboxes` (the caller's own order)?
  *
@@ -79,6 +86,7 @@ module.exports = {
   LOCAL_PART_RE,
   isValidLocalPart,
   validatePassword,
+  localPartRefusal,
   mailboxBelongsTo,
   localPartExists,
   publicMailbox,

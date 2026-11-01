@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily off-VPS backup of the Stalwart mail data directory
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/deploy/vps/README.md
+
+[Timer]
+# Once a day in the small hours (UTC). RandomizedDelaySec spreads the start so it
+# does not coincide with other scheduled work on the box. Persistent runs a missed
+# backup (box was off) at the next boot rather than skipping the day.
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=10min
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

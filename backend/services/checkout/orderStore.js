@@ -190,10 +190,27 @@ async function reservedDraftRamMb(client, nowMs) {
  * exactly at creation and is the only case this dedup check needs to catch
  * (a heartbeat-renewed order is already past the short rapid-click window).
  */
+// A mail order's mailSetup is written onto config_json AFTER creation
+// (services/email/mailSetupStore.js), so a stored Draft carries a key the
+// incoming request does not. Compare without it, or a double-click after the
+// first save would miss the dedup and reserve RAM twice.
+function configWithoutMailSetup(json) {
+  try {
+    const c = JSON.parse(json || "{}");
+    if (c && typeof c === "object" && !Array.isArray(c) && "mailSetup" in c) {
+      delete c.mailSetup;
+      return JSON.stringify(c);
+    }
+  } catch {
+    // Not JSON: compare as stored.
+  }
+  return json;
+}
+
 function findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs }) {
   return rows.find((r) => {
     if (r.status !== "Draft" || r.web_account !== webAccountName) return false;
-    if (r.service_id !== serviceId || r.config_json !== configJson) return false;
+    if (r.service_id !== serviceId || configWithoutMailSetup(r.config_json) !== configJson) return false;
     const expiresAt = parseMysqlDatetime(r.reservation_expires_at);
     if (expiresAt <= nowMs) return false;
     const createdAt = expiresAt - RESERVATION_TTL_MS;
@@ -288,7 +305,13 @@ async function createOrder({
     const rows = await listDraftRows(client);
 
     const dup = findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs });
-    if (dup) return toApiOrder(dup);
+    if (dup) {
+      // Non-enumerable, so it never reaches the JSON response. Lets a caller
+      // tell it was handed an existing Draft, which it must not cancel.
+      const reused = toApiOrder(dup);
+      Object.defineProperty(reused, "reusedExisting", { value: true, enumerable: false });
+      return reused;
+    }
 
     // What this order actually costs the shared box, not what the catalogue
     // advertises as the product spec. getReservedRamMb (provisioningService.js)
@@ -545,6 +568,20 @@ async function linkInvoice({ client, orderId, invoiceDocName }) {
 }
 
 /** frappe snake_case doc -> camelCase API shape. */
+// The browser sees only these mailSetup keys. Never codeChallenge, codeIssuedAt,
+// stalwartDomainId, dnsRecords, handover/ticket markers or anything else the server keeps.
+function publicMailSetup(m) {
+  if (!m || typeof m !== "object") return undefined;
+  const out = {};
+  for (const k of ["state", "progress", "domain", "planId", "domainMode", "businessName"]) {
+    if (m[k] !== undefined) out[k] = m[k];
+  }
+  if (Array.isArray(m.mailboxes)) {
+    out.mailboxes = m.mailboxes.map((b) => ({ localPart: b && b.localPart, passwordSet: !!(b && b.passwordSet) }));
+  }
+  return out;
+}
+
 function toApiOrder(doc) {
   const monthlyKes = Number(doc.monthly_kes) || 0;
   const setupKes = Number(doc.setup_kes) || 0;
@@ -553,6 +590,10 @@ function toApiOrder(doc) {
     config = doc.config_json ? JSON.parse(doc.config_json) : {};
   } catch {
     config = {};
+  }
+  if (config && typeof config === "object" && "mailSetup" in config) {
+    const pub = publicMailSetup(config.mailSetup);
+    if (pub) config.mailSetup = pub; else delete config.mailSetup;
   }
   const bundle = config.bundle && typeof config.bundle === "object" ? config.bundle : {};
   const companions = (Array.isArray(bundle.companions) ? bundle.companions : []).map((c) => {

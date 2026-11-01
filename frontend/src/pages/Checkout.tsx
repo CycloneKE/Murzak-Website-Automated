@@ -74,7 +74,8 @@ function formatCountdown(ms: number): string {
 // Where someone goes when they open (or are bounced from) a checkout that is
 // already paid. App orders (Murzak POS) have a live set-up screen; everything
 // else goes to the portal as before.
-function paidDestination(order: { id?: string; config?: { app?: string } } | null | undefined): string {
+function paidDestination(order: { id?: string; config?: { app?: string; mailSetup?: unknown } } | null | undefined): string {
+  if (order?.config?.mailSetup && order?.id) return `/mail/order/${encodeURIComponent(order.id)}`;
   return order?.config?.app && order?.id
     ? `/welcome/${encodeURIComponent(order.id)}`
     : '/portal';
@@ -820,7 +821,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           invoiceDocName={invoice.docName}
           chargeKes={invoice.chargeKes}
           amountUsd={invoice.paypalAmountUsd}
-          onSuccess={(u?: any) => onSuccess(u, order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined)}
+          onSuccess={(u?: any) => { onSuccess(u, order.config?.mailSetup ? `/mail/order/${encodeURIComponent(order.id)}` : order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined); }}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
       ) : order.eligibleForTermChoice ? null : (

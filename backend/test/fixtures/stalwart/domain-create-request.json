@@ -1,0 +1,19 @@
+{
+  "using": ["urn:ietf:params:jmap:core", "urn:stalwart:jmap"],
+  "methodCalls": [
+    [
+      "x:Domain/set",
+      {
+        "create": {
+          "k1": {
+            "name": "example.co.ke",
+            "description": "Example Ltd mail domain",
+            "dkimManagement": { "@type": "Automatic" },
+            "dnsManagement": { "@type": "Automatic", "dnsServerId": "srv-1" }
+          }
+        }
+      },
+      "c0"
+    ]
+  ]
+}

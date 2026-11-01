@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import type { User } from "../types";
+import { redactStatusPath } from "../utils/safeUrl";
 
 export default function RequireAuth({
   user,
@@ -12,7 +13,7 @@ export default function RequireAuth({
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+    return <Navigate to={`/login?returnTo=${encodeURIComponent(redactStatusPath(location.pathname + location.search))}`} replace />;
   }
 
   return <>{children}</>;

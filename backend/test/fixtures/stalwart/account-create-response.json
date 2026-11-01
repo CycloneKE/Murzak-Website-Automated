@@ -1,0 +1,5 @@
+{
+  "methodResponses": [
+    ["x:Account/set", { "created": { "k1": { "id": "a7m3" } } }, "c0"]
+  ]
+}

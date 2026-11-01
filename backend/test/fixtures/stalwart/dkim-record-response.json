@@ -1,0 +1,21 @@
+{
+  "methodResponses": [
+    [
+      "x:Domain/get",
+      {
+        "list": [
+          {
+            "id": "g4f2",
+            "name": "example.co.ke",
+            "dkimRecord": {
+              "name": "default._domainkey.example.co.ke",
+              "type": "TXT",
+              "value": "v=DKIM1; k=ed25519; p=REDACTED-PUBLIC-KEY"
+            }
+          }
+        ]
+      },
+      "c0"
+    ]
+  ]
+}

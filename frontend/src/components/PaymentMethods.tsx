@@ -8,6 +8,7 @@ import {
 import PayPalWalletSection from "./PayPalWalletSection";
 import PayPalCardSection from "./PayPalCardSection";
 import { toUserMessage } from "../services/errors";
+import { MPESA_PREFILL_KEY } from '../services/mail';
 
 export interface PaymentMethodsProps {
   invoiceDocName: string;
@@ -30,7 +31,15 @@ export default function PaymentMethods({
 }: PaymentMethodsProps) {
   const [method, setMethod] = useState<PaymentMethod>('mpesa');
   const [step, setStep] = useState<'form' | 'processing' | 'success'>('form');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    // The business email form asks for the M-Pesa number up front; reuse it here.
+    try {
+      const v = sessionStorage.getItem(MPESA_PREFILL_KEY) || '';
+      // Only needed once: drop it now so an abandoned checkout leaves nothing behind.
+      if (v) sessionStorage.removeItem(MPESA_PREFILL_KEY);
+      return v;
+    } catch { return ''; }
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [pollTimedOut, setPollTimedOut] = useState(false);

@@ -30,6 +30,8 @@ import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
 import AppSetup from "./pages/apps/AppSetup";
 import AppWelcome from "./pages/apps/AppWelcome";
+import MailSetup from "./pages/MailSetup";
+import MailOrder from "./pages/MailOrder";
 import MurzakCRM from "./pages/products/MurzakCRM";
 import CustomSoftware from "./pages/products/CustomSoftware";
 
@@ -41,6 +43,7 @@ import ForServices from "./pages/for/ForServices";
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
 import { safeReturnTo } from "./utils/safeReturnTo";
+import { isStatusPath, redactStatusPath } from "./utils/safeUrl";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -138,7 +141,7 @@ const App: React.FC = () => {
   // :orderId, or the nested /portal/* sub-routes) — pathToPage only has
   // exact-match entries, so these need their own check below or they'd
   // wrongly count as unmatched.
-  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/", "/welcome/"];
+  const DYNAMIC_ROUTE_PREFIXES = ["/portal", "/payment/", "/checkout/", "/get/", "/welcome/", "/mail/", "/email/"];
 
   // True only when the URL matched no real route (the catch-all renders
   // NotFound) — activePage still resolves to "home" above so the rest of
@@ -218,8 +221,11 @@ const App: React.FC = () => {
       sessionExpiredHandled.current = true;
       setUser(null);
       setIsLoggedIn(false);
-      const returnTo = encodeURIComponent(location.pathname + location.search);
-      navigate(`/login?returnTo=${returnTo}&reason=session-expired`);
+      // A status link is a capability URL: never carry it into /login.
+      const returnTo = isStatusPath(location.pathname)
+        ? ""
+        : `returnTo=${encodeURIComponent(location.pathname + location.search)}&`;
+      navigate(`/login?${returnTo}reason=session-expired`);
     };
     window.addEventListener('session-expired', handleSessionExpired);
     return () => window.removeEventListener('session-expired', handleSessionExpired);
@@ -246,7 +252,8 @@ const App: React.FC = () => {
     // index.html's homepage values on every route — a duplicate-content
     // signal and a broken share preview for every non-home page. Same
     // pattern as the description tag above: update in place.
-    const canonicalUrl = `${SITE_ORIGIN}${location.pathname}`;
+    // The emailed mail-status link carries a secret in its path: never write it into the DOM.
+    const canonicalUrl = `${SITE_ORIGIN}${redactStatusPath(location.pathname)}`;
     const setAttr = (selector: string, attr: string, value: string) => {
       const el = document.querySelector(selector);
       if (el) el.setAttribute(attr, value);
@@ -467,6 +474,17 @@ const App: React.FC = () => {
                 element={
                   <RequireAuth user={user}>
                     <ThankYou onNavigate={onNavigate} />
+                  </RequireAuth>
+                }
+              />
+
+              <Route path="/email/setup" element={<MailSetup user={user} onUserUpdate={handleUserUpdate} />} />
+              <Route path="/mail/status/:token" element={<MailOrder />} />
+              <Route
+                path="/mail/order/:orderId"
+                element={
+                  <RequireAuth user={user}>
+                    <MailOrder />
                   </RequireAuth>
                 }
               />

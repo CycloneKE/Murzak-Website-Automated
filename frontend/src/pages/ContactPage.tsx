@@ -7,6 +7,7 @@ import { Page } from "../types";
 import { createClientRequest } from "../services/requests";
 import { toUserMessage } from "../services/errors";
 import { SUPPORT_EMAIL } from "../config/contact";
+import { redactStatusPath } from "../utils/safeUrl";
 
 interface ContactPageProps {
   onNavigate?: (page: Page | string) => void;
@@ -47,7 +48,7 @@ const ContactPage: React.FC<ContactPageProps> = () => {
         companyName: form.company.trim(),
         message: form.message.trim(),
         requestType: "Sales Inquiry",
-        pageUrl: typeof window !== "undefined" ? window.location.href : "",
+        pageUrl: typeof window !== "undefined" ? redactStatusPath(window.location.href) : "",
       });
       setRefId(res?.id || "");
       setSuccess(true);

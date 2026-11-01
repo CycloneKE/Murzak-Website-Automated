@@ -1,0 +1,5 @@
+{
+  "methodResponses": [
+    ["x:Domain/set", { "created": { "k1": { "id": "g4f2" } } }, "c0"]
+  ]
+}
