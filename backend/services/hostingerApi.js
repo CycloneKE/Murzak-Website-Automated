@@ -37,6 +37,8 @@ const DEFAULT_HOST = "https://developers.hostinger.com";
 const PATHS = {
   domainAvailability: "/api/domains/v1/availability",
   vpsVirtualMachines: "/api/vps/v1/virtual-machines",
+  // Append "/{domain}" for one zone: GET reads it, PUT adds records (overwrite:false), DELETE removes.
+  dnsZones: "/api/dns/v1/zones",
 };
 
 /**
