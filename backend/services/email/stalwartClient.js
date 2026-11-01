@@ -348,32 +348,66 @@ function createStalwartClient(opts = {}) {
   };
 
   const impl = mock ? mockStore : live;
+
+  // Live mode refuses to run unconfigured: a clear error naming the missing env vars,
+  // and no request (never a relative URL). Mock mode needs no config.
+  const guard = (fn) => async (...args) => {
+    if (!mock) {
+      const problem = configError();
+      if (problem) throw new Error(`Stalwart not configured: ${problem}`);
+    }
+    return fn(...args);
+  };
+
   return {
     isConfigured,
     configError,
-    ensureDomain: (args) => impl.ensureDomain({ ...args, dnsServerId: args && args.dnsServerId }),
-    ensureAccount: (args) => impl.ensureAccount(args),
-    setPassword: (id, pw) => impl.setPassword(id, pw),
-    findAccount: (addr) => impl.findAccount(addr),
-    deleteAccount: (id) => impl.deleteAccount(id),
-    setOutboundLimit: (id, perHour) => impl.setOutboundLimit(id, perHour),
-    listAccounts: (domainId) => impl.listAccounts(domainId),
-    getDkimRecord: (domainId) => impl.getDkimRecord(domainId),
+    ensureDomain: guard((args) => impl.ensureDomain({ ...args, dnsServerId: args && args.dnsServerId })),
+    ensureAccount: guard((args) => impl.ensureAccount(args)),
+    setPassword: guard((id, pw) => impl.setPassword(id, pw)),
+    findAccount: guard((addr) => impl.findAccount(addr)),
+    deleteAccount: guard((id) => impl.deleteAccount(id)),
+    setOutboundLimit: guard((id, perHour) => impl.setOutboundLimit(id, perHour)),
+    listAccounts: guard((domainId) => impl.listAccounts(domainId)),
+    getDkimRecord: guard((domainId) => impl.getDkimRecord(domainId)),
   };
 }
 
-/* ---------------- module-level defaults, bound to env at call time ---------------- */
+/* ---------------- module-level defaults, bound to env ---------------- */
+// One default client per process. It is rebuilt only when the relevant env values
+// change, so the STALWART_MOCK in-memory store survives across module-level calls.
+let defaultInstance = null;
+let defaultFingerprint = null;
+
 function defaultClient() {
-  const mock = process.env.STALWART_MOCK === "1";
-  return createStalwartClient({
-    http: fetchHttp,
-    baseUrl: process.env.STALWART_URL,
-    apiKey: process.env.STALWART_API_KEY,
-    authMode: process.env.STALWART_AUTH || "bearer",
-    apiUser: process.env.STALWART_API_USER,
-    dnsServerId: process.env.STALWART_DNS_SERVER_ID,
-    mock,
-  });
+  const env = {
+    mock: process.env.STALWART_MOCK === "1",
+    url: process.env.STALWART_URL || "",
+    key: process.env.STALWART_API_KEY || "",
+    auth: process.env.STALWART_AUTH || "bearer",
+    user: process.env.STALWART_API_USER || "",
+    dns: process.env.STALWART_DNS_SERVER_ID || "",
+  };
+  const fingerprint = JSON.stringify(env);
+  if (!defaultInstance || fingerprint !== defaultFingerprint) {
+    defaultInstance = createStalwartClient({
+      http: fetchHttp,
+      baseUrl: env.url,
+      apiKey: env.key,
+      authMode: env.auth,
+      apiUser: env.user,
+      dnsServerId: env.dns,
+      mock: env.mock,
+    });
+    defaultFingerprint = fingerprint;
+  }
+  return defaultInstance;
+}
+
+/** Test hook: drop the default client and its in-memory mock store. */
+function __resetMockForTests() {
+  defaultInstance = null;
+  defaultFingerprint = null;
 }
 
 const isConfigured = () => defaultClient().isConfigured();
@@ -400,4 +434,5 @@ module.exports = {
   setOutboundLimit,
   listAccounts,
   getDkimRecord,
+  __resetMockForTests,
 };

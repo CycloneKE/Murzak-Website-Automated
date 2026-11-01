@@ -396,6 +396,54 @@ function liveClient(stub, extra = {}) {
     ok(dkim && dkim.type === "TXT" && typeof dkim.name === "string", "mock getDkimRecord returns a TXT record");
   }
 
+  section("module-level mock state persists across calls (one default client)");
+  try {
+    clearEnv();
+    process.env.STALWART_MOCK = "1";
+    client.__resetMockForTests();
+    const d1 = await client.ensureDomain({ name: "module.co.ke", description: "x", dnsServerId: "srv-1" });
+    const d2 = await client.ensureDomain({ name: "module.co.ke", description: "x", dnsServerId: "srv-1" });
+    ok(d1.created === true, "module ensureDomain creates on first call");
+    ok(d2.created === false && d2.id === d1.id, "module ensureDomain second call: same id, created:false");
+    const a1 = await client.ensureAccount({ domainId: d1.id, localPart: "info", quotaBytes: 1024 ** 3 });
+    const a2 = await client.ensureAccount({ domainId: d1.id, localPart: "info", quotaBytes: 1024 ** 3 });
+    ok(a1.created === true, "module ensureAccount creates on first call (no unknown-domain error)");
+    ok(a2.created === false && a2.id === a1.id, "module ensureAccount second call is idempotent");
+    const found = await client.findAccount("info@module.co.ke");
+    ok(found && found.id === a1.id, "module findAccount sees the account created via module ensureAccount");
+    const list = await client.listAccounts(d1.id);
+    ok(list.length === 1 && list[0].id === a1.id, "module listAccounts shows exactly one account");
+    client.__resetMockForTests();
+    ok((await client.listAccounts(d1.id)).length === 0, "__resetMockForTests clears the default mock store");
+  } catch (e) {
+    ok(false, `module-level mock flow threw: ${e.message}`);
+  }
+  clearEnv();
+
+  section("live mode refuses to run unconfigured (clear error, no network)");
+  try {
+    clearEnv();
+    client.__resetMockForTests();
+    let err;
+    try { await client.ensureDomain({ name: "x.co.ke", description: "x", dnsServerId: "srv-1" }); } catch (e) { err = e; }
+    ok(err instanceof Error && err.message.includes("STALWART_URL") && err.message.includes("STALWART_API_KEY"), "module ensureDomain rejects naming the missing URL and key");
+    process.env.STALWART_URL = "https://mail.example.test";
+    err = undefined;
+    try { await client.ensureAccount({ domainId: "g4f2", localPart: "info", quotaBytes: 1024 ** 3 }); } catch (e) { err = e; }
+    ok(err instanceof Error && err.message.includes("STALWART_API_KEY") && !err.message.includes("STALWART_URL"), "module ensureAccount with URL set rejects naming only the missing key");
+    clearEnv();
+    let calls = 0;
+    const stub = { calls: [], http: async () => { calls++; return { status: 200, body: {} }; } };
+    const bare = createStalwartClient({ http: stub.http, baseUrl: "", apiKey: "", dnsServerId: "" });
+    err = undefined;
+    try { await bare.setPassword("a7m3", "unused-test-password-value-123456"); } catch (e) { err = e; }
+    ok(err instanceof Error && err.message.includes("STALWART_URL"), "factory client with no config rejects before any request");
+    ok(calls === 0, "unconfigured client never calls the transport");
+  } catch (e) {
+    ok(false, `live guard test threw: ${e.message}`);
+  }
+  clearEnv();
+
   restoreEnv();
 
   console.log(`\n${passed} passed, ${failed} failed`);
