@@ -243,7 +243,8 @@ async function rejects(promise) {
         "CHK-1": { name: "CHK-1", web_account: "WA-1", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "mine.com", state: "awaiting_payment" } }) },
         "CHK-3": { name: "CHK-3", web_account: "WA-1", status: "Draft", reservation_expires_at: EXPIRED, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "retry.com", state: "awaiting_payment" } }) },
         "CHK-4": { name: "CHK-4", web_account: "WA-3", status: "Cancelled", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "free.com", state: "awaiting_payment" } }) },
-        "CHK-5": { name: "CHK-5", web_account: "WA-2", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "live.com", state: "awaiting_payment" } }) },
+        "CHK-5": { name: "CHK-5", web_account: "WA-2", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "PINV-5", config_json: JSON.stringify({ mailSetup: { domain: "live.com", state: "awaiting_payment" } }) },
+        "CHK-6": { name: "CHK-6", web_account: "WA-2", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "formonly.com", state: "awaiting_payment" } }) },
         "CHK-8": { name: "CHK-8", web_account: "WA-1", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: "{}" },
       },
     });
@@ -253,7 +254,9 @@ async function rejects(promise) {
     const free = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "free.com" }));
     ok(free === null, "a Cancelled order's domain is free again");
     const live = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "live.com" }));
-    ok(live && live.errors && live.errors.domain, "another account's live order still blocks the domain");
+    ok(live && live.errors && live.errors.domain, "another account's invoiced order still blocks the domain");
+    const formOnly = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "formonly.com" }));
+    ok(formOnly === null, "another account's invoice-less Draft does NOT block the domain");
     const own = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "mine.com" }));
     ok(own === null, "the requesting account's own live order never blocks its retry");
   }

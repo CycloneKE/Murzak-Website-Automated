@@ -17,6 +17,7 @@ const { mergeOrderConfig } = require("../apps/shopSetup");
 const { listCustomerDomains } = require("../customerDomains");
 const { normalizeDomainName } = require("../customerDomains");
 const { validateMailSetup } = require("./mailInput");
+const { isReservedDomain, RESERVED_MESSAGE } = require("./mailReserved");
 
 const ORDER_DOCTYPE = "Checkout Order";
 const PROVIDER = "stalwart";
@@ -64,6 +65,21 @@ function holdsDomain(row, nowMs) {
   if (row.status === "Cancelled" || row.status === "Deleted") return false;
   if (row.status === "Draft" && parseMysqlUtc(row.reservation_expires_at) <= nowMs) return false;
   return true;
+}
+
+// One writer per order at a time, inside this process. Every mailSetup write is a
+// read-modify-write of the whole config_json, so without this a slow lane write and a
+// passwordSet write on the same order can overwrite each other. Not re-entrant, and
+// separate from mailAccess.withOrderLock; nothing inside a locked section may lock again.
+// Single backend instance assumed (see the runbook).
+const storeLocks = new Map();
+function withMailSetupLock(orderName, fn) {
+  const prev = storeLocks.get(orderName) || Promise.resolve();
+  const run = prev.then(fn, fn);
+  const tail = run.catch(() => {});
+  storeLocks.set(orderName, tail);
+  tail.then(() => { if (storeLocks.get(orderName) === tail) storeLocks.delete(orderName); });
+  return run;
 }
 
 async function fetchOrder(client, orderName) {
@@ -126,6 +142,9 @@ function checkMailSetupInput(input, takenDomains, opts = {}) {
     errors.planId = "This order is for a different email plan.";
   }
 
+  if (checked.ok && isReservedDomain(checked.value.domain)) {
+    return { ok: false, errors: { ...errors, domain: RESERVED_MESSAGE }, code: "MAIL_DOMAIN_RESERVED" };
+  }
   if (Object.keys(errors).length) return { ok: false, errors };
   return {
     ok: true,
@@ -150,6 +169,9 @@ async function listTakenMailDomains(client, { exceptOrderName, webAccount, nowMs
     if (exceptOrderName && row.name === exceptOrderName) continue;
     if (webAccount && row.web_account === webAccount) continue;
     if (!holdsDomain(row, nowMs)) continue;
+    // An unpaid Draft with no linked invoice is only a form someone filled in: it must not
+    // lock a domain against OTHER accounts. Once an invoice exists (or it is paid), it does.
+    if (row.status === "Draft" && !row.invoice_doc_name) continue;
     const domain = parseJson(row.config_json).mailSetup?.domain;
     if (typeof domain === "string" && domain) taken.add(domain);
   }
@@ -183,6 +205,7 @@ async function saveMailSetup(client, orderName, input, { nowMs = Date.now() } = 
   if (!checked.ok) {
     const err = coded("mail_setup_invalid", "Please fix the highlighted fields.", 400);
     err.errors = checked.errors;
+    if (checked.code) err.mailCode = checked.code;
     throw err;
   }
   const v = checked.value;
@@ -200,14 +223,14 @@ async function saveMailSetup(client, orderName, input, { nowMs = Date.now() } = 
   };
   if (v.logoUrl) setup.logoUrl = v.logoUrl;
 
-  await mergeOrderConfig(client, orderName, (cfg) => {
+  await withMailSetupLock(orderName, () => mergeOrderConfig(client, orderName, (cfg) => {
     const existing = cfg.mailSetup;
     if (existing && existing.state && existing.state !== "awaiting_payment") {
       throw coded("mail_setup_locked", "Your mail setup has already started and cannot be changed here.", 409);
     }
     cfg.mailSetup = setup;
     return cfg;
-  });
+  }));
   return setup;
 }
 
@@ -250,10 +273,17 @@ async function findOrderClaimingStalwartDomain(client, { stalwartDomainId, excep
 }
 
 async function updateMailSetup(client, orderName, mutate) {
-  return mergeOrderConfig(client, orderName, (cfg) => {
+  return withMailSetupLock(orderName, () => mergeOrderConfig(client, orderName, (cfg) => {
     if (!cfg.mailSetup) throw coded("mail_setup_missing", "This order has no mail setup.", 404);
     mutate(cfg.mailSetup);
     return cfg;
+  }));
+}
+
+/** Change the mailbox list from a fresh read taken under the store lock. mutate(list) returns the new list. */
+async function updateMailboxes(client, orderName, mutate) {
+  await updateMailSetup(client, orderName, (setup) => {
+    setup.mailboxes = mutate((setup.mailboxes || []).map((m) => ({ ...m })));
   });
 }
 
@@ -331,6 +361,8 @@ module.exports = {
   listOrdersByMailState,
   listTakenMailDomains,
   mergeMailSetup,
+  updateMailboxes,
+  withMailSetupLock,
   saveMailSetup,
   setMailState,
   setProgress,

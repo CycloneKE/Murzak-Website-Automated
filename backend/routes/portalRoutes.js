@@ -15,6 +15,7 @@ const mailboxEntitlementLib = require('../services/mailboxEntitlement');
 const mailboxPolicyLib = require('../services/mailboxPolicy');
 const mailProviderLib = require('../services/email/mailProvider');
 const mailInputLib = require('../services/email/mailInput');
+const { isMailPlan } = require('../config/emailPlans');
 // Not destructured at import time — see the routesContext.test.js note above
 // signBrokerToken: destructuring this require would trip that test's greedy
 // static guard for the ctx destructure below.
@@ -959,12 +960,17 @@ async function loadOwnedJob(client, webAccountName, serviceId) {
         ["web_account", "=", webAccountName],
         ["service_id", "=", serviceId],
       ]),
-      fields: JSON.stringify(["name"]),
+      fields: JSON.stringify(["name", "status", "external_ref"]),
       order_by: "modified desc",
-      limit_page_length: 1,
+      limit_page_length: isMailPlan(serviceId) ? 20 : 1,
     },
   });
-  const docName = listResp.data?.data?.[0]?.name;
+  const rows = listResp.data?.data || [];
+  // Mail: a newer failed or renewal job must not hide the account's working mail job.
+  const preferred = isMailPlan(serviceId)
+    ? rows.find((r) => String(r.status || "").toLowerCase() === "active" && String(r.external_ref || "").trim())
+    : null;
+  const docName = (preferred || rows[0])?.name;
   if (!docName) return null;
 
   const docResp = await client.get(`/api/resource/${encodeURIComponent(PROVISIONING_JOB_DOCTYPE)}/${encodeURIComponent(docName)}`);

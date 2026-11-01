@@ -18,10 +18,14 @@
  * Hostinger round-trip.
  */
 
+const { isMailPlan } = require("../config/emailPlans");
+
 const UNLIMITED = 0;
 
 /** Is this catalog item an Email Hosting product that grants mailboxes? */
 function grantsMailboxes(meta) {
+  // mail-* plans are counted against Stalwart (see mailProvider), never against Hostinger entitlement.
+  if (meta && isMailPlan(meta.id || meta.serviceId)) return false;
   return !!meta && meta.category === "Email Hosting" && meta.mailboxes !== undefined;
 }
 
@@ -52,6 +56,7 @@ function entitlementFor(ownedServices, getMeta, { countStatuses } = {}) {
     // hence the normalize-and-compare.
     if (status && !allowed.includes(status)) continue;
 
+    if (isMailPlan(id)) continue;
     const meta = getMeta(id);
     if (!grantsMailboxes(meta)) continue;
 

@@ -18,6 +18,10 @@ const TOKEN_LIFE_MS = 30 * 24 * 3600 * 1000;
 const CODE_LIFE_MS = 10 * 60 * 1000;
 const CODE_ISSUE_GAP_MS = 60 * 1000;
 const CODE_MAX_ATTEMPTS = 5;
+// Wrong codes allowed per order per 24 h, across all challenges. Beyond it nothing verifies
+// and no new code is sent until the window passes (stops slow, patient guessing).
+const CODE_FAIL_BUDGET = 20;
+const CODE_FAIL_WINDOW_MS = 24 * 3600 * 1000;
 const ORDER_DOCTYPE = "Checkout Order";
 
 function secret() {
@@ -101,6 +105,19 @@ function withOrderLock(orderName, fn) {
   return run;
 }
 
+function lockedOut(setup, now) {
+  const f = setup && setup.codeFailures;
+  return !!f && typeof f.windowStart === "number" && now - f.windowStart < CODE_FAIL_WINDOW_MS && (f.count || 0) >= CODE_FAIL_BUDGET;
+}
+
+function nextFailures(setup, now) {
+  const f = setup && setup.codeFailures;
+  if (f && typeof f.windowStart === "number" && now - f.windowStart < CODE_FAIL_WINDOW_MS) {
+    return { windowStart: f.windowStart, count: (f.count || 0) + 1 };
+  }
+  return { windowStart: now, count: 1 };
+}
+
 const PURPOSES = Object.freeze(["reset", "add"]);
 
 function codeHash(orderName, purpose, code) {
@@ -129,6 +146,9 @@ function issueCode(client, orderName, deps = {}) {
     const send = deps.sendCodeEmail || defaultSendCodeEmail;
     const setup = await loadMailSetup(client, orderName);
     if (!setup) throw coded("mail_setup_missing", "This order has no mail setup.", 404);
+    if (lockedOut(setup, now)) {
+      throw coded("code_locked", "Too many incorrect codes. Please try again tomorrow or contact support.", 429);
+    }
     if (setup.codeIssuedAt && now - setup.codeIssuedAt < CODE_ISSUE_GAP_MS) {
       throw coded("code_rate_limited", "A code was just sent. Please wait a minute before asking for another.", 429);
     }
@@ -164,6 +184,7 @@ async function verifyCodeInLock(client, orderName, code, deps = {}) {
   const now = deps.now ? deps.now() : Date.now();
   const purpose = deps.purpose || "reset";
   const setup = await loadMailSetup(client, orderName);
+  if (lockedOut(setup, now)) return false;
   const ch = setup && setup.codeChallenge;
   if (!ch || typeof ch.hash !== "string") return false;
   if (now >= ch.expiresAt || (ch.attempts || 0) >= CODE_MAX_ATTEMPTS) {
@@ -179,6 +200,7 @@ async function verifyCodeInLock(client, orderName, code, deps = {}) {
   }
   await mergeMailSetup(client, orderName, {
     codeChallenge: attempts >= CODE_MAX_ATTEMPTS ? null : { ...ch, attempts },
+    codeFailures: nextFailures(setup, now),
   });
   return false;
 }
@@ -193,6 +215,8 @@ module.exports = {
   CODE_LIFE_MS,
   CODE_ISSUE_GAP_MS,
   CODE_MAX_ATTEMPTS,
+  CODE_FAIL_BUDGET,
+  CODE_FAIL_WINDOW_MS,
   signOrderToken,
   verifyOrderToken,
   statusUrlFor,

@@ -153,13 +153,11 @@ module.exports = function (ctx) {
     return acct ? acct.id : null;
   }
 
-  // Must run inside mailAccess.withOrderLock(orderName). Fails loudly: a missing
-  // order or a failed write is an error, never a silent no-op.
+  // Must run inside mailAccess.withOrderLock(orderName). The list is rebuilt from a fresh
+  // read under the store's own per-order lock, so a lane or sweep write at the same time
+  // cannot revert it (and this cannot revert theirs). A missing order throws.
   async function persistMailboxes(orderName, mutate) {
-    const fresh = await mailAccess.loadMailSetup(frappeClient(), orderName);
-    if (!fresh) throw new Error("mail setup disappeared while saving");
-    const next = mutate((fresh.mailboxes || []).map((m) => ({ ...m })));
-    await mailSetupStore.mergeMailSetup(frappeClient(), orderName, { mailboxes: next });
+    await mailSetupStore.updateMailboxes(frappeClient(), orderName, mutate);
   }
 
   const setFlag = (orderName, local, value) =>
@@ -203,7 +201,7 @@ module.exports = function (ctx) {
     try {
       await mailAccess.issueCode(frappeClient(), hit.orderName, { ...deps, purpose });
     } catch (e) {
-      if (e.code === "code_rate_limited") return res.status(429).json({ error: e.message });
+      if (e.code === "code_rate_limited" || e.code === "code_locked") return res.status(429).json({ error: e.message });
       console.error(`[mail] could not send a code for ${hit.orderName}: ${e.name}`);
       return res.status(502).json({ error: "We couldn't send the code just now. Please try again shortly." });
     }

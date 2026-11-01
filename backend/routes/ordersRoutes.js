@@ -154,6 +154,7 @@ module.exports = function (ctx) {
         const taken = await mailSetupStore.listTakenMailDomains(client, { webAccount: webAccountName, nowMs: Date.now() });
         const checked = mailSetupStore.checkMailSetupInput(req.body.mailSetup, taken, { planId: serviceId });
         if (!checked.ok) {
+          if (checked.code) return res.status(400).json({ error: checked.errors.domain, errors: checked.errors, code: checked.code });
           return res.status(400).json({ error: "Please fix the highlighted fields.", errors: checked.errors });
         }
         // Disk gate: refuses before anything is reserved or created.

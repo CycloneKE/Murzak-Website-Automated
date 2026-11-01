@@ -122,7 +122,12 @@ async function purchaseHint() {
  * one condition under which mailboxes can actually be created.
  */
 async function provision(job, opts = {}) {
-  if (isMailPlan(job && job.service_id) && stalwartClient.isConfigured()) {
+  if (isMailPlan(job && job.service_id)) {
+    // A mail-* plan is never built on the Hostinger path: with Stalwart unconfigured this
+    // is a retryable failure (fix the env, then Retry), not a different product.
+    if (!stalwartClient.isConfigured()) {
+      throw new Error(`Stalwart not configured: ${stalwartClient.configError()}`);
+    }
     return stalwartProvision.provision(job, opts);
   }
   const client = opts.client;

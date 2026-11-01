@@ -159,6 +159,13 @@ function orderRows(client) {
     const client = makeMockFrappe();
     const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
     await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL } }, makeRes());
+    // A form that was only filled in does not lock the domain; one with an invoice does.
+    const free = makeRes();
+    await handler({ session: { webAccount: "WA-2" }, body: { serviceId: "mail-starter", config: {}, mailSetup: { ...MAIL, businessName: "Other" } } }, free);
+    ok(free.statusCode === 200, "an invoice-less Draft of another account does not block the domain");
+    Object.values(client.store["Checkout Order"]).forEach((r) => { r.status = "Cancelled"; });
+    await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL } }, makeRes());
+    Object.values(client.store["Checkout Order"]).filter((r) => r.status === "Draft").forEach((r) => { r.invoice_doc_name = "PINV-X"; });
     const res = makeRes();
     await handler({ session: { webAccount: "WA-2" }, body: { serviceId: "mail-starter", config: {}, mailSetup: { ...MAIL, planId: "mail-starter" } } }, res);
     ok(res.statusCode === 400 && res.body.errors && res.body.errors.domain, "the same domain is refused for a second account");

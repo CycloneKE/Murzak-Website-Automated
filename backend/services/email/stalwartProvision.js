@@ -17,6 +17,8 @@ const store = require("./mailSetupStore");
 const mailDns = require("./mailDns");
 const webmailBranding = require("./webmailBranding");
 const stalwartClient = require("./stalwartClient");
+const { isReservedDomain } = require("./mailReserved");
+const { JOB_DOCTYPE } = require("../provisioning/constants");
 
 const POSTMASTER = "postmaster";
 const ORDER_MARKER = "murzak-order:";
@@ -49,30 +51,39 @@ function outboundLimit() {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_OUTBOUND_PER_HOUR;
 }
 
-const HARD_RESERVED = ["murzaktech.tech", "murzaktech.com"];
-const SECOND_LEVEL = new Set(["co", "com", "org", "net", "ac", "or", "go", "ne"]);
-
-/** Registrable domain of a host: last two labels, or three under co.ke style suffixes. */
-function registrable(host) {
-  const labels = String(host || "").toLowerCase().replace(/\.$/, "").split(".").filter(Boolean);
-  if (labels.length <= 2) return labels.join(".");
-  const take = labels[labels.length - 1].length === 2 && SECOND_LEVEL.has(labels[labels.length - 2]) ? 3 : 2;
-  return labels.slice(-take).join(".");
-}
-
-function reservedDomains() {
-  const extra = String(process.env.MAIL_RESERVED_DOMAINS || "").split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
-  const set = new Set([...HARD_RESERVED, ...extra]);
-  const host = registrable(process.env.MAIL_HOST);
-  if (host) set.add(host);
-  return set;
-}
-
 /** Relative record name for display and verification ("default._domainkey", "@"). */
 function relName(name, zone) {
   const n = String(name || "").toLowerCase().replace(/\.$/, "");
   if (!n || n === "@" || n === zone) return "@";
   return n.endsWith(`.${zone}`) ? n.slice(0, -(zone.length + 1)) : n;
+}
+
+/**
+ * The account's already-active job for this plan, or null. Used to treat a
+ * renewal job (no Checkout Order behind its invoice) as a no-op success.
+ */
+async function findActiveMailJob(client, job) {
+  if (!job || !job.web_account || !job.service_id) return null;
+  const res = await client.get(`/api/resource/${encodeURIComponent(JOB_DOCTYPE)}`, {
+    params: {
+      filters: JSON.stringify([["web_account", "=", job.web_account], ["service_id", "=", job.service_id], ["status", "=", "active"]]),
+      fields: JSON.stringify(["name", "web_account", "service_id", "status", "external_ref", "access", "modified"]),
+      order_by: "modified desc",
+      limit_page_length: 20,
+    },
+  });
+  const rows = res.data?.data || [];
+  for (const r of rows) {
+    if (r.name === job.name) continue;
+    if (r.web_account !== job.web_account || r.service_id !== job.service_id) continue;
+    if (String(r.status || "").toLowerCase() !== "active") continue;
+    const ref = String(r.external_ref || "").trim();
+    if (!ref) continue;
+    let access = {};
+    try { access = JSON.parse(r.access || "{}") || {}; } catch { access = {}; }
+    return { externalRef: ref, access };
+  }
+  return null;
 }
 
 async function provision(job, opts = {}) {
@@ -88,12 +99,42 @@ async function provision(job, opts = {}) {
   // (0) load the setup
   const found = await store.getMailSetup(client, job.invoice);
   if (!found) {
+    // A renewal invoice has no Checkout Order. If this account already runs this
+    // plan (an active job with a mail domain on it), there is nothing to build.
+    const prior = await findActiveMailJob(client, job);
+    if (prior) {
+      return {
+        externalRef: prior.externalRef,
+        access: prior.access,
+        log: `[renewal] ${prior.externalRef}: nothing to build, mail is already provisioned for this account`,
+      };
+    }
     throw permanent(
       `No mail setup found for invoice ${job.invoice || "(none)"}. The order has no mailSetup to build mailboxes from; ` +
         "check the Checkout Order's config, then requeue."
     );
   }
   const { orderName, setup } = found;
+
+  // Once paid, the status page must never say "awaiting payment", whichever
+  // guard below fails. A re-run never demotes an order that is further along.
+  // The state is re-read here, not taken from the snapshot above: the sweep may
+  // have set the order live since, and a stale write would demote it in the
+  // customer's view (the hand-over itself is protected by handoverSentAt).
+  async function currentState() {
+    try {
+      const fresh = await store.getMailSetup(client, job.invoice);
+      return (fresh && fresh.setup && fresh.setup.state) || setup.state;
+    } catch {
+      return setup.state;
+    }
+  }
+  {
+    const st = await currentState();
+    if (st !== "provisioned" && st !== "live") await store.setMailState(client, orderName, "paid");
+    await store.setProgress(client, orderName, "payment", "done");
+  }
+
   const domain = String(setup.domain || "").toLowerCase();
   const plan = PLANS[setup.planId];
   if (PLANS[job.service_id] && PLANS[job.service_id] !== plan) {
@@ -106,15 +147,9 @@ async function provision(job, opts = {}) {
     .map((m) => String(m && m.localPart ? m.localPart : m || "").toLowerCase())
     .filter(Boolean);
 
-  if ([...reservedDomains()].some((r) => domain === r || domain.endsWith(`.${r}`))) {
+  if (isReservedDomain(domain)) {
     throw permanent(`${domain} is reserved for Murzak and cannot be provisioned as customer mail.`);
   }
-
-  // Do not demote an order that already got past "paid" (a re-run).
-  if (setup.state !== "provisioned" && setup.state !== "live") {
-    await store.setMailState(client, orderName, "paid");
-  }
-  await store.setProgress(client, orderName, "payment", "done");
 
   async function stage(name, fn) {
     await store.setProgress(client, orderName, name, "running");
@@ -185,8 +220,9 @@ async function provision(job, opts = {}) {
       { type: dkim.type, name: relName(dkim.name, domain), value: dkim.value },
     ];
     await store.mergeMailSetup(client, orderName, { dnsRecords: records });
-    // A rerun of an order that already went live must not demote it (the hand-over would repeat).
-    if (setup.state !== "live") await store.setMailState(client, orderName, "provisioned");
+    // A rerun of an order that already went live must not demote it (the customer would see
+    // "provisioned" again until the next sweep). Re-read: the snapshot above may be stale.
+    if ((await currentState()) !== "live") await store.setMailState(client, orderName, "provisioned");
     await enqueueDomain(client, { domain, title: setup.businessName, logoUrl: setup.logoUrl });
   });
 

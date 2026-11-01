@@ -568,6 +568,20 @@ async function linkInvoice({ client, orderId, invoiceDocName }) {
 }
 
 /** frappe snake_case doc -> camelCase API shape. */
+// The browser sees only these mailSetup keys. Never codeChallenge, codeIssuedAt,
+// stalwartDomainId, dnsRecords, handover/ticket markers or anything else the server keeps.
+function publicMailSetup(m) {
+  if (!m || typeof m !== "object") return undefined;
+  const out = {};
+  for (const k of ["state", "progress", "domain", "planId", "domainMode", "businessName"]) {
+    if (m[k] !== undefined) out[k] = m[k];
+  }
+  if (Array.isArray(m.mailboxes)) {
+    out.mailboxes = m.mailboxes.map((b) => ({ localPart: b && b.localPart, passwordSet: !!(b && b.passwordSet) }));
+  }
+  return out;
+}
+
 function toApiOrder(doc) {
   const monthlyKes = Number(doc.monthly_kes) || 0;
   const setupKes = Number(doc.setup_kes) || 0;
@@ -576,6 +590,10 @@ function toApiOrder(doc) {
     config = doc.config_json ? JSON.parse(doc.config_json) : {};
   } catch {
     config = {};
+  }
+  if (config && typeof config === "object" && "mailSetup" in config) {
+    const pub = publicMailSetup(config.mailSetup);
+    if (pub) config.mailSetup = pub; else delete config.mailSetup;
   }
   const bundle = config.bundle && typeof config.bundle === "object" ? config.bundle : {};
   const companions = (Array.isArray(bundle.companions) ? bundle.companions : []).map((c) => {

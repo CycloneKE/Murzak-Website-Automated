@@ -220,7 +220,19 @@ async function runMailLiveSweep(client, deps = {}) {
     }
 
     const records = Array.isArray(s.dnsRecords) ? s.dnsRecords : [];
-    if (!records.length) throw new Error(`${orderName} has no stored dnsRecords`);
+    if (!records.length) {
+      // Nothing to verify against, so waiting will never fix it: ticket staff once, then stay quiet.
+      if (!s.staffTicketAt) {
+        try {
+          await raiseStaffTicket(client, { orderName, reason: "no DNS records are stored on this order, so it can never verify", webAccount: row.webAccount, businessName: s.businessName });
+          await store.mergeMailSetup(client, orderName, { staffTicketAt: iso(now()) });
+          log.warn(`[mail-live] ${orderName} has no stored DNS records; staff ticket raised`);
+        } catch (e) {
+          log.warn(`[mail-live] staff ticket for ${orderName} failed; will retry next sweep: ${e.message}`);
+        }
+      }
+      return false;
+    }
 
     const dnsRes = await mailDns.verifyRecords(s.domain, records.map(relaxDmarc), { resolver: deps.resolver });
     if (!dnsRes.ok) {

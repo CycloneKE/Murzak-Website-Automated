@@ -178,7 +178,10 @@ function createStalwartClient(opts = {}) {
   const authMode = (opts.authMode || "bearer").toLowerCase();
   const apiUser = opts.apiUser || "";
   const dnsServerId = opts.dnsServerId || "";
-  const mock = !!opts.mock;
+  // The in-memory fake must never serve real customers: in production a requested
+  // mock is refused and every call fails with a clear message (same idea as E2E_TEST).
+  const mockBlocked = !!opts.mock && process.env.NODE_ENV === "production";
+  const mock = !!opts.mock && !mockBlocked;
   const log = opts.log || ((m) => console.log(m));
   const say = (m) => log(redact(m, apiKey));
 
@@ -194,6 +197,7 @@ function createStalwartClient(opts = {}) {
     return configError() === "";
   }
   function configError() {
+    if (mockBlocked) return "STALWART_MOCK=1 is not allowed when NODE_ENV=production; unset it and configure the real server";
     if (mock) return "";
     const missing = [];
     if (!baseUrl) missing.push("STALWART_URL");
@@ -394,6 +398,7 @@ let defaultFingerprint = null;
 function defaultClient() {
   const env = {
     mock: process.env.STALWART_MOCK === "1",
+    prod: process.env.NODE_ENV === "production",
     url: process.env.STALWART_URL || "",
     key: process.env.STALWART_API_KEY || "",
     auth: process.env.STALWART_AUTH || "bearer",
