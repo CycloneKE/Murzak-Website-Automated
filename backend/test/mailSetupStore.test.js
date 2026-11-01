@@ -25,6 +25,7 @@ const {
   setProgress,
   setMailState,
   mergeMailSetup,
+  findOrderClaimingStalwartDomain,
   listTakenMailDomains,
   waitForDomain,
 } = require("../services/email/mailSetupStore");
@@ -254,6 +255,17 @@ async function rejects(promise) {
     ok(live && live.errors && live.errors.domain, "another account's live order still blocks the domain");
     const own = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "mine.com" }));
     ok(own === null, "the requesting account's own live order never blocks its retry");
+  }
+
+  section("findOrderClaimingStalwartDomain");
+  {
+    const mk = (name, status, id, exp = LIVE) => ({ name, web_account: "W", status, reservation_expires_at: exp, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { stalwartDomainId: id } }) });
+    const client = makeMockFrappe({ "Checkout Order": { A: mk("A", "Paid", "X"), B: mk("B", "Cancelled", "Y"), C: mk("C", "Draft", "Z", EXPIRED) } });
+    ok((await findOrderClaimingStalwartDomain(client, { stalwartDomainId: "X", exceptOrderName: "Q" })) === "A", "finds the live claimant");
+    ok((await findOrderClaimingStalwartDomain(client, { stalwartDomainId: "X", exceptOrderName: "A" })) === null, "excludes the asking order");
+    ok((await findOrderClaimingStalwartDomain(client, { stalwartDomainId: "Y" })) === null, "ignores a Cancelled order");
+    ok((await findOrderClaimingStalwartDomain(client, { stalwartDomainId: "Z" })) === null, "ignores a lapsed Draft");
+    ok((await findOrderClaimingStalwartDomain(client, { stalwartDomainId: "" })) === null, "empty id -> null");
   }
 
   section("mergeMailSetup merges fields and keeps the rest");

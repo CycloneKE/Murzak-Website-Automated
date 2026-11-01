@@ -209,6 +209,18 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     ok(e && e.permanent === true && /already in use/.test(e.message), "different recorded id + accounts -> permanent");
   }
 
+  section("rival order's recorded id blocks an empty domain");
+  {
+    stalwart.__resetMockForTests();
+    const d = await stalwart.ensureDomain({ name: "rival.com", description: "" });
+    const client = seed({ domain: "rival.com" });
+    client.store["Checkout Order"]["CHK-2"] = { name: "CHK-2", web_account: "WA-2", status: "Paid", reservation_expires_at: LIVE, invoice_doc_name: "PINV-2", config_json: JSON.stringify({ mailSetup: { domain: "rival.com", stalwartDomainId: d.id } }) };
+    const e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
+    ok(e && e.permanent === true && /already in use/.test(e.message), "empty domain recorded by another order -> permanent");
+    ok((await stalwart.listAccounts(d.id)).length === 0, "no accounts created");
+    ok(cfgOf(client).mailSetup.stalwartDomainId === undefined, "nothing recorded on this order");
+  }
+
   section("reserved domains");
   {
     stalwart.__resetMockForTests();

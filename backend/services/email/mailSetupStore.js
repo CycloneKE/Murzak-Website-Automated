@@ -176,8 +176,8 @@ async function saveMailSetup(client, orderName, input, { nowMs = Date.now() } = 
 
   // Known limit: the domain check and the write are not one atomic step, so two
   // concurrent saves for the same domain can both pass. Accepted. The mail
-  // provisioning step (Task 8) also refuses a domain that already exists in
-  // Stalwart under a different order.
+  // provisioning step (Task 8) then refuses a domain held by another order's
+  // recorded Stalwart id, or one that already has foreign accounts.
   const taken = await listTakenMailDomains(client, { exceptOrderName: orderName, webAccount: doc.web_account, nowMs });
   const checked = checkMailSetupInput(input, taken);
   if (!checked.ok) {
@@ -219,6 +219,21 @@ async function getMailSetup(client, invoiceDocName) {
     if (row.invoice_doc_name !== invoiceDocName) continue;
     const setup = parseJson(row.config_json).mailSetup;
     if (setup) return { orderName: row.name, setup };
+  }
+  return null;
+}
+
+/**
+ * The name of another live order whose mail setup recorded this Stalwart domain id,
+ * or null. Orders that no longer hold their domain (Cancelled, lapsed Draft) are ignored.
+ */
+async function findOrderClaimingStalwartDomain(client, { stalwartDomainId, exceptOrderName, nowMs = Date.now() } = {}) {
+  if (!stalwartDomainId) return null;
+  const rows = await listOrderRows(client, [["config_json", "like", '%"stalwartDomainId"%']]);
+  for (const row of rows) {
+    if (exceptOrderName && row.name === exceptOrderName) continue;
+    if (!holdsDomain(row, nowMs)) continue;
+    if (parseJson(row.config_json).mailSetup?.stalwartDomainId === stalwartDomainId) return row.name;
   }
   return null;
 }
@@ -298,6 +313,7 @@ module.exports = {
   PROGRESS_STAGES,
   PROGRESS_STATES,
   checkMailSetupInput,
+  findOrderClaimingStalwartDomain,
   getMailSetup,
   listTakenMailDomains,
   mergeMailSetup,

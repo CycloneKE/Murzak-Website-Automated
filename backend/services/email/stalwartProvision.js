@@ -146,6 +146,11 @@ async function provision(job, opts = {}) {
       if (existing.length > 0) {
         throw permanent(`${domain} is already in use by another order. Staff must resolve the clash, then requeue.`);
       }
+      // Empty, but another live order may have claimed it and not built accounts yet.
+      const rival = await store.findOrderClaimingStalwartDomain(client, { stalwartDomainId: d.id, exceptOrderName: orderName });
+      if (rival) {
+        throw permanent(`${domain} is already in use by another order. Staff must resolve the clash, then requeue.`);
+      }
     }
     // Record ownership BEFORE creating accounts, so a retry recognises its own domain.
     await store.mergeMailSetup(client, orderName, { stalwartDomainId: d.id });
