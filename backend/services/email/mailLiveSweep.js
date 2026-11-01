@@ -71,8 +71,12 @@ function titleOf(body) {
   return m ? m[1].trim() : "";
 }
 
-/** Webmail answers over https with a 2xx and a title containing the business name. Any error means not ready. */
-async function webmailReady(fetchFn, domain, businessName) {
+/**
+ * Webmail is ready when it answers https with any 2xx. That is the gate. The
+ * page title is advisory only: a mismatch is logged once (no business name, no
+ * page content) and the order still goes live. Any error or non-2xx means not ready.
+ */
+async function webmailReady(fetchFn, domain, businessName, orderName, log) {
   let res;
   try {
     res = await fetchFn(`https://webmail.${domain}`);
@@ -81,7 +85,10 @@ async function webmailReady(fetchFn, domain, businessName) {
   }
   if (!res || res.status < 200 || res.status > 299) return false;
   const want = String(businessName || "").trim().toLowerCase();
-  return !!want && titleOf(res.body).toLowerCase().includes(want);
+  if (!want || !titleOf(res.body).toLowerCase().includes(want)) {
+    log.warn(`[mail-live] advisory for ${orderName}: webmail.${domain} answered 2xx but its title does not match the business name; going live anyway`);
+  }
+  return true;
 }
 
 async function defaultFetch(url) {
@@ -186,6 +193,8 @@ async function runMailLiveSweep(client, deps = {}) {
     return true;
   }
 
+  // Copied, not imported: runner.js createEscalationTicket swallows its own errors,
+  // so a failed ticket could not leave the staffTicketAt marker unset for a retry.
   // Raises one staff ticket after HANDOVER_WAIT_MS. A failed ticket leaves the marker unset for the next sweep.
   async function maybeRaiseStaffTicket(row, s, reason) {
     if (s.staffTicketAt) return;
@@ -224,7 +233,7 @@ async function runMailLiveSweep(client, deps = {}) {
       return false;
     }
 
-    if (!(await webmailReady(fetchFn, s.domain, s.businessName))) {
+    if (!(await webmailReady(fetchFn, s.domain, s.businessName, orderName, log))) {
       await markDnsRunning(orderName, s);
       await maybeRaiseStaffTicket(row, s, "webmail is not answering with the business title yet");
       return false;

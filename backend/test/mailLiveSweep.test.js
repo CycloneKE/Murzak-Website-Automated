@@ -209,21 +209,39 @@ function makeDeps(over = {}) {
     ok(calls.warns.some((w) => /sendMailReadyEmail/.test(w)), "a warning names the missing sender");
   }
 
-  section("webmail not ready: stays provisioned, retried next sweep");
+  section("webmail gate: any 2xx is ready; a non-2xx keeps the order provisioned");
   {
     const client = makeMockFrappe({ "Checkout Order": { "CHK-1": orderRow("CHK-1") } });
     const { deps, calls, state } = makeDeps();
     state.web = { status: 503, body: "" };
     const r1 = await runMailLiveSweep(client, deps);
     ok(r1.stillWaiting === 1 && r1.wentLive === 0, "a 503 keeps the order waiting");
-    ok(setupOf(client, "CHK-1").state === "provisioned", "state stays provisioned");
-    ok(calls.email.length === 0, "no email while webmail is not ready");
-    state.web = { status: 200, body: "<title>Some other site</title>" };
+    ok(setupOf(client, "CHK-1").state === "provisioned", "a 503 leaves state provisioned");
+    ok(calls.email.length === 0, "no email while webmail returns non-2xx");
+    state.web = { status: 404, body: "<title>Not Found</title>" };
     const r2 = await runMailLiveSweep(client, deps);
-    ok(r2.stillWaiting === 1, "a page without the client's title keeps the order waiting");
-    state.web = { status: 200, body: "<title>Acme Ltd Webmail</title>" };
-    const r3 = await runMailLiveSweep(client, deps);
-    ok(r3.wentLive === 1 && calls.email.length === 1, "once the certificate and title are right, it goes live and emails once");
+    ok(r2.stillWaiting === 1 && setupOf(client, "CHK-1").state === "provisioned", "a 404 keeps the order provisioned");
+    ok(calls.email.length === 0, "still no email after a 404");
+  }
+
+  section("webmail gate: a 2xx page with a different title goes live and logs an advisory");
+  {
+    const client = makeMockFrappe({ "Checkout Order": { "CHK-1": orderRow("CHK-1") } });
+    const { deps, calls, state } = makeDeps();
+    state.web = { status: 200, body: "<title>Some other site</title>" };
+    const r = await runMailLiveSweep(client, deps);
+    ok(r.wentLive === 1 && r.stillWaiting === 0, "a 2xx with a different title goes live");
+    ok(setupOf(client, "CHK-1").state === "live", "state is live");
+    ok(calls.email.length === 1, "the hand-over email goes out once");
+    ok(calls.warns.some((w) => /title/i.test(w) && !/Acme Ltd/.test(w)), "one advisory line about the title, without the business name");
+  }
+
+  section("webmail gate: empty businessName does not block a 2xx page");
+  {
+    const client = makeMockFrappe({ "Checkout Order": { "CHK-1": orderRow("CHK-1", { extra: { businessName: "" } }) } });
+    const { deps } = makeDeps();
+    const r = await runMailLiveSweep(client, deps);
+    ok(r.wentLive === 1, "a 2xx page goes live even when the business name is empty");
   }
 
   section("webmail fetch throwing is fail-soft");
