@@ -106,14 +106,21 @@ function requiredRecords(domain, { mailHost, webmailTarget = DEFAULT_WEBMAIL_TAR
   ];
 }
 
-// Resolver lookups treat "no such record" as an empty answer; a DNS failure
-// also counts as missing, so verification fails closed rather than passing.
+// "No such record" (ENODATA) and "no such name" (ENOTFOUND, NXDOMAIN) are a
+// genuine empty answer: the record has not propagated. Any other resolver
+// error (SERVFAIL, ETIMEOUT, ECONNREFUSED, ...) is NOT an empty answer. It
+// still counts as missing so verification fails closed, and the error code is
+// reported in `errors` so the caller can tell a broken resolver from a record
+// that is not there yet. Only the code is kept, never the message.
+const EMPTY_ANSWER_CODES = new Set(["ENODATA", "ENOTFOUND"]);
+
 async function lookup(fn) {
   try {
     const out = await fn();
-    return Array.isArray(out) ? out : [];
-  } catch (_) {
-    return [];
+    return { answers: Array.isArray(out) ? out : [], code: null };
+  } catch (err) {
+    if (EMPTY_ANSWER_CODES.has(err && err.code)) return { answers: [], code: null };
+    return { answers: [], code: String((err && err.code) || "UNKNOWN") };
   }
 }
 
@@ -133,29 +140,37 @@ function parseTags(text) {
 }
 
 /**
- * Check each record against the live DNS. Returns { ok, missing } where
- * `missing` lists the labels of the records that did not resolve (MX, SPF,
- * DMARC, DKIM, webmail, or a generic label for anything else).
+ * Check each record against the live DNS. Returns { ok, missing, errors }:
+ *   missing  labels of records that did not resolve (MX, SPF, DMARC, DKIM,
+ *            webmail, or a generic label for anything else)
+ *   errors   [{ label, code }] for lookups that failed with a resolver error
+ *            (anything other than ENODATA/ENOTFOUND). Empty when none.
  */
 async function verifyRecords(domain, records, { resolver = dns.promises } = {}) {
   const zone = normDomain(domain);
   assertDomain(zone);
   const missing = [];
-  const miss = (label) => { if (!missing.includes(label)) missing.push(label); };
+  const errors = [];
+  const miss = (label, code) => {
+    if (!missing.includes(label)) missing.push(label);
+    if (code && !errors.some((e) => e.label === label && e.code === code)) errors.push({ label, code });
+  };
 
   for (const rec of records || []) {
     const name = rec.name === "@" ? zone : `${rec.name}.${zone}`;
 
     if (rec.type === "MX") {
-      const answers = await lookup(() => resolver.resolveMx(zone));
+      const { answers, code } = await lookup(() => resolver.resolveMx(zone));
       const want = normHost(rec.value);
       const hit = answers.some((a) =>
         normHost(a.exchange) === want &&
         (rec.priority === undefined || Number(a.priority) === Number(rec.priority)));
-      if (!hit) miss("MX");
+      if (!hit) miss("MX", code);
     } else if (rec.type === "TXT") {
-      const answers = (await lookup(() => resolver.resolveTxt(name)))
+      const looked = await lookup(() => resolver.resolveTxt(name));
+      const answers = looked.answers
         .map((chunks) => (Array.isArray(chunks) ? chunks.join("") : String(chunks)));
+      const code = looked.code;
       const isSpf = rec.name === "@" && /^v=spf1\b/i.test(rec.value);
       const isDmarc = rec.name === "_dmarc";
       const isDkim = /_domainkey/i.test(rec.name);
@@ -166,34 +181,34 @@ async function verifyRecords(domain, records, { resolver = dns.promises } = {}) 
           const have = tokens(txt);
           return need.every((t) => have.includes(t));
         });
-        if (!hit) miss("SPF");
+        if (!hit) miss("SPF", code);
       } else if (isDmarc) {
         const need = parseTags(rec.value);
         const hit = answers.some((txt) => {
           const have = parseTags(txt);
           return Object.keys(need).every((k) => have[k] !== undefined && have[k].toLowerCase() === need[k].toLowerCase());
         });
-        if (!hit) miss("DMARC");
+        if (!hit) miss("DMARC", code);
       } else if (isDkim) {
         // Key material: compare with whitespace removed, case preserved.
         const want = String(rec.value).replace(/\s+/g, "");
         const hit = answers.some((txt) => txt.replace(/\s+/g, "") === want);
-        if (!hit) miss("DKIM");
+        if (!hit) miss("DKIM", code);
       } else {
         const want = String(rec.value).replace(/\s+/g, " ").trim();
         const hit = answers.some((txt) => txt.replace(/\s+/g, " ").trim() === want);
-        if (!hit) miss(`TXT ${rec.name}`);
+        if (!hit) miss(`TXT ${rec.name}`, code);
       }
     } else if (rec.type === "CNAME") {
-      const answers = await lookup(() => resolver.resolveCname(name));
+      const { answers, code } = await lookup(() => resolver.resolveCname(name));
       const want = normHost(rec.value);
       const hit = answers.some((a) => normHost(a) === want);
-      if (!hit) miss(rec.name === "webmail" ? "webmail" : `CNAME ${rec.name}`);
+      if (!hit) miss(rec.name === "webmail" ? "webmail" : `CNAME ${rec.name}`, code);
     } else {
       throw new Error(`verifyRecords: unsupported record type ${rec.type}`);
     }
   }
-  return { ok: missing.length === 0, missing };
+  return { ok: missing.length === 0, missing, errors };
 }
 
 /**

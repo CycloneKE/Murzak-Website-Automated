@@ -14,7 +14,15 @@ function ok(cond, msg) {
 function section(name) { console.log(`\n# ${name}`); }
 
 const mailDns = require("../services/email/mailDns");
+const hostingerApi = require("../services/hostingerApi");
 const { requiredRecords, verifyRecords, ensureWebmailCname } = mailDns;
+
+// A resolver where every lookup fails with the given error code, like a broken
+// or unreachable nameserver would.
+function failingResolver(code) {
+  const boom = async () => { const e = new Error(`simulated ${code}`); e.code = code; throw e; };
+  return { resolveMx: boom, resolveTxt: boom, resolveCname: boom };
+}
 
 const DOMAIN = "example.co.ke";
 const MAIL_HOST = "mail.cloud.murzaktech.tech";
@@ -73,8 +81,9 @@ function fakeHostinger(initial = []) {
 }
 
 (async () => {
-  // Make the no-network guarantee explicit: no real token in the environment.
+  // Make the no-network guarantee explicit: no real token or host override in the environment.
   delete process.env.HOSTINGER_API_TOKEN;
+  delete process.env.HOSTINGER_API_BASE;
 
   section("requiredRecords: the four always-present records");
   {
@@ -188,7 +197,8 @@ function fakeHostinger(initial = []) {
     const names = state.zone.map((r) => `${r.name}/${r.type}`);
     ok(names.includes("@/MX") && names.includes("www/A") && names.includes("webmail/CNAME"),
       "existing MX and A records are preserved alongside the new CNAME");
-    ok(state.urls.every((u) => u === `https://developers.hostinger.com/api/dns/v1/zones/${DOMAIN}`),
+    const zoneUrl = hostingerApi.apiUrl(`${hostingerApi.PATHS.dnsZones}/${DOMAIN}`);
+    ok(state.urls.length > 0 && state.urls.every((u) => u === zoneUrl),
       "all calls go to /api/dns/v1/zones/{domain} on the resolved host");
   }
 
@@ -213,6 +223,53 @@ function fakeHostinger(initial = []) {
     catch (_) { threw = true; }
     ok(threw, "throws when no HOSTINGER_API_TOKEN and no injected client");
     ok(!called, "no HTTP call is made");
+  }
+
+  section("verifyRecords: ENODATA/ENOTFOUND are a real empty answer, not an error");
+  {
+    const recs = requiredRecords(DOMAIN, { mailHost: MAIL_HOST });
+    for (const code of ["ENODATA", "ENOTFOUND"]) {
+      const res = await verifyRecords(DOMAIN, recs, { resolver: failingResolver(code) });
+      ok(res.ok === false, `${code} on every lookup -> ok:false`);
+      ok(res.missing.includes("MX") && res.missing.includes("SPF") && res.missing.includes("DMARC") && res.missing.includes("webmail"),
+        `${code} -> every record reported missing`);
+      ok(Array.isArray(res.errors) && res.errors.length === 0, `${code} -> no errors entries`);
+    }
+  }
+
+  section("verifyRecords: resolver failures are missing AND reported with their code");
+  {
+    const recs = requiredRecords(DOMAIN, { mailHost: MAIL_HOST });
+    for (const code of ["ESERVFAIL", "ETIMEOUT", "ECONNREFUSED"]) {
+      const res = await verifyRecords(DOMAIN, recs, { resolver: failingResolver(code) });
+      ok(res.ok === false, `${code} -> ok:false (fails closed)`);
+      ok(res.missing.includes("MX") && res.missing.includes("webmail"), `${code} -> records reported missing`);
+      ok(res.errors.some((e) => e.label === "MX" && e.code === code), `${code} -> errors has {label:MX, code}`);
+      ok(res.errors.some((e) => e.label === "webmail" && e.code === code), `${code} -> errors has {label:webmail, code}`);
+      ok(res.errors.every((e) => Object.keys(e).sort().join(",") === "code,label" && typeof e.code === "string"),
+        `${code} -> errors entries carry only label and code, no message`);
+    }
+  }
+
+  section("verifyRecords: one broken lookup among good ones");
+  {
+    const recs = requiredRecords(DOMAIN, { mailHost: MAIL_HOST });
+    const res = await verifyRecords(DOMAIN, recs, {
+      resolver: {
+        ...goodResolver(),
+        resolveMx: async () => { const e = new Error("x"); e.code = "ESERVFAIL"; throw e; },
+      },
+    });
+    ok(JSON.stringify(res.missing) === JSON.stringify(["MX"]), "only MX is missing");
+    ok(JSON.stringify(res.errors) === JSON.stringify([{ label: "MX", code: "ESERVFAIL" }]),
+      "errors is exactly [{label:MX, code:ESERVFAIL}]");
+  }
+
+  section("verifyRecords: all good -> ok:true, no errors");
+  {
+    const recs = requiredRecords(DOMAIN, { mailHost: MAIL_HOST });
+    const res = await verifyRecords(DOMAIN, recs, { resolver: goodResolver() });
+    ok(res.ok === true && res.errors.length === 0, "ok:true with an empty errors list");
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
