@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, Check, Loader2, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import InlineAccount from "../apps/InlineAccount";
 import { checkDomain, TLD_OPTIONS } from "../../services/domains";
 import { MailError, mailboxNameProblem, normalizeMpesa } from "../../services/mail";
 import { formatKes, getService } from "../../config/serviceCatalog";
+import { MAIL_NEW_DOMAIN_ENABLED } from "../../config/contact";
 import type { MailPlanId, MailSetup } from "../../types";
 
 /**
@@ -27,6 +29,7 @@ type DomainOutcome =
   | { kind: "invalid"; message: string }
   | { kind: "new"; domain: string; priceKes: number }
   | { kind: "ke"; domain: string; priceKes: number }
+  | { kind: "unregistered"; domain: string }
   | { kind: "own"; domain: string };
 
 /** Lowercase, strip protocol, "www." and any path; "" when nothing usable is left. */
@@ -115,14 +118,17 @@ const MailSetupForm: React.FC<Props> = ({ user, onUserUpdate, initialPlanId = "m
           next = { kind: "invalid", message: "We couldn't check that name just now. Please try again in a moment." };
         }
       }
+      // With new-domain orders off, an unregistered name must be registered first.
+      if (!MAIL_NEW_DOMAIN_ENABLED && (next.kind === "new" || next.kind === "ke")) next = { kind: "unregistered", domain: next.domain };
       if (seq === lookupSeq.current) setOutcome(next);
     }, 500);
     return () => window.clearTimeout(timer);
   }, [domainInput]);
 
-  const domain = outcome.kind === "new" || outcome.kind === "ke" || outcome.kind === "own" ? outcome.domain : "";
+  const domain = (MAIL_NEW_DOMAIN_ENABLED && (outcome.kind === "new" || outcome.kind === "ke")) || outcome.kind === "own" ? outcome.domain : "";
+  // "new" is only ever sent when new-domain orders are enabled (outcome is then new/ke).
   const domainMode: "new" | "own" = outcome.kind === "own" ? "own" : "new";
-  const domainPriceKes = outcome.kind === "new" || outcome.kind === "ke" ? outcome.priceKes : 0;
+  const domainPriceKes = MAIL_NEW_DOMAIN_ENABLED && (outcome.kind === "new" || outcome.kind === "ke") ? outcome.priceKes : 0;
   const totalKes = planMonthly + domainPriceKes;
 
   const draftProblem = draft ? mailboxNameProblem(draft) || (names.includes(draft) ? "You already added that name." : "") : "";
@@ -148,7 +154,7 @@ const MailSetupForm: React.FC<Props> = ({ user, onUserUpdate, initialPlanId = "m
       ? `This plan includes ${mailboxLimit} mailboxes. Remove ${names.length - mailboxLimit} or choose a bigger plan.`
       : "";
   const problems: Record<string, string> = {};
-  if (!domain) problems.domain = outcome.kind === "invalid" ? outcome.message : "Enter the domain you want email on.";
+  if (!domain) problems.domain = outcome.kind === "invalid" ? outcome.message : outcome.kind === "unregistered" ? "Register this domain first, or choose a domain you already own." : "Enter the domain you want email on.";
   if (mailboxProblem) problems.mailboxes = mailboxProblem;
   if (businessName.trim().length < 2) problems.businessName = "Enter your business name.";
   if (contactProblem) problems.contactEmail = contactProblem;
@@ -212,13 +218,33 @@ const MailSetupForm: React.FC<Props> = ({ user, onUserUpdate, initialPlanId = "m
             <p className={`text-sm font-semibold flex items-center gap-2 ${MUTED}`}><Loader2 size={14} className="animate-spin" /> Checking…</p>
           )}
           {outcome.kind === "invalid" && <p className={ERR}>{outcome.message}</p>}
-          {outcome.kind === "new" && (
+          {outcome.kind === "unregistered" && (
+            <div className="text-sm font-bold text-amber-800 dark:text-amber-300 space-y-2">
+              <p className="flex items-start gap-2">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                <span><span className="break-all">{outcome.domain}</span> isn't registered yet. Register the domain first, then come back and add email to it.</span>
+              </p>
+              <div className="flex flex-wrap gap-2 pl-6">
+                <Link to="/portal/domains" className="inline-flex items-center px-4 py-2 rounded-xl border border-amber-600 dark:border-amber-400 font-black text-xs hover:bg-amber-500/10">
+                  Register this domain
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setOutcome({ kind: "own", domain: outcome.domain })}
+                  className="inline-flex items-center px-4 py-2 rounded-xl border border-slate-400 dark:border-murzak-border font-black text-xs text-murzak-ink dark:text-slate-100 hover:border-murzak-accent"
+                >
+                  I have registered it: use this domain
+                </button>
+              </div>
+            </div>
+          )}
+          {MAIL_NEW_DOMAIN_ENABLED && outcome.kind === "new" && (
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-start gap-2">
               <Check size={16} className="shrink-0 mt-0.5" />
               <span><span className="break-all">{outcome.domain}</span> is available. We register it for you at {formatKes(outcome.priceKes)}/yr and set up your email on it.</span>
             </p>
           )}
-          {outcome.kind === "ke" && (
+          {MAIL_NEW_DOMAIN_ENABLED && outcome.kind === "ke" && (
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-start gap-2">
               <Check size={16} className="shrink-0 mt-0.5" />
               <span>We register <span className="break-all">{outcome.domain}</span> for you within one working day, then finish your email setup. {formatKes(outcome.priceKes)}/yr.</span>
@@ -227,10 +253,10 @@ const MailSetupForm: React.FC<Props> = ({ user, onUserUpdate, initialPlanId = "m
           {outcome.kind === "own" && (
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400 flex items-start gap-2">
               <Check size={16} className="shrink-0 mt-0.5" />
-              <span><span className="break-all">{outcome.domain}</span> is not available to register here, so we will set your email up on it as a domain you already own. After payment we show you the few records to add where you manage it.</span>
+              <span><span className="break-all">{outcome.domain}</span> is registered, so we will set your email up on it as your own domain. After payment we show you the few records to add where you manage it.</span>
             </p>
           )}
-          {shown("domain") && (outcome.kind === "idle" || fieldErrors.domain) && <p className={ERR}>{shown("domain")}</p>}
+          {shown("domain") && (outcome.kind === "idle" || outcome.kind === "unregistered" || fieldErrors.domain) && <p className={ERR}>{shown("domain")}</p>}
         </div>
       </section>
 
