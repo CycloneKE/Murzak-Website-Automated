@@ -185,7 +185,8 @@ async function provision(job, opts = {}) {
       { type: dkim.type, name: relName(dkim.name, domain), value: dkim.value },
     ];
     await store.mergeMailSetup(client, orderName, { dnsRecords: records });
-    await store.setMailState(client, orderName, "provisioned");
+    // A rerun of an order that already went live must not demote it (the hand-over would repeat).
+    if (setup.state !== "live") await store.setMailState(client, orderName, "provisioned");
     await enqueueDomain(client, { domain, title: setup.businessName, logoUrl: setup.logoUrl });
   });
 
