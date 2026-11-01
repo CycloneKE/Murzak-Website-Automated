@@ -149,7 +149,7 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     let e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
     ok(e && e.permanent === true && /mail setup/i.test(e.message), "missing mailSetup -> permanent, clear message");
 
-    const td = stalwart.ensureDomain({ name: "taken.com", description: "murzak-order:CHK-99" });
+    const td = await stalwart.ensureDomain({ name: "taken.com", description: "murzak-order:CHK-99" });
     await stalwart.ensureAccount({ domainId: td.id, localPart: "x", quotaBytes: 1 });
     client = seed({ domain: "taken.com" });
     e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
