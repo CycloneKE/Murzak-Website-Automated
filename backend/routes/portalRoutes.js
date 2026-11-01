@@ -2016,7 +2016,7 @@ router.post("/api/portal/services/:serviceId/mailboxes", requireAuth, mailboxLim
     ? mailInputLib.isValidMailboxLocalPart(localPart) && !mailInputLib.RESERVED_LOCAL_PARTS.has(localPart)
     : mailboxPolicyLib.isValidLocalPart(localPart);
   if (!localOk) {
-    return res.status(400).json({ error: "Use letters, numbers, dots, dashes or underscores — and don't start or end with a symbol." });
+    return res.status(400).json({ error: mailboxPolicyLib.localPartRefusal(ctx.provider) });
   }
   const pwError = mailboxPolicyLib.validatePassword(req.body?.password);
   if (pwError) return res.status(400).json({ error: pwError });

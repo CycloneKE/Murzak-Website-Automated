@@ -88,6 +88,16 @@ section("publicMailbox — allow-listed, no provider internals leak");
   ok(empty.id === "" && empty.usedBytes === 0, "null input degrades to empty, doesn't throw");
 }
 
+section("localPartRefusal — wording per provider");
+{
+  ok(policy.localPartRefusal("stalwart") === "Use lowercase letters, numbers, dots or hyphens, and not a reserved name like admin or postmaster.",
+    "stalwart message names hyphens and reserved names");
+  ok(!/underscore/i.test(policy.localPartRefusal("stalwart")), "stalwart message does not offer underscores");
+  ok(policy.localPartRefusal("hostinger") === "Use letters, numbers, dots, dashes or underscores — and don't start or end with a symbol.",
+    "hostinger message is unchanged");
+  ok(policy.localPartRefusal(undefined) === policy.localPartRefusal("hostinger"), "unknown provider falls back to the hostinger wording");
+}
+
 section("entitlementFor — only what they actually paid for counts");
 {
   const e0 = ent.entitlementFor([], getServiceMeta);
