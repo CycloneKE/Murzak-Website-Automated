@@ -211,6 +211,17 @@ async function saveMailSetup(client, orderName, input, { nowMs = Date.now() } = 
   return setup;
 }
 
+/** Orders whose mail setup is in `state`. Filtered in JS too, so a list endpoint that ignores the filter cannot leak rows. */
+async function listOrdersByMailState(client, state) {
+  const rows = await listOrderRows(client, [["config_json", "like", '%"mailSetup"%']]);
+  const out = [];
+  for (const row of rows) {
+    const setup = parseJson(row.config_json).mailSetup;
+    if (setup && setup.state === state) out.push({ orderName: row.name, webAccount: row.web_account, setup });
+  }
+  return out;
+}
+
 /** The mail setup of the order that was invoiced as `invoiceDocName`, or null. */
 async function getMailSetup(client, invoiceDocName) {
   if (!invoiceDocName) return null;
@@ -315,6 +326,7 @@ module.exports = {
   checkMailSetupInput,
   findOrderClaimingStalwartDomain,
   getMailSetup,
+  listOrdersByMailState,
   listTakenMailDomains,
   mergeMailSetup,
   saveMailSetup,

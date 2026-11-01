@@ -28,6 +28,7 @@ const {
   findOrderClaimingStalwartDomain,
   listTakenMailDomains,
   waitForDomain,
+  listOrdersByMailState,
 } = require("../services/email/mailSetupStore");
 
 const LIVE = "2099-01-01 00:00:00";
@@ -281,6 +282,17 @@ async function rejects(promise) {
     const e = await rejects(mergeMailSetup(client, "CHK-2b", { x: 1 }));
     ok(e !== null, "unknown order rejected");
   }
+  section("listOrdersByMailState returns only orders in that state");
+  {
+    const mk = (name, state) => ({ name, web_account: "W-" + name, status: "Paid", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { state, domain: name.toLowerCase() + ".com" } }) });
+    const client = makeMockFrappe({ "Checkout Order": { A: mk("A", "provisioned"), B: mk("B", "live"), C: mk("C", "provisioned"), D: { name: "D", config_json: JSON.stringify({ shopProgress: {} }) } } });
+    const rows = await listOrdersByMailState(client, "provisioned");
+    ok(rows.map((r) => r.orderName).sort().join(",") === "A,C", "returns the provisioned orders by name");
+    ok(rows[0].webAccount === "W-A" && rows[0].setup.state === "provisioned", "each row carries the web account and the setup");
+    ok((await listOrdersByMailState(client, "live")).map((r) => r.orderName).join(",") === "B", "live filter returns only live orders");
+    ok((await listOrdersByMailState(client, "paid")).length === 0, "no matches gives an empty list");
+  }
+
 })().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { console.error("\nFailures:\n - " + fails.join("\n - ")); process.exit(1); }

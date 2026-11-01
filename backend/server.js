@@ -3707,6 +3707,33 @@ const server = IS_ENTRYPOINT
     console.log(`[capacity-sweep] scheduled every ${Math.round(everyMs / 60000)}m`);
   }
 
+  // Mail go-live sweep (Stalwart business mail): a provisioned mail setup goes
+  // live once its DNS verifies and its webmail answers, then the hand-over email
+  // goes out exactly once. MAIL_LIVE_SWEEP_MS=0 disables. See services/email/mailLiveSweep.js.
+  {
+    const rawMs = process.env.MAIL_LIVE_SWEEP_MS;
+    const parsedMs = rawMs === undefined || rawMs === "" ? 120000 : Number(rawMs);
+    if (Number.isFinite(parsedMs) && parsedMs > 0) {
+      const { runMailLiveSweep, makeSendMailReadyEmail } = require("./services/email/mailLiveSweep");
+      const { sendMail } = require("./utils/mailer");
+      const everyMs = Math.max(30000, parsedMs);
+      let running = false;
+      const run = () => {
+        if (running) return;
+        running = true;
+        runMailLiveSweep(frappeClient(), { sendMailReadyEmail: makeSendMailReadyEmail(sendMail) })
+          .then((r) => {
+            if (r.wentLive || r.errored) console.log(`[mail-live] checked=${r.checked} wentLive=${r.wentLive} stillWaiting=${r.stillWaiting} errored=${r.errored}`);
+          })
+          .catch((e) => console.warn("[mail-live] error:", e.message))
+          .finally(() => { running = false; });
+      };
+      setTimeout(run, 150000).unref();
+      setInterval(run, everyMs).unref();
+      console.log(`[mail-live] sweep scheduled every ${Math.round(everyMs / 1000)}s`);
+    }
+  }
+
   // Welcome email for new app shops (Murzak POS). The VPS runner finishes a
   // shop by writing the job straight into Frappe, so this backend finds
   // finished shops by looking, and emails each owner once (dedupe marker lives
