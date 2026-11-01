@@ -8,10 +8,11 @@ export type FaqItem = { q: string; a: string };
 interface Props {
   items: FaqItem[];
   title?: string;
+  subtitle?: string;
   eyebrow?: string;
 }
 
-export default function Faq({ items, title = "Frequently asked questions", eyebrow = "Need to know" }: Props) {
+export default function Faq({ items, title = "Frequently asked questions", subtitle, eyebrow = "Need to know" }: Props) {
   const [open, setOpen] = useState<number | null>(0);
 
   const faqJsonLd = {
@@ -40,6 +41,9 @@ export default function Faq({ items, title = "Frequently asked questions", eyebr
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
           {title}
         </h2>
+        {subtitle ? (
+          <p className="mt-3 max-w-2xl mx-auto text-sm sm:text-base font-bold text-slate-500 dark:text-slate-400 leading-relaxed">{subtitle}</p>
+        ) : null}
       </div>
 
       <div className="space-y-3">

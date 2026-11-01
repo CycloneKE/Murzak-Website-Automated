@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, ArrowRight, ExternalLink, Headphones, Lock, Maximize2, Server, Shield, ShieldCheck, Square } from "lucide-react";
 import DeveloperTerminalPanel from "../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../components/portal/cloud/ResourceAdminPanel";
@@ -9,6 +10,7 @@ import PosLoginPanel from "../../../components/portal/cloud/PosLoginPanel";
 import ShopChecklist from "../../../components/apps/ShopChecklist";
 import { usePortal } from "../PortalContext";
 import { toUserMessage } from "../../../services/errors";
+import { fetchRuntimeLogs } from "../../../services/resourceAdmin";
 
 // Same enum SecurityOverviewCard reads from the account-wide aggregate — this
 // renders the per-resource value straight off the Provisioning Job record
@@ -75,6 +77,46 @@ const ResourceDetail: React.FC = () => {
   } = usePortal();
 
   const [pane, setPane] = useState<Pane>("overview");
+  const [searchParams] = useSearchParams();
+  const isJustProvisioned = searchParams.get("justProvisioned") === "true";
+  const [showLiveLogs, setShowLiveLogs] = useState(false);
+  const [liveLogs, setLiveLogs] = useState("");
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
+
+  const handleQuickRestart = async () => {
+    if (!cloudServiceId) return;
+    setIsRestarting(true);
+    setActionNotice("");
+    try {
+      handleServiceHealthAction("restart", cloudServiceId);
+      setActionNotice("Restart signal sent to container.");
+      setTimeout(() => setActionNotice(""), 4000);
+    } catch {
+      setActionNotice("Failed to restart container.");
+    } finally {
+      setIsRestarting(false);
+    }
+  };
+
+  const toggleLogs = async () => {
+    if (!cloudServiceId) return;
+    if (!showLiveLogs) {
+      setShowLiveLogs(true);
+      setLogsLoading(true);
+      try {
+        const res = await fetchRuntimeLogs(cloudServiceId, 150);
+        setLiveLogs(res.logs || "No logs available for this container yet.");
+      } catch {
+        setLiveLogs("Unable to fetch live container logs. The container may still be initializing.");
+      } finally {
+        setLogsLoading(false);
+      }
+    } else {
+      setShowLiveLogs(false);
+    }
+  };
 
   if (!cloudServiceId) return null;
   const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);

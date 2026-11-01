@@ -821,7 +821,18 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           invoiceDocName={invoice.docName}
           chargeKes={invoice.chargeKes}
           amountUsd={invoice.paypalAmountUsd}
-          onSuccess={(u?: any) => { onSuccess(u, order.config?.mailSetup ? `/mail/order/${encodeURIComponent(order.id)}` : order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined); }}
+          onSuccess={(u?: any) => {
+              // Mail orders go to their own progress page; app orders to the welcome page;
+              // any other service order lands on the portal with the new service highlighted.
+              const next = order.config?.mailSetup
+                ? `/mail/order/${encodeURIComponent(order.id)}`
+                : order.config?.app
+                ? `/welcome/${encodeURIComponent(order.id)}`
+                : order.serviceId
+                ? `/portal/cloud?service=${encodeURIComponent(order.serviceId)}&justProvisioned=true`
+                : undefined;
+              onSuccess(u, next);
+            }}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
       ) : order.eligibleForTermChoice ? null : (

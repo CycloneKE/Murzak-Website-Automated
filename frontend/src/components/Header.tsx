@@ -19,7 +19,7 @@ const Header: React.FC<HeaderProps> = ({
   onOpenSales,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [productsOpen, setProductsOpen] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const location = useLocation();
   const { effective, toggle } = useTheme();
 
@@ -39,14 +39,34 @@ const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     setIsMenuOpen(false);
-    setProductsOpen(false);
+    setOpenSubmenu(null);
     document.body.style.overflow = "";
     document.body.style.touchAction = "";
   }, [location.pathname]);
 
   const navItems = [
     { label: "Home", page: "home" },
-    { label: "Murzak Cloud", page: "cloud" },
+    { 
+      label: "Murzak Cloud", 
+      page: "cloud",
+      submenu: [
+        { group: "Web & Domains", items: [
+          { label: "Domains", page: "/cloud/domains" },
+          { label: "WordPress", page: "/cloud/wordpress" },
+          { label: "Business Email", page: "/cloud/email" },
+        ]},
+        { group: "Databases & Storage", items: [
+          { label: "Databases", page: "/cloud/databases" },
+          { label: "Redis Cache", page: "/cloud/databases" },
+          { label: "Cloud Storage", page: "/cloud" },
+        ]},
+        { group: "Compute & Automation", items: [
+          { label: "n8n Automation", page: "/cloud/n8n" },
+          { label: "App Hosting", page: "deploy" },
+          { label: "Custom APIs", page: "deploy" },
+        ]}
+      ]
+    },
     { 
       label: "Products", 
       page: "products",
@@ -234,7 +254,7 @@ const Header: React.FC<HeaderProps> = ({
             <div key={item.page} className="flex flex-col">
               <div className="flex items-center justify-between">
                 <button
-                  onClick={() => item.submenu ? setProductsOpen(!productsOpen) : handleMobileNav(item.page)}
+                  onClick={() => item.submenu ? setOpenSubmenu(openSubmenu === item.page ? null : item.page) : handleMobileNav(item.page)}
                   className={`text-lg sm:text-xl font-[900] uppercase text-left tracking-tight py-2 transition-colors ${
                     activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "text-murzak-accent" : "text-murzak-ink dark:text-slate-100 hover:text-murzak-accent"
                   }`}
@@ -242,12 +262,12 @@ const Header: React.FC<HeaderProps> = ({
                   {item.label}
                 </button>
                 {item.submenu && (
-                  <button onClick={() => setProductsOpen(!productsOpen)} className="p-2 text-slate-500">
-                    <ChevronDown size={20} className={`transition-transform ${productsOpen ? 'rotate-180' : ''}`} />
+                  <button onClick={() => setOpenSubmenu(openSubmenu === item.page ? null : item.page)} className="p-2 text-slate-500">
+                    <ChevronDown size={20} className={`transition-transform ${openSubmenu === item.page ? 'rotate-180' : ''}`} />
                   </button>
                 )}
               </div>
-              {item.submenu && productsOpen && (
+              {item.submenu && openSubmenu === item.page && (
                 <div className="pl-4 mt-2 space-y-4 border-l-2 border-murzak-accent/30">
                   {item.submenu.map(group => (
                     <div key={group.group}>
@@ -261,8 +281,8 @@ const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
                   ))}
-                  <button onClick={() => handleMobileNav('products')} className="text-sm font-bold text-left text-murzak-accent mt-2">
-                    View All Products →
+                  <button onClick={() => handleMobileNav(item.page)} className="text-sm font-bold text-left text-murzak-accent mt-2">
+                    View All {item.label} →
                   </button>
                 </div>
               )}

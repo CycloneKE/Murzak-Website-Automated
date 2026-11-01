@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'thank-you' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy';
+export type Page = 'home' | 'services' | 'cloud' | 'pricing' | 'solutions' | 'products' | 'pos' | 'erp' | 'crm' | 'custom-software' | 'about' | 'contact' | 'test-request' | 'privacy' | 'terms' | 'sla' | 'login' | 'portal' | 'payment' | 'thank-you' | 'for-retail' | 'for-clinics' | 'for-logistics' | 'for-services' | 'deploy' | 'cloud-domains' | 'cloud-wordpress' | 'cloud-databases' | 'cloud-n8n' | 'cloud-email';
 
 // Single source of truth for Page key -> URL path, shared by App.tsx's router
 // wiring and anything (e.g. Breadcrumbs) that needs to turn a Page key into a
@@ -32,6 +32,11 @@ export const pageToPath: Record<Page, string> = {
   "for-logistics": "/for/logistics",
   "for-services": "/for/services",
   deploy: "/deploy",
+  "cloud-domains": "/cloud/domains",
+  "cloud-wordpress": "/cloud/wordpress",
+  "cloud-databases": "/cloud/databases",
+  "cloud-n8n": "/cloud/n8n",
+  "cloud-email": "/cloud/email",
 };
 
 export type AccountStatus = 'Pending' | 'Provisioning' | 'Active' | 'Suspended' | 'Evaluating';

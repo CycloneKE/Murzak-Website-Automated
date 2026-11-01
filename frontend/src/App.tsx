@@ -26,6 +26,11 @@ import RequireAuth from "./components/RequireAuth";
 import { DeployWizard } from "./pages/DeployWizard/DeployWizard";
 import NotFound from "./pages/NotFound";
 
+import CloudDomains from "./pages/cloud/CloudDomains";
+import CloudDatabases from "./pages/cloud/CloudDatabases";
+import CloudWordPress from "./pages/cloud/CloudWordPress";
+import CloudN8N from "./pages/cloud/CloudN8N";
+import CloudEmail from "./pages/cloud/CloudEmail";
 import MurzakPOS from "./pages/products/MurzakPOS";
 import MurzakERP from "./pages/products/MurzakERP";
 import AppSetup from "./pages/apps/AppSetup";
@@ -80,6 +85,11 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   home: { title: "Murzak Technologies | Custom Software & Cloud Hosting Nairobi", description: "East Africa's trusted partner for custom enterprise software development." },
   services: { title: "Custom Software Development & ERP Systems Nairobi | Murzak", description: "Professional software engineering for Kenyan enterprises." },
   cloud: { title: "Managed Cloud Hosting & Secure VPS Kenya | Murzak Cloud", description: "Fast, secure, and locally-managed cloud hosting in Nairobi." },
+  "cloud-domains": { title: "Domain Names & DNS Ingress Nairobi | Murzak Cloud", description: "Search and register .co.ke, .com, and .ke domains with M-Pesa." },
+  "cloud-databases": { title: "Managed MySQL, Postgres & Redis Databases | Murzak Cloud", description: "Locally hosted managed databases in Nairobi with S3 backups." },
+  "cloud-wordpress": { title: "LiteSpeed Managed WordPress Hosting Kenya | Murzak Cloud", description: "Blazing fast WordPress hosting on NVMe SSD with free Let's Encrypt SSL." },
+  "cloud-n8n": { title: "Private n8n Automation Engine Kenya | Murzak Cloud", description: "Automate M-Pesa callbacks, WhatsApp alerts, and ERP workflows." },
+  "cloud-email": { title: "Custom Business Email Hosting Nairobi | Murzak Cloud", description: "Professional email on your custom domain with free email forwarding." },
   pricing: { title: "Pricing Plans | Custom Software & Managed Cloud Nairobi", description: "Transparent pricing for Murzak services." },
   solutions: { title: "Solutions | Fixes for Real Business Problems | Murzak", description: "Hosting, business systems and custom software that solve the problems slowing your business down." },
   products: { title: "Products | Ready-Made Systems & Custom Software | Murzak", description: "Hosted ERP, POS and CRM you can use today — or bespoke software built around your workflow." },
@@ -409,6 +419,11 @@ const App: React.FC = () => {
               <Route path="/" element={<Home onNavigate={onNavigate} isLoading={isPageLoading} />} />
               <Route path="/services" element={<Navigate to="/products" replace />} />
               <Route path="/cloud" element={<Cloud onNavigate={onNavigate} isLoading={isPageLoading} isLoggedIn={isLoggedIn} />} />
+              <Route path="/cloud/domains" element={<CloudDomains onNavigate={onNavigate} isLoggedIn={isLoggedIn} />} />
+              <Route path="/cloud/databases" element={<CloudDatabases onNavigate={onNavigate} isLoggedIn={isLoggedIn} />} />
+              <Route path="/cloud/wordpress" element={<CloudWordPress onNavigate={onNavigate} isLoggedIn={isLoggedIn} />} />
+              <Route path="/cloud/n8n" element={<CloudN8N onNavigate={onNavigate} isLoggedIn={isLoggedIn} />} />
+              <Route path="/cloud/email" element={<CloudEmail onNavigate={onNavigate} isLoggedIn={isLoggedIn} />} />
               <Route path="/pricing" element={<Pricing onNavigate={onNavigate} onSelectPlan={handleSelectPlan} isLoading={isPageLoading} isLoggedIn={isLoggedIn} user={user} onUserUpdate={handleUserUpdate} />} />
               {/* Solutions merged into Products — redirect legacy links. */}
               <Route path="/solutions" element={<Navigate to="/products" replace />} />
