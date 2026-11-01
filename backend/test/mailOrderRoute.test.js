@@ -83,6 +83,23 @@ function orderRows(client) {
 }
 
 (async () => {
+  section("new-domain mail orders are refused unless MAIL_NEW_DOMAIN_ENABLED=1");
+  {
+    delete process.env.MAIL_NEW_DOMAIN_ENABLED;
+    const client = makeMockFrappe();
+    const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
+    const res = makeRes();
+    await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: { ...MAIL, domainMode: "new" } } }, res);
+    ok(res.statusCode === 400 && res.body.code === "MAIL_NEW_DOMAIN_DISABLED", "domainMode new is a 400 with the disabled code");
+    ok(/coming soon/.test(res.body.error || ""), "the message says it is coming soon");
+    ok(orderRows(client).length === 0, "nothing is created or reserved");
+    process.env.MAIL_NEW_DOMAIN_ENABLED = "1";
+    const res2 = makeRes();
+    await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: { ...MAIL, domainMode: "new" } } }, res2);
+    ok(res2.statusCode === 200 && orderRows(client).length === 1, "with the flag on, a new-domain order goes through");
+    delete process.env.MAIL_NEW_DOMAIN_ENABLED;
+  }
+
   section("mail plan order without a mailSetup -> 400, nothing reserved");
   {
     const client = makeMockFrappe();

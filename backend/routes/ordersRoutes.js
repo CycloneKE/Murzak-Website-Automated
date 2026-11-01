@@ -144,6 +144,13 @@ module.exports = function (ctx) {
       // orders skip this entirely.
       let mailInput = null;
       if (isMailPlan(serviceId)) {
+        // Release 1 is own-domain only: nothing here bills a domain registration.
+        if (req.body?.mailSetup?.domainMode === "new" && process.env.MAIL_NEW_DOMAIN_ENABLED !== "1") {
+          return res.status(400).json({
+            error: "Registering a new domain with your email is coming soon. Register the domain first, then add email to it.",
+            code: "MAIL_NEW_DOMAIN_DISABLED",
+          });
+        }
         const taken = await mailSetupStore.listTakenMailDomains(client, { webAccount: webAccountName, nowMs: Date.now() });
         const checked = mailSetupStore.checkMailSetupInput(req.body.mailSetup, taken, { planId: serviceId });
         if (!checked.ok) {

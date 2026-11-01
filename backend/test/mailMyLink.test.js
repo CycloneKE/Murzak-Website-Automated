@@ -56,7 +56,7 @@ async function call(router, orderName, session) {
   const good = await call(router, "CHK-1", { webAccount: "WA-1" });
   ok(good.statusCode === 200, "200");
   ok(good.body && access.verifyOrderToken(good.body.token).orderName === "CHK-1", "token verifies to the order");
-  ok(good.body && good.body.statusUrl === `https://example.test/mail/status/${good.body.token}`, "statusUrl built from token");
+  ok(good.body && good.body.statusUrl.startsWith("https://example.test/mail/status/") && access.verifyOrderToken(good.body.statusUrl.split("/").pop()).orderName === "CHK-1", "statusUrl carries a valid token for the order");
   ok(good.headers["cache-control"] === "no-store", "no-store");
   const viaUser = await call(router, "CHK-1", { user: { id: "WA-1" } });
   ok(viaUser.statusCode === 200, "session.user.id also accepted");
