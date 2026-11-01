@@ -217,6 +217,48 @@
       "requiresRepo": false,
       "mailboxes": 5
     },
+    "mail-starter": {
+      "id": "mail-starter",
+      "name": "Business Email (Starter)",
+      "category": "Email Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 450,
+      "setupKes": 0,
+      "requiresRepo": false,
+      "mailboxes": 3
+    },
+    "mail-business": {
+      "id": "mail-business",
+      "name": "Business Email (Business)",
+      "category": "Email Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 1200,
+      "setupKes": 0,
+      "requiresRepo": false,
+      "mailboxes": 10
+    },
+    "mail-pro": {
+      "id": "mail-pro",
+      "name": "Business Email (Pro)",
+      "category": "Email Hosting",
+      "tier": "Light",
+      "capacityClass": "volume",
+      "ramMb": 0,
+      "diskGb": 0,
+      "pricingModel": "addon",
+      "monthlyKes": 2900,
+      "setupKes": 0,
+      "requiresRepo": false,
+      "mailboxes": 30
+    },
     "starter-storage": {
       "id": "starter-storage",
       "name": "File Storage (25GB)",

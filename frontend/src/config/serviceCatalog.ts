@@ -591,6 +591,54 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
       sortOrder: 30,
     },
     {
+      id: "mail-starter",
+      name: "Business Email (Starter)",
+      description: "Professional email on your domain: up to 3 mailboxes, 5GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "5GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailboxes: 3,
+      pricing: { model: "addon", monthlyKes: 450, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 3 mailboxes"],
+      sortOrder: 31,
+    },
+    {
+      id: "mail-business",
+      name: "Business Email (Business)",
+      description: "Professional email on your domain: up to 10 mailboxes, 10GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "10GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailboxes: 10,
+      pricing: { model: "addon", monthlyKes: 1200, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 10 mailboxes"],
+      sortOrder: 32,
+    },
+    {
+      id: "mail-pro",
+      name: "Business Email (Pro)",
+      description: "Professional email on your domain: up to 30 mailboxes, 15GB each.",
+      category: "Email Hosting",
+      tier: "Light",
+      capacityClass: "volume",
+      specs: { ram: "Shared", storage: "15GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
+      resources: { ramMb: 0, diskGb: 0 },
+      // Mailbox allowance; must match config/emailPlans.js PLANS.
+      mailboxes: 30,
+      pricing: { model: "addon", monthlyKes: 2900, setupKes: 0 },
+      highlights: ["Your-name@your-domain", "Webmail + IMAP/SMTP", "Spam filtering", "Up to 30 mailboxes"],
+      sortOrder: 33,
+    },
+    {
       id: "starter-storage",
       name: "File Storage (25GB)",
       description: "Private cloud drive for files & team sharing.",
