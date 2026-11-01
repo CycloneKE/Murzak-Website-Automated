@@ -1,0 +1,21 @@
+[Unit]
+Description=Back up the Stalwart mail data directory off the VPS
+Documentation=https://github.com/CycloneKE/murzaktech.com/blob/master/deploy/vps/README.md
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/murzak-stalwart-backup
+
+# Settings live outside the unit so secrets and destinations are not in git:
+# STALWART_DATA_DIR, BACKUP_DEST, BACKUP_RETENTION_DAYS, and optionally
+# STALWART_QUIESCE_CMD / STALWART_RESUME_CMD. The leading "-" makes the file optional.
+EnvironmentFile=-/etc/murzak/stalwart-backup.env
+
+# A failed backup must show as failed (nonzero exit), so it is not swallowed here.
+# The timer retries it the next day; run it by hand after fixing the cause.
+User=root
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true

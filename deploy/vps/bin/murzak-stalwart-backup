@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+#
+# murzak-stalwart-backup
+#
+# Writes one dated, compressed copy of the Stalwart mail data directory to
+# BACKUP_DEST, then prunes copies older than BACKUP_RETENTION_DAYS.
+#
+# Env (set in /etc/murzak/stalwart-backup.env, read by the systemd unit):
+#   STALWART_DATA_DIR          the Stalwart data directory (default /var/lib/stalwart)
+#   BACKUP_DEST                REQUIRED. An absolute local directory (/srv/backups/stalwart),
+#                              or an rclone remote (b2:murzak-backups/stalwart). Remote
+#                              needs rclone configured for root.
+#   BACKUP_RETENTION_DAYS      copies older than this are deleted (default 14, minimum 1)
+#   STALWART_QUIESCE_CMD       optional, e.g. "docker stop stalwart". Run before the copy
+#   STALWART_RESUME_CMD        optional, e.g. "docker start stalwart". Always run after the
+#                              copy, even when it fails. Set both or neither.
+#
+# Consistency: a plain tar of a live data store can capture half-written files. Either
+# set STALWART_QUIESCE_CMD/STALWART_RESUME_CMD so the copy is taken while mail is stopped
+# (a short outage, a few seconds to a minute on this box), or confirm the layout of the
+# Stalwart store and use its own export. The restore drill in deploy/vps/README.md is
+# what proves a copy is usable; do not trust a backup that has never been restored.
+#
+# Exit status: 0 only when a copy was written, verified and (where set) the
+# retention pass ran. Any failure exits nonzero so the systemd unit shows failed.
+# Secrets are never printed: no environment values are echoed, and the remote
+# is named only by its prefix.
+#
+#   murzak-stalwart-backup            take a backup now
+#   murzak-stalwart-backup --dry-run  print what would happen, touch nothing
+
+set -euo pipefail
+
+STALWART_DATA_DIR="${STALWART_DATA_DIR:-/var/lib/stalwart}"
+BACKUP_DEST="${BACKUP_DEST:-}"
+BACKUP_RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
+STALWART_QUIESCE_CMD="${STALWART_QUIESCE_CMD:-}"
+STALWART_RESUME_CMD="${STALWART_RESUME_CMD:-}"
+PREFIX="stalwart-"
+SUFFIX=".tar.gz"
+
+DRY=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY=1 ;;
+    *) echo "murzak-stalwart-backup: unknown argument" >&2; exit 2 ;;
+  esac
+done
+
+log() { echo "murzak-stalwart-backup: $*"; }
+die() { echo "murzak-stalwart-backup: ERROR: $*" >&2; exit 1; }
+
+[[ -n "$BACKUP_DEST" ]] || die "BACKUP_DEST is not set"
+[[ "$BACKUP_RETENTION_DAYS" =~ ^[0-9]+$ ]] && (( BACKUP_RETENTION_DAYS >= 1 )) \
+  || die "BACKUP_RETENTION_DAYS must be a whole number of days, 1 or more"
+[[ -d "$STALWART_DATA_DIR" ]] || die "STALWART_DATA_DIR is not a directory"
+if [[ -n "$STALWART_QUIESCE_CMD" && -z "$STALWART_RESUME_CMD" ]] || [[ -z "$STALWART_QUIESCE_CMD" && -n "$STALWART_RESUME_CMD" ]]; then
+  die "set STALWART_QUIESCE_CMD and STALWART_RESUME_CMD together, or neither"
+fi
+
+# Local directory vs rclone remote. A leading "/" or "./" is always local.
+REMOTE=0
+case "$BACKUP_DEST" in
+  /*|./*) REMOTE=0 ;;
+  *:*) REMOTE=1 ;;
+  *) die "BACKUP_DEST must be an absolute directory or an rclone remote" ;;
+esac
+if (( REMOTE )); then
+  command -v rclone >/dev/null 2>&1 || die "rclone is required for a remote BACKUP_DEST"
+fi
+
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+NAME="${PREFIX}${STAMP}${SUFFIX}"
+
+if (( DRY )); then
+  if (( REMOTE )); then
+    log "dry run: would copy the data directory to the rclone remote as $NAME"
+  else
+    log "dry run: would copy the data directory to $BACKUP_DEST/$NAME"
+  fi
+  log "dry run: would delete ${PREFIX}*${SUFFIX} files older than ${BACKUP_RETENTION_DAYS} days"
+  exit 0
+fi
+
+WORK="$(mktemp -d "${TMPDIR:-/var/tmp}/murzak-stalwart-backup.XXXXXX")"
+QUIESCED=0
+cleanup() {
+  local rc=$?
+  if (( QUIESCED )); then
+    # Always restart mail, even after a failed copy.
+    if ! bash -c "$STALWART_RESUME_CMD" >/dev/null 2>&1; then
+      echo "murzak-stalwart-backup: ERROR: resume command failed; start Stalwart by hand" >&2
+      rc=1
+    fi
+    QUIESCED=0
+  fi
+  rm -rf "$WORK"
+  exit "$rc"
+}
+trap cleanup EXIT
+
+ARCHIVE="$WORK/$NAME"
+
+if [[ -n "$STALWART_QUIESCE_CMD" ]]; then
+  bash -c "$STALWART_QUIESCE_CMD" >/dev/null 2>&1 || die "quiesce command failed"
+  QUIESCED=1
+fi
+
+# Copy the data directory. "." keeps the archive's paths relative to the data dir.
+tar -C "$STALWART_DATA_DIR" -czf "$ARCHIVE" .
+
+if (( QUIESCED )); then
+  bash -c "$STALWART_RESUME_CMD" >/dev/null 2>&1 || die "resume command failed; start Stalwart by hand"
+  QUIESCED=0
+fi
+
+# Verify the archive reads back end to end before it is kept.
+tar -tzf "$ARCHIVE" >/dev/null || die "written archive failed verification"
+SIZE="$(stat -c %s "$ARCHIVE")"
+(( SIZE > 0 )) || die "written archive is empty"
+
+if (( REMOTE )); then
+  rclone copyto "$ARCHIVE" "${BACKUP_DEST%/}/$NAME" >/dev/null
+  rclone delete "$BACKUP_DEST" --include "${PREFIX}*${SUFFIX}" --min-age "${BACKUP_RETENTION_DAYS}d" >/dev/null
+  log "wrote $NAME ($SIZE bytes) to the remote and applied ${BACKUP_RETENTION_DAYS}-day retention"
+else
+  mkdir -p "$BACKUP_DEST"
+  # Copy under a temporary name, then rename, so a half-written file never looks finished.
+  cp "$ARCHIVE" "$BACKUP_DEST/.$NAME.partial"
+  mv "$BACKUP_DEST/.$NAME.partial" "$BACKUP_DEST/$NAME"
+  find "$BACKUP_DEST" -maxdepth 1 -type f -name "${PREFIX}*${SUFFIX}" -mtime +"$BACKUP_RETENTION_DAYS" -delete
+  log "wrote $NAME ($SIZE bytes) and applied ${BACKUP_RETENTION_DAYS}-day retention"
+fi

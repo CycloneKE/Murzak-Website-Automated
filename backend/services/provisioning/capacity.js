@@ -10,8 +10,25 @@
 
 const { CAPACITY } = require("./catalog");
 
+/**
+ * RAM the self-hosted mail stack (Stalwart + Bulwark) uses on this box, from
+ * MAIL_STACK_RAM_MB. Unset, 0, or invalid means no reservation, so the sellable
+ * figure is unchanged until the mail stack actually runs on the box.
+ */
+function mailStackRamMb() {
+  const raw = process.env.MAIL_STACK_RAM_MB;
+  if (raw === undefined || raw === "") return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * RAM available for tenants: the catalogue's sellable budget less the mail stack
+ * reservation. Every RAM gate reads through here, so reserving the mail stack
+ * here stops the box being oversold once Stalwart runs.
+ */
 function sellableRamMb() {
-  return Number(CAPACITY.sellableRamMb) || 0;
+  return Math.max(0, (Number(CAPACITY.sellableRamMb) || 0) - mailStackRamMb());
 }
 
 /**
@@ -140,6 +157,7 @@ function summary({ reserved, ramMb }) {
 
 module.exports = {
   sellableRamMb,
+  mailStackRamMb,
   thresholdPct,
   thresholdMb,
   gateExceeded,

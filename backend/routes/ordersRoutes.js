@@ -29,6 +29,8 @@ const shopSetup = require("../services/apps/shopSetup");
 // Plain-assignment requires (same static-wiring-check rationale as above).
 const isMailPlan = require("../config/emailPlans").isMailPlan;
 const mailSetupStore = require("../services/email/mailSetupStore");
+// Plain-assignment require (same static-wiring-check rationale as above).
+const checkMailCapacity = require("../services/email/mailCapacity").checkMailCapacity;
 const setCompanions = require("../services/checkout/orderStore").setCompanions;
 const reservedDraftRamMb = require("../services/checkout/orderStore").reservedDraftRamMb;
 const capacity = require("../services/provisioning/capacity");
@@ -146,6 +148,11 @@ module.exports = function (ctx) {
         const checked = mailSetupStore.checkMailSetupInput(req.body.mailSetup, taken, { planId: serviceId });
         if (!checked.ok) {
           return res.status(400).json({ error: "Please fix the highlighted fields.", errors: checked.errors });
+        }
+        // Disk gate: refuses before anything is reserved or created.
+        const mailCap = await checkMailCapacity(client, serviceId);
+        if (!mailCap.ok) {
+          return res.status(422).json({ error: mailCap.reason, code: "MAIL_CAPACITY" });
         }
         mailInput = req.body.mailSetup;
       }

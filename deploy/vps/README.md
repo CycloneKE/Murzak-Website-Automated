@@ -29,6 +29,9 @@ the design and the reasoning behind it.
 | `bin/murzak-app-sync` | `/usr/local/bin/murzak-app-sync` | 0755 root:root |
 | `systemd/murzak-app-sync.service` | `/etc/systemd/system/murzak-app-sync.service` | 0644 root:root |
 | `systemd/murzak-app-sync.timer` | `/etc/systemd/system/murzak-app-sync.timer` | 0644 root:root |
+| `bin/murzak-stalwart-backup` | `/usr/local/bin/murzak-stalwart-backup` | 0755 root:root |
+| `systemd/murzak-stalwart-backup.service` | `/etc/systemd/system/murzak-stalwart-backup.service` | 0644 root:root |
+| `systemd/murzak-stalwart-backup.timer` | `/etc/systemd/system/murzak-stalwart-backup.timer` | 0644 root:root |
 
 `sites-available/apps.murzaktech.tech` and `sites-available/murzaktech.tech`
 must both be symlinked into `sites-enabled/`. The per-host `app-<fqdn>` vhosts
@@ -464,3 +467,110 @@ that unset, no account is ever marked Suspended and this script changes nothing.
 5. Watch it work: `journalctl -u murzak-bench-runner.service --since "10 min ago" --no-pager | grep -i "lifecycle"`
 
 Test the script without touching a server: `bash deploy/vps/test/shop-lifecycle.test.sh`.
+
+## Stalwart mail: capacity, backups and sending safety
+
+The self-hosted mail stack (Stalwart and Bulwark) uses this box's RAM and disk,
+which Hostinger-hosted email never did. Three settings keep the box from being
+oversold, and the backup timer makes mail recoverable. None of them is optional
+before launch.
+
+### Capacity gate
+
+- **Disk (`MAIL_DISK_GB`, `MAIL_OVERCOMMIT`).** Mailbox quotas are limits, not
+  reservations. A new mail order is refused (HTTP 422, `code: "MAIL_CAPACITY"`,
+  nothing reserved) when `(provisioned GB + mailboxes x quota GB) / overcommit > MAIL_DISK_GB`.
+  Overcommit defaults to 3. **If `MAIL_DISK_GB` is unset the disk gate is disabled**
+  and every mail plan is sold; the backend logs one warning per process while
+  Stalwart is configured. Set it on the box before taking real orders.
+  Source: `backend/services/email/mailCapacity.js`.
+- **RAM (`MAIL_STACK_RAM_MB`).** Reserved from the sellable RAM budget that every
+  RAM gate reads, so tenants cannot take the memory Stalwart needs. Defaults to 0
+  (no reservation). Measure the running mail stack (`docker stats`, at idle and
+  under a test send) and set it before launch.
+
+### Sending safety (already applied by the mail lane)
+
+- **Per-mailbox outbound limit (`MAIL_OUTBOUND_PER_HOUR`).** Each mailbox is limited
+  to this many outgoing messages per hour (default 100, read in
+  `backend/services/email/stalwartProvision.js`). One compromised or abusive
+  mailbox therefore cannot get the shared sending IP blocklisted.
+- **DMARC starts at `p=none`.** The record published for each client is
+  `v=DMARC1; p=none; rua=mailto:postmaster@<domain>` (`backend/services/email/mailDns.js`).
+  Tighten it per client only after a clean reporting period.
+- **Not yet built:** automatic suspension of sending on bounce or complaint spikes
+  (the design calls for it). Until it exists, watch the postmaster reports and
+  suspend a mailbox by hand if it sends abuse.
+
+### Off-VPS backup
+
+`bin/murzak-stalwart-backup` writes a dated, verified `stalwart-<UTC stamp>.tar.gz`
+of the Stalwart data directory to `BACKUP_DEST`, prunes copies older than
+`BACKUP_RETENTION_DAYS` (default 14), and exits nonzero on any failure. It never
+prints environment values. `BACKUP_DEST` is an absolute directory or an rclone
+remote (for example `b2:murzak-backups/stalwart`). **A local directory on this
+VPS is only a staging copy. The backup is off the box only when `BACKUP_DEST` is a remote.**
+
+A plain tar of a live store can capture half-written files. Set
+`STALWART_QUIESCE_CMD` and `STALWART_RESUME_CMD` (for example `docker stop stalwart`
+and `docker start stalwart`) so the copy is taken while mail is stopped, or use
+Stalwart's own export if the store layout supports one. The quiesce is a short
+mail outage. Resume always runs afterwards, even when the copy fails. Confirm
+`STALWART_DATA_DIR` on the box: the `/var/lib/stalwart` default is a placeholder
+until the live data path is checked.
+
+Install:
+
+```bash
+sudo install -m 0755 bin/murzak-stalwart-backup /usr/local/bin/
+sudo install -m 0644 systemd/murzak-stalwart-backup.service systemd/murzak-stalwart-backup.timer /etc/systemd/system/
+sudo install -d -m 0700 /etc/murzak
+sudo install -m 0600 /dev/null /etc/murzak/stalwart-backup.env   # then edit it
+sudo systemctl daemon-reload
+sudo systemctl enable --now murzak-stalwart-backup.timer
+```
+
+Put these in `/etc/murzak/stalwart-backup.env` (do not commit it):
+
+```
+STALWART_DATA_DIR=/var/lib/stalwart
+BACKUP_DEST=b2:murzak-backups/stalwart
+BACKUP_RETENTION_DAYS=14
+STALWART_QUIESCE_CMD=docker stop stalwart
+STALWART_RESUME_CMD=docker start stalwart
+```
+
+Run one now and read the result:
+`sudo systemctl start murzak-stalwart-backup.service && journalctl -u murzak-stalwart-backup.service -n 20 --no-pager`.
+Preview without touching anything: `sudo murzak-stalwart-backup --dry-run`.
+
+### Restore drill (run before launch, then quarterly)
+
+A backup that has never been restored is not a backup. Do this on a scratch copy,
+never on the live Stalwart:
+
+1. Create a test mailbox (for example `restore-test@<test domain>`) on the live
+   server and send it one message, so there is known content to find.
+2. Wait for a backup run that includes that message, then copy the newest archive
+   off the box and unpack it into an empty scratch directory:
+   `rclone copy b2:murzak-backups/stalwart/ /srv/restore-test/ && mkdir /srv/restore-test/data && tar -xzf /srv/restore-test/stalwart-<stamp>.tar.gz -C /srv/restore-test/data`
+3. Start a scratch Stalwart with `/srv/restore-test/data` as its data directory.
+   Use a different container name and do not bind ports 25, 587, 443 or the
+   live webmail hostname. Make sure it cannot send mail.
+4. Sign in as `restore-test@<test domain>` through the scratch server's JMAP
+   endpoint or webmail and confirm the test message is there.
+5. Record the date, the archive name, and the result. Stop and remove the scratch
+   container and delete `/srv/restore-test`. A failed drill blocks launch.
+
+### Checklist before the first real mail order
+
+- [ ] **Outbound port 25 from the VPS.** Many providers block it by default.
+      Test with `nc -vz -w 10 gmail-smtp-in.l.google.com 25`. If it is blocked,
+      request an unblock from the provider before launch.
+- [ ] **Reverse DNS (PTR).** The VPS IPv4 must point back at the mail host, and the
+      mail host must resolve to the same address:
+      `dig -x <vps-ip> +short` and `dig +short <mail-host>`. Both must agree.
+- [ ] **Backup timer active**, and the restore drill passed with a recorded result.
+- [ ] **`MAIL_DISK_GB` and `MAIL_STACK_RAM_MB` set** on the box (see Capacity gate).
+- [ ] **Test delivery.** Send a message from a test mailbox to a Gmail account and
+      confirm SPF, DKIM and DMARC all pass in the received headers.

@@ -324,6 +324,8 @@ module.exports = {
   PROGRESS_STAGES,
   PROGRESS_STATES,
   checkMailSetupInput,
+  holdsDomain,
+  listOrderRows,
   findOrderClaimingStalwartDomain,
   getMailSetup,
   listOrdersByMailState,
