@@ -4,7 +4,7 @@
 // email setup. The token (services/email/mailAccess.js) names one order. Reads
 // need only the token. A mailbox's FIRST password needs nothing else; later
 // password resets and adding a mailbox also need a 6-digit code emailed to the
-// order's contact address.
+// order's contact address (purpose-bound: 'reset' or 'add').
 //
 // Rules this file keeps:
 //  - A bad, tampered, expired or unknown token all return the same 404 body.
@@ -14,6 +14,7 @@
 //  - Responses never carry Stalwart ids, hashes, secrets or the code, and a
 //    failed stage never shows technical detail.
 //  - Passwords are passed straight to the provider: never stored, never logged.
+//  - Every write decides on a fresh read taken inside the per-order lock.
 
 const express = require("express");
 const crypto = require("crypto");
@@ -30,6 +31,7 @@ const WRITABLE_STATES = new Set(["provisioned", "live"]);
 const NEEDS_ATTENTION_MESSAGE = "Your setup needs a quick check by our team. We will email you within one working day.";
 const NOT_VALID = Object.freeze({ error: "This link is not valid." });
 const BAD_CODE = "That code is not valid. Request a new one and try again.";
+const NOT_READY = Object.freeze({ error: "Your email is not ready for changes yet." });
 
 const STAGES = Object.freeze([
   { id: "payment", label: "Payment confirmed" },
@@ -108,12 +110,12 @@ module.exports = function (ctx) {
     return { orderName: v.orderName, setup };
   }
 
-  /** resolve() plus the write gate. */
+  /** resolve() plus the write gate. This snapshot is only a fast refusal; writes re-read inside the lock. */
   async function resolveForWrite(req, res) {
     const hit = await resolve(req, res);
     if (!hit) return null;
     if (!WRITABLE_STATES.has(hit.setup.state)) {
-      res.status(409).json({ error: "Your email is not ready for changes yet." });
+      res.status(409).json(NOT_READY);
       return null;
     }
     return hit;
@@ -132,25 +134,34 @@ module.exports = function (ctx) {
     return res.status(502).json({ error: "We couldn't complete that just now. Please try again shortly." });
   }
 
+  // The Stalwart domain for this order, or null when it is not the one recorded.
+  async function domainFor(setup) {
+    const dom = await stalwart.findDomain(setup.domain);
+    if (!dom) return null;
+    if (setup.stalwartDomainId && String(dom.id) !== String(setup.stalwartDomainId)) return null;
+    return dom;
+  }
+
   // Resolve a local part to an account on THIS order's domain. null = not ours.
   async function accountFor(setup, local) {
     if (typeof local !== "string" || mailInput.RESERVED_LOCAL_PARTS.has(local)) return null;
     if (!(setup.mailboxes || []).some((m) => m.localPart === local)) return null;
-    const dom = await stalwart.findDomain(setup.domain);
-    if (!dom) return null;
-    if (setup.stalwartDomainId && String(dom.id) !== String(setup.stalwartDomainId)) return null;
+    if (!(await domainFor(setup))) return null;
     const acct = await stalwart.findAccount(`${local}@${setup.domain}`);
     return acct ? acct.id : null;
   }
 
-  async function setMailboxes(orderName, mutate) {
-    await mailAccess.withOrderLock(orderName, async () => {
-      const fresh = await mailAccess.loadMailSetup(frappeClient(), orderName);
-      if (!fresh) return;
-      const next = mutate((fresh.mailboxes || []).map((m) => ({ ...m })));
-      await mailSetupStore.mergeMailSetup(frappeClient(), orderName, { mailboxes: next });
-    });
+  // Must run inside mailAccess.withOrderLock(orderName). Fails loudly: a missing
+  // order or a failed write is an error, never a silent no-op.
+  async function persistMailboxes(orderName, mutate) {
+    const fresh = await mailAccess.loadMailSetup(frappeClient(), orderName);
+    if (!fresh) throw new Error("mail setup disappeared while saving");
+    const next = mutate((fresh.mailboxes || []).map((m) => ({ ...m })));
+    await mailSetupStore.mergeMailSetup(frappeClient(), orderName, { mailboxes: next });
   }
+
+  const setFlag = (orderName, local, value) =>
+    persistMailboxes(orderName, (list) => list.map((m) => (m.localPart === local ? { ...m, passwordSet: value } : m)));
 
   router.get("/api/mail/status/:token", async (req, res) => {
     const hit = await resolve(req, res);
@@ -162,8 +173,10 @@ module.exports = function (ctx) {
   router.post("/api/mail/status/:token/code", codeLimiter, async (req, res) => {
     const hit = await resolveForWrite(req, res);
     if (!hit) return;
+    const purpose = req.body && req.body.purpose !== undefined ? req.body.purpose : "reset";
+    if (!mailAccess.PURPOSES.includes(purpose)) return res.status(400).json({ error: "Unknown code purpose." });
     try {
-      await mailAccess.issueCode(frappeClient(), hit.orderName, deps);
+      await mailAccess.issueCode(frappeClient(), hit.orderName, { ...deps, purpose });
     } catch (e) {
       if (e.code === "code_rate_limited") return res.status(429).json({ error: e.message });
       console.error(`[mail] could not send a code for ${hit.orderName}: ${e.name}`);
@@ -175,61 +188,109 @@ module.exports = function (ctx) {
   router.post("/api/mail/status/:token/mailboxes/:local/password", writeLimiter, async (req, res) => {
     const hit = await resolveForWrite(req, res);
     if (!hit) return;
-    const { orderName, setup } = hit;
+    const { orderName } = hit;
     const local = req.params.local;
-    const box = (setup.mailboxes || []).find((m) => m.localPart === local);
-    if (!box || mailInput.RESERVED_LOCAL_PARTS.has(local)) return res.status(404).json({ error: "Mailbox not found." });
-
+    if (typeof local !== "string" || mailInput.RESERVED_LOCAL_PARTS.has(local) ||
+        !(hit.setup.mailboxes || []).some((m) => m.localPart === local)) {
+      return res.status(404).json({ error: "Mailbox not found." });
+    }
     const body = req.body || {};
     const pwError = mailboxPolicy.validatePassword(body.password);
     if (pwError) return res.status(400).json({ error: pwError });
 
-    // The first password is free: the link itself is the proof. A reset needs the emailed code.
-    if (box.passwordSet === true) {
-      const okCode = await mailAccess.verifyCode(frappeClient(), orderName, body.code);
-      if (!okCode) return res.status(403).json({ error: BAD_CODE });
-    }
-
+    // One critical section: re-read, decide first-set vs reset, spend the code,
+    // flag, change. passwordSet is written BEFORE the provider call and rolled back
+    // only if the provider fails, so any ambiguity leaves the mailbox needing a code.
+    let out;
     try {
-      const accountId = await accountFor(setup, local);
-      if (!accountId) return res.status(404).json({ error: "Mailbox not found." });
-      await mailProvider.changePassword(providerCtx(setup), accountId, body.password);
-      await setMailboxes(orderName, (list) => list.map((m) => (m.localPart === local ? { ...m, passwordSet: true } : m)));
+      out = await mailAccess.withOrderLock(orderName, async () => {
+        const setup = await mailAccess.loadMailSetup(frappeClient(), orderName);
+        if (!setup || !setup.domain) return { status: 404, body: NOT_VALID };
+        if (!WRITABLE_STATES.has(setup.state)) return { status: 409, body: NOT_READY };
+        const box = (setup.mailboxes || []).find((m) => m.localPart === local);
+        if (!box) return { status: 404, body: { error: "Mailbox not found." } };
+        const wasSet = box.passwordSet === true;
+        if (wasSet) {
+          if (!mailAccess.hasCode(body.code)) return { status: 403, body: { error: "A code is required." } };
+          if (!(await mailAccess.verifyCodeInLock(frappeClient(), orderName, body.code, { purpose: "reset" }))) {
+            return { status: 403, body: { error: BAD_CODE } };
+          }
+        } else {
+          await setFlag(orderName, local, true);
+        }
+        try {
+          const accountId = await accountFor(setup, local);
+          if (!accountId) {
+            if (!wasSet) await setFlag(orderName, local, false);
+            return { status: 404, body: { error: "Mailbox not found." } };
+          }
+          await mailProvider.changePassword(providerCtx(setup), accountId, body.password);
+        } catch (e) {
+          if (!wasSet) {
+            try {
+              await setFlag(orderName, local, false);
+            } catch { /* the flag stays true: later requests need a code (fail closed) */ }
+          }
+          throw e;
+        }
+        return { status: 200, body: { address: `${local}@${setup.domain}`, passwordSet: true } };
+      });
     } catch (e) {
       return sendFailure(res, e, "password change");
     }
-    res.json({ address: `${local}@${setup.domain}`, passwordSet: true });
+    res.status(out.status).json(out.body);
   });
 
   router.post("/api/mail/status/:token/mailboxes", writeLimiter, async (req, res) => {
     const hit = await resolveForWrite(req, res);
     if (!hit) return;
-    const { orderName, setup } = hit;
+    const { orderName } = hit;
     const body = req.body || {};
     const local = typeof body.localPart === "string" ? body.localPart.trim() : "";
     if (mailInput.RESERVED_LOCAL_PARTS.has(local)) return res.status(400).json({ error: "That mailbox name is reserved." });
     if (!mailInput.isValidMailboxLocalPart(local)) {
       return res.status(400).json({ error: "Use lowercase letters, numbers, dots and hyphens, and don't start or end with a symbol." });
     }
-    if ((setup.mailboxes || []).some((m) => m.localPart === local)) {
-      return res.status(409).json({ error: `${local}@ already exists.` });
-    }
-    const plan = planInfo(setup);
-    if (plan.mailboxCount >= plan.mailboxLimit) {
-      return res.status(409).json({ error: `Your email plan includes ${plan.mailboxLimit} mailboxes and all are in use.` });
-    }
-    if (!(await mailAccess.verifyCode(frappeClient(), orderName, body.code))) {
-      return res.status(403).json({ error: BAD_CODE });
-    }
+
+    let out;
     try {
-      // An unknown random secret: the customer sets the real password through the first-set route.
-      const secret = crypto.randomBytes(24).toString("base64url");
-      await mailProvider.createMailbox(providerCtx(setup), { localPart: local, password: secret });
-      await setMailboxes(orderName, (list) => (list.some((m) => m.localPart === local) ? list : [...list, { localPart: local, passwordSet: false }]));
+      out = await mailAccess.withOrderLock(orderName, async () => {
+        // Everything is decided on a fresh read taken inside the lock.
+        const setup = await mailAccess.loadMailSetup(frappeClient(), orderName);
+        if (!setup || !setup.domain) return { status: 404, body: NOT_VALID };
+        if (!WRITABLE_STATES.has(setup.state)) return { status: 409, body: NOT_READY };
+        if ((setup.mailboxes || []).some((m) => m.localPart === local)) {
+          return { status: 409, body: { error: `${local}@ already exists.` } };
+        }
+        const plan = planInfo(setup);
+        if (plan.mailboxCount >= plan.mailboxLimit) {
+          return { status: 409, body: { error: `Your email plan includes ${plan.mailboxLimit} mailboxes and all are in use.` } };
+        }
+        if (!mailAccess.hasCode(body.code)) return { status: 403, body: { error: "A code is required." } };
+        if (!(await mailAccess.verifyCodeInLock(frappeClient(), orderName, body.code, { purpose: "add" }))) {
+          return { status: 403, body: { error: BAD_CODE } };
+        }
+        const address = `${local}@${setup.domain}`;
+        const append = () =>
+          persistMailboxes(orderName, (list) => (list.some((m) => m.localPart === local) ? list : [...list, { localPart: local, passwordSet: false }]));
+        // A previous attempt may have created the account and then failed to save it: adopt it.
+        if (await domainFor(setup)) {
+          const existing = await stalwart.findAccount(address);
+          if (existing) {
+            await append();
+            return { status: 201, body: { address, passwordSet: false } };
+          }
+        }
+        // An unknown random secret: the customer sets the real password through the first-set route.
+        const secret = crypto.randomBytes(24).toString("base64url");
+        await mailProvider.createMailbox(providerCtx(setup), { localPart: local, password: secret });
+        await append();
+        return { status: 201, body: { address, passwordSet: false } };
+      });
     } catch (e) {
       return sendFailure(res, e, "mailbox creation");
     }
-    res.status(201).json({ address: `${local}@${setup.domain}`, passwordSet: false });
+    res.status(out.status).json(out.body);
   });
 
   router.limiters = { writeLimiter, codeLimiter };

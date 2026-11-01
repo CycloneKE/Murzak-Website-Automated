@@ -95,7 +95,8 @@ const tokenFor = (name) => access.signOrderToken(name);
 // Spy on password writes (the facade calls stalwart.setPassword).
 const pwCalls = [];
 const realSetPassword = stalwart.setPassword;
-stalwart.setPassword = async (id, pw) => { pwCalls.push({ id, pw }); return realSetPassword(id, pw); };
+let failPw = null;
+stalwart.setPassword = async (id, pw) => { pwCalls.push({ id, pw }); if (failPw) { failPw(); throw new Error("stalwart boom"); } return realSetPassword(id, pw); };
 
 // Capture all console output.
 const captured = [];
@@ -293,7 +294,7 @@ const CODE_PATH = "/api/mail/status/:token/code";
   {
     const w = await world({ "CHK-1": {} });
     const token = tokenFor("CHK-1");
-    await call(w.router, "post", CODE_PATH, { params: { token } });
+    await call(w.router, "post", CODE_PATH, { params: { token }, body: { purpose: "add" } });
     const code = w.sent[0].code;
     const noCode = await call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "orders" } });
     ok(noCode.statusCode === 403, "no code -> 403");
@@ -317,7 +318,7 @@ const CODE_PATH = "/api/mail/status/:token/code";
   {
     const w = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "a", passwordSet: true }, { localPart: "b", passwordSet: true }, { localPart: "c", passwordSet: true }] } } });
     const token = tokenFor("CHK-1");
-    await call(w.router, "post", CODE_PATH, { params: { token } });
+    await call(w.router, "post", CODE_PATH, { params: { token }, body: { purpose: "add" } });
     const r = await call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "d", code: w.sent[0].code } });
     ok(r.statusCode === 409, "4th mailbox on a 3-mailbox plan -> 409");
     ok(setupOf(w.client, "CHK-1").mailboxes.length === 3 && (await stalwart.findAccount("d@acme.com")) === null, "nothing was created");
@@ -325,7 +326,7 @@ const CODE_PATH = "/api/mail/status/:token/code";
 
     const w2 = await world({ "CHK-1": {} });
     const t2 = tokenFor("CHK-1");
-    await call(w2.router, "post", CODE_PATH, { params: { token: t2 } });
+    await call(w2.router, "post", CODE_PATH, { params: { token: t2 }, body: { purpose: "add" } });
     // free a slot so only the name can be the problem
     const cfg = JSON.parse(w2.client.store["Checkout Order"]["CHK-1"].config_json);
     cfg.mailSetup.mailboxes = [{ localPart: "info", passwordSet: false }];
@@ -355,6 +356,139 @@ const CODE_PATH = "/api/mail/status/:token/code";
     const w = await world({ "CHK-1": { setup: { state: "provisioned" } } });
     const r = await call(w.router, "post", PW_PATH, { params: { token: tokenFor("CHK-1"), local: "info" }, body: { password: PW } });
     ok(r.statusCode === 200, "provisioned orders can set a password");
+  }
+
+  section("first-set is decided inside the lock (parallel requests)");
+  {
+    const w = await world({ "CHK-1": {} });
+    const token = tokenFor("CHK-1");
+    pwCalls.length = 0;
+    const rs = await Promise.all([
+      call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW } }),
+      call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW2 } }),
+    ]);
+    const codes = rs.map((r) => r.statusCode).sort();
+    ok(codes[0] === 200 && codes[1] === 403, "two parallel first-sets: exactly one succeeds, the other needs a code (403)");
+    ok(pwCalls.length === 1, "the provider was called once");
+    ok(setupOf(w.client, "CHK-1").mailboxes[0].passwordSet === true, "flag is set");
+  }
+
+  section("provider failure rolls the flag back; persist failure is an error");
+  {
+    const w = await world({ "CHK-1": {} });
+    const token = tokenFor("CHK-1");
+    let flagDuringCall = null;
+    failPw = () => { flagDuringCall = setupOf(w.client, "CHK-1").mailboxes[0].passwordSet; };
+    pwCalls.length = 0;
+    const r = await call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW } });
+    failPw = null;
+    ok(flagDuringCall === true, "the flag was written before the provider call");
+    ok(r.statusCode === 502, "provider failure -> error status");
+    ok(setupOf(w.client, "CHK-1").mailboxes[0].passwordSet === false, "and the flag is rolled back to false");
+    const retry = await call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW } });
+    ok(retry.statusCode === 200, "a retry is still a free first-set");
+
+    // Persisting the flag fails: nothing is changed and the caller sees an error.
+    const w2 = await world({ "CHK-1": {} });
+    const realPut = w2.client.put;
+    w2.client.put = async () => { throw new Error("frappe down"); };
+    pwCalls.length = 0;
+    const r2 = await call(w2.router, "post", PW_PATH, { params: { token: tokenFor("CHK-1"), local: "info" }, body: { password: PW } });
+    w2.client.put = realPut;
+    ok(r2.statusCode >= 500 && r2.statusCode !== 200, "persist failure -> error status, not 200");
+    ok(pwCalls.length === 0 && setupOf(w2.client, "CHK-1").mailboxes[0].passwordSet === false, "provider untouched, flag unchanged");
+
+    // Provider fails AND the rollback fails: stays flagged, so later requests need a code (fail closed).
+    const w3 = await world({ "CHK-1": {} });
+    const realPut3 = w3.client.put;
+    let puts = 0;
+    w3.client.put = async (...a) => { if (++puts >= 2) throw new Error("frappe down"); return realPut3(...a); };
+    failPw = () => {};
+    const r3 = await call(w3.router, "post", PW_PATH, { params: { token: tokenFor("CHK-1"), local: "info" }, body: { password: PW } });
+    failPw = null;
+    w3.client.put = realPut3;
+    ok(r3.statusCode >= 500, "double failure -> error status");
+    ok(setupOf(w3.client, "CHK-1").mailboxes[0].passwordSet === true, "flag left true (fail closed)");
+    const r4 = await call(w3.router, "post", PW_PATH, { params: { token: tokenFor("CHK-1"), local: "info" }, body: { password: PW } });
+    ok(r4.statusCode === 403, "so the next attempt needs a code");
+  }
+
+  section("add: decided inside the lock, orphaned accounts are adopted");
+  {
+    const w = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "info", passwordSet: true }, { localPart: "sales", passwordSet: true }] } } });
+    const token = tokenFor("CHK-1");
+    await call(w.router, "post", CODE_PATH, { params: { token }, body: { purpose: "add" } });
+    const code = w.sent[0].code;
+    const rs = await Promise.all([
+      call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "x1", code } }),
+      call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "x2", code } }),
+    ]);
+    ok(rs.filter((r) => r.statusCode === 201).length === 1, "two parallel adds with one code: exactly one is created");
+    ok(setupOf(w.client, "CHK-1").mailboxes.length === 3, "the plan (3) is not exceeded");
+
+    // Parallel adds that both hold valid codes cannot pass the limit: second sees the fresh count.
+    const w2 = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "info", passwordSet: true }, { localPart: "sales", passwordSet: true }] } } });
+    const t2 = tokenFor("CHK-1");
+    await call(w2.router, "post", CODE_PATH, { params: { token: t2 }, body: { purpose: "add" } });
+    const code2 = w2.sent[0].code;
+    const first = await call(w2.router, "post", ADD_PATH, { params: { token: t2 }, body: { localPart: "x1", code: code2 } });
+    ok(first.statusCode === 201, "first add succeeds");
+    const over = await call(w2.router, "post", ADD_PATH, { params: { token: t2 }, body: { localPart: "x2", code: code2 } });
+    ok(over.statusCode === 409 || over.statusCode === 403, "a later add past the limit is refused");
+    ok((await stalwart.findAccount("x2@acme.com")) === null, "and nothing is created");
+
+    // Account created but the save failed: the retry adopts it.
+    const w3 = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "info", passwordSet: true }] } } });
+    const t3 = tokenFor("CHK-1");
+    await call(w3.router, "post", CODE_PATH, { params: { token: t3 }, body: { purpose: "add" } });
+    const realPut = w3.client.put;
+    let puts = 0;
+    w3.client.put = async (...a) => { if (++puts === 2) throw new Error("frappe down"); return realPut(...a); }; // 1st put spends the code, 2nd saves the mailbox
+    const lost = await call(w3.router, "post", ADD_PATH, { params: { token: t3 }, body: { localPart: "orders", code: w3.sent[0].code } });
+    w3.client.put = realPut;
+    ok(lost.statusCode >= 500, "save failure after create -> error status");
+    ok((await stalwart.findAccount("orders@acme.com")) !== null && !setupOf(w3.client, "CHK-1").mailboxes.some((m) => m.localPart === "orders"), "account exists, not yet in mailSetup");
+    const cfg3 = JSON.parse(w3.client.store["Checkout Order"]["CHK-1"].config_json);
+    cfg3.mailSetup.codeIssuedAt = null;
+    w3.client.store["Checkout Order"]["CHK-1"].config_json = JSON.stringify(cfg3);
+    await call(w3.router, "post", CODE_PATH, { params: { token: t3 }, body: { purpose: "add" } });
+    const dom = await stalwart.findDomain("acme.com");
+    const before = (await stalwart.listAccounts(dom.id)).length;
+    const retry = await call(w3.router, "post", ADD_PATH, { params: { token: t3 }, body: { localPart: "orders", code: w3.sent[1].code } });
+    ok(retry.statusCode === 201 && retry.body.passwordSet === false, "retry adopts the orphan -> 201");
+    ok(setupOf(w3.client, "CHK-1").mailboxes.filter((m) => m.localPart === "orders").length === 1, "appended exactly once");
+    ok((await stalwart.listAccounts(dom.id)).length === before, "no second account was created");
+  }
+
+  section("codes are purpose-bound; a missing code spends nothing");
+  {
+    const w = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "info", passwordSet: true }] } } });
+    const token = tokenFor("CHK-1");
+    await call(w.router, "post", CODE_PATH, { params: { token }, body: { purpose: "add" } });
+    const addCode = w.sent[0].code;
+    ok(w.sent[0].purpose === "add", "the email carries the purpose");
+    pwCalls.length = 0;
+    const asReset = await call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW2, code: addCode } });
+    ok(asReset.statusCode === 403 && pwCalls.length === 0, "an add code does not work for a reset");
+    const att = setupOf(w.client, "CHK-1").codeChallenge.attempts;
+    for (const blank of [undefined, "", "   ", null]) {
+      const r = await call(w.router, "post", PW_PATH, { params: { token, local: "info" }, body: { password: PW2, code: blank } });
+      const r2 = await call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "zed", code: blank } });
+      ok(r.statusCode === 403 && r2.statusCode === 403, `blank code ${JSON.stringify(blank)} -> 403`);
+    }
+    ok(setupOf(w.client, "CHK-1").codeChallenge.attempts === att, "blank codes did not count as attempts");
+    const asAdd = await call(w.router, "post", ADD_PATH, { params: { token }, body: { localPart: "zed", code: addCode } });
+    ok(asAdd.statusCode === 201, "the add code still works for an add");
+
+    const w2 = await world({ "CHK-1": { setup: { mailboxes: [{ localPart: "info", passwordSet: true }] } } });
+    const t2 = tokenFor("CHK-1");
+    await call(w2.router, "post", CODE_PATH, { params: { token: t2 } });
+    const resetCode = w2.sent[0].code;
+    ok(w2.sent[0].purpose === "reset", "default purpose is reset");
+    const asAdd2 = await call(w2.router, "post", ADD_PATH, { params: { token: t2 }, body: { localPart: "zed", code: resetCode } });
+    ok(asAdd2.statusCode === 403 && (await stalwart.findAccount("zed@acme.com")) === null, "a reset code does not work for an add");
+    const badPurpose = await call(w2.router, "post", CODE_PATH, { params: { token: t2 }, body: { purpose: "delete" } });
+    ok(badPurpose.statusCode === 400, "an unknown purpose is refused");
   }
 
   section("rate limiters are attached to the write routes");

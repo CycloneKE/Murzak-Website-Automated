@@ -133,6 +133,27 @@ async function thrown(fn) { try { await fn(); return null; } catch (e) { return 
     ok(await access.verifyCode(client, "CHK-404", "123456", deps) === false, "unknown order is refused");
   }
 
+  section("purpose-bound codes and blank codes");
+  {
+    const client = seed();
+    const sent = [];
+    const deps = { now: () => T0, sendCodeEmail: async (a) => { sent.push(a); } };
+    await access.issueCode(client, "CHK-1", { ...deps, purpose: "add" });
+    ok(sent[0].purpose === "add", "the purpose is passed to the email");
+    ok(await access.verifyCode(client, "CHK-1", sent[0].code, deps) === false, "an add code is refused for a reset (default purpose)");
+    ok(await access.verifyCode(client, "CHK-1", sent[0].code, { ...deps, purpose: "add" }) === true, "and accepted for an add");
+    const c2 = seed();
+    const s2 = [];
+    await access.issueCode(c2, "CHK-1", { now: () => T0, sendCodeEmail: async (a) => { s2.push(a); } });
+    ok(s2[0].purpose === "reset", "default purpose is reset");
+    ok(await access.verifyCode(c2, "CHK-1", s2[0].code, { purpose: "add", now: () => T0 }) === false, "a reset code is refused for an add");
+    const before = setupOf(c2).codeChallenge.attempts;
+    for (const blank of [undefined, null, "", "   "]) await access.verifyCode(c2, "CHK-1", blank, { now: () => T0 });
+    ok(setupOf(c2).codeChallenge.attempts === before, "blank codes touch nothing");
+    const e = await thrown(() => access.issueCode(seed(), "CHK-1", { now: () => T0, sendCodeEmail: async () => {}, purpose: "bogus" }));
+    ok(e && e.statusCode === 400, "an unknown purpose is refused");
+  }
+
   section("concurrent use of one code succeeds once");
   {
     const client = seed();

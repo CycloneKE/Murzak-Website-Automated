@@ -101,10 +101,12 @@ function withOrderLock(orderName, fn) {
   return run;
 }
 
-function codeHash(orderName, code) {
+const PURPOSES = Object.freeze(["reset", "add"]);
+
+function codeHash(orderName, purpose, code) {
   const key = secret();
   if (!key) throw new Error("MAIL_LINK_SECRET is not configured");
-  return hmac(key, `code:${orderName}:${code}`).toString("hex");
+  return hmac(key, `code:${orderName}:${purpose}:${code}`).toString("hex");
 }
 
 async function defaultSendCodeEmail(args) {
@@ -129,13 +131,15 @@ function issueCode(client, orderName, deps = {}) {
     if (setup.codeIssuedAt && now - setup.codeIssuedAt < CODE_ISSUE_GAP_MS) {
       throw coded("code_rate_limited", "A code was just sent. Please wait a minute before asking for another.", 429);
     }
+    const purpose = deps.purpose || "reset";
+    if (!PURPOSES.includes(purpose)) throw coded("bad_code_purpose", "Unknown code purpose.", 400);
     const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
     await mergeMailSetup(client, orderName, {
       codeIssuedAt: now,
-      codeChallenge: { hash: codeHash(orderName, code), expiresAt: now + CODE_LIFE_MS, attempts: 0 },
+      codeChallenge: { hash: codeHash(orderName, purpose, code), expiresAt: now + CODE_LIFE_MS, attempts: 0 },
     });
     try {
-      await send({ to: setup.contactEmail, code, businessName: setup.businessName });
+      await send({ to: setup.contactEmail, code, purpose, businessName: setup.businessName });
     } catch (e) {
       // Nothing was delivered: drop the challenge and the gap so the customer can retry.
       await mergeMailSetup(client, orderName, { codeIssuedAt: null, codeChallenge: null });
@@ -144,29 +148,43 @@ function issueCode(client, orderName, deps = {}) {
   });
 }
 
+/** True for a code field that was actually supplied (not missing or blank). */
+function hasCode(code) {
+  return (typeof code === "string" || typeof code === "number") && String(code).trim() !== "";
+}
+
+/**
+ * verifyCode for a caller that ALREADY holds withOrderLock(orderName). A missing
+ * or blank code returns false without touching the challenge. `deps.purpose`
+ * ('reset' default, or 'add') must match the purpose the code was issued for.
+ */
+async function verifyCodeInLock(client, orderName, code, deps = {}) {
+  if (!hasCode(code)) return false;
+  const now = deps.now ? deps.now() : Date.now();
+  const purpose = deps.purpose || "reset";
+  const setup = await loadMailSetup(client, orderName);
+  const ch = setup && setup.codeChallenge;
+  if (!ch || typeof ch.hash !== "string") return false;
+  if (now >= ch.expiresAt || (ch.attempts || 0) >= CODE_MAX_ATTEMPTS) {
+    await mergeMailSetup(client, orderName, { codeChallenge: null });
+    return false;
+  }
+  const attempts = (ch.attempts || 0) + 1;
+  const given = String(code).trim();
+  const match = PURPOSES.includes(purpose) && /^\d{6}$/.test(given) && safeEqual(codeHash(orderName, purpose, given), ch.hash);
+  if (match) {
+    await mergeMailSetup(client, orderName, { codeChallenge: null });
+    return true;
+  }
+  await mergeMailSetup(client, orderName, {
+    codeChallenge: attempts >= CODE_MAX_ATTEMPTS ? null : { ...ch, attempts },
+  });
+  return false;
+}
+
 /** True when `code` matches the live challenge. Single use; 5 wrong tries invalidate it. Never throws on bad input. */
 function verifyCode(client, orderName, code, deps = {}) {
-  return withOrderLock(orderName, async () => {
-    const now = deps.now ? deps.now() : Date.now();
-    const setup = await loadMailSetup(client, orderName);
-    const ch = setup && setup.codeChallenge;
-    if (!ch || typeof ch.hash !== "string") return false;
-    if (now >= ch.expiresAt || (ch.attempts || 0) >= CODE_MAX_ATTEMPTS) {
-      await mergeMailSetup(client, orderName, { codeChallenge: null });
-      return false;
-    }
-    const attempts = (ch.attempts || 0) + 1;
-    const given = typeof code === "string" || typeof code === "number" ? String(code).trim() : "";
-    const match = /^\d{6}$/.test(given) && safeEqual(codeHash(orderName, given), ch.hash);
-    if (match) {
-      await mergeMailSetup(client, orderName, { codeChallenge: null });
-      return true;
-    }
-    await mergeMailSetup(client, orderName, {
-      codeChallenge: attempts >= CODE_MAX_ATTEMPTS ? null : { ...ch, attempts },
-    });
-    return false;
-  });
+  return withOrderLock(orderName, () => verifyCodeInLock(client, orderName, code, deps));
 }
 
 module.exports = {
@@ -180,5 +198,8 @@ module.exports = {
   loadMailSetup,
   withOrderLock,
   issueCode,
+  hasCode,
+  PURPOSES,
   verifyCode,
+  verifyCodeInLock,
 };
