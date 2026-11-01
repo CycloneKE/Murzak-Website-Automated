@@ -12,6 +12,10 @@
  * One Frappe mock and one Bulwark fake are shared by every scenario, because
  * the branding queue refuses to write a list that would drop an active client.
  *
+ * DNS record CONTENT (what MX/SPF/DMARC/DKIM/CNAME must be) is covered by mailDns.test.js: the
+ * resolver here serves back whatever the lane stored, so it proves the flow, not the record values.
+ * The sweep's two hand-over guards are pinned individually in mailFinalFixes.test.js.
+ *
  * The mail status routes are exercised by calling the router's handlers
  * directly (the same way mailRoutes.test.js does), so the express rate
  * limiters and body parsing are NOT part of this run.
@@ -25,6 +29,7 @@ process.env.STALWART_API_KEY = STALWART_KEY;
 delete process.env.STALWART_URL;
 process.env.MAIL_LINK_SECRET = LINK_SECRET;
 process.env.HOSTINGER_API_TOKEN = HOSTINGER_TOKEN;
+process.env.COOLIFY_TOKEN = "coolify-e2e-canary-6620";
 process.env.MAIL_HOST = "mail.murzak.test";
 process.env.APP_BASE_URL = "https://portal.murzak.test";
 process.env.BULWARK_SERVICE_UUID = "svc-bulwark-uuid";
@@ -52,7 +57,7 @@ function section(name) { realLog(`\n# ${name}`); }
 
 // Everything the modules print, for the "no secret in the logs" check.
 const captured = [];
-for (const k of ["log", "info", "warn", "error"]) {
+for (const k of ["log", "info", "warn", "error", "debug", "trace", "dir"]) {
   console[k] = (...a) => {
     captured.push(a.map((x) => (typeof x === "string" ? x : (() => { try { return JSON.stringify(x); } catch { return String(x); } })())).join(" "));
   };
@@ -61,7 +66,8 @@ for (const k of ["log", "info", "warn", "error"]) {
 // SMTP transport stub: the real mailer code runs and its messages are captured.
 const sent = [];
 const nodemailer = require("nodemailer");
-nodemailer.createTransport = () => ({ sendMail: async (m) => { sent.push(m); } });
+const transportOpts = [];
+nodemailer.createTransport = (opts) => { transportOpts.push(opts); return { sendMail: async (m) => { sent.push(m); } }; };
 
 const createOrdersRouter = require("../routes/ordersRoutes");
 const createMailRouter = require("../routes/mailRoutes");
@@ -104,11 +110,14 @@ const brandingDomains = () => {
   const row = bulwark.envs.find((e) => e.key === "DOMAIN_BRANDING");
   return row ? JSON.parse(row.value) : [];
 };
+// The merge window is a gate the test opens, not a timer. Default: already open.
+const openGate = Promise.resolve();
+let mergeGate = openGate;
 const brandDeps = {
   coolify: bulwark.coolify,
   setBulwarkAddresses: bulwark.setBulwarkAddresses,
   fetch: async () => ({ status: 200 }),
-  sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+  sleep: (ms) => (ms === brandDeps.mergeMs ? mergeGate : Promise.resolve()),
   mergeMs: 150,
   pollIntervalMs: 1,
 };
@@ -116,12 +125,15 @@ const brandDeps = {
 /** Fake Hostinger DNS HTTP: a zone per domain; records the CNAME writes. */
 const dnsWrites = [];
 const zones = new Map();
+const hostingerAuthSeen = [];
 const hostingerHttp = {
-  async get(url) {
+  async get(url, opts) {
+    hostingerAuthSeen.push(String((opts && opts.headers && opts.headers.Authorization) || ""));
     const zone = decodeURIComponent(url.split("/").pop());
     return { data: zones.get(zone) || [] };
   },
-  async put(url, body) {
+  async put(url, body, opts) {
+    hostingerAuthSeen.push(String((opts && opts.headers && opts.headers.Authorization) || ""));
     const zone = decodeURIComponent(url.split("/").pop());
     dnsWrites.push({ zone, body });
     const list = zones.get(zone) || [];
@@ -402,6 +414,83 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
   }
 
   /* ------------------------------------------------------------------ */
+  section("4b. renewal: a renewal invoice for the same mail plan is a no-op and the portal still resolves");
+  {
+    const prevTickets = sweepStubs.tickets.length;
+    const domain = live2.domain;
+    const dom = await stalwart.findDomain(domain);
+    const accountsBefore = (await stalwart.listAccounts(dom.id)).length;
+    // The job that built the mailboxes, plus a NEWER failed job listed first (what the old lookup picked).
+    client.store["Provisioning Job"] = {
+      "J-FAILED": { name: "J-FAILED", web_account: "WA-LATE", service_id: "mail-starter", category: "Email Hosting", status: "needs_human", external_ref: "", access: "{}" },
+      "J-BUILT": { name: "J-BUILT", web_account: "WA-LATE", service_id: "mail-starter", category: "Email Hosting", status: "active", external_ref: domain, access: JSON.stringify({ provider: "stalwart", domain }) },
+    };
+    const renewal = { name: "REN-77::mail-starter", web_account: "WA-LATE", service_id: "mail-starter", invoice: "REN-77" };
+    const out = await lane.provision(renewal, { client, deps: laneDeps(live2.resolver) });
+    ok(out.externalRef === domain && out.access.provider === "stalwart", "the renewal job returns the same externalRef and access (active, nothing built)");
+    ok((await stalwart.listAccounts(dom.id)).length === accountsBefore, "no accounts were created or changed");
+    ok(sweepStubs.tickets.length === prevTickets, "no staff ticket was raised");
+    ok(setupOf(live2.orderName).state === "live", "the original order is untouched");
+
+    const express = require("express");
+    const createPortalRouter = require("../routes/portalRoutes");
+    const rateLimit = require("express-rate-limit");
+    const app = express();
+    app.use((req, _res, next) => { req.session = { webAccount: "WA-LATE" }; next(); });
+    app.use(createPortalRouter({
+      frappeClient: () => client, requireAuth: (_q, _r, n) => n(), rateLimit, PROVISIONING_JOB_DOCTYPE: "Provisioning Job",
+      getWebAccountByEmail: async () => null, mysqlDatetimeUTC: () => "", upload: { single: () => (_q, _r, n) => n() }, userOwnsPrivateFile: async () => false, SESSION_SECRET: "x",
+    }));
+    const server = app.listen(0);
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.address().port}/api/portal/services/mail-starter/mailboxes`);
+      const body = await res.json().catch(() => ({}));
+      ok(res.status === 200 && body.ok === true, `portal mailbox list resolves to the working job, not the failed one (status ${res.status})`);
+      ok(Array.isArray(body.mailboxes) && body.mailboxes.length >= 2, "and lists the mailboxes");
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  section("4c. a payment callback delivered twice: one job, one set of accounts");
+  {
+    const domain = "twice-paid.com";
+    const { orderName } = await placeOrder("WA-TWICE", mailInputFor(domain, { contactEmail: "twice@gmail.com" }));
+    const { markOrderPaid } = require("../services/checkout/orderStore");
+    const { enqueueProvisioningForInvoice } = require("../services/provisioning/provisioningService");
+    const job = pay(orderName);
+    await markOrderPaid({ client, orderId: orderName, nowMs: T0 });
+    await markOrderPaid({ client, orderId: orderName, nowMs: T0 + 1000 });
+    ok(client.store["Checkout Order"][orderName].status === "Paid", "marking the order paid twice leaves it Paid");
+    // The mock Frappe ignores list filters; this wrapper applies them so the idempotency lookup is real.
+    const filtering = {
+      ...client,
+      get: async (url, cfg) => {
+        const r = await client.get(url, cfg);
+        const f = cfg && cfg.params && cfg.params.filters;
+        if (f && /Provisioning Job$/.test(decodeURIComponent(url))) {
+          const fl = JSON.parse(f);
+          r.data.data = r.data.data.filter((row) => fl.every(([k, , v]) => row[k] === v));
+        }
+        return r;
+      },
+    };
+    const args = { client: filtering, webAccount: "WA-TWICE", invoiceDocName: job.invoice, serviceIds: ["mail-starter"] };
+    await enqueueProvisioningForInvoice(args);
+    await enqueueProvisioningForInvoice(args);
+    const jobs = Object.values(client.store["Provisioning Job"] || {}).filter((j) => j.invoice === job.invoice && j.service_id === "mail-starter");
+    ok(jobs.length === 1, `one provisioning job for the invoice (got ${jobs.length})`);
+    const published = { on: true };
+    const resolver = storedResolver(orderName, published);
+    await lane.provision(job, { client, deps: laneDeps(resolver) });
+    await lane.provision(job, { client, deps: laneDeps(resolver) });
+    const dom = await stalwart.findDomain(domain);
+    ok((await stalwart.listAccounts(dom.id)).length === 3, "one set of accounts (info, sales, postmaster)");
+    ok(dnsWrites.filter((x) => x.zone === domain).length === 1, "one DNS write");
+  }
+
+  /* ------------------------------------------------------------------ */
   section("5. two orders paid at the same time: one Bulwark restart, both branded, existing client preserved");
   {
     // A client that was already live before this batch, with its own title and logo in Bulwark.
@@ -421,10 +510,17 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
     const jobB = pay(b.orderName);
     const restartsBefore = bulwark.restarts;
     const published = { on: true };
-    const [oa, ob] = await Promise.all([
-      lane.provision(jobA, { client, deps: laneDeps(storedResolver(a.orderName, published)) }),
-      lane.provision(jobB, { client, deps: laneDeps(storedResolver(b.orderName, published)) }),
-    ]);
+    // Deterministic merge window: hold it shut until BOTH orders have queued, then open it.
+    let release;
+    mergeGate = new Promise((r) => { release = r; });
+    let queued = 0;
+    const countingEnqueue = (c, rec) => { queued++; return enqueue(c, rec); };
+    const pa = lane.provision(jobA, { client, deps: laneDeps(storedResolver(a.orderName, published), { enqueueDomain: countingEnqueue }) });
+    const pb = lane.provision(jobB, { client, deps: laneDeps(storedResolver(b.orderName, published), { enqueueDomain: countingEnqueue }) });
+    while (queued < 2) await new Promise((r) => setImmediate(r));
+    release();
+    mergeGate = openGate;
+    const [oa, ob] = await Promise.all([pa, pb]);
     ok(oa.externalRef === "pair-a.com" && ob.externalRef === "pair-b.com", "both orders provision");
     ok(bulwark.restarts - restartsBefore === 1, "one shared Bulwark restart for both");
     const doms = brandingDomains();
@@ -484,6 +580,26 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
       ok(again.statusCode === 403 && pwCalls.length === 2, "the same code cannot be used twice");
       sweepStubs.code = code;
       sweepStubs.wrong = wrong;
+
+      // Adding a mailbox needs its own code and sets a random unknown password.
+      routeNow += 120000;
+      const issuedAdd = await call("post", "/api/mail/status/:token/code", { body: { purpose: "add" } });
+      ok(issuedAdd.statusCode === 202 && codeMails().length === 2, "a second code is emailed for adding a mailbox");
+      const addCode = (/\b(\d{6})\b/.exec(codeMails()[1].text) || [])[1];
+      const noCodeAdd = await call("post", "/api/mail/status/:token/mailboxes", { body: { localPart: "billing" } });
+      ok(noCodeAdd.statusCode === 403, "adding a mailbox without a code is refused");
+      const added = await call("post", "/api/mail/status/:token/mailboxes", { body: { localPart: "billing", code: addCode } });
+      ok(added.statusCode === 201 && added.body.address === `billing@${live1.domain}`, "adding a mailbox with the code works");
+      sweepStubs.addCode = addCode;
+
+      // T-1: every password the run used or generated must be absent from EVERY email body.
+      // Generated secrets are the ones the mailbox facade handed to Stalwart (read from the spy).
+      const used = new Set([PW, PW2, ...pwCalls.map((c) => c.pw)]);
+      ok(used.size >= 3 && pwCalls.some((c) => c.pw !== PW && c.pw !== PW2), `collected ${used.size} distinct passwords, including a generated one`);
+      ok(sent.length >= 3, `checked against ${sent.length} captured emails`);
+      ok(![...used].some((pw) => sent.some((m) => `${m.subject}${m.text}${m.html}`.includes(pw))), "no password typed or generated appears in any email body");
+      const firstHandover = handoversTo(live1.contact)[0];
+      ok(!!firstHandover && !/password\s*(is|:|=)/i.test(firstHandover.text), "the hand-over email never states a password");
     } finally {
       stalwart.setPassword = realSetPassword;
     }
@@ -507,6 +623,12 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
     ok((await stalwart.listAccounts(dom.id)).length === accountsBefore, "the first customer's accounts are untouched");
     ok(setupOf(live1.orderName).state === "live", "the first customer's order is unaffected");
 
+    // (b0) reserved domains are refused at ORDER time, before any payment
+    for (const reserved of ["murzaktech.tech", "shop.murzaktech.tech"]) {
+      const r = await placeOrder("WA-RES0", mailInputFor(reserved));
+      ok(r.res.statusCode === 400 && r.res.body.code === "MAIL_DOMAIN_RESERVED" && r.res.body.error === "That domain can't be used for business email.", `${reserved} is refused at order time with MAIL_DOMAIN_RESERVED`);
+      ok(!r.orderName, `${reserved}: no order is created`);
+    }
     // (b) reserved domains
     for (const reserved of ["murzaktech.tech", "mail.murzaktech.tech"]) {
       const job = seedPaidOrder(`CHK-RES-${reserved.length}`, "WA-RES", {
@@ -552,6 +674,12 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
   {
     const text = captured.join("\n");
     ok(captured.length > 0 && /\[webmail\] restarted Bulwark/.test(text), `console capture works (${captured.length} lines)`);
+    // The token that was actually EMAILED, parsed out of the hand-over email, not a freshly minted one.
+    const emailedToken = (/\/mail\/status\/([A-Za-z0-9_.-]+)/.exec(handoversTo(live1.contact)[0].text) || [])[1];
+    ok(!!emailedToken && access.verifyOrderToken(emailedToken).ok, "the emailed status link carries a valid token");
+    // Entries must be in play: prove the code really received them before scanning for them.
+    ok(hostingerAuthSeen.length > 0 && hostingerAuthSeen.every((h) => h.includes(HOSTINGER_TOKEN)), "the Hostinger token went through the real auth-header code");
+    ok(transportOpts.length > 0 && transportOpts.every((o) => o && o.auth && o.auth.pass === SMTP_PASS), "the SMTP password went to the mail transport");
     const secrets = {
       STALWART_API_KEY: STALWART_KEY,
       MAIL_LINK_SECRET: LINK_SECRET,
@@ -559,9 +687,10 @@ const codeMails = () => sent.filter((m) => m.subject === "Your confirmation code
       "SMTP password": SMTP_PASS,
       "customer password 1": PW,
       "customer password 2": PW2,
-      "issued code": sweepStubs.code,
+      "issued reset code": sweepStubs.code,
       "wrong code": sweepStubs.wrong,
-      "status token": access.signOrderToken(live1.orderName),
+      "issued add-mailbox code": sweepStubs.addCode,
+      "emailed status token": emailedToken,
     };
     for (const [label, value] of Object.entries(secrets)) {
       ok(!!value && !text.includes(value), `${label} is not in the console output`);
