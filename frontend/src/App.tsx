@@ -43,7 +43,7 @@ import ForServices from "./pages/for/ForServices";
 import { Page, User, pageToPath } from "./types";
 import { logPageView } from "./services/firebase";
 import { safeReturnTo } from "./utils/safeReturnTo";
-import { isStatusPath } from "./utils/safeUrl";
+import { isStatusPath, redactStatusPath } from "./utils/safeUrl";
 
 // Only exact non-nested pages belong here
 const pathToPage: Record<string, Page> = {
@@ -252,7 +252,8 @@ const App: React.FC = () => {
     // index.html's homepage values on every route — a duplicate-content
     // signal and a broken share preview for every non-home page. Same
     // pattern as the description tag above: update in place.
-    const canonicalUrl = `${SITE_ORIGIN}${location.pathname}`;
+    // The emailed mail-status link carries a secret in its path: never write it into the DOM.
+    const canonicalUrl = `${SITE_ORIGIN}${redactStatusPath(location.pathname)}`;
     const setAttr = (selector: string, attr: string, value: string) => {
       const el = document.querySelector(selector);
       if (el) el.setAttribute(attr, value);

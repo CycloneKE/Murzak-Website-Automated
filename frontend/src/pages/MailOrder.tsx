@@ -18,6 +18,26 @@ const MailOrder: React.FC = () => {
     document.head.appendChild(meta);
     return () => { meta.remove(); };
   }, []);
+
+  // Neither the emailed link nor the signed-in progress page belongs in a search index.
+  // index.html ships a blanket "index, follow" robots tag: override it while this page
+  // is mounted (two conflicting tags are ambiguous) and put it back on the way out.
+  useEffect(() => {
+    const existing = Array.from(document.head.querySelectorAll<HTMLMetaElement>('meta[name="robots"]'));
+    const previous = existing.map((m) => m.content);
+    existing.forEach((m) => { m.content = "noindex,nofollow"; });
+    let added: HTMLMetaElement | null = null;
+    if (!existing.length) {
+      added = document.createElement("meta");
+      added.name = "robots";
+      added.content = "noindex,nofollow";
+      document.head.appendChild(added);
+    }
+    return () => {
+      added?.remove();
+      existing.forEach((m, i) => { m.content = previous[i]; });
+    };
+  }, []);
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-28 pb-20">
       <MailProgress orderId={orderId} token={token} />
