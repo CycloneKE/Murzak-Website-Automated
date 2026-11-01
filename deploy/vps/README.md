@@ -511,6 +511,16 @@ prints environment values. `BACKUP_DEST` is an absolute directory or an rclone
 remote (for example `b2:murzak-backups/stalwart`). **A local directory on this
 VPS is only a staging copy. The backup is off the box only when `BACKUP_DEST` is a remote.**
 
+A remote `BACKUP_DEST` needs rclone configured for root. Either leave the config at
+`/root/.config/rclone/rclone.conf` (the unit reads `/root` read-only), or put it in
+`/etc/murzak/rclone.conf`, owned by root with mode 0600, and set
+`RCLONE_CONFIG=/etc/murzak/rclone.conf` in the env file. The second option does not
+depend on `/root` at all.
+
+The archive holds every customer's mail. The script sets `umask 077`, creates
+`BACKUP_DEST` with mode 0700 if it is missing, and writes each archive at 0600.
+Check with `stat -c '%a %n' /srv/backups/stalwart/*` after a run.
+
 A plain tar of a live store can capture half-written files. Set
 `STALWART_QUIESCE_CMD` and `STALWART_RESUME_CMD` (for example `docker stop stalwart`
 and `docker start stalwart`) so the copy is taken while mail is stopped, or use

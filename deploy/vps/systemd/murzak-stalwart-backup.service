@@ -17,5 +17,9 @@ EnvironmentFile=-/etc/murzak/stalwart-backup.env
 # The timer retries it the next day; run it by hand after fixing the cause.
 User=root
 PrivateTmp=true
-ProtectHome=true
+# ProtectHome=read-only, not "yes": with "yes" /root is invisible, so rclone cannot
+# read the root-owned config that a remote BACKUP_DEST needs (/root/.config/rclone).
+# read-only keeps /root readable but unwritable. The alternative is to point
+# RCLONE_CONFIG at /etc/murzak/rclone.conf in the env file, which works either way.
+ProtectHome=read-only
 NoNewPrivileges=true

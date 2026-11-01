@@ -8,8 +8,10 @@
 # Env (set in /etc/murzak/stalwart-backup.env, read by the systemd unit):
 #   STALWART_DATA_DIR          the Stalwart data directory (default /var/lib/stalwart)
 #   BACKUP_DEST                REQUIRED. An absolute local directory (/srv/backups/stalwart),
-#                              or an rclone remote (b2:murzak-backups/stalwart). Remote
-#                              needs rclone configured for root.
+#                              or an rclone remote (b2:murzak-backups/stalwart). A remote
+#                              needs rclone configured for root (/root/.config/rclone/rclone.conf),
+#                              OR set RCLONE_CONFIG=/etc/murzak/rclone.conf in the env file
+#                              (root-owned, mode 0600) so the unit does not depend on /root.
 #   BACKUP_RETENTION_DAYS      copies older than this are deleted (default 14, minimum 1)
 #   STALWART_QUIESCE_CMD       optional, e.g. "docker stop stalwart". Run before the copy
 #   STALWART_RESUME_CMD        optional, e.g. "docker start stalwart". Always run after the
@@ -30,6 +32,10 @@
 #   murzak-stalwart-backup --dry-run  print what would happen, touch nothing
 
 set -euo pipefail
+
+# The archive holds every customer's mail. Nothing this script creates may be
+# readable by other users: directories 0700, files 0600, whatever the caller's umask.
+umask 077
 
 STALWART_DATA_DIR="${STALWART_DATA_DIR:-/var/lib/stalwart}"
 BACKUP_DEST="${BACKUP_DEST:-}"
@@ -124,10 +130,14 @@ if (( REMOTE )); then
   rclone delete "$BACKUP_DEST" --include "${PREFIX}*${SUFFIX}" --min-age "${BACKUP_RETENTION_DAYS}d" >/dev/null
   log "wrote $NAME ($SIZE bytes) to the remote and applied ${BACKUP_RETENTION_DAYS}-day retention"
 else
-  mkdir -p "$BACKUP_DEST"
+  if [[ ! -d "$BACKUP_DEST" ]]; then
+    mkdir -p -m 0700 "$BACKUP_DEST"
+  fi
   # Copy under a temporary name, then rename, so a half-written file never looks finished.
   cp "$ARCHIVE" "$BACKUP_DEST/.$NAME.partial"
+  chmod 0600 "$BACKUP_DEST/.$NAME.partial"
   mv "$BACKUP_DEST/.$NAME.partial" "$BACKUP_DEST/$NAME"
-  find "$BACKUP_DEST" -maxdepth 1 -type f -name "${PREFIX}*${SUFFIX}" -mtime +"$BACKUP_RETENTION_DAYS" -delete
+  # Old copies, and partials left behind by an interrupted run, past retention.
+  find "$BACKUP_DEST" -maxdepth 1 -type f \( -name "${PREFIX}*${SUFFIX}" -o -name ".${PREFIX}*${SUFFIX}.partial" \) -mtime +"$BACKUP_RETENTION_DAYS" -delete
   log "wrote $NAME ($SIZE bytes) and applied ${BACKUP_RETENTION_DAYS}-day retention"
 fi

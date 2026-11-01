@@ -26,6 +26,7 @@ const {
   diskAlertLevel,
   provisionedMailGb,
   checkMailCapacity,
+  __resetWarningsForTests,
 } = require("../services/email/mailCapacity");
 const capacity = require("../services/provisioning/capacity");
 const { CAPACITY } = require("../services/provisioning/catalog");
@@ -256,6 +257,70 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
     setEnv({ MAIL_STACK_RAM_MB: "1000" });
     ok(capacity.sellableRamMb() === base - 1000, `sellable RAM is reduced by 1000MB (got ${capacity.sellableRamMb()})`);
     ok(capacity.thresholdMb() === Math.floor(((base - 1000) * 85) / 100), "the RAM gate threshold follows the reduced sellable figure");
+    setEnv({});
+  }
+
+  // ---- invalid MAIL_DISK_GB warns once and stays disabled -----------------
+  // Captures console.warn for the duration of fn and returns the messages.
+  async function captureWarnings(fn) {
+    const real = console.warn;
+    const seen = [];
+    console.warn = (...args) => { seen.push(args.join(" ")); };
+    try { await fn(); } finally { console.warn = real; }
+    return seen;
+  }
+
+  section("a set-but-invalid MAIL_DISK_GB warns once and keeps the gate disabled");
+  for (const bad of ["100GB", "0", "-5"]) {
+    __resetWarningsForTests();
+    setEnv({ MAIL_DISK_GB: bad });
+    let r1;
+    let r2;
+    const warns = await captureWarnings(async () => {
+      r1 = canSellMailPlan("mail-pro", { provisionedGb: 999999 });
+      r2 = canSellMailPlan("mail-pro", { provisionedGb: 999999 });
+    });
+    ok(r1.ok === true && r2.ok === true, `MAIL_DISK_GB='${bad}' still allows the sale (gate disabled, fail-open by design)`);
+    ok(warns.length === 1 && /MAIL_DISK_GB/.test(warns[0]), `MAIL_DISK_GB='${bad}' logs exactly one warning naming MAIL_DISK_GB (got ${warns.length})`);
+  }
+  __resetWarningsForTests();
+  setEnv({});
+
+  // ---- fail closed when orders cannot be read ----------------------------
+  section("checkMailCapacity fails CLOSED with 503 MAIL_CAPACITY_UNKNOWN when orders cannot be read");
+  {
+    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    const brokenClient = { get: async () => { throw new Error("frappe unreachable"); } };
+    let caught = null;
+    try { await checkMailCapacity(brokenClient, "mail-starter"); } catch (e) { caught = e; }
+    ok(caught && caught.statusCode === 503, "an unreadable order list raises statusCode 503");
+    ok(caught && caught.code === "MAIL_CAPACITY_UNKNOWN", "the error carries code MAIL_CAPACITY_UNKNOWN");
+    ok(caught && !/frappe/i.test(caught.message), "the error message does not leak the underlying failure");
+  }
+
+  section("POST /api/orders refuses and creates nothing when orders cannot be read");
+  {
+    // listTakenMailDomains runs before the capacity gate and reads the same list,
+    // so an outage there is reached first and surfaces as a generic failure. The
+    // exact 503 MAIL_CAPACITY_UNKNOWN is asserted at the gate above; here the
+    // contract is only that the order fails closed.
+    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    const client = makeMockFrappe();
+    client.get = async () => { throw new Error("frappe unreachable"); };
+    const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
+    const res = makeRes();
+    await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL_STARTER } }, res);
+    ok(res.statusCode >= 500, `an unreadable order list is a server failure, not a sale (got ${res.statusCode})`);
+    ok(!(res.body && res.body.error && /frappe/i.test(res.body.error)), "the failure does not leak the underlying error");
+    ok(client.posts.length === 0, "nothing is written to Frappe");
+  }
+
+  // ---- MAIL_STACK_RAM_MB clamping ---------------------------------------
+  section("MAIL_STACK_RAM_MB larger than sellable RAM clamps sellable RAM to 0");
+  {
+    setEnv({ MAIL_STACK_RAM_MB: "999999" });
+    ok(capacity.sellableRamMb() === 0, `sellable RAM clamps to 0 (got ${capacity.sellableRamMb()})`);
+    ok(capacity.thresholdMb() === 0, "the RAM gate threshold is 0, so nothing RAM-based is sold");
     setEnv({});
   }
 

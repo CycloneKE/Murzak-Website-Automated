@@ -28,7 +28,29 @@ const DEFAULT_OVERCOMMIT = 3;
 const REFUSAL_REASON =
   "We don't have enough mail storage capacity for this plan right now. Please try again later or contact us.";
 
-let warnedGateDisabled = false;
+const warned = new Set();
+
+/** Logs `message` once per process for `key`. */
+function warnOnce(key, message) {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.warn(message);
+}
+
+/**
+ * MAIL_DISK_GB as { state, value }:
+ *   unset    not set (or empty): gate disabled, quietly
+ *   invalid  set but not a positive number ("100GB", "0", "-5"): gate disabled, warned once
+ *   ok       a positive number: gate enforced
+ * A typo must never silently sell the box, so invalid is distinguished from unset.
+ */
+function mailDiskFromEnv() {
+  const raw = process.env.MAIL_DISK_GB;
+  if (raw === undefined || raw === "") return { state: "unset", value: null };
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return { state: "ok", value: n };
+  return { state: "invalid", value: null };
+}
 
 /** A positive finite number from env, or null when unset or invalid. */
 function envPositive(name) {
@@ -55,9 +77,22 @@ function canSellMailPlan(planId, opts = {}) {
   if (!hasPlan(planId)) return { ok: false, reason: "Unknown email plan." };
   const plan = PLANS[planId];
 
-  const diskGb = opts.diskGb !== undefined ? Number(opts.diskGb) : envPositive("MAIL_DISK_GB");
-  if (diskGb === null) {
-    return { ok: true, note: "Mail disk capacity gate is disabled because MAIL_DISK_GB is not set." };
+  let diskGb;
+  if (opts.diskGb !== undefined) {
+    diskGb = Number(opts.diskGb);
+  } else {
+    const env = mailDiskFromEnv();
+    if (env.state === "invalid") {
+      warnOnce(
+        "invalid-disk",
+        "[mailCapacity] MAIL_DISK_GB is set but is not a positive number: the mail disk capacity gate is DISABLED. Fix it before taking mail orders."
+      );
+      return { ok: true, note: "Mail disk capacity gate is disabled because MAIL_DISK_GB is not a positive number." };
+    }
+    if (env.state === "unset") {
+      return { ok: true, note: "Mail disk capacity gate is disabled because MAIL_DISK_GB is not set." };
+    }
+    diskGb = env.value;
   }
   if (!(diskGb > 0)) return { ok: false, reason: REFUSAL_REASON };
 
@@ -121,10 +156,12 @@ async function provisionedMailGb(client, { nowMs = Date.now() } = {}) {
  * @returns {Promise<{ok: boolean, reason?: string, note?: string}>}
  */
 async function checkMailCapacity(client, planId, { nowMs = Date.now() } = {}) {
-  if (envPositive("MAIL_DISK_GB") === null) {
-    if (!warnedGateDisabled && stalwartClient.isConfigured()) {
-      warnedGateDisabled = true;
-      console.warn("[mailCapacity] MAIL_DISK_GB is not set: the mail disk capacity gate is DISABLED and mail orders are sold without a disk check.");
+  if (mailDiskFromEnv().state !== "ok") {
+    if (mailDiskFromEnv().state === "unset" && stalwartClient.isConfigured()) {
+      warnOnce(
+        "unset-disk",
+        "[mailCapacity] MAIL_DISK_GB is not set: the mail disk capacity gate is DISABLED and mail orders are sold without a disk check."
+      );
     }
     return canSellMailPlan(planId);
   }
@@ -142,6 +179,7 @@ async function checkMailCapacity(client, planId, { nowMs = Date.now() } = {}) {
 }
 
 module.exports = {
+  __resetWarningsForTests: () => warned.clear(),
   canSellMailPlan,
   diskAlertLevel,
   provisionedMailGb,
