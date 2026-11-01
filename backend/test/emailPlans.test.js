@@ -49,10 +49,19 @@ const { PLANS, isMailPlan, domainPriceKes } = emailPlans;
   ok(isMailPlan("") === false, "empty id is not a mail plan");
   ok(isMailPlan(undefined) === false, "undefined id is not a mail plan");
 
-  section("domainPriceKes: wholesale USD cents -> retail KES, +25%, rounded up to 100");
+  section("domainPriceKes: wholesale USD cents -> retail KES, +25%, rounded up to 50");
   ok(domainPriceKes(1099, 129) === 1800, "1099c x 129 x 1.25 = 1772.1 rounds up to 1800");
+  ok(domainPriceKes(1000, 129) === 1650, "1000c x 129 x 1.25 = 1612.5 rounds up to 1650 (KES 50 step)");
   ok(domainPriceKes(100, 129) === 1200, "small wholesale floors at KES 1200");
   ok(domainPriceKes(0, 129) === 1200, "zero wholesale still floors at KES 1200");
+
+  section("domainPriceKes: bad input throws instead of quoting the floor");
+  const throwsTypeError = (fn) => { try { fn(); return false; } catch (e) { return e instanceof TypeError; } };
+  for (const bad of [NaN, undefined, -5]) {
+    ok(throwsTypeError(() => domainPriceKes(bad, 129)), `wholesaleUsdCents ${String(bad)} throws TypeError`);
+    ok(throwsTypeError(() => domainPriceKes(1099, bad)), `usdToKes ${String(bad)} throws TypeError`);
+  }
+  ok(throwsTypeError(() => domainPriceKes(1099, 0)), "usdToKes 0 throws TypeError");
 
   section("catalog snapshot: mail-* resolve, route to emailHosting, reserve 0 RAM");
   for (const id of Object.keys(PLANS)) {

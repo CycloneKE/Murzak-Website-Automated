@@ -37,15 +37,25 @@ function isMailPlan(serviceId) {
 
 const DOMAIN_MARKUP = 1.25;
 const DOMAIN_MIN_KES = 1200;
-const DOMAIN_ROUND_KES = 100;
+const DOMAIN_ROUND_KES = 50;
 
 /**
  * Retail KES price for a new domain registration: Hostinger's wholesale USD
  * price (in cents) converted at usdToKes, plus 25%, rounded UP to the next
- * KES 100, with a KES 1200 floor. Pure; callers read the live wholesale price.
+ * KES 50, with a KES 1200 floor. Pure; callers read the live wholesale price.
+ *
+ * Throws TypeError on non-finite or negative wholesaleUsdCents, and on a
+ * usdToKes that is non-finite or not positive. Coercing bad input to 0 would
+ * silently quote the KES 1200 floor when a Hostinger price lookup fails.
  */
 function domainPriceKes(wholesaleUsdCents, usdToKes) {
-  const kesCents = (Number(wholesaleUsdCents) || 0) * (Number(usdToKes) || 0);
+  if (typeof wholesaleUsdCents !== "number" || !Number.isFinite(wholesaleUsdCents) || wholesaleUsdCents < 0) {
+    throw new TypeError(`domainPriceKes: wholesaleUsdCents must be a finite number >= 0 (got ${String(wholesaleUsdCents)})`);
+  }
+  if (typeof usdToKes !== "number" || !Number.isFinite(usdToKes) || usdToKes <= 0) {
+    throw new TypeError(`domainPriceKes: usdToKes must be a finite number > 0 (got ${String(usdToKes)})`);
+  }
+  const kesCents = wholesaleUsdCents * usdToKes;
   const raw = (kesCents * DOMAIN_MARKUP) / 100;
   const rounded = Math.ceil(raw / DOMAIN_ROUND_KES) * DOMAIN_ROUND_KES;
   return Math.max(DOMAIN_MIN_KES, rounded);
