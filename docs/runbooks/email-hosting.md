@@ -35,8 +35,10 @@ payment the system builds everything, then tells the customer by email.
    by orders that arrive together), run one DNS check.
 4. **Go-live sweep** (`backend/services/email/mailLiveSweep.js`, every
    `MAIL_LIVE_SWEEP_MS`). When the customer's DNS records resolve and
-   `https://webmail.<domain>` answers, the order becomes `live` and ONE hand-over
-   email goes out. The email never contains a password.
+   `https://webmail.<domain>` answers, the order becomes `live` and a hand-over
+   email goes out. It is sent once in normal running; if the server crashes between
+   sending it and recording that it was sent, the next sweep can send it a second
+   time. The email never contains a password.
 5. **Status page** (`/mail/status/<token>`, no login). The customer sets each
    mailbox's first password, adds the phone/Outlook setup (QR code), and later
    resets passwords or adds mailboxes using a 6-digit code emailed to the
@@ -56,13 +58,13 @@ commented block for them). Secrets are marked; never commit real values.
 | `STALWART_AUTH` | `bearer` or `basic` | `bearer` | No | No |
 | `STALWART_API_USER` | User name when `STALWART_AUTH=basic` | none | Only for basic | No |
 | `STALWART_DNS_SERVER_ID` | Id of the DNS server object new domains attach to | none | Yes (live). Without it the whole client reports "not configured", including read-only calls | No |
-| `STALWART_MOCK` | `1` = in-memory fake Stalwart (tests, local dev) | off | Never in production | No |
+| `STALWART_MOCK` | `1` = in-memory fake Stalwart (tests, local dev). Refused when `NODE_ENV=production`: the client reports it as not configured | off | Never in production | No |
 | `MAIL_HOST` | Public mail host: the MX target and the IMAP/SMTP name. Its registrable domain is also refused as a customer domain | none | Yes. Provisioning fails permanently without it | No |
 | `WEBMAIL_TARGET` | Where each `webmail.<domain>` CNAME points | `webmail.cloud.murzaktech.tech` | No | No |
 | `MAIL_LINK_SECRET` | Signs the no-login status links and confirmation codes (30-day links) | none | Yes. Without it links and codes cannot be made | **Yes** |
 | `APP_BASE_URL` | Public site URL used to build the status link in emails | none | Yes. Without it emailed links are relative | No |
 | `SUPPORT_EMAIL` | Support address shown in the hand-over email | falls back to `SMTP_FROM_EMAIL` | No | No |
-| `MAIL_LIVE_SWEEP_MS` | Go-live sweep interval in ms (minimum 30000). `0` disables | **120000 (ON when unset)** | No | No |
+| `MAIL_LIVE_SWEEP_MS` | Go-live sweep interval in ms (minimum 30000). `0` disables. A non-numeric value silently disables it | **120000 (ON when unset)** | No | No |
 | `BULWARK_SERVICE_UUID` | Coolify service uuid of the Bulwark webmail | none | Yes. Branding fails without it | No |
 | `BULWARK_APP_UUID` | Coolify application uuid inside that service; selects the address-list PATCH form | none | No (live-verify which form works) | No |
 | `BULWARK_MERGE_MS` | Window in which orders share one Bulwark restart | `20000` | No | No |
@@ -97,6 +99,9 @@ placeholder), `BACKUP_DEST` (required), `BACKUP_RETENTION_DAYS` (14),
 
 ### BEFORE ENABLING
 
+- [ ] **FIRST: `MAIL_LIVE_SWEEP_MS` is ON by default (120000) when the variable is
+      missing.** Set `MAIL_LIVE_SWEEP_MS=0` in the production env now, and only remove
+      it (or set `120000`) after the live dry run below has passed.
 - [ ] **Stalwart is 0.16 or newer.** Management is JMAP (`POST /jmap`, `x:Domain`,
       `x:Account`). On an older Stalwart, `API_SHAPES` in
       `backend/services/email/stalwartClient.js` needs a REST adapter first.
@@ -158,10 +163,27 @@ and self-made samples, not from the real servers.
       a phone from the status page.
 - [ ] A hand-over email arrives once, a first password can be set, and a reset
       needs the emailed code (try the phone, not only the desktop).
+- [ ] **Mock Frappe ignores list filters.** The tests cannot prove that the real
+      Frappe filters (`config_json like %"mailSetup"%`, `invoice_doc_name = ...`,
+      Provisioning Job by account/service/status) return only the right rows. Check
+      the job lookup, the taken-domain check and the renewal no-op against the live
+      doctype during the dry run.
+- [ ] **Renewal**: let a renewal invoice for the throwaway mail plan run once (or
+      replay one) and confirm its job ends `active` with the same `external_ref`, no
+      ticket, and the portal mailbox list still opens.
+- [ ] **`DOMAIN_BRANDING_APPLIED`**: the code writes this extra Coolify env key on the
+      Bulwark service (a hash of what is running). Confirm Coolify accepts it and
+      Bulwark ignores it.
+- [ ] **CR/LF in a business name** is not stripped before the email subject
+      (nodemailer folds header lines). Try a name with a line break and check the
+      hand-over email.
+- [ ] **Hand-over test message**: the production test message is sent to the
+      customer's own main mailbox through the normal mailer, not through Stalwart's
+      SMTP. Decide that this is acceptable.
 - [ ] **Clean up**: delete the test domain and mailboxes in Stalwart, remove the
       test client from Bulwark's `DOMAIN_BRANDING`, and cancel the test order.
 
-### VPS (steps in `deploy/vps/README.md`, section "Stalwart mail")
+### VPS (steps in `deploy/vps/README.md`, section "Stalwart mail: capacity, backups and sending safety")
 
 - [ ] Confirm the real `STALWART_DATA_DIR` (the `/var/lib/stalwart` default is a
       placeholder).
@@ -196,6 +218,8 @@ and self-made samples, not from the real servers.
 - **Domain uniqueness is check-then-write**, not atomic. Two simultaneous orders
   for the same domain can both pass the order form; the provisioning step then
   refuses the second one permanently (tested), but both customers may have paid.
+  An order form that has no invoice yet does not hold its domain against other
+  accounts (only an invoiced or paid order does), which widens that window.
 - **The webmail address list never shrinks automatically.** Removing a client from
   Bulwark is a manual edit in Coolify (see section 4).
 - **Backup prune glob** `stalwart-*.tar.gz` is not anchored to the stamp format; a
@@ -205,6 +229,43 @@ and self-made samples, not from the real servers.
 - The mail sweeps (`listOrdersByMailState`, taken-domain check, capacity) read
   **every Checkout Order** each pass. Fine at small scale; revisit past a few
   thousand orders.
+- **`STALWART_DNS_SERVER_ID` is required even for read-only calls** (the client
+  reports "not configured" without it). Decision: kept.
+- **`logoUrl` accepts any https host.** Restrict it (allow-list or fetch through a
+  proxy) before any server-side code fetches the image.
+- **Orders that reach `provisioned` with no stored DNS records** now raise one staff
+  ticket (marker `staffTicketAt`) instead of an error on every pass.
+- **A failing mail sender logs a warning on every sweep** until it works again.
+- **Rollback after an ambiguous provider failure** can reopen a free first password
+  set for a mailbox (the status link already grants a first set without a code).
+- **Sweep writes are not under the order lock across processes**: the per-order locks
+  are in-process only, so a second backend instance could still overwrite a write.
+- **Existing `BACKUP_DEST` permissions are not tightened**; only new directories and
+  files are created 0700/0600.
+- **Unexpired unpaid Drafts count toward the disk capacity gate** (conservative).
+- **Status routes return 404, not 401,** for every bad, expired or unknown token.
+- **Google Analytics caveat**: client-side navigation INTO a status path could send an
+  enhanced-measurement hit before analytics is disabled; the emailed link is a cold
+  load and is covered. Verify with DebugView.
+- **Dialog accessibility deferrals**: the password/code countdown is not announced,
+  tabs lack arrow-key navigation, a backdrop click closes the dialog and loses input,
+  and a failed save keeps the typed password/code in the form.
+- **`mail-business` and `mail-pro` are hidden from the Starter configurator** by the
+  `mailPlan` flag, and since this wave the generic paid routes also refuse any `mail-*`
+  plan server-side (`MAIL_PLAN_SETUP_REQUIRED`). Mail plans are bought only from the
+  email setup page.
+- **No consent checkbox or consent timestamp** on the order form. The design asked
+  for one. NOT built.
+- **Renewals, grace periods and suspension for non-payment are NOT built.** A renewal
+  invoice for a mail plan is accepted as a no-op; a customer who stops paying keeps
+  their mailboxes indefinitely until staff act.
+- **No refund and no "domain taken" buttons**; both are manual staff work.
+- **The only runtime test switch is `STALWART_MOCK`.** There is no fake registrar, so
+  new-domain flows cannot be rehearsed end to end without real purchases.
+- **An account with two mail orders on the same plan can manage only one** in the
+  portal (the portal looks up the mail job by account and plan).
+- **Wrong confirmation codes**: 20 per order per 24 hours, then no code is checked or
+  sent until the window passes (customer sees "too many incorrect codes").
 - Smaller items: the portal "add mailbox" helper text still mentions underscores
   (the strict rule bans them); `makeSendMailReadyEmail` in `mailLiveSweep.js` is
   dead code; `frontend/scripts/qr.check.mjs` and `safeUrl.check.mjs` are not in CI;
@@ -252,13 +313,20 @@ for own domains. Check `https://webmail.<domain>` answers over https.
    list) in Coolify by hand and set the order's `mailSetup.state` to something
    else. This path has not been exercised live.
 
+**Domain dispute.** Own-domain ownership is NOT verified before payment. Someone who
+pays first for a domain they do not own can block the real owner (the real owner's
+order is refused as "already in use", and Stalwart refuses the clash). To resolve:
+confirm the real owner (registrar record or DNS control), cancel the other order,
+refund by hand, delete that Stalwart domain and its mailboxes (and its Bulwark
+branding entry, see above), then Retry the real owner's job.
+
 **Emails not arriving.** Check `SMTP_*`. If `sendMailCodeEmail` fails the route
 answers an error and does not claim the code was sent. A failed hand-over email is
 retried on the next sweep.
 
 ---
 
-## 5. Merge note (read before merging this branch)
+## 5. Merge note (read before merging this branch; written 2026-11-01)
 
 This branch creates `frontend/src/pages/cloud/CloudEmail.tsx` as a **new file** and
 adds **no route** for it. The owner's main checkout has an **uncommitted,
@@ -266,7 +334,8 @@ different** `CloudEmail.tsx` and a `/cloud/email` route. So merging needs a manu
 reconcile of `CloudEmail.tsx` and `App.tsx`. Do not let git pick a side.
 
 Files likely to conflict (from `git diff --stat origin/master...HEAD` on this
-branch, compared with `git status` in the main checkout on 2026-11-01):
+branch, compared with `git status` in the main checkout on 2026-11-01; both sides may
+have moved since, so rerun both commands before merging):
 
 - `frontend/src/pages/cloud/CloudEmail.tsx` - new here, untracked and different in
   the main checkout. Pick the better page, keep the catalog-driven prices and the
