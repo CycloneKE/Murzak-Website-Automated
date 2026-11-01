@@ -37,15 +37,22 @@
 
 const hostingerMail = require("../../hostingerMail");
 const customerDomains = require("../../customerDomains");
+const stalwartClient = require("../../email/stalwartClient");
+const stalwartProvision = require("../../email/stalwartProvision");
+const { isMailPlan } = require("../../../config/emailPlans");
 
 const lane = "emailHosting";
 
+// The lane is available when either provider is configured. Which one a job
+// uses is decided per job in provision().
 function isConfigured() {
-  return hostingerMail.isConfigured();
+  return hostingerMail.isConfigured() || stalwartClient.isConfigured();
 }
 
 function configError() {
-  return hostingerMail.configError();
+  if (isConfigured()) return null;
+  const parts = [hostingerMail.configError(), stalwartClient.configError()].filter(Boolean);
+  return parts.join("; ") || null;
 }
 
 function permanent(message) {
@@ -115,6 +122,9 @@ async function purchaseHint() {
  * one condition under which mailboxes can actually be created.
  */
 async function provision(job, opts = {}) {
+  if (isMailPlan(job && job.service_id) && stalwartClient.isConfigured()) {
+    return stalwartProvision.provision(job, opts);
+  }
   const client = opts.client;
   if (!client) {
     // The runner owns the Frappe client; without it we cannot resolve the

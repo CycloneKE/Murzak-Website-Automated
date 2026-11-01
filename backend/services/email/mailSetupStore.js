@@ -231,6 +231,13 @@ async function updateMailSetup(client, orderName, mutate) {
   });
 }
 
+/** Merge plain fields into the stored setup (e.g. the DNS record list). Repeating the same patch leaves the same result. */
+async function mergeMailSetup(client, orderName, patch) {
+  await updateMailSetup(client, orderName, (setup) => {
+    Object.assign(setup, patch);
+  });
+}
+
 /** Record one stage's progress. Repeating the same write leaves the same result. */
 async function setProgress(client, orderName, stage, state) {
   if (!PROGRESS_STAGES.includes(stage)) throw coded("bad_progress_stage", `Unknown progress stage: ${stage}`, 400);
@@ -293,6 +300,7 @@ module.exports = {
   checkMailSetupInput,
   getMailSetup,
   listTakenMailDomains,
+  mergeMailSetup,
   saveMailSetup,
   setMailState,
   setProgress,

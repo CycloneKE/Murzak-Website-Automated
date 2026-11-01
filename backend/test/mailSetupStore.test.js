@@ -24,6 +24,7 @@ const {
   getMailSetup,
   setProgress,
   setMailState,
+  mergeMailSetup,
   listTakenMailDomains,
   waitForDomain,
 } = require("../services/email/mailSetupStore");
@@ -253,6 +254,20 @@ async function rejects(promise) {
     ok(live && live.errors && live.errors.domain, "another account's live order still blocks the domain");
     const own = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "mine.com" }));
     ok(own === null, "the requesting account's own live order never blocks its retry");
+  }
+
+  section("mergeMailSetup merges fields and keeps the rest");
+  {
+    const client = makeMockFrappe(orderSeed({ "CHK-1": { config_json: JSON.stringify({ shopProgress: { signedIn: true }, mailSetup: { state: "paid", domain: "a.com", progress: { dns: "pending" } } }) } }));
+    const recs = [{ type: "MX", name: "@", value: "mail.x.com", priority: 10 }];
+    await mergeMailSetup(client, "CHK-1", { dnsRecords: recs });
+    await mergeMailSetup(client, "CHK-1", { dnsRecords: recs });
+    const cfg = configOf(client, "CHK-1");
+    ok(JSON.stringify(cfg.mailSetup.dnsRecords) === JSON.stringify(recs), "records stored (idempotent)");
+    ok(cfg.mailSetup.state === "paid" && cfg.mailSetup.domain === "a.com", "other setup fields kept");
+    ok(cfg.shopProgress && cfg.shopProgress.signedIn === true, "other config keys kept");
+    const e = await rejects(mergeMailSetup(client, "CHK-2b", { x: 1 }));
+    ok(e !== null, "unknown order rejected");
   }
 })().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`);

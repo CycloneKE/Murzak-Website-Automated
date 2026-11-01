@@ -51,7 +51,7 @@ const API_SHAPES = Object.freeze({
   domainGet: {
     method: "x:Domain/get",
     args: () => ({ ids: null }),
-    parse: (r) => arr(r.list).map((d) => ({ id: d.id, name: d.name })),
+    parse: (r) => arr(r.list).map((d) => ({ id: d.id, name: d.name, description: d.description })),
   },
   // UNVERIFIED-LIVE
   domainCreate: {
@@ -253,12 +253,12 @@ function createStalwartClient(opts = {}) {
     async ensureDomain({ name, description, dnsServerId: dns }) {
       const want = String(name).toLowerCase();
       const existing = (await live.listDomains()).find((d) => String(d.name).toLowerCase() === want);
-      if (existing) return { id: existing.id, created: false };
+      if (existing) return { id: existing.id, created: false, description: existing.description };
       const s = API_SHAPES.domainCreate;
       const r = s.parse(await jmap(s.method, s.args({ name: want, description, dnsServerId: dns || dnsServerId })));
       if (!r.conflict) return { id: r.id, created: true };
       const again = (await live.listDomains()).find((d) => String(d.name).toLowerCase() === want);
-      if (again) return { id: again.id, created: false };
+      if (again) return { id: again.id, created: false, description: again.description };
       throw new Error("Stalwart domain conflicts but cannot be found");
     },
     async listAccounts(domainId) {
@@ -310,11 +310,11 @@ function createStalwartClient(opts = {}) {
   const accounts = new Map(); // id -> { id, address, domainId, localPart, quotaBytes, outboundPerHour, passwordSet }
   let seq = 0;
   const mockStore = {
-    async ensureDomain({ name }) {
+    async ensureDomain({ name, description }) {
       const want = String(name).toLowerCase();
-      for (const d of domains.values()) if (d.name === want) return { id: d.id, created: false };
+      for (const d of domains.values()) if (d.name === want) return { id: d.id, created: false, description: d.description };
       const id = `mock-domain-${++seq}`;
-      domains.set(id, { id, name: want });
+      domains.set(id, { id, name: want, description });
       return { id, created: true };
     },
     async findDomain(name) {
