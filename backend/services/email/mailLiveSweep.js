@@ -16,6 +16,7 @@
 const dns = require("dns");
 const mailDns = require("./mailDns");
 const store = require("./mailSetupStore");
+const mailAccess = require("./mailAccess");
 const { WEB_ACCOUNT_DOCTYPE } = require("../provisioning/constants");
 
 const HANDOVER_WAIT_MS = 72 * 3600 * 1000;
@@ -132,11 +133,6 @@ async function defaultRaiseStaffTicket(client, { orderName, reason, webAccount, 
   });
 }
 
-function defaultStatusUrlFor() {
-  const base = String(process.env.APP_BASE_URL || "").replace(/\/+$/, "");
-  return `${base}/mail/status`;
-}
-
 /**
  * One sweep over the Stalwart setups. Each order is handled on its own: a throw
  * is counted as `errored` and the sweep moves on.
@@ -160,7 +156,7 @@ async function runMailLiveSweep(client, deps = {}) {
   const sendTestMessage = deps.sendTestMessage || defaultSendTestMessage;
   const sendMailReadyEmail = deps.sendMailReadyEmail;
   const raiseStaffTicket = deps.raiseStaffTicket || defaultRaiseStaffTicket;
-  const statusUrlFor = deps.statusUrlFor || defaultStatusUrlFor;
+  const statusUrlFor = deps.statusUrlFor || mailAccess.statusUrlFor;
   const supportContact = deps.supportContact != null ? deps.supportContact : process.env.SUPPORT_EMAIL || "";
   const log = deps.log || console;
   const result = { checked: 0, wentLive: 0, stillWaiting: 0, errored: 0 };

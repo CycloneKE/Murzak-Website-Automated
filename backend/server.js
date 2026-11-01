@@ -3524,6 +3524,7 @@ app.use(require('./routes/internalRoutes')(routeContext));
 app.use(require('./routes/hostingRoutes')(routeContext));
 app.use(require('./routes/billingRoutes')(routeContext));
 app.use(require('./routes/ordersRoutes')(routeContext));
+app.use(require('./routes/mailRoutes')(routeContext));
 app.use("/api/apps/", appAddressLimiter);
 app.use(require('./routes/appsRoutes')(routeContext));
 app.use(require('./routes/marketplaceRoutes')(routeContext));

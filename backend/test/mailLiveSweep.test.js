@@ -317,6 +317,21 @@ function makeDeps(over = {}) {
     ok(r.checked === 2, "both orders were examined");
   }
 
+  section("default statusUrlFor is the signed magic link");
+  {
+    const mailAccess = require("../services/email/mailAccess");
+    process.env.MAIL_LINK_SECRET = "sweep-test-secret";
+    process.env.APP_BASE_URL = "https://portal.example/";
+    const client = makeMockFrappe({ "Checkout Order": { "CHK-1": orderRow("CHK-1") } });
+    const { deps, calls } = makeDeps();
+    delete deps.statusUrlFor;
+    await runMailLiveSweep(client, deps);
+    const url = calls.email[0] && calls.email[0].statusUrl;
+    ok(typeof url === "string" && url.startsWith("https://portal.example/mail/status/"), "default URL is APP_BASE_URL/mail/status/<token>");
+    const v = mailAccess.verifyOrderToken(String(url).split("/mail/status/")[1]);
+    ok(v.ok && v.orderName === "CHK-1", "the token in the URL verifies back to the order");
+  }
+
   section("renderMailReadyEmail escapes the business name");
   {
     const m = renderMailReadyEmail({
