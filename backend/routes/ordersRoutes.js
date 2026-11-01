@@ -26,6 +26,9 @@ const isAppService = require("../services/apps/appOrder").isAppService;
 const tenantSlugs = require("../services/apps/tenantSlugStore");
 const suggestSlugs = require("../services/apps/shopAddress").suggestSlugs;
 const shopSetup = require("../services/apps/shopSetup");
+// Plain-assignment requires (same static-wiring-check rationale as above).
+const isMailPlan = require("../config/emailPlans").isMailPlan;
+const mailSetupStore = require("../services/email/mailSetupStore");
 const setCompanions = require("../services/checkout/orderStore").setCompanions;
 const reservedDraftRamMb = require("../services/checkout/orderStore").reservedDraftRamMb;
 const capacity = require("../services/provisioning/capacity");
@@ -134,6 +137,19 @@ module.exports = function (ctx) {
 
       const client = frappeClient();
 
+      // Mail plans: the owner's mailSetup is checked before any capacity is
+      // reserved, then saved on the order once it exists (below). Non-mail
+      // orders skip this entirely.
+      let mailInput = null;
+      if (isMailPlan(serviceId)) {
+        const taken = await mailSetupStore.listTakenMailDomains(client);
+        const checked = mailSetupStore.checkMailSetupInput(req.body.mailSetup, taken, { planId: serviceId });
+        if (!checked.ok) {
+          return res.status(400).json({ error: "Please fix the highlighted fields.", errors: checked.errors });
+        }
+        mailInput = req.body.mailSetup;
+      }
+
       // App orders (Murzak POS tiers): validate the shop address and enforce
       // one live shop per app before reserving anything.
       let app = null;
@@ -173,8 +189,11 @@ module.exports = function (ctx) {
       // whether prepare-payment reserves/links a Tenant Slug. They are set only
       // from validateAppOrder's result (app tiers); whatever the client sent under
       // those names is dropped first, so a non-app order can never carry them.
-      const { app: _clientApp, slug: _clientSlug, shopName: _clientShopName, bundle: _clientBundle, ...clientConfig } =
-        config && typeof config === "object" ? config : {};
+      // mailSetup is reserved the same way: it is only written by saveMailSetup.
+      const {
+        app: _clientApp, slug: _clientSlug, shopName: _clientShopName, bundle: _clientBundle,
+        mailSetup: _clientMailSetup, ...clientConfig
+      } = config && typeof config === "object" ? config : {};
       const storedConfig = {
         ...clientConfig,
         billingTerm: normalizedTerm,
@@ -198,6 +217,18 @@ module.exports = function (ctx) {
         nowMs,
         ...(companions && companions.length ? { companions } : {}),
       });
+
+      if (mailInput) {
+        try {
+          await mailSetupStore.saveMailSetup(client, order.id, mailInput);
+        } catch (e) {
+          // Lost a race for the domain after the order was minted: release its
+          // reservation so a failed attempt holds nothing.
+          await cancelOrder({ client, webAccountName, orderId: order.id }).catch(() => {});
+          if (e.errors) return res.status(400).json({ error: e.message, errors: e.errors });
+          throw e;
+        }
+      }
 
       if (app) {
         try {
