@@ -1,0 +1,6 @@
+{
+  "id": "a7m3",
+  "name": "info",
+  "domainId": "g4f2",
+  "quotas": { "maxDiskQuota": 5368709120 }
+}

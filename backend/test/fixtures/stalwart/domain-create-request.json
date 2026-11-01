@@ -1,0 +1,6 @@
+{
+  "name": "example.co.ke",
+  "description": "Example Ltd mail domain",
+  "dkimManagement": { "@type": "Automatic" },
+  "dnsManagement": { "@type": "Automatic", "dnsServerId": "srv-1" }
+}

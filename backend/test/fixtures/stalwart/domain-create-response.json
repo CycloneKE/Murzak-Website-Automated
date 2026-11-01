@@ -1,0 +1,6 @@
+{
+  "id": "g4f2",
+  "name": "example.co.ke",
+  "dkimManagement": { "@type": "Automatic" },
+  "dnsManagement": { "@type": "Automatic", "dnsServerId": "srv-1" }
+}

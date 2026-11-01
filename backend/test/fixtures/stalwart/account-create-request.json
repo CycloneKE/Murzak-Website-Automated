@@ -1,0 +1,9 @@
+{
+  "@type": "Individual",
+  "name": "info",
+  "domainId": "g4f2",
+  "credentials": {
+    "0": { "@type": "Password", "secret": "<REDACTED-24+CHAR-RANDOM>" }
+  },
+  "quotas": { "maxDiskQuota": 5368709120 }
+}

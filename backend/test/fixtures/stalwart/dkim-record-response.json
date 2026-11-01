@@ -1,0 +1,5 @@
+{
+  "name": "default._domainkey.example.co.ke",
+  "type": "TXT",
+  "value": "v=DKIM1; k=ed25519; p=REDACTED-PUBLIC-KEY"
+}
