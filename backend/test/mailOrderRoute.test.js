@@ -21,6 +21,7 @@ const { makeMockFrappe } = require("./helpers/mockFrappe");
 const { createOrder, getOrder, cancelOrder, linkInvoice } = require("../services/checkout/orderStore");
 const { assertOrderWithinCapacity } = require("../services/orderCapacity");
 const { sumSelectedServicesMonthlyKes } = require("../services/provisioning/catalog");
+const mailSetupStore = require("../services/email/mailSetupStore");
 process.env.BUNDLES_ENABLED = "true";
 
 function makeRes() {
@@ -164,6 +165,44 @@ function orderRows(client) {
     const rows = orderRows(client);
     const cfg = rows[0] ? JSON.parse(rows[0].config_json) : {};
     ok(cfg.mailSetup === undefined, "a mailSetup injected into a non-mail order is dropped");
+  }
+  // Make saveMailSetup fail for the duration of fn, as a 409 would.
+  async function withSaveFailing(fn) {
+    const real = mailSetupStore.saveMailSetup;
+    mailSetupStore.saveMailSetup = async () => {
+      throw Object.assign(new Error("Your mail setup has already started and cannot be changed here."), { statusCode: 409 });
+    };
+    try { return await fn(); } finally { mailSetupStore.saveMailSetup = real; }
+  }
+
+  section("save failure cancels an order this request created");
+  {
+    const client = makeMockFrappe();
+    const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
+    await withSaveFailing(async () => {
+      const res = makeRes();
+      await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL } }, res);
+      ok(res.statusCode === 409, "the save failure is returned to the caller");
+      const rows = orderRows(client);
+      ok(rows.length === 1 && rows[0].status === "Cancelled", "the order this request created is cancelled");
+    });
+  }
+
+  section("save failure on a deduplicated pre-existing draft leaves that draft alone");
+  {
+    const client = makeMockFrappe();
+    const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
+    const first = makeRes();
+    await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL } }, first);
+    ok(first.statusCode === 200, "the first mail order is created");
+    await withSaveFailing(async () => {
+      const res = makeRes();
+      await handler({ session: { webAccount: "WA-1" }, body: { serviceId: "mail-starter", config: {}, mailSetup: MAIL } }, res);
+      ok(res.statusCode === 409, "the repeat request returns the save failure");
+      const rows = orderRows(client);
+      ok(rows.length === 1, "the repeat request reused the existing draft (no second order)");
+      ok(rows.length === 1 && rows[0].status === "Draft", "the pre-existing draft is NOT cancelled");
+    });
   }
 })().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`);

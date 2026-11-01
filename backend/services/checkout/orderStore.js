@@ -190,10 +190,27 @@ async function reservedDraftRamMb(client, nowMs) {
  * exactly at creation and is the only case this dedup check needs to catch
  * (a heartbeat-renewed order is already past the short rapid-click window).
  */
+// A mail order's mailSetup is written onto config_json AFTER creation
+// (services/email/mailSetupStore.js), so a stored Draft carries a key the
+// incoming request does not. Compare without it, or a double-click after the
+// first save would miss the dedup and reserve RAM twice.
+function configWithoutMailSetup(json) {
+  try {
+    const c = JSON.parse(json || "{}");
+    if (c && typeof c === "object" && !Array.isArray(c) && "mailSetup" in c) {
+      delete c.mailSetup;
+      return JSON.stringify(c);
+    }
+  } catch {
+    // Not JSON: compare as stored.
+  }
+  return json;
+}
+
 function findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs }) {
   return rows.find((r) => {
     if (r.status !== "Draft" || r.web_account !== webAccountName) return false;
-    if (r.service_id !== serviceId || r.config_json !== configJson) return false;
+    if (r.service_id !== serviceId || configWithoutMailSetup(r.config_json) !== configJson) return false;
     const expiresAt = parseMysqlDatetime(r.reservation_expires_at);
     if (expiresAt <= nowMs) return false;
     const createdAt = expiresAt - RESERVATION_TTL_MS;
@@ -288,7 +305,13 @@ async function createOrder({
     const rows = await listDraftRows(client);
 
     const dup = findRecentDuplicateDraft(rows, { webAccountName, serviceId, configJson, nowMs });
-    if (dup) return toApiOrder(dup);
+    if (dup) {
+      // Non-enumerable, so it never reaches the JSON response. Lets a caller
+      // tell it was handed an existing Draft, which it must not cancel.
+      const reused = toApiOrder(dup);
+      Object.defineProperty(reused, "reusedExisting", { value: true, enumerable: false });
+      return reused;
+    }
 
     // What this order actually costs the shared box, not what the catalogue
     // advertises as the product spec. getReservedRamMb (provisioningService.js)

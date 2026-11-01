@@ -142,7 +142,7 @@ module.exports = function (ctx) {
       // orders skip this entirely.
       let mailInput = null;
       if (isMailPlan(serviceId)) {
-        const taken = await mailSetupStore.listTakenMailDomains(client);
+        const taken = await mailSetupStore.listTakenMailDomains(client, { webAccount: webAccountName, nowMs: Date.now() });
         const checked = mailSetupStore.checkMailSetupInput(req.body.mailSetup, taken, { planId: serviceId });
         if (!checked.ok) {
           return res.status(400).json({ error: "Please fix the highlighted fields.", errors: checked.errors });
@@ -222,9 +222,10 @@ module.exports = function (ctx) {
         try {
           await mailSetupStore.saveMailSetup(client, order.id, mailInput);
         } catch (e) {
-          // Lost a race for the domain after the order was minted: release its
-          // reservation so a failed attempt holds nothing.
-          await cancelOrder({ client, webAccountName, orderId: order.id }).catch(() => {});
+          // Release the reservation of an order THIS request created, so a
+          // failed attempt holds nothing. A reused pre-existing Draft is left
+          // alone: this request did not create it.
+          if (!order.reusedExisting) await cancelOrder({ client, webAccountName, orderId: order.id }).catch(() => {});
           if (e.errors) return res.status(400).json({ error: e.message, errors: e.errors });
           throw e;
         }

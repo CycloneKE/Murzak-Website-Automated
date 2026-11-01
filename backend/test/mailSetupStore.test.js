@@ -28,6 +28,9 @@ const {
   waitForDomain,
 } = require("../services/email/mailSetupStore");
 
+const LIVE = "2099-01-01 00:00:00";
+const EXPIRED = "2000-01-01 00:00:00";
+
 const VALID = Object.freeze({
   planId: "mail-starter",
   domainMode: "new",
@@ -43,6 +46,8 @@ function orderSeed(overrides = {}) {
       "CHK-1": {
         name: "CHK-1",
         web_account: "WA-1",
+        status: "Draft",
+        reservation_expires_at: LIVE,
         invoice_doc_name: "PINV-1",
         config_json: JSON.stringify({ shopProgress: { signedIn: true, products: 4 }, welcomeEmail: { state: "sent" } }),
         ...(overrides["CHK-1"] || {}),
@@ -50,6 +55,8 @@ function orderSeed(overrides = {}) {
       "CHK-2": {
         name: "CHK-2",
         web_account: "WA-2",
+        status: "Draft",
+        reservation_expires_at: LIVE,
         invoice_doc_name: "PINV-2",
         config_json: JSON.stringify({
           mailSetup: { state: "awaiting_payment", domain: "other.co.uk", planId: "mail-business" },
@@ -206,6 +213,46 @@ async function rejects(promise) {
     ok(k && k.permanent === true && /register/i.test(k.message), ".co.ke is permanent: staff must register it by hand");
     const ke = await rejects(waitForDomain(makeMockFrappe({}), { webAccount: "WA-1", domain: "acme.ke", domainMode: "new" }));
     ok(ke && ke.permanent === true, ".ke is permanent");
+
+    const coActive = await rejects(waitForDomain(makeMockFrappe(row("active", "acme.co.ke")), { webAccount: "WA-1", domain: "acme.co.ke", domainMode: "new" }));
+    ok(coActive === null, "an active .co.ke row (staff registered it, then activated it) resolves on requeue");
+    const keActive = await rejects(waitForDomain(makeMockFrappe(row("active", "acme.ke")), { webAccount: "WA-1", domain: "acme.ke", domainMode: "new" }));
+    ok(keActive === null, "an active .ke row resolves too");
+  }
+  section("paid or closed orders cannot change their mail setup");
+  {
+    const client = makeMockFrappe(orderSeed({ "CHK-1": { status: "Paid" } }));
+    const before = client.store["Checkout Order"]["CHK-1"].config_json;
+    const e = await rejects(saveMailSetup(client, "CHK-1", VALID));
+    ok(e && e.statusCode === 409, "a Paid order refuses a mail setup (409)");
+    ok(client.store["Checkout Order"]["CHK-1"].config_json === before && configOf(client, "CHK-1").mailSetup === undefined, "a refused Paid order's config is untouched");
+
+    const inv = makeMockFrappe({ ...orderSeed(), "Portal Invoice": { "PINV-1": { name: "PINV-1", status: "Paid" } } });
+    const e2 = await rejects(saveMailSetup(inv, "CHK-1", VALID));
+    ok(e2 && e2.statusCode === 409, "a Draft whose linked invoice is already paid is refused (409)");
+    ok(configOf(inv, "CHK-1").mailSetup === undefined, "and its mailSetup is not written");
+  }
+
+  section("who holds a domain: live orders of other accounts only");
+  {
+    const holdSeed = () => makeMockFrappe({
+      "Checkout Order": {
+        "CHK-1": { name: "CHK-1", web_account: "WA-1", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "mine.com", state: "awaiting_payment" } }) },
+        "CHK-3": { name: "CHK-3", web_account: "WA-1", status: "Draft", reservation_expires_at: EXPIRED, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "retry.com", state: "awaiting_payment" } }) },
+        "CHK-4": { name: "CHK-4", web_account: "WA-3", status: "Cancelled", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "free.com", state: "awaiting_payment" } }) },
+        "CHK-5": { name: "CHK-5", web_account: "WA-2", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: JSON.stringify({ mailSetup: { domain: "live.com", state: "awaiting_payment" } }) },
+        "CHK-8": { name: "CHK-8", web_account: "WA-1", status: "Draft", reservation_expires_at: LIVE, invoice_doc_name: "", config_json: "{}" },
+      },
+    });
+
+    const retry = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "retry.com" }));
+    ok(retry === null, "same account retries after an abandoned (expired) Draft with the same domain");
+    const free = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "free.com" }));
+    ok(free === null, "a Cancelled order's domain is free again");
+    const live = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "live.com" }));
+    ok(live && live.errors && live.errors.domain, "another account's live order still blocks the domain");
+    const own = await rejects(saveMailSetup(holdSeed(), "CHK-8", { ...VALID, domain: "mine.com" }));
+    ok(own === null, "the requesting account's own live order never blocks its retry");
   }
 })().then(() => {
   console.log(`\n${passed} passed, ${failed} failed`);
