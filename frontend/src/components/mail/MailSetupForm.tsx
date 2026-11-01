@@ -126,8 +126,8 @@ const MailSetupForm: React.FC<Props> = ({ user, onUserUpdate, initialPlanId = "m
   }, [domainInput]);
 
   const domain = (MAIL_NEW_DOMAIN_ENABLED && (outcome.kind === "new" || outcome.kind === "ke")) || outcome.kind === "own" ? outcome.domain : "";
-  // "new" is only ever sent when new-domain orders are enabled (outcome is then new/ke).
-  const domainMode: "new" | "own" = outcome.kind === "own" ? "own" : "new";
+  // "new" is only ever sent when new-domain orders are enabled.
+  const domainMode: "new" | "own" = MAIL_NEW_DOMAIN_ENABLED ? (outcome.kind === "own" ? "own" : "new") : "own";
   const domainPriceKes = MAIL_NEW_DOMAIN_ENABLED && (outcome.kind === "new" || outcome.kind === "ke") ? outcome.priceKes : 0;
   const totalKes = planMonthly + domainPriceKes;
 

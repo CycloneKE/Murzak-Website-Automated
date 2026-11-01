@@ -114,6 +114,7 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
   const [status, setStatus] = useState<MailStatus | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [dead, setDead] = useState(false);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -146,6 +147,8 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
       if (!alive.current) return;
       // Keep showing the last good status; only surface an error if there is none.
       setError(e instanceof MailError ? e.message : "We couldn't load your email setup. Please try again.");
+      // A bad link or signed-out session will not fix itself: stop polling.
+      if (e instanceof MailError && (e.status === 404 || e.status === 401)) setDead(true);
     } finally {
       if (alive.current) setLoading(false);
     }
@@ -153,12 +156,12 @@ const MailProgress: React.FC<Props> = ({ token: tokenProp, orderId }) => {
 
   const finished = status?.state === "live";
   useEffect(() => {
-    if (!token) return;
+    if (!token || dead) return;
     load(token);
     if (finished) return;
     const id = window.setInterval(() => load(token), POLL_MS);
     return () => window.clearInterval(id);
-  }, [token, load, finished]);
+  }, [token, load, finished, dead]);
 
   if (loading && !status) {
     return (

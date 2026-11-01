@@ -31,13 +31,13 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
     {
       step: '01',
       title: 'Email on your own domain',
-      desc: 'Give your team addresses like you@yourbusiness.co.ke. Use a domain you already own, or let us register a new one for you as part of the order.',
-      details: 'Domains ending in .co.ke or .ke are registered by our team within one working day.',
+      desc: 'Give your team addresses like you@yourbusiness.co.ke. Use a domain you already own. Need one? Register it first in your portal, then add email to it.',
+      details: 'After payment we show the few DNS records to add where you manage the domain, and we switch your email on once we see them.',
     },
     {
       step: '02',
       title: 'Webmail from any browser',
-      desc: 'Every mailbox comes with webmail at your own address, with a calendar and address book, so your team can start without installing anything.',
+      desc: 'Every mailbox comes with webmail at your own address, so your team can start without installing anything.',
       details: 'Your webmail address is webmail.yourdomain, for example webmail.yourbusiness.co.ke.',
     },
     {
@@ -57,11 +57,11 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
   const faqs: FaqItem[] = [
     {
       q: 'Can I use a domain I already own?',
-      a: 'Yes. Enter it when you order. After payment we show the few DNS records to add where you manage the domain, and we switch your email on as soon as we see them.',
+      a: 'Yes, that is how it works. Enter your domain when you order. After payment we show the few DNS records to add where you manage the domain, and we switch your email on as soon as we see them.',
     },
     {
-      q: 'Can you register a domain for me?',
-      a: 'Yes. If the name is available we register it as part of your order. Domains ending in .co.ke or .ke are registered by our team within one working day. Domain registrations are not refundable once made.',
+      q: "I don't have a domain yet. What do I do?",
+      a: 'Register the domain first in your Murzak portal under Domains, then come back and add email to it.',
     },
     {
       q: 'Can I use Outlook or Apple Mail?',
@@ -105,7 +105,7 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-2xl leading-relaxed">
             Stop using @gmail.com for business. Get addresses like you@yourbusiness.co.ke with spam filtering and webmail,
-            set up for you in minutes.
+            with the technical setup handled for you.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
@@ -196,7 +196,7 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-4">Set up your business email today.</h2>
           <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">
-            Pay with M-Pesa and we do the technical setup. Questions? Write to {SUPPORT_EMAIL}.
+            Pay with M-Pesa and we handle the technical setup. Questions? Write to {SUPPORT_EMAIL}.
           </p>
           <Button variant="primary" onClick={() => start()}>
             Get Business Email <ArrowRight size={17} />

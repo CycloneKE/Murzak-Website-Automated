@@ -821,7 +821,7 @@ const Checkout: React.FC<CheckoutProps> = ({ onSuccess }) => {
           invoiceDocName={invoice.docName}
           chargeKes={invoice.chargeKes}
           amountUsd={invoice.paypalAmountUsd}
-          onSuccess={(u?: any) => onSuccess(u, order.config?.mailSetup ? `/mail/order/${encodeURIComponent(order.id)}` : order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined)}
+          onSuccess={(u?: any) => { try { sessionStorage.removeItem('murzak_mpesa_prefill'); } catch { /* optional */ } onSuccess(u, order.config?.mailSetup ? `/mail/order/${encodeURIComponent(order.id)}` : order.config?.app ? `/welcome/${encodeURIComponent(order.id)}` : undefined); }}
           successContent={<p className="text-sm font-bold text-slate-500 leading-relaxed">{afterPaymentCopy}</p>}
         />
       ) : order.eligibleForTermChoice ? null : (
