@@ -13,6 +13,7 @@
 // Google".
 
 import type { FirebaseApp } from "firebase/app";
+import { redactAnalyticsPath } from "../utils/analyticsPath";
 import type { Analytics } from "firebase/analytics";
 import type { Auth } from "firebase/auth";
 
@@ -70,7 +71,8 @@ function ensureAnalytics(): void {
 }
 
 /** Log a GA4 page_view. No-op unless Analytics is configured/supported. */
-export function logPageView(path: string, title?: string): void {
+export function logPageView(rawPath: string, title?: string): void {
+  const path = redactAnalyticsPath(rawPath);
   if (!firebaseEnabled || !firebaseConfig.measurementId) return;
   if (!analytics) {
     pendingPageView = { path, title };
@@ -82,7 +84,7 @@ export function logPageView(path: string, title?: string): void {
       if (!analytics) return;
       logEvent(analytics, "page_view", {
         page_path: path,
-        page_location: typeof window !== "undefined" ? window.location.href : path,
+        page_location: typeof window !== "undefined" ? redactAnalyticsPath(window.location.href) : path,
         page_title: title || (typeof document !== "undefined" ? document.title : undefined),
       });
     })
