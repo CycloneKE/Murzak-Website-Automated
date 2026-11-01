@@ -2515,7 +2515,7 @@ app.post("/api/paypal/webhook", async (req, res) => {
 // --- REGISTER ---
 // -------------
 
-app.post("/api/plan/select-with-services", async (req, res) => {
+app.post("/api/plan/select-with-services", rejectMailPlans("selectedServices"), async (req, res) => {
   try {
     const { planName, selectedServices } = req.body;
 

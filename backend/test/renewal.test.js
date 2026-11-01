@@ -273,6 +273,16 @@ function makeSweepFrappe({ account, lastPaidInvoiceDate, lastPaidBillingTerm }) 
     ok(invoiceGetCount() === 0, "account far from due under the shortest cycle -> zero invoice-term fetches");
   }
 
+  console.log("# renewal keeps an existing mail-* service row (the mail-plan guard must not touch renewals)");
+  {
+    const rows = [{ serviceId: "mail-starter", status: "Active" }, { serviceId: "biz-web-hosting", status: "Active" }];
+    const kept = excludeDomainRegistrations(rows);
+    ok(kept.length === 2 && kept.some((r) => r.serviceId === "mail-starter"), "the mail row stays on the renewal invoice");
+    ok(sumSelectedServicesMonthlyKes(kept) > sumSelectedServicesMonthlyKes([rows[1]]), "and is billed");
+    const { normalizeSelectedServices } = require("../server");
+    ok(normalizeSelectedServices(rows).some((r) => r.serviceId === "mail-starter"), "the shared normaliser used by invoice creation still passes mail-* ids");
+  }
+
   console.log("================================================");
   console.log(`RENEWAL TESTS: ${passed} passed, ${failed} failed`);
   if (failed > 0) process.exit(1);

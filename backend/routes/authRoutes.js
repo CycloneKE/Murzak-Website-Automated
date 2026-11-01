@@ -1,5 +1,6 @@
 
 const express = require('express');
+const { stripMailPlans, containsMailPlan, MAIL_PLAN_SETUP_REQUIRED } = require('../services/email/mailPlanGuard');
 
 module.exports = function(ctx) {
   const {
@@ -80,8 +81,11 @@ router.post("/api/register", authLimiter, async (req, res) => {
     const sessionPlan = req.session.pendingPlan;
     const bodyPlan = req.body.plan ?? "None";
     let resolvedPlan = sessionPlan || bodyPlan || "None";
-    const bodyServices = normalizeSelectedServices(req.body.selectedServices);
-    const sessionServices = normalizeSelectedServices(req.session.pendingServices);
+    // Business email is bought only from the email setup page: a mail plan in the request is
+    // refused, and one parked on the session is dropped, before any account row or invoice line.
+    if (containsMailPlan(req.body.selectedServices)) return res.status(400).json(MAIL_PLAN_SETUP_REQUIRED);
+    const bodyServices = stripMailPlans(normalizeSelectedServices(req.body.selectedServices));
+    const sessionServices = stripMailPlans(normalizeSelectedServices(req.session.pendingServices));
     const resolvedServices = bodyServices.length ? bodyServices : sessionServices;
     if (!name || !company || !email || !password) {
       return res.status(400).json({
@@ -339,7 +343,7 @@ router.post("/api/login", authLimiter, async (req, res) => {
 
     // Apply pending plan/services (pricing -> login flow)
     const pendingPlan = req.session.pendingPlan;
-    const pendingServices = normalizeSelectedServices(req.session.pendingServices);
+    const pendingServices = stripMailPlans(normalizeSelectedServices(req.session.pendingServices));
     let planOverride = null;
     if (pendingPlan) {
       // An existing account logging in with a plan queued from browsing
@@ -518,7 +522,7 @@ router.post("/api/auth/google", authLimiter, async (req, res) => {
 
     // 3) Apply any pending plan/services chosen before sign-in (mirrors /api/login).
     const pendingPlan = req.session.pendingPlan;
-    const pendingServices = normalizeSelectedServices(req.session.pendingServices);
+    const pendingServices = stripMailPlans(normalizeSelectedServices(req.session.pendingServices));
     let planOverride = null;
     if (pendingPlan) {
       // Mirrors /api/login's handling: an existing account signing in with a
