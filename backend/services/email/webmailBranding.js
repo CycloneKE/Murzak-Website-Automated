@@ -11,15 +11,21 @@
  * restart. A partial list would erase other clients' branding, so the queue
  * refuses to write anything that would shrink the stored list.
  *
+ * Convergence: after a SUCCESSFUL restart the queue persists DOMAIN_BRANDING_APPLIED,
+ * a hash of the branding and address list that is actually running. A retry
+ * after a failed restart therefore sees a stale marker and restarts again.
+ *
  * Env: BULWARK_SERVICE_UUID (required), BULWARK_APP_UUID (optional),
  *      BULWARK_MERGE_MS (default 20000), BULWARK_CONTAINER_NAME (optional, fallback path only).
  *
  * Secrets: nothing here logs env values or tokens. Domains and titles are logged.
  */
+const crypto = require("crypto");
 const axios = require("axios");
 const { ORDER_DOCTYPE } = require("../checkout/orderStore");
 
 const BRANDING_KEY = "DOMAIN_BRANDING";
+const APPLIED_KEY = "DOMAIN_BRANDING_APPLIED";
 const ACTIVE_STATES = new Set(["provisioned", "live", "active"]);
 const POLL_INTERVAL_MS = 15000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -61,6 +67,11 @@ function buildBranding(clients) {
     addresses: sorted.map((c) => `webmail.${c.domain}`).join(","),
     brandingJson: JSON.stringify(sorted),
   };
+}
+
+/** Short fingerprint of what is actually running: branding value plus address list. */
+function appliedMarker(addresses, brandingJson) {
+  return crypto.createHash("sha256").update(`${addresses}\n${brandingJson}`).digest("hex").slice(0, 16);
 }
 
 /** Active mail clients from Checkout Orders (mailSetup.state provisioned | live | active). */
@@ -158,11 +169,13 @@ function resolveDeps(deps = {}) {
   return d;
 }
 
-/** Stored domains and raw value of DOMAIN_BRANDING. Throws if unreadable. */
+/** Stored domains, raw DOMAIN_BRANDING value and the applied marker. Throws if unreadable. */
 async function readStoredBranding(d) {
   const rows = await d.coolify.listEnvs(d.serviceUuid);
   const row = rows.find((e) => e.key === BRANDING_KEY) || null;
-  if (!row || !row.value) return { row, domains: [], brandingJson: "" };
+  const appliedRow = rows.find((e) => e.key === APPLIED_KEY) || null;
+  const applied = appliedRow?.value || "";
+  if (!row || !row.value) return { row, appliedRow, domains: [], brandingJson: "", applied };
   let parsed;
   try {
     parsed = JSON.parse(row.value);
@@ -173,12 +186,12 @@ async function readStoredBranding(d) {
     throw new Error("webmail branding: refusing to shrink branding: stored DOMAIN_BRANDING is not a list");
   }
   const domains = parsed.map((c) => String(c?.domain || "").toLowerCase()).filter(Boolean);
-  return { row, domains, brandingJson: row.value };
+  return { row, appliedRow, domains, brandingJson: row.value, applied };
 }
 
-async function writeBranding(d, stored, brandingJson) {
-  const payload = { key: BRANDING_KEY, value: brandingJson };
-  if (stored.row) await d.coolify.updateEnv(d.serviceUuid, payload);
+async function writeEnvValue(d, key, value, existingRow) {
+  const payload = { key, value };
+  if (existingRow) await d.coolify.updateEnv(d.serviceUuid, payload);
   else await d.coolify.createEnv(d.serviceUuid, payload);
 }
 
@@ -201,9 +214,13 @@ async function certReady(domain, d) {
   }
 }
 
-/** Runs one merged write: read, guard, write, restart, poll. */
+/**
+ * Runs one merged write under the lock: read, guard, write, restart, marker.
+ * Returns { restarted } and does NOT poll the cert (that happens after the lock
+ * is released). A throw from the restart propagates and leaves the applied
+ * marker stale, so the next call restarts again.
+ */
 async function runBatch(items, client, d) {
-  if (!d.serviceUuid) throw new Error("webmail branding: BULWARK_SERVICE_UUID is not set");
   const stored = await readStoredBranding(d);
   const active = await d.loadActiveClients(client);
 
@@ -223,26 +240,22 @@ async function runBatch(items, client, d) {
   }
 
   const { addresses, brandingJson } = buildBranding(merged);
-  if (stored.row && stored.brandingJson === brandingJson) {
-    console.log(`[webmail] branding already current for ${items.map((c) => c.domain).join(", ")}; no restart`);
-    return { restarted: false, ready: new Map() };
+  const applied = appliedMarker(addresses, brandingJson);
+  if (stored.brandingJson === brandingJson && stored.applied === applied) {
+    console.log(`[webmail] branding already applied for ${items.map((c) => c.domain).join(", ")}; no restart`);
+    return { restarted: false };
   }
 
   await d.setBulwarkAddresses(d.serviceUuid, addresses);
-  await writeBranding(d, stored, brandingJson);
-  await d.coolify.restart(d.serviceUuid);
+  await writeEnvValue(d, BRANDING_KEY, brandingJson, stored.row);
+  await d.coolify.restart(d.serviceUuid); // a throw here skips the marker below
+  await writeEnvValue(d, APPLIED_KEY, applied, stored.appliedRow);
   console.log(`[webmail] restarted Bulwark for ${items.map((c) => c.domain).join(", ")}`);
-
-  const ready = new Map();
-  for (const c of items) ready.set(c.domain, await certReady(c.domain, d));
-  for (const [domain, ok] of ready) {
-    if (!ok) console.warn(`[webmail] cert for webmail.${domain} not ready after 5 minutes; recheck later`);
-  }
-  return { restarted: true, ready };
+  return { restarted: true };
 }
 
 // In-process queue state. `openBatch` collects orders during the merge window;
-// `chain` serialises the actual writes so two restarts never overlap.
+// `chain` serialises the locked writes so two restarts never overlap.
 let openBatch = null;
 let chain = Promise.resolve();
 
@@ -251,10 +264,21 @@ let chain = Promise.resolve();
  * window share one restart. Rejects (and writes nothing) if the result would
  * shrink the stored branding. Resolves { restarted, certReady } and never throws
  * because a cert is slow.
+ *
+ * ORDERING CONTRACT: the caller must set mailSetup.state = 'provisioned' on the
+ * order BEFORE calling enqueueDomain (provisioned = mailboxes exist and webmail
+ * is pending). The explicit record is merged in, but every other stored domain
+ * must already be active. If one is missing from loadActiveClients the guard
+ * refuses, by design: a partial list would erase that client's branding.
+ *
+ * Fails fast if BULWARK_SERVICE_UUID is unset, before any merge window.
+ * The cert poll runs after the lock is released, so the next batch's writes
+ * are not held up by it.
  */
 async function enqueueDomain(client, record, deps) {
   const item = normalizeClient(record);
   const d = resolveDeps(deps);
+  if (!d.serviceUuid) throw new Error("webmail branding: BULWARK_SERVICE_UUID is not set");
 
   if (!openBatch) {
     const batch = { items: [], promise: null };
@@ -265,15 +289,22 @@ async function enqueueDomain(client, record, deps) {
       if (openBatch === batch) openBatch = null;
       const items = batch.items.slice();
       const run = chain.then(() => runBatch(items, client, d));
-      chain = run.catch(() => {});
-      return run;
+      chain = run.then(() => {}, () => {}); // next batch waits for the write, not the poll
+      const result = await run;
+      const ready = new Map();
+      if (result.restarted) {
+        for (const c of items) ready.set(c.domain, await certReady(c.domain, d));
+        for (const [domain, ok] of ready) {
+          if (!ok) console.warn(`[webmail] cert for webmail.${domain} not ready after 5 minutes; recheck later`);
+        }
+      }
+      return { restarted: result.restarted, ready };
     })();
   }
   openBatch.items.push(item);
   const result = await openBatch.promise;
-  const restarted = result.restarted;
   const ready = result.ready.has(item.domain) ? result.ready.get(item.domain) : null;
-  return { restarted, certReady: restarted ? ready : null };
+  return { restarted: result.restarted, certReady: result.restarted ? ready : null };
 }
 
 module.exports = {
@@ -282,4 +313,5 @@ module.exports = {
   enqueueDomain,
   mergeWindowMs,
   BRANDING_KEY,
+  APPLIED_KEY,
 };

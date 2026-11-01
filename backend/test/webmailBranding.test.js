@@ -36,12 +36,14 @@ function fakeTime() {
 }
 
 /** Fake Coolify: an in-memory env list plus call recorders. */
-function fakeCoolify(initialEnvs = []) {
+function fakeCoolify(initialEnvs = [], { restartFailures = 0 } = {}) {
   const state = {
     envs: initialEnvs.map((e, i) => ({ uuid: `env-${i}`, key: e.key, value: e.value })),
     created: [],
     updated: [],
     restarts: 0,
+    restartAttempts: 0,
+    restartFailures,
     addressWrites: [],
   };
   return {
@@ -61,6 +63,11 @@ function fakeCoolify(initialEnvs = []) {
         row.value = value;
       },
       async restart(uuid) {
+        state.restartAttempts++;
+        if (state.restartFailures > 0) {
+          state.restartFailures--;
+          throw new Error("restart boom");
+        }
         state.restarts++;
         return { ok: true };
       },
@@ -98,9 +105,9 @@ function order(name, mailSetup, extra = {}) {
 }
 
 /** Builds deps for enqueueDomain; `activeClients` is what loadActiveClients returns. */
-function makeDeps({ envs = [], activeClients = [], fetchOpts, extra = {} } = {}) {
+function makeDeps({ envs = [], activeClients = [], fetchOpts, extra = {}, restartFailures = 0 } = {}) {
   const t = fakeTime();
-  const cool = fakeCoolify(envs);
+  const cool = fakeCoolify(envs, { restartFailures });
   const f = fakeFetch(fetchOpts);
   const deps = {
     coolify: cool.coolify,
@@ -269,14 +276,72 @@ const storedBranding = (clients) => JSON.stringify(clients.map((c) => ({ domain:
     ok(cool.state.restarts === 0 && cool.state.addressWrites.length === 0, "nothing written");
   }
 
-  section("enqueueDomain: missing BULWARK_SERVICE_UUID rejects before writing");
+  section("enqueueDomain: missing BULWARK_SERVICE_UUID fails fast, before the merge window");
   {
-    const { deps, cool } = makeDeps({});
+    const { deps, cool, sleeps } = makeDeps({});
     deps.serviceUuid = undefined;
     let err = null;
     try { await enqueueDomain(null, { domain: "ok.co.ke", title: "OK" }, deps); } catch (e) { err = e; }
     ok(err && /BULWARK_SERVICE_UUID/.test(err.message), "rejects naming BULWARK_SERVICE_UUID");
-    ok(cool.state.restarts === 0, "no restart");
+    ok(sleeps.length === 0, "no merge-window sleep before failing");
+    ok(cool.state.restarts === 0 && cool.state.restartAttempts === 0, "no restart attempted");
+  }
+
+  section("enqueueDomain: restart failure rejects, and a retry restarts instead of false success");
+  {
+    const active = [];
+    const { deps, cool } = makeDeps({ envs: [], activeClients: active, restartFailures: 1 });
+    let firstErr = null;
+    try { await enqueueDomain(null, { domain: "flaky.co.ke", title: "Flaky" }, deps); } catch (e) { firstErr = e; }
+    ok(firstErr && /restart boom/.test(firstErr.message), "callers see the restart failure (no clean resolve)");
+    ok(cool.state.restartAttempts === 1 && cool.state.restarts === 0, "one failed restart attempt, none succeeded");
+    // Per the ordering contract the order is provisioned before the retry.
+    active.push({ domain: "flaky.co.ke", title: "Flaky" });
+    const retry = await enqueueDomain(null, { domain: "flaky.co.ke", title: "Flaky" }, deps);
+    ok(retry.restarted === true, "retry restarts and resolves restarted:true");
+    ok(cool.state.restarts === 1, "exactly one successful restart after the retry");
+    const again = await enqueueDomain(null, { domain: "flaky.co.ke", title: "Flaky" }, deps);
+    ok(again.restarted === false, "normal repeat after success does not restart");
+    ok(cool.state.restartAttempts === 2, "no extra restart attempt on the repeat");
+  }
+
+  section("ordering guard: other stored domains missing from loadActiveClients still refuse");
+  {
+    const stored = [{ domain: "a.co.ke", title: "A" }, { domain: "b.co.ke", title: "B" }, { domain: "c.co.ke", title: "C" }];
+    const { deps, cool } = makeDeps({
+      envs: [{ key: BRANDING_KEY, value: storedBranding(stored) }],
+      activeClients: [{ domain: "a.co.ke", title: "A" }],
+    });
+    const results = await Promise.allSettled([
+      enqueueDomain(null, { domain: "d.co.ke", title: "D" }, deps),
+      enqueueDomain(null, { domain: "e.co.ke", title: "E" }, deps),
+    ]);
+    ok(results.every((r) => r.status === "rejected" && /refusing to shrink branding/.test(r.reason.message)), "both explicit new domains are refused");
+    ok(cool.state.restartAttempts === 0 && cool.state.addressWrites.length === 0, "nothing written");
+  }
+
+  section("cert poll runs outside the lock: a second batch's env write is not delayed");
+  {
+    let releaseA;
+    const gateA = new Promise((r) => { releaseA = r; });
+    const fetchFn = async (url) => {
+      if (url === "https://webmail.gate-a.co.ke") await gateA; // cert for A stays pending
+      return { status: 200 };
+    };
+    const active = [];
+    const { deps, cool } = makeDeps({ envs: [], activeClients: active, extra: { fetch: fetchFn, mergeMs: 0 } });
+    const pA = enqueueDomain(null, { domain: "gate-a.co.ke", title: "GateA" }, deps);
+    for (let i = 0; i < 500 && cool.state.restarts < 1; i++) await new Promise((r) => setImmediate(r));
+    ok(cool.state.restarts === 1, "batch A restarted while its cert poll is still pending");
+    active.push({ domain: "gate-a.co.ke", title: "GateA" });
+    const pB = enqueueDomain(null, { domain: "gate-b.co.ke", title: "GateB" }, deps);
+    for (let i = 0; i < 500 && cool.state.restarts < 2; i++) await new Promise((r) => setImmediate(r));
+    const written = cool.state.envs.find((e) => e.key === BRANDING_KEY).value;
+    ok(cool.state.restarts === 2 && written.includes("gate-b.co.ke"), "batch B wrote and restarted before A's poll finished");
+    releaseA();
+    const [rA, rB] = await Promise.all([pA, pB]);
+    ok(rA.restarted === true && rA.certReady === true, "batch A resolves once its cert answers");
+    ok(rB.restarted === true && rB.certReady === true, "batch B resolves with its own cert result");
   }
 
   section("enqueueDomain: polls webmail after restart and reports cert ready");
