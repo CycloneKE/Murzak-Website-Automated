@@ -187,10 +187,32 @@ async function rejects(p) { try { await p; return null; } catch (e) { return e; 
     ok(e === null, "our own marker on re-run is fine");
   }
 
+  section("claimed domain survives a re-run");
+  {
+    stalwart.__resetMockForTests();
+    const d = await stalwart.ensureDomain({ name: "claim.com", description: "" });
+    const client = seed({ domain: "claim.com" });
+    const { deps } = stubs(client, { resolver: fullResolver("claim.com") });
+    const out1 = await lane.provision(job, { client, deps });
+    ok(cfgOf(client).mailSetup.stalwartDomainId === d.id, "domain id recorded on the order");
+    const out2 = await lane.provision(job, { client, deps });
+    ok(JSON.stringify(out1) === JSON.stringify(out2), "re-run succeeds with identical result");
+    ok((await stalwart.listAccounts(d.id)).length === 3, "no duplicate accounts");
+
+    const d2 = await stalwart.ensureDomain({ name: "other.com", description: "" });
+    await stalwart.ensureAccount({ domainId: d2.id, localPart: "a", quotaBytes: 1 });
+    const c2 = seed({ domain: "other.com" });
+    const raw = JSON.parse(c2.store["Checkout Order"]["CHK-1"].config_json);
+    raw.mailSetup.stalwartDomainId = "someone-elses-id";
+    c2.store["Checkout Order"]["CHK-1"].config_json = JSON.stringify(raw);
+    const e = await rejects(lane.provision(job, { client: c2, deps: stubs(c2).deps }));
+    ok(e && e.permanent === true && /already in use/.test(e.message), "different recorded id + accounts -> permanent");
+  }
+
   section("reserved domains");
   {
     stalwart.__resetMockForTests();
-    for (const dom of ["murzaktech.tech", "murzaktech.com", "murzak.test"]) {
+    for (const dom of ["murzaktech.tech", "murzaktech.com", "murzak.test", "x.murzaktech.tech"]) {
       const client = seed({ domain: dom });
       const e = await rejects(lane.provision(job, { client, deps: stubs(client).deps }));
       ok(e && e.permanent === true && /reserved/.test(e.message), dom + " refused as reserved");

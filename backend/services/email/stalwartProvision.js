@@ -97,7 +97,7 @@ async function provision(job, opts = {}) {
   const domain = String(setup.domain || "").toLowerCase();
   const plan = PLANS[setup.planId];
   if (PLANS[job.service_id] && PLANS[job.service_id] !== plan) {
-    throw permanent(`Order ${orderName} is for plan ${setup.planId} but the job is for ${job.service_id}; refusing to guess. Fix and requeue.`);
+    throw permanent(`Order ${orderName} is for plan ${setup.planId || "(missing plan)"} but the job is for ${job.service_id}; refusing to guess. Fix and requeue.`);
   }
   if (!domain || !plan) {
     throw permanent(`Mail setup on ${orderName} is incomplete (domain or plan missing). Fix it and requeue.`);
@@ -106,7 +106,7 @@ async function provision(job, opts = {}) {
     .map((m) => String(m && m.localPart ? m.localPart : m || "").toLowerCase())
     .filter(Boolean);
 
-  if (reservedDomains().has(domain)) {
+  if ([...reservedDomains()].some((r) => domain === r || domain.endsWith(`.${r}`))) {
     throw permanent(`${domain} is reserved for Murzak and cannot be provisioned as customer mail.`);
   }
 
@@ -139,12 +139,16 @@ async function provision(job, opts = {}) {
     const d = await stalwart.ensureDomain({ name: domain, description: marker });
     // Fail closed: an existing domain is ours only if it carries exactly our marker.
     // One with no accounts holds nothing, so it is safe to claim.
-    if (!d.created && d.description !== marker) {
+    // Ownership is the marker, or the Stalwart id we recorded on this order.
+    const ours = d.created || d.description === marker || (setup.stalwartDomainId && setup.stalwartDomainId === d.id);
+    if (!ours) {
       const existing = await stalwart.listAccounts(d.id);
       if (existing.length > 0) {
         throw permanent(`${domain} is already in use by another order. Staff must resolve the clash, then requeue.`);
       }
     }
+    // Record ownership BEFORE creating accounts, so a retry recognises its own domain.
+    await store.mergeMailSetup(client, orderName, { stalwartDomainId: d.id });
     const quotaBytes = plan.quotaGb * 1024 ** 3;
     const names = [...new Set([...mailboxes, POSTMASTER])];
     const perHour = outboundLimit();
