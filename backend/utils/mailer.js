@@ -208,10 +208,92 @@ Pick a plan within that window and we restore your sandbox exactly as you left i
   await sendMail({ to, subject, text });
 }
 
+// ---- Stalwart business mail ----
+
+/**
+ * The hand-over email, sent once a business mail setup goes live. Carries the
+ * webmail address, every mailbox, the status page (where passwords are set and
+ * the phone/Outlook setup lives). It never carries a password: the arguments
+ * are destructured, so any extra property is dropped.
+ */
+async function sendMailReadyEmail({ to, businessName, webmailUrl, addresses, statusUrl, supportContact }) {
+  const name = String(businessName || "").trim();
+  const list = (Array.isArray(addresses) ? addresses : []).filter(Boolean);
+  const support = supportContact || process.env.SUPPORT_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "";
+  const subject = name ? `Your business email is ready — ${name}` : "Your business email is ready";
+
+  const supportLine = support ? `\n\nNeed help? Write to ${support}.` : "";
+  const text = `Hello ${name || "there"},
+
+Your business email${name ? ` for ${name}` : ""} is ready.
+
+Open webmail: ${webmailUrl}
+
+Your mailboxes:
+${list.map((a) => `  - ${a}`).join("\n")}
+
+Set up on your phone or Outlook
+Open your status page and use the "Add to my phone" section. Your account is detected automatically, so there are no server settings to type in.
+${statusUrl}
+
+Before you can sign in, each mailbox needs a password. Set it on your status page first.
+
+A note on delivery: new domains build trust over days. If your first messages land in spam, ask recipients to mark them as not spam.${supportLine}
+
+— Murzak Technologies`;
+
+  const items = list.map((a) => `<li>${escapeHtml(a)}</li>`).join("");
+  const html = `<p>Hello ${escapeHtml(name || "there")},</p>
+<p>Your business email${name ? ` for ${escapeHtml(name)}` : ""} is ready.</p>
+<p>Open webmail: <a href="${escapeHtml(webmailUrl)}">${escapeHtml(webmailUrl)}</a></p>
+<p>Your mailboxes:</p><ul>${items}</ul>
+<p><strong>Set up on your phone or Outlook</strong><br>
+Open your status page and use the "Add to my phone" section. Your account is detected automatically, so there are no server settings to type in.</p>
+<p><a href="${escapeHtml(statusUrl)}" style="background:#0a66c2;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;display:inline-block">Open your status page</a></p>
+<p>Before you can sign in, each mailbox needs a password. Set it on your status page first.</p>
+<p>A note on delivery: new domains build trust over days. If your first messages land in spam, ask recipients to mark them as not spam.</p>
+${support ? `<p>Need help? Write to ${escapeHtml(support)}.</p>` : ""}
+<p>— Murzak Technologies</p>`;
+
+  await sendMail({ to, subject, text, html });
+}
+
+const CODE_PURPOSE_TEXT = Object.freeze({
+  reset: "reset a mailbox password",
+  add: "add a mailbox",
+});
+
+/** A 6-digit confirmation code for a sensitive mailbox change. Contains no link. */
+async function sendMailCodeEmail({ to, code, purpose, businessName }) {
+  const purposeText = CODE_PURPOSE_TEXT[purpose];
+  if (!purposeText) throw new Error("Unknown code purpose.");
+  if (!/^\d{6}$/.test(String(code))) throw new Error("Invalid confirmation code.");
+  const name = String(businessName || "").trim();
+  const subject = "Your confirmation code";
+  const text = `Hello ${name || "there"},
+
+Your confirmation code is: ${code}
+
+Use it to ${purposeText}. The code expires in 10 minutes.
+
+If you did not ask for this, you can ignore this email and nothing will change.
+
+— Murzak Technologies`;
+  const html = `<p>Hello ${escapeHtml(name || "there")},</p>
+<p>Your confirmation code is:</p>
+<p><strong style="font-size:24px;letter-spacing:4px">${escapeHtml(code)}</strong></p>
+<p>Use it to ${purposeText}. The code expires in 10 minutes.</p>
+<p>If you did not ask for this, you can ignore this email and nothing will change.</p>
+<p>— Murzak Technologies</p>`;
+  await sendMail({ to, subject, text, html });
+}
+
 module.exports = {
   sendAdminSupportAlert,
   sendInvoiceDeletedEmail,
   sendMail,
+  sendMailCodeEmail,
+  sendMailReadyEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
   sendTrialStartedEmail,

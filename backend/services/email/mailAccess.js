@@ -111,9 +111,10 @@ function codeHash(orderName, purpose, code) {
 
 async function defaultSendCodeEmail(args) {
   const mailer = require("../../utils/mailer");
+  // Fail closed: when no sender exists nothing reaches the customer, so the
+  // error propagates, issueCode clears the challenge, and the route does not answer sent:true.
   if (typeof mailer.sendMailCodeEmail !== "function") {
-    console.warn("[mail-access] sendMailCodeEmail is not configured; confirmation code not sent");
-    return;
+    throw new Error("sendMailCodeEmail is not configured; confirmation code not sent");
   }
   await mailer.sendMailCodeEmail(args);
 }

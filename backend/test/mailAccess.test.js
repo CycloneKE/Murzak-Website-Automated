@@ -174,14 +174,18 @@ async function thrown(fn) { try { await fn(); return null; } catch (e) { return 
     await access.issueCode(client, "CHK-1", { now: () => T0, sendCodeEmail: async (a) => { sent.push(a); } });
     ok(sent.length === 1, "and the retry sends");
 
-    const warns = [];
-    const realWarn = console.warn;
-    console.warn = (m) => warns.push(String(m));
-    let threw = null;
-    try { await access.issueCode(seed(), "CHK-1", { now: () => T0 }); } catch (err) { threw = err; }
-    console.warn = realWarn;
-    ok(threw === null, "the default sender (no sendMailCodeEmail yet) resolves");
-    ok(warns.some((w) => /sendMailCodeEmail/.test(w)), "and warns that it is not configured");
+    // Fail closed: with no code sender configured, nothing is sent, so issueCode must reject.
+    const mailer = require("../utils/mailer");
+    const realSender = mailer.sendMailCodeEmail;
+    delete mailer.sendMailCodeEmail;
+    const missingClient = seed();
+    const missing = await thrown(() => access.issueCode(missingClient, "CHK-1", { now: () => T0 }));
+    mailer.sendMailCodeEmail = realSender;
+    ok(missing instanceof Error, "a missing code sender makes issueCode reject");
+    ok(setupOf(missingClient).codeChallenge == null && !setupOf(missingClient).codeIssuedAt, "a missing sender clears the challenge and the issue gap");
+    const retried = [];
+    await access.issueCode(missingClient, "CHK-1", { now: () => T0, sendCodeEmail: async (a) => { retried.push(a); } });
+    ok(retried.length === 1, "so the customer can retry at once once a sender exists");
     const nosetup = await thrown(() => access.issueCode(makeMockFrappe({ "Checkout Order": { "CHK-1": { name: "CHK-1", config_json: "{}" } } }), "CHK-1", { now: () => T0, sendCodeEmail: async () => {} }));
     ok(nosetup && nosetup.statusCode === 404, "an order with no mail setup is refused");
   }

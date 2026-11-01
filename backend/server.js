@@ -3715,14 +3715,14 @@ const server = IS_ENTRYPOINT
     const rawMs = process.env.MAIL_LIVE_SWEEP_MS;
     const parsedMs = rawMs === undefined || rawMs === "" ? 120000 : Number(rawMs);
     if (Number.isFinite(parsedMs) && parsedMs > 0) {
-      const { runMailLiveSweep, makeSendMailReadyEmail } = require("./services/email/mailLiveSweep");
-      const { sendMail } = require("./utils/mailer");
+      const { runMailLiveSweep } = require("./services/email/mailLiveSweep");
+      const { sendMailReadyEmail } = require("./utils/mailer");
       const everyMs = Math.max(30000, parsedMs);
       let running = false;
       const run = () => {
         if (running) return;
         running = true;
-        runMailLiveSweep(frappeClient(), { sendMailReadyEmail: makeSendMailReadyEmail(sendMail) })
+        runMailLiveSweep(frappeClient(), { sendMailReadyEmail })
           .then((r) => {
             if (r.wentLive || r.errored) console.log(`[mail-live] checked=${r.checked} wentLive=${r.wentLive} stillWaiting=${r.stillWaiting} errored=${r.errored}`);
           })
