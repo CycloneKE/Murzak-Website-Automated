@@ -126,3 +126,21 @@ export function normalizeMpesa(raw: string): string | null {
   const m = /^(?:\+?254|0)([71]\d{8})$/.exec(t);
   return m ? `254${m[1]}` : null;
 }
+
+// ---- Mailbox password rule: must match validatePassword in backend/services/mailboxPolicy.js ----
+
+/** Returns the same plain-words problem the server would give, or "" when the password is acceptable. */
+export function mailPasswordProblem(pw: string): string {
+  if (pw.length < 8) return "Password must be at least 8 characters.";
+  if (pw.length > 128) return "Password must be 128 characters or fewer.";
+  if (!/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/[0-9]/.test(pw)) {
+    return "Password needs an uppercase letter, a lowercase letter and a number.";
+  }
+  return "";
+}
+
+/** "info@acme.co.ke" -> "info". */
+export function mailLocalPart(address: string): string {
+  const at = address.lastIndexOf("@");
+  return at === -1 ? address : address.slice(0, at);
+}
