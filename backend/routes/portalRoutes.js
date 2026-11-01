@@ -13,6 +13,7 @@ const dbConnectionLib = require('../services/storage/dbConnection');
 const hostingerMailLib = require('../services/hostingerMail');
 const mailboxEntitlementLib = require('../services/mailboxEntitlement');
 const mailboxPolicyLib = require('../services/mailboxPolicy');
+const mailProviderLib = require('../services/email/mailProvider');
 // Not destructured at import time — see the routesContext.test.js note above
 // signBrokerToken: destructuring this require would trip that test's greedy
 // static guard for the ctx destructure below.
@@ -1892,7 +1893,8 @@ async function loadMailboxContext(req, res) {
     res.status(409).json({ error: "Your email isn't set up yet. We'll email you when it's ready." });
     return null;
   }
-  if (!hostingerMailLib.isConfigured()) {
+  const provider = mailProviderLib.providerFor(job);
+  if (!mailProviderLib.isConfigured(provider)) {
     res.status(503).json({ error: "Email management isn't available right now. Please try again shortly." });
     return null;
   }
@@ -1904,7 +1906,8 @@ async function loadMailboxContext(req, res) {
     res.status(409).json({ error: "Your email isn't fully set up yet. Please contact support." });
     return null;
   }
-  return { webAccountName, job, orderId, serviceId };
+  // For Stalwart jobs orderId is the mail domain; the facade picks the provider from job.
+  return { webAccountName, job, orderId, serviceId, provider };
 }
 
 /**
@@ -1915,14 +1918,14 @@ async function loadMailboxContext(req, res) {
  * take over their email. The membership decision itself lives in
  * mailboxPolicy.mailboxBelongsTo so it is unit-tested.
  */
-async function assertMailboxBelongsToOrder(orderId, mailboxId, res) {
+async function assertMailboxBelongsToOrder(ctx, mailboxId, res) {
   if (!String(mailboxId || "").trim()) {
     res.status(400).json({ error: "Missing mailbox id." });
     return false;
   }
   let mailboxes;
   try {
-    mailboxes = await hostingerMailLib.listMailboxes(orderId);
+    mailboxes = await mailProviderLib.listMailboxes(ctx);
   } catch (err) {
     console.error("MAILBOX MEMBERSHIP CHECK ERROR:", err.response?.data || err.message);
     res.status(502).json({ error: "Couldn't verify that mailbox. Please try again." });
@@ -1938,6 +1941,11 @@ async function assertMailboxBelongsToOrder(orderId, mailboxId, res) {
 
 /** The account's paid-for allowance, reconciled against the Hostinger plan. */
 async function resolveMailboxLimit(ctx, usedCount) {
+  if (ctx.provider === "stalwart") {
+    // A Stalwart mail plan's allowance is its own catalog figure; no Hostinger plan read.
+    const limit = mailProviderLib.stalwartPlanLimit(ctx.serviceId);
+    return { entitlement: null, planLimit: limit, effective: { limit, unlimited: false, source: "plan" }, used: usedCount };
+  }
   let ownedServices = [];
   try {
     const resp = await frappeClient().get(
@@ -1969,9 +1977,17 @@ router.get("/api/portal/services/:serviceId/mailboxes", requireAuth, async (req,
   const ctx = await loadMailboxContext(req, res);
   if (ctx === null) return;
   try {
-    const raw = await hostingerMailLib.listMailboxes(ctx.orderId);
-    const mailboxes = raw.map(mailboxPolicyLib.publicMailbox);
+    const mailboxes = await mailProviderLib.listMailboxes(ctx);
     const limits = await resolveMailboxLimit(ctx, mailboxes.length);
+    // Webmail + client settings, so the customer can actually use the thing.
+    // Stalwart's own webmail and mail hosts are not configured yet, so those are null.
+    const mailHosts = ctx.provider === "stalwart"
+      ? { webmailUrl: null, imap: null, smtp: null }
+      : {
+          webmailUrl: "https://mail.hostinger.com",
+          imap: { host: "imap.hostinger.com", port: 993, security: "SSL/TLS" },
+          smtp: { host: "smtp.hostinger.com", port: 465, security: "SSL/TLS" },
+        };
     return res.json({
       ok: true,
       mailboxes,
@@ -1979,10 +1995,7 @@ router.get("/api/portal/services/:serviceId/mailboxes", requireAuth, async (req,
       limit: limits.effective.unlimited ? null : limits.effective.limit,
       unlimited: !!limits.effective.unlimited,
       canCreate: mailboxEntitlementLib.canCreate({ used: mailboxes.length, effective: limits.effective }).ok,
-      // Webmail + client settings, so the customer can actually use the thing.
-      webmailUrl: "https://mail.hostinger.com",
-      imap: { host: "imap.hostinger.com", port: 993, security: "SSL/TLS" },
-      smtp: { host: "smtp.hostinger.com", port: 465, security: "SSL/TLS" },
+      ...mailHosts,
     });
   } catch (err) {
     console.error("MAILBOX LIST ERROR:", err.response?.data || err.message);
@@ -2002,20 +2015,23 @@ router.post("/api/portal/services/:serviceId/mailboxes", requireAuth, mailboxLim
   if (pwError) return res.status(400).json({ error: pwError });
 
   try {
-    const existing = await hostingerMailLib.listMailboxes(ctx.orderId);
-    if (mailboxPolicyLib.localPartExists(existing, localPart)) {
+    const existing = await mailProviderLib.listMailboxes(ctx);
+    if (mailboxPolicyLib.localPartExists(existing.map((m) => ({ local_part: m.localPart })), localPart)) {
       return res.status(409).json({ error: `${localPart}@ already exists.` });
     }
     const limits = await resolveMailboxLimit(ctx, existing.length);
     const verdict = mailboxEntitlementLib.canCreate({ used: existing.length, effective: limits.effective });
     if (!verdict.ok) return res.status(409).json({ error: verdict.reason });
 
-    const created = await hostingerMailLib.createMailbox(ctx.orderId, {
+    const created = await mailProviderLib.createMailbox(ctx, {
       localPart,
       password: req.body.password,
     });
-    return res.json({ ok: true, mailbox: mailboxPolicyLib.publicMailbox(created || { local_part: localPart }) });
+    return res.json({ ok: true, mailbox: created });
   } catch (err) {
+    if (err instanceof mailProviderLib.MailError) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error("MAILBOX CREATE ERROR:", err.response?.data || err.message);
     const status = err.response?.status;
     if (status === 422 || status === 400) {
@@ -2032,12 +2048,13 @@ router.patch("/api/portal/services/:serviceId/mailboxes/:mailboxId/password", re
   const pwError = mailboxPolicyLib.validatePassword(req.body?.password);
   if (pwError) return res.status(400).json({ error: pwError });
 
-  if (!(await assertMailboxBelongsToOrder(ctx.orderId, req.params.mailboxId, res))) return;
+  if (!(await assertMailboxBelongsToOrder(ctx, req.params.mailboxId, res))) return;
 
   try {
-    await hostingerMailLib.changeMailboxPassword(req.params.mailboxId, req.body.password);
+    await mailProviderLib.changePassword(ctx, req.params.mailboxId, req.body.password);
     return res.json({ ok: true, message: "Password updated." });
   } catch (err) {
+    if (err instanceof mailProviderLib.MailError) return res.status(err.status).json({ error: err.message });
     console.error("MAILBOX PASSWORD ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't update that password. Please try again." });
   }
@@ -2047,12 +2064,13 @@ router.delete("/api/portal/services/:serviceId/mailboxes/:mailboxId", requireAut
   const ctx = await loadMailboxContext(req, res);
   if (ctx === null) return;
 
-  if (!(await assertMailboxBelongsToOrder(ctx.orderId, req.params.mailboxId, res))) return;
+  if (!(await assertMailboxBelongsToOrder(ctx, req.params.mailboxId, res))) return;
 
   try {
-    await hostingerMailLib.deleteMailbox(req.params.mailboxId);
+    await mailProviderLib.deleteMailbox(ctx, req.params.mailboxId);
     return res.json({ ok: true, message: "Mailbox deleted." });
   } catch (err) {
+    if (err instanceof mailProviderLib.MailError) return res.status(err.status).json({ error: err.message });
     console.error("MAILBOX DELETE ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't delete that mailbox. Please try again." });
   }

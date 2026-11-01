@@ -316,6 +316,33 @@ function liveClient(stub, extra = {}) {
     ok(lines.length > 0 && !lines.join("\n").includes(API_KEY), "custom log sink receives a line and never the full API key");
   }
 
+  section("findDomain: read-only lookup, never creates");
+  {
+    const stub = fakeStalwart({ initialDomains: [existingDomain()] });
+    const c = liveClient(stub);
+    const hit = await c.findDomain("example.co.ke");
+    ok(hit && hit.id === "g4f2", "findDomain returns { id } for a domain that exists");
+    ok((await c.findDomain("EXAMPLE.co.ke")) && (await c.findDomain("EXAMPLE.co.ke")).id === "g4f2", "findDomain is case-insensitive on the name");
+    ok((await c.findDomain("missing.co.ke")) === null, "findDomain returns null when the domain is absent");
+    ok(callsNamed(stub, "x:Domain/set").length === 0, "findDomain never sends a Domain/set (no creation)");
+    const withMissingFirst = fakeStalwart({ initialDomains: [] });
+    const c2 = liveClient(withMissingFirst);
+    ok((await c2.findDomain("example.co.ke")) === null, "findDomain on an empty server returns null");
+    ok(callsNamed(withMissingFirst, "x:Domain/set").length === 0, "findDomain on an empty server still creates nothing");
+  }
+  {
+    clearEnv();
+    process.env.STALWART_MOCK = "1";
+    client.__resetMockForTests();
+    ok((await client.findDomain("mockfind.co.ke")) === null, "mock findDomain: null before any domain exists");
+    const made = await client.ensureDomain({ name: "mockfind.co.ke", description: "x", dnsServerId: "srv-1" });
+    const found = await client.findDomain("MockFind.co.ke");
+    ok(found && found.id === made.id, "mock findDomain finds the domain ensureDomain created (case-insensitive)");
+    ok(!!(await client.findDomain("mockfind.co.ke")) && (await client.listAccounts(made.id)).length === 0, "mock findDomain does not create accounts or other domains");
+    client.__resetMockForTests();
+    clearEnv();
+  }
+
   section("setPassword / findAccount / deleteAccount / setOutboundLimit");
   {
     const stub = fakeStalwart({ initialAccounts: [existingAccount()] });

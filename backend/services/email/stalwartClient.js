@@ -244,6 +244,12 @@ function createStalwartClient(opts = {}) {
       const s = API_SHAPES.domainGet;
       return s.parse(await jmap(s.method, s.args()));
     },
+    // Read-only: resolves a domain name to its id without creating anything.
+    async findDomain(name) {
+      const want = String(name).toLowerCase();
+      const hit = (await live.listDomains()).find((d) => String(d.name).toLowerCase() === want);
+      return hit ? { id: hit.id } : null;
+    },
     async ensureDomain({ name, description, dnsServerId: dns }) {
       const want = String(name).toLowerCase();
       const existing = (await live.listDomains()).find((d) => String(d.name).toLowerCase() === want);
@@ -311,6 +317,11 @@ function createStalwartClient(opts = {}) {
       domains.set(id, { id, name: want });
       return { id, created: true };
     },
+    async findDomain(name) {
+      const want = String(name).toLowerCase();
+      for (const d of domains.values()) if (d.name === want) return { id: d.id };
+      return null;
+    },
     async ensureAccount({ domainId, localPart, quotaBytes }) {
       const dom = domains.get(domainId);
       if (!dom) throw new Error(`Stalwart mock: unknown domain ${domainId}`);
@@ -363,6 +374,7 @@ function createStalwartClient(opts = {}) {
     isConfigured,
     configError,
     ensureDomain: guard((args) => impl.ensureDomain({ ...args, dnsServerId: args && args.dnsServerId })),
+    findDomain: guard((name) => impl.findDomain(name)),
     ensureAccount: guard((args) => impl.ensureAccount(args)),
     setPassword: guard((id, pw) => impl.setPassword(id, pw)),
     findAccount: guard((addr) => impl.findAccount(addr)),
@@ -413,6 +425,7 @@ function __resetMockForTests() {
 const isConfigured = () => defaultClient().isConfigured();
 const configError = () => defaultClient().configError();
 const ensureDomain = (args) => defaultClient().ensureDomain(args);
+const findDomain = (name) => defaultClient().findDomain(name);
 const ensureAccount = (args) => defaultClient().ensureAccount(args);
 const setPassword = (id, pw) => defaultClient().setPassword(id, pw);
 const findAccount = (addr) => defaultClient().findAccount(addr);
@@ -427,6 +440,7 @@ module.exports = {
   isConfigured,
   configError,
   ensureDomain,
+  findDomain,
   ensureAccount,
   setPassword,
   findAccount,
