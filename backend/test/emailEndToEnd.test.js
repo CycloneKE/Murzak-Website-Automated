@@ -87,7 +87,8 @@ const mailer = require("../utils/mailer");
 const GB = 1024 ** 3;
 const PW = "Sup3rSecretPw-E2E";
 const PW2 = "An0therSecretPw-E2E";
-const T0 = Date.parse("2026-11-02T08:00:00Z");
+// Tied to the real clock: code expiry is checked with Date.now() inside the routes, so a fixed date goes stale.
+const T0 = Date.now();
 
 /* ---------------------------- shared fakes ---------------------------- */
 
