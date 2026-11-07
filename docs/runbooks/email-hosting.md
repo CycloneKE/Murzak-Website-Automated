@@ -192,6 +192,18 @@ and self-made samples, not from the real servers.
 - [ ] **Coolify address-list PATCH** for Bulwark (`webmailBranding.js`
       `setBulwarkAddresses`): which form works (`urls: [{name,url}]` on the service,
       or `fqdn` on the application with `BULWARK_APP_UUID`).
+      *Read in the Coolify fork source (version 4.5.3, 2026-11-07):* both forms exist.
+      `PATCH /services/{uuid}` takes `urls: [{name, url}]`; `name` must equal the
+      service container name (`BULWARK_CONTAINER_NAME`, default `bulwark`) and a
+      comma-separated list in one `url` is accepted and split. `PATCH
+      /services/{uuid}/applications/{app_uuid}` also exists. Still confirm against the
+      LIVE server's version (the checker prints it with `--only=coolify`).
+- [x] **Coolify start/restart/stop verb.** Newer Coolify (4.5.x) only accepts POST for
+      start, restart and stop (a GET answers 405 "This endpoint has changed to a POST
+      request"); the 4.1.2 server verified in August only accepts GET. The lane now
+      tries GET and repeats as POST on a 405 (`runResourceAction` in
+      `lanes/coolify.js`, test `coolifyActionCompat.test.js`), so it works on both. The
+      checker reports which style the live server uses.
 - [ ] **`DOMAIN_BRANDING` env format** that Bulwark actually reads, and that the
       restart brings up `webmail.<domain>` with the client's title and logo.
       Check Bulwark's real page title (the title check is advisory only).

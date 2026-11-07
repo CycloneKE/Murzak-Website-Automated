@@ -210,6 +210,24 @@ function permanentError(message, extra = {}) {
   return Object.assign(err, extra);
 }
 
+/**
+ * Start / restart / stop a Coolify resource.
+ *
+ * Newer Coolify (4.5.x, read in the fork source) moved these from GET to POST:
+ * a GET now answers 405 "This endpoint has changed to a POST request". Older
+ * servers (4.1.2, verified live) only know GET. So: try GET first, the path
+ * proven in production, and on a 405 repeat it as POST. Any other failure is
+ * thrown unchanged. `path` already carries /api/v1/...
+ */
+async function runResourceAction(client, path) {
+  try {
+    return await client.get(path);
+  } catch (err) {
+    if (err?.response?.status === 405) return client.post(path, {});
+    throw err;
+  }
+}
+
 async function triggerDeploy(client, appUuid) {
   const res = await client.post(`/api/v1/deploy?uuid=${encodeURIComponent(appUuid)}`);
   const d = res.data?.data || res.data || {};
@@ -483,7 +501,7 @@ async function ensureServiceRunning(client, uuid, { sleep } = {}) {
   const initial = await serviceStatus(client, uuid);
   if (initial.split(":")[0] === "running") return initial;
 
-  await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/start`);
+  await runResourceAction(client, `/api/v1/services/${encodeURIComponent(uuid)}/start`);
 
   // Require TWO consecutive "running" reads, not one. A single sample isn't
   // enough — a crash-looping container (restart: unless-stopped) can be
@@ -589,7 +607,7 @@ async function attachServiceUrl(client, uuid, job, name) {
   // loses the fqdn — worst case Traefik just doesn't route it until the next
   // restart from any other cause (e.g. a future redeploy).
   try {
-    await client.get(`/api/v1/services/${encodeURIComponent(uuid)}/restart`);
+    await runResourceAction(client, `/api/v1/services/${encodeURIComponent(uuid)}/restart`);
     await waitForRunningAgain(client, uuid);
   } catch (e) {
     console.warn(`[coolify] restart-after-domain-attach failed for ${name} (${fqdn}): ${e.message}`);
@@ -1582,7 +1600,8 @@ function pathRoot(opts) {
 
 async function resourceAction(externalRef, action, opts) {
   const client = http(opts);
-  const res = await client.get(
+  const res = await runResourceAction(
+    client,
     `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/${action}`
   );
   return res.data;

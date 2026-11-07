@@ -281,6 +281,20 @@ async function checkCoolify() {
     pass("Bulwark service found in Coolify", `name: ${(s.body && s.body.name) || "(unknown)"}\nstatus: ${status || "(not shown)"}`);
     if (status && !/running/i.test(String(status))) warn("Bulwark service is not 'running'", String(status));
 
+    // Version and verb style. Newer Coolify only accepts POST for start/restart/stop (a
+    // GET answers 405); older ones only accept GET. The lane handles both (GET, then POST
+    // on a 405). The probe uses a uuid that cannot exist, so nothing is restarted.
+    try {
+      const vr = await timed(() => fetch(`${base}/api/v1/version`, { headers }));
+      const vtxt = vr.status === 200 ? (await vr.text()).trim().replace(/["\s]/g, "").slice(0, 30) : "";
+      if (vtxt) pass(`Coolify version ${vtxt}`);
+      else warn("Could not read the Coolify version", `HTTP ${vr.status}`);
+    } catch (e) { warn("Could not read the Coolify version", e.message); }
+    const probe = await get("/api/v1/services/00000000-0000-0000-0000-000000000000/restart");
+    if (probe.status === 405) pass("Restart/start/stop need POST on this Coolify (newer style)", "The lane tries GET, gets 405, and repeats as POST automatically.");
+    else if (probe.status === 404) pass("Restart/start/stop still work with GET on this Coolify (older style)");
+    else warn(`Unexpected answer to the restart-verb probe: HTTP ${probe.status}`);
+
     // Which address-list PATCH form is available?
     if (has("BULWARK_APP_UUID")) {
       const a = await get(`/api/v1/services/${svc}/applications/${encodeURIComponent(env("BULWARK_APP_UUID"))}`);

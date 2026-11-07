@@ -63,7 +63,23 @@ function startFake(mode) {
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
 }
 
-function run(envExtra, extraArgs = []) {
+/** Fake Coolify: Bulwark service, env list, version, and a restart probe whose verb style depends on `style`. */
+function startFakeCoolify(style) {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push(`${req.method} ${req.url}`);
+    const json = (status, body) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
+    if (req.headers.authorization !== "Bearer coolify-canary-token-77aa") return json(401, { message: "Unauthenticated." });
+    if (req.url === "/api/v1/version") { res.writeHead(200, { "Content-Type": "text/plain" }); return res.end(style === "new" ? "4.5.3" : "4.1.2"); }
+    if (req.url.endsWith("/restart")) return style === "new" ? json(405, { message: "This endpoint has changed to a POST request." }) : json(404, { message: "Not found." });
+    if (req.url === "/api/v1/services/bulwark-uuid") return json(200, { name: "bulwark", status: "running:healthy" });
+    if (req.url === "/api/v1/services/bulwark-uuid/envs") return json(200, [{ key: "DOMAIN_BRANDING", value: JSON.stringify([{ domain: "a.test", title: "A" }]) }]);
+    return json(404, { message: "no" });
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({ server, seen })));
+}
+
+function run(envExtra, extraArgs = [], only = "stalwart") {
   return new Promise((resolve) => {
     const env = {
       PATH: process.env.PATH,
@@ -71,7 +87,7 @@ function run(envExtra, extraArgs = []) {
       MAIL_DRYRUN_NO_DOTENV: "1",
       ...envExtra,
     };
-    execFile(process.execPath, [SCRIPT, "--only=stalwart", ...extraArgs], { env, timeout: 60000 }, (err, stdout, stderr) => {
+    execFile(process.execPath, [SCRIPT, `--only=${only}`, ...extraArgs], { env, timeout: 60000 }, (err, stdout, stderr) => {
       resolve({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, out: `${stdout}\n${stderr}` });
     });
   });
@@ -121,6 +137,21 @@ function run(envExtra, extraArgs = []) {
   const r4 = await run({});
   ok(r4.code === 0, `exit code 0 (got ${r4.code})`);
   ok(/SKIP\s+Stalwart checks/.test(r4.out), "Stalwart group skipped");
+
+  section("Coolify: version and verb style are reported, and nothing but GETs is sent");
+  for (const style of ["new", "old"]) {
+    const { server, seen } = await startFakeCoolify(style);
+    const cenv = { COOLIFY_BASE_URL: `http://127.0.0.1:${server.address().port}`, COOLIFY_TOKEN: "coolify-canary-token-77aa", BULWARK_SERVICE_UUID: "bulwark-uuid" };
+    const rc = await run(cenv, [], "coolify");
+    ok(rc.code === 0, `${style} server: exit code 0 (got ${rc.code})`);
+    ok(new RegExp(`PASS\\s+Coolify version ${style === "new" ? "4\\.5\\.3" : "4\\.1\\.2"}`).test(rc.out), `${style} server: version reported`);
+    ok(style === "new" ? /PASS\s+Restart\/start\/stop need POST/.test(rc.out) : /PASS\s+Restart\/start\/stop still work with GET/.test(rc.out), `${style} server: verb style detected`);
+    ok(/PASS\s+DOMAIN_BRANDING is valid JSON/.test(rc.out), `${style} server: DOMAIN_BRANDING shape reported`);
+    ok(!rc.out.includes("coolify-canary-token-77aa"), `${style} server: the token is not printed`);
+    ok(!rc.out.includes("a.test"), `${style} server: env VALUES (client names) are not printed`);
+    ok(seen.every((l) => l.startsWith("GET ")), `${style} server: only GET requests were made (${seen.length})`);
+    server.close();
+  }
 
   section("read-only: the fake only ever saw GET-style JMAP reads");
   ok(true, "the script only calls x:*/get methods and GETs (see the source; there is no /set or PUT path)");
