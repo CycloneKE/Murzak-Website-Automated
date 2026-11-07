@@ -157,6 +157,24 @@ settings above; they do NOT replace the dry run (no authenticated call was made)
 
 ### LIVE DRY RUN (needs the owner)
 
+**Start with the read-only checker.** It makes only GET and JMAP `get` calls, sends
+no mail, pays nothing, and never prints a secret (it prints only whether one is set):
+
+```bash
+cd backend
+node scripts/mail-dryrun-check.js                  # on your laptop: settings, Stalwart, Hostinger, Frappe, SMTP
+node scripts/mail-dryrun-check.js --only=coolify   # ON the VPS (Coolify allow-lists its IP)
+node scripts/mail-dryrun-check.js --vps            # ON the VPS: also outbound port 25 and PTR
+node scripts/mail-dryrun-check.js --zone=murzaktech.tech   # which Hostinger zone to read
+```
+
+It reads `backend/.env` from the current folder, so run it yourself rather than
+pasting its environment anywhere. It exits 1 if anything FAILs. The Stalwart,
+Hostinger and Coolify items below stay unchecked until it passes on the real
+servers (a run on 2026-11-07 on a laptop without those credentials could only
+verify the Frappe and SMTP parts). The payment, phone, Gmail, GA and nginx items
+cannot be automated and still need you.
+
 Use a throwaway domain you own. Make one real, small M-Pesa payment for it.
 Everything below is currently UNVERIFIED-LIVE: it was written from documentation
 and self-made samples, not from the real servers.
@@ -177,11 +195,15 @@ and self-made samples, not from the real servers.
 - [ ] **`DOMAIN_BRANDING` env format** that Bulwark actually reads, and that the
       restart brings up `webmail.<domain>` with the client's title and logo.
       Check Bulwark's real page title (the title check is advisory only).
-- [ ] **`Portal Users Requests` fields** used for staff tickets
+- [x] **`Portal Users Requests` fields** used for staff tickets
       (`status: "Waiting on Admin"`, `source: "Portal"`, `messages[]`) against the
       live doctype, and **Portal Invoice `status: "Paid"`** (used by
       `mailSetupStore.saveMailSetup`). The mock Frappe accepts any field; the real
       one returns 417 on a wrong value.
+      **VERIFIED 2026-11-07** by `mail-dryrun-check.js` against the live Frappe
+      (`erp.murzaktech.tech`): the ticket fields and select values match, Portal
+      Invoice has `Paid`, and Provisioning Job has every field the lane and portal
+      read. (Field and option names only; no record was read or written.)
 - [ ] **Gmail original headers** on a message sent from the new mailbox to Gmail:
       SPF PASS, DKIM PASS, DMARC PASS.
 - [ ] **Google Analytics DebugView** while opening a status link: no hit contains
