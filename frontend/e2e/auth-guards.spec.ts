@@ -310,7 +310,7 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     // Must land on the safe in-app default, never carry the URL to an
     // external origin.
     expect(page.url()).not.toContain('evil.example.com');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 
   test('a real internal returnTo still lands on the intended page', async ({ page }) => {
@@ -339,7 +339,7 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     await page.waitForURL(/\/portal/, { timeout: 10000 });
 
     expect(page.url()).not.toContain('evil.example.com');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 
   test('a CR-smuggled protocol-relative returnTo falls back to the safe default', async ({ page }) => {
@@ -350,7 +350,7 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     await page.waitForURL(/\/portal/, { timeout: 10000 });
 
     expect(page.url()).not.toContain('evil.example.com');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 
   test('an LF-smuggled protocol-relative returnTo falls back to the safe default', async ({ page }) => {
@@ -359,7 +359,7 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     await page.waitForURL(/\/portal/, { timeout: 10000 });
 
     expect(page.url()).not.toContain('evil.example.com');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 
   test('a returnTo with a colon in the query string still lands on that exact path', async ({ page }) => {
@@ -381,7 +381,7 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     await page.waitForURL(/\/portal/, { timeout: 10000 });
 
     expect(page.url()).not.toContain('javascript:');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 
   test('an absolute https:// returnTo falls back to the safe default', async ({ page }) => {
@@ -391,6 +391,6 @@ test.describe('SEC-04 — returnTo cannot redirect off-site after login', () => 
     await page.waitForURL(/\/portal/, { timeout: 10000 });
 
     expect(page.url()).not.toContain('evil.example.com');
-    expect(new URL(page.url()).pathname).toBe('/portal/overview');
+    await expect(page).toHaveURL(/\/portal\/overview$/, { timeout: 10000 });
   });
 });

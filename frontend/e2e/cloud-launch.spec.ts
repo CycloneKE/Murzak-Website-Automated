@@ -75,7 +75,7 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
     await mockPayBtn.click();
 
-    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
+    await expect(page).toHaveURL(/.*\/portal\/cloud/, { timeout: 15000 });
     const appHostingRow = page.locator('text=App Hosting (Node.js / Docker)').first();
     await expect(appHostingRow).toBeVisible({ timeout: 5000 });
   });
@@ -119,7 +119,7 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     const mockPayBtn = page.getByRole('button', { name: 'Dev: skip to mock payment success' });
     await expect(mockPayBtn).toBeVisible({ timeout: 15000 });
     await mockPayBtn.click();
-    await expect(page).toHaveURL(/.*\/portal\/overview/, { timeout: 15000 });
+    await expect(page).toHaveURL(/.*\/portal\/cloud/, { timeout: 15000 });
 
     // Now this account has a PAID Business plan. Launch a Light-tier volume
     // resource — this must succeed via POST /api/orders (order creation is
