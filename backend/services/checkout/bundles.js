@@ -35,6 +35,21 @@ function isZeroRamCompanion(id) {
   return id.startsWith("domain-") || ZERO_RAM_IDS.has(id);
 }
 
+// A managed database may ride along with an app-hosting order (the pair a
+// developer actually needs), and only there: POS/ERP/CRM bring their own
+// database, so a second one would spend box RAM on nothing. One per order.
+// Its RAM is charged at declared size by footprintOf, like any other line.
+const DATABASE_COMPANION_IDS = new Set(["db-postgres", "db-mysql", "db-mongo", "db-redis"]);
+
+function isDatabaseCompanion(id) {
+  return DATABASE_COMPANION_IDS.has(id);
+}
+
+function acceptsDatabaseCompanion(primaryId) {
+  const meta = getServiceMeta(primaryId);
+  return !!meta && meta.category === "App Hosting" && meta.capacityClass === "volume";
+}
+
 function validateCompanions({ primaryId, companions }) {
   if (!bundlesEnabled()) throw reject("Bundles are not available yet.");
   const list = Array.isArray(companions) ? companions : [];
@@ -43,6 +58,7 @@ function validateCompanions({ primaryId, companions }) {
 
   const seen = new Set();
   let businessApps = 0;
+  let databases = 0;
   return list.map((c) => {
     const serviceId = String(c?.serviceId || "");
     if (seen.has(serviceId)) throw reject(`${serviceId} was added more than once.`);
@@ -54,6 +70,10 @@ function validateCompanions({ primaryId, companions }) {
     if (isBusinessApp(serviceId)) {
       businessApps += 1;
       if (businessApps > 1) throw reject("Only one business app can be added as a companion.");
+    } else if (isDatabaseCompanion(serviceId)) {
+      if (!acceptsDatabaseCompanion(primaryId)) throw reject("A database can only be added to an app hosting order.");
+      databases += 1;
+      if (databases > 1) throw reject("Only one database can be added to an order.");
     } else if (!isZeroRamCompanion(serviceId)) {
       throw reject(`${meta.name || serviceId} cannot be bundled.`);
     }
@@ -202,6 +222,10 @@ function isAllowedCompanion(primaryId, serviceId) {
   if (!serviceId || serviceId === primaryId) return false;
   if (!getServiceMeta(serviceId)) return false;
   if (isAppService(serviceId)) return false;
+  // With no primary (the public "everything that can ever be a companion"
+  // listing) a database is included; the storefront and validateCompanions
+  // both narrow it to app-hosting primaries.
+  if (isDatabaseCompanion(serviceId)) return primaryId == null || acceptsDatabaseCompanion(primaryId);
   return isBusinessApp(serviceId) || isZeroRamCompanion(serviceId);
 }
 
@@ -594,6 +618,8 @@ module.exports = {
   computeHeadroom,
   publicPairings,
   allowedCompanionIds,
+  isDatabaseCompanion,
+  acceptsDatabaseCompanion,
   activeBundleWindows,
   savingForAddOn,
   offersForWindows,

@@ -1814,7 +1814,7 @@ function baseCtx(client, overrides = {}) {
     ok(res.body.pairings.length === 9, "all 9 pairings present: " + res.body.pairings.length);
     ok(Object.keys(res.body.pairings[0]).sort().join() === "companionId,label,primaryIds,savingKes", "pairing shape");
     const allowed = res.body.allowedCompanionIds;
-    ok(!allowed.includes("db-mysql") && !allowed.some((i) => i.startsWith("biz-pos-")), "no databases or POS tiers allowed");
+    ok(allowed.includes("db-mysql") && !allowed.includes("starter-db-light") && !allowed.some((i) => i.startsWith("biz-pos-")), "engine databases listed (app-hosting orders only); no deprecated db or POS tiers");
     ok(["domain-com", "starter-email", "starter-storage", "biz-erp-light", "biz-crm-helpdesk"].every((i) => allowed.includes(i)), "expected companions allowed");
     ok(allowed.every((i) => meta(i)), "every allowed id exists in the catalog");
     ok(["ok", "limited", "full"].includes(res.body.headroom.level) && Number.isInteger(res.body.headroom.benchSlotsLeft), "headroom shape");

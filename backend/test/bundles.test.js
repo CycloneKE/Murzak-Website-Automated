@@ -38,7 +38,12 @@ const C = (...ids) => ids.map((serviceId) => ({ serviceId }));
   ok(v.length === 1 && v[0].serviceId === "starter-email" && v[0].meta && v[0].config, "valid email companion");
   ok(bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("domain-com", "starter-storage", "biz-erp-light") }).length === 3, "three allowed incl one business app");
   ok(bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: [] }).length === 0, "empty ok");
-  await throws(() => bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("db-mysql") }), 422, "database rejected");
+  await throws(() => bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("db-mysql") }), 422, "database rejected for a business app");
+  ok(bundles.validateCompanions({ primaryId: "starter-app-hosting", companions: C("db-postgres", "domain-com") }).length === 2, "database allowed with app hosting");
+  await throws(() => bundles.validateCompanions({ primaryId: "starter-app-hosting", companions: C("db-postgres", "db-redis") }), 422, "second database rejected");
+  await throws(() => bundles.validateCompanions({ primaryId: "starter-wordpress", companions: C("db-mysql") }), 422, "database rejected for a non-app primary");
+  ok(bundles.isAllowedCompanion("starter-app-hosting", "db-postgres") && bundles.allowedCompanionIds().includes("db-postgres")
+    && !bundles.allowedCompanionIds().includes("starter-db-light"), "database companion listed; deprecated id is not");
   await throws(() => bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("biz-pos-inventory") }), 422, "POS companion rejected");
   await throws(() => bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("domain-com", "domain-org", "domain-net", "domain-io") }), 422, "fourth companion rejected");
   await throws(() => bundles.validateCompanions({ primaryId: "biz-pos-duka", companions: C("domain-com", "domain-com") }), 422, "duplicate rejected");
