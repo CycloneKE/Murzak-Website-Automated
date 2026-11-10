@@ -305,7 +305,9 @@ function seedAnnualPaidInvoice(webAccountName) {
     );
     const stored = client.store["Portal Invoice"]["PINV-STK-1"];
     ok(stored.mpesa_checkout_request_id === "ws_CO_123", "checkout id saved on the invoice");
-    ok(stored.mpesa_checkout_request_ids === "ws_CO_123", "checkout id added to the history");
+    // The amount the prompt charged is stored with the id, so the pending-payment
+    // sweep can check it later (services/mpesaPendingSweep.js).
+    ok(stored.mpesa_checkout_request_ids === "ws_CO_123:43200", "checkout id and the amount it charged added to the history");
   }
 
   section("POST /api/billing/mpesa/stk-push — a second push keeps the earlier checkout id in the history");
@@ -326,8 +328,8 @@ function seedAnnualPaidInvoice(webAccountName) {
     );
     ok(res.statusCode === 200, `status 200 (got ${res.statusCode})`);
     ok(
-      client.store["Portal Invoice"]["PINV-STK-1"].mpesa_checkout_request_ids === "ws_CO_OLD,ws_CO_NEW",
-      "history is 'ws_CO_OLD,ws_CO_NEW'"
+      client.store["Portal Invoice"]["PINV-STK-1"].mpesa_checkout_request_ids === "ws_CO_OLD,ws_CO_NEW:43200",
+      "history is 'ws_CO_OLD,ws_CO_NEW:43200' (the older id, written before amounts were kept, is untouched)"
     );
   }
 

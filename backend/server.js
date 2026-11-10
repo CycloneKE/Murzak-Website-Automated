@@ -3802,6 +3802,59 @@ const server = IS_ENTRYPOINT
     setInterval(run, everyMs).unref();
     console.log(`[paid-order] scheduled every ${Math.round(everyMs / 60000)}m${dryRun ? " (DRY RUN: nothing will be started)" : ""}`);
   }
+
+  // M-Pesa payments the callback never applied. The callback answers Safaricom
+  // before it does its work and Safaricom does not retry, so a callback that
+  // failed (Frappe unreachable, activation threw) or never arrived left a paid
+  // invoice Unpaid for good. This asks Daraja directly what became of recent
+  // prompts and settles the ones it reports paid. See services/mpesaPendingSweep.js.
+  if (
+    process.env.MPESA_RECONCILE_ENABLED !== "false" &&
+    process.env.MPESA_CONSUMER_KEY && process.env.MPESA_CONSUMER_SECRET &&
+    process.env.MPESA_SHORTCODE && process.env.MPESA_PASSKEY
+  ) {
+    const { sweepPendingMpesa } = require("./services/mpesaPendingSweep");
+    const { queryStkStatus } = require("./services/mpesaService");
+    const everyMs = Math.max(60000, Number(process.env.MPESA_RECONCILE_INTERVAL_MS || 3 * 60 * 1000));
+    const dryRun = String(process.env.MPESA_RECONCILE_DRY_RUN || "").toLowerCase() === "true";
+    const activate = ({ webAccount, invoiceDocName }) =>
+      activateServicesForInvoice({
+        req: { session: { webAccount, user: { id: webAccount } } },
+        invoiceDocName,
+        // Trusted rail: Daraja itself confirmed the prompt was paid, and the
+        // sweep checked the amount that prompt charged against the invoice.
+        paymentVerified: true,
+        frappeClient,
+        PORTAL_INVOICE_SERVICES_FIELD,
+        CHILD_SERVICE_ID_FIELD,
+        WEB_ACCOUNT_SERVICES_FIELD,
+        CHILD_STATUS_FIELD,
+        fetchInvoicesForUser,
+        fetchSelectedServicesForUser,
+        buildUserPayload,
+      });
+    const announced = new Set();
+    const run = () =>
+      sweepPendingMpesa(frappeClient(), {
+        queryStatus: (checkoutRequestID) =>
+          queryStkStatus({ checkoutRequestID, getAccessToken: getMpesaAccessToken }),
+        activate,
+        expectedKes: (amount) => Math.ceil(effectiveChargeKes(amount)),
+        dryRun,
+      })
+        .then((r) => {
+          for (const w of r.wouldSettle) {
+            if (!announced.has(w)) { announced.add(w); console.log(`[mpesa-sweep] DRY RUN would settle: ${w}`); }
+          }
+          if (r.settled > 0 || r.exceptions > 0 || r.failed > 0 || r.error) {
+            console.log(`[mpesa-sweep] invoices=${r.checked} asked=${r.queried} settled=${r.settled} exceptions=${r.exceptions} failed=${r.failed}${r.error ? ` error=${r.error}` : ""}`);
+          }
+        })
+        .catch((e) => console.warn("[mpesa-sweep] error:", e.message));
+    setTimeout(run, 100000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[mpesa-sweep] scheduled every ${Math.round(everyMs / 60000)}m${dryRun ? " (DRY RUN: nothing will be settled)" : ""}`);
+  }
     })
   : null;
 

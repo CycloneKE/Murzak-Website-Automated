@@ -44,15 +44,40 @@ function splitHistory(history) {
 }
 
 /**
+ * A history entry is either a bare id ("ws_CO_1") or an id with the whole-KES
+ * amount that push asked for ("ws_CO_1:1500"). The amount is what lets the
+ * pending-payment sweep (mpesaPendingSweep.js) settle a push Daraja reports as
+ * paid: the status query does not say how much was paid, and an invoice's
+ * amount can grow after a push (an add-on merged into an open invoice), so the
+ * amount has to be remembered per push. Entries written before this existed
+ * have no amount and read back as amountKes: null.
+ */
+function parseEntry(entry) {
+  const raw = String(entry || "").trim();
+  const cut = raw.lastIndexOf(":");
+  if (cut > 0 && /^\d+$/.test(raw.slice(cut + 1))) {
+    return { id: raw.slice(0, cut), amountKes: Number(raw.slice(cut + 1)) };
+  }
+  return { id: raw, amountKes: null };
+}
+
+/** The history as [{ id, amountKes }], oldest first. */
+function parseCheckoutHistory(history) {
+  return splitHistory(history).map(parseEntry).filter((e) => e.id);
+}
+
+/**
  * Append a CheckoutRequestID to an invoice's history, de-duplicated and capped.
+ * Pass the amount the push asked for so the sweep can verify it later.
  * Returns the new comma-separated history string.
  */
-function appendCheckoutRequestId(history, id) {
+function appendCheckoutRequestId(history, id, amountKes) {
   const wanted = String(id || "").trim();
   if (!wanted) return String(history || "");
-  const ids = splitHistory(history).filter((x) => x !== wanted);
-  ids.push(wanted);
-  return ids.slice(-CHECKOUT_ID_HISTORY_MAX).join(",");
+  const kept = splitHistory(history).filter((x) => parseEntry(x).id !== wanted);
+  const amount = Math.round(Number(amountKes));
+  kept.push(Number.isFinite(amount) && amount > 0 ? `${wanted}:${amount}` : wanted);
+  return kept.slice(-CHECKOUT_ID_HISTORY_MAX).join(",");
 }
 
 /**
@@ -63,7 +88,7 @@ function appendCheckoutRequestId(history, id) {
 function checkoutIdHistoryHas(history, id) {
   const wanted = String(id || "").trim();
   if (!wanted) return false;
-  return splitHistory(history).includes(wanted);
+  return parseCheckoutHistory(history).some((e) => e.id === wanted);
 }
 
 const INVOICE_FIELDS = [
@@ -172,6 +197,7 @@ module.exports = {
   CHECKOUT_ID_HISTORY_MAX,
   appendCheckoutRequestId,
   checkoutIdHistoryHas,
+  parseCheckoutHistory,
   findInvoiceByCheckoutRequestId,
   queryStkStatus,
   darajaBaseUrl,

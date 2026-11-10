@@ -627,7 +627,9 @@ router.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       || "";
     const invoiceUpdate = {
       mpesa_checkout_request_id: stkData.CheckoutRequestID,
-      mpesa_checkout_request_ids: appendCheckoutRequestId(priorHistory, stkData.CheckoutRequestID)
+      // The amount is kept with the id so the pending-payment sweep can check
+      // what this push actually charged (see services/mpesaPendingSweep.js).
+      mpesa_checkout_request_ids: appendCheckoutRequestId(priorHistory, stkData.CheckoutRequestID, amountKes)
     };
     try {
       await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, invoiceUpdate);
