@@ -8,6 +8,7 @@ interface Props {
 const ForHealthcare: React.FC<Props> = ({ onNavigate }) => (
   <IndustryPage
     onNavigate={onNavigate}
+    theme="clinics"
     crumb="Clinics & healthcare"
     title="For clinics: less paperwork, more time with patients."
     lead="Billing, stock and bookings are where a clinic loses hours. This is what we usually set up, and which parts are built to order."

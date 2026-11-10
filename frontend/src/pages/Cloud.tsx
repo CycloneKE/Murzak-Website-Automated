@@ -5,6 +5,7 @@ import { NavProps } from '../types';
 import { Button } from '../components/ui/Button';
 import CloudLaunchModal from '../components/CloudLaunchModal';
 import Faq, { type FaqItem } from '../components/Faq';
+import { PageHero, PageMain } from '../components/ui/Page';
 import { useAvailability } from '../components/AvailabilityNotice';
 import { isDatabaseCompanionId } from '../services/bundles';
 import { formatKes, GENERIC_POST_PURCHASE_COPY } from '../config/serviceCatalog';
@@ -84,52 +85,39 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <main className="text-murzak-ink dark:text-slate-100">
-      {/* Hero */}
-      <section className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 pt-12 sm:pt-16 pb-12 sm:pb-16 grid lg:grid-cols-12 gap-10 items-start">
-        <div className="lg:col-span-7">
-          <p className={`text-sm font-bold ${MUTED}`}>Murzak Cloud</p>
-          <h1 className="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.05]">
-            Hosting without the server work.
-          </h1>
-          <p className={`mt-5 text-lg leading-relaxed max-w-xl ${MUTED}`}>
-            Websites, apps, databases, domains and email. Pick what you need, pay in shillings, and we set it up.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <Button onClick={() => launch(undefined)}>
-              Launch something <ArrowRight size={18} />
-            </Button>
-            <Button variant="outline" onClick={() => document.getElementById('cloud-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
-              See what's available
-            </Button>
-          </div>
-          <ul className={`mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold ${MUTED}`}>
-            {['Pay by M-Pesa or card', 'Priced per item, per month', 'Support from Nairobi'].map((t) => (
-              <li key={t} className="flex items-center gap-1.5">
-                <Check size={15} className="text-murzak-success" /> {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* The price list itself, so nobody has to scroll to learn what it costs. */}
-        <div className={`lg:col-span-5 ${CARD} p-2`}>
-          <ul className="divide-y divide-murzak-border dark:divide-white/10">
+    <PageMain theme="cloud">
+      <div className="text-murzak-ink dark:text-slate-100">
+      <PageHero
+        onNavigate={onNavigate}
+        label="Murzak Cloud"
+        title="Hosting without the server work."
+        lead="Websites, apps, databases, domains and email. Pick what you need, pay in shillings, and we set it up."
+        price="Pay by M-Pesa or card. Priced per item, per month. Support from Nairobi."
+        aside={
+          // The price list itself, so nobody has to scroll to learn what it costs.
+          <ul className="p-2 divide-y divide-white/10">
             {CLOUD_OFFERS.map((o) => (
               <li key={o.key}>
                 <button
                   type="button"
                   onClick={() => start(o)}
-                  className="w-full flex items-center justify-between gap-4 px-4 py-3 text-left rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center justify-between gap-4 px-4 py-3 text-left rounded-xl hover:bg-white/5 transition-colors"
                 >
                   <span className="font-bold">{o.name}</span>
-                  <span className={`text-sm font-semibold tabular-nums ${MUTED}`}>{offerPriceLabel(o)}</span>
+                  <span className="text-sm font-semibold tabular-nums text-slate-300">{offerPriceLabel(o)}</span>
                 </button>
               </li>
             ))}
           </ul>
-        </div>
-      </section>
+        }
+      >
+        <Button onClick={() => launch(undefined)}>
+          Launch something <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => document.getElementById('cloud-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          See what's available
+        </Button>
+      </PageHero>
 
       {/* What you can launch */}
       <section id="cloud-offers" className="scroll-mt-28 border-t border-murzak-border dark:border-white/10">
@@ -243,7 +231,8 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         onNavigate={onNavigate}
         initialServiceId={launchServiceId}
       />
-    </main>
+      </div>
+    </PageMain>
   );
 };
 

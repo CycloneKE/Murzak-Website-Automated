@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ClosingCta, FaqBand, PageHero, PageSection, Points, Steps } from '../../components/ui/Page';
+import { ClosingCta, FaqBand, PageHero, PageMain, PageSection, Points, Steps } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import CloudLaunchModal from '../../components/CloudLaunchModal';
 import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
@@ -32,7 +32,7 @@ const CloudN8N: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <main>
+    <PageMain theme="automation">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Automation' }]}
@@ -83,7 +83,7 @@ const CloudN8N: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
         onNavigate={onNavigate}
         initialServiceId={SERVICE_ID}
       />
-    </main>
+    </PageMain>
   );
 };
 

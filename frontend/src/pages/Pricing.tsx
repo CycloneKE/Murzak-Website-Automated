@@ -27,6 +27,7 @@ import { ANNUAL_DISCOUNT_PCT, PLAN_META, getService, planForService, type PlanCo
 import { BUSINESS_OFFERS, CLOUD_OFFERS, offerPrice, offerPriceLabel, offerSetupLabel } from "../config/storefront";
 import { APP_CHECKOUT } from "../config/appCheckout";
 import { Button } from "../components/ui/Button";
+import { PageHero, PageMain } from "../components/ui/Page";
 import { toSafeJsonLdString } from "../utils/jsonLd";
 import { toUserMessage } from "../services/errors";
 
@@ -161,29 +162,28 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
   const pricingJsonLdString = toSafeJsonLdString(pricingJsonLd);
 
   return (
-    <div className="bg-transparent min-h-screen">
+    <PageMain theme="pricing">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: pricingJsonLdString }} />
 
-      {/* Intro */}
-      <section className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 pt-10 sm:pt-14 pb-10">
-        <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.05] text-murzak-ink dark:text-slate-100">
-          Prices
-        </h1>
-        <p className="mt-4 text-lg leading-relaxed max-w-2xl text-slate-600 dark:text-slate-400">
-          Every product has its own monthly price in shillings. Buy one, or several; you only pay for what you pick.
-          There are no tiers to unlock and no quote to wait for.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold">
-          <a href="#prices-business" className="underline underline-offset-4 text-murzak-ink dark:text-slate-100">Business systems</a>
-          <a href="#prices-cloud" className="underline underline-offset-4 text-murzak-ink dark:text-slate-100">Hosting &amp; cloud</a>
-          <button type="button" onClick={() => setAdvisorOpen(true)} className="inline-flex items-center gap-1.5 underline underline-offset-4 text-murzak-ink dark:text-slate-100">
-            <Wand2 size={14} /> Not sure? Help me choose
-          </button>
-        </div>
-      </section>
+      <PageHero
+        onNavigate={onNavigate as (page: string) => void}
+        label="Pricing"
+        title="Prices"
+        lead="Every product has its own monthly price in shillings. Buy one, or several; you only pay for what you pick. There are no tiers to unlock and no quote to wait for."
+      >
+        <Button onClick={() => document.getElementById('prices-business')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          Business systems <ArrowRight size={16} />
+        </Button>
+        <Button variant="outline" onClick={() => document.getElementById('prices-cloud')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+          Hosting &amp; cloud
+        </Button>
+        <Button variant="outline" onClick={() => setAdvisorOpen(true)}>
+          <Wand2 size={16} /> Not sure? Help me choose
+        </Button>
+      </PageHero>
 
       {/* Price list. id="pricing-plans" is kept: other pages deep-link to it. */}
-      <section id="pricing-plans" ref={gridRef} className="scroll-mt-28 max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 pb-16 sm:pb-20 space-y-12">
+      <section id="pricing-plans" ref={gridRef} className="scroll-mt-28 max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 pt-12 sm:pt-16 pb-16 sm:pb-20 space-y-12">
         {priceGroups.map((group) => (
           <div key={group.id} id={group.id} className="scroll-mt-28">
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
@@ -376,7 +376,7 @@ const handleAdvisorChoose = (planCode: PlanCode, serviceIds: string[], productPa
           setSalesOpen(true);
         }}
       />
-    </div>
+    </PageMain>
   );
 };
 

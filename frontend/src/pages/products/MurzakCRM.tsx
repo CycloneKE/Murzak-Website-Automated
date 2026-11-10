@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points } from '../../components/ui/Page';
+import { ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection, Points } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import { formatKes, serviceMonthlyKes, serviceSetupKes } from '../../config/serviceCatalog';
@@ -34,7 +34,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main>
+    <PageMain theme="crm">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'CRM & Helpdesk' }]}
@@ -109,7 +109,7 @@ const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
       </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="demo" />
-    </main>
+    </PageMain>
   );
 };
 

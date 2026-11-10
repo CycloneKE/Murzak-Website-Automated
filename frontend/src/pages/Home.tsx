@@ -4,7 +4,7 @@ import { Page } from '../types';
 import Faq, { type FaqItem } from '../components/Faq';
 import { BUSINESS_OFFERS, CLOUD_OFFERS, offerPriceLabel, type StoreOffer } from '../config/storefront';
 import { Button } from '../components/ui/Button';
-import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points, Steps } from '../components/ui/Page';
+import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection, Points, Steps } from '../components/ui/Page';
 
 interface HomeProps {
   onNavigate: (page: Page) => void;
@@ -48,7 +48,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   ];
 
   return (
-    <main>
+    <PageMain theme="home">
       <PageHero
         onNavigate={go}
         title="Run your business. We'll run the tech."
@@ -153,7 +153,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           Talk to us
         </Button>
       </ClosingCta>
-    </main>
+    </PageMain>
   );
 };
 

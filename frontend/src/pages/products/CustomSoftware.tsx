@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points, Steps } from '../../components/ui/Page';
+import { ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection, Points, Steps } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 
@@ -29,7 +29,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main>
+    <PageMain theme="custom">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'Custom software' }]}
@@ -86,7 +86,7 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
       </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="quote" />
-    </main>
+    </PageMain>
   );
 };
 
