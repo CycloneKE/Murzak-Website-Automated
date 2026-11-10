@@ -94,6 +94,7 @@ Configure three monitors — all keyword, all free tier:
 |---|---|---|---|---|
 | Apex | HTTPS **keyword** | `https://murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | ✅ live |
 | Health | HTTPS **keyword** | `https://murzaktech.tech/api/health` | keyword `"ok":true` absent | ✅ live |
+| Checkout health | HTTPS **keyword** | `https://murzaktech.tech/api/health/deep` | keyword `"ok":true` absent | **add this** once the endpoint is deployed |
 | Portal host | HTTPS **keyword** | `https://website.murzaktech.tech` | keyword `Murzak Technologies` absent, or non-200 | exists, but as plain HTTP/S — convert it |
 | Certificate | — | — | — | **don't add** — Layer 1 covers expiry free, see below |
 
@@ -106,6 +107,13 @@ Configure three monitors — all keyword, all free tier:
 >
 > Keyword matching is literal: `/api/health` returns exactly `{"ok":true}` with
 > no whitespace, so `"ok": true` (with a space) would never match.
+
+> **Why the "Checkout health" monitor matters most.** `/api/health` stays green
+> while Frappe is unreachable, and that is exactly when sign-in, checkout and
+> payment activation are all failing. `/api/health/deep` answers
+> `{"ok":true,"checks":{...}}` only when Frappe (and the session store, when one
+> is configured) answers, and HTTP 503 with `"ok":false` otherwise. The keyword
+> is the same literal `"ok":true`.
 
 Set alert contacts to a channel someone reads outside work hours, and set
 "alert after 2 consecutive failures" to avoid paging on a single blip — the

@@ -3332,6 +3332,26 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
+// --- DEEP HEALTH (unauthenticated: can checkout actually work right now?) ---
+// /api/health above stays green while Frappe is unreachable, which is when
+// sign-in, checkout and payment activation are all failing. This one answers
+// 503 in that case, so an uptime monitor pointed here notices. Cached and
+// time-boxed, and it never says why a check failed. See services/deepHealth.js.
+const deepHealth = require("./services/deepHealth").createDeepHealth({
+  frappe: async () => {
+    if (process.env.MOCK_FRAPPE === "true") return;
+    await frappeClient().get("/api/method/ping", { timeout: 5000 });
+  },
+  // Only when a session store is configured: without REDIS_URL sessions live in
+  // this process and there is nothing separate to be down.
+  ...(redisClient ? { sessions: async () => { await redisClient.ping(); } } : {}),
+});
+app.get("/api/health/deep", async (req, res) => {
+  const result = await deepHealth();
+  res.set("Cache-Control", "no-store");
+  res.status(result.ok ? 200 : 503).json(result);
+});
+
 // --- ME (session check) ---
 app.get("/api/me", (req, res) => {
   if (!req.session?.user) {

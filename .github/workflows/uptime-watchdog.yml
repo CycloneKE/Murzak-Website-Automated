@@ -17,9 +17,10 @@
 #
 # WHAT IT DOES NOT CATCH: /api/health is a pure liveness probe
 # (`res.json({ok:true})`), so a healthy response means Node is up and routing
-# and nothing more. It will NOT tell you Frappe, Redis or the DB are down and
-# checkout is failing. Treat a green run as "the site is reachable", not
-# "the site is working".
+# and nothing more. /api/health/deep (check 4b) adds "Frappe and the session
+# store answer", which covers sign-in and checkout being down. Neither places a
+# real order or takes a real payment, so a green run still does not prove
+# M-Pesa, PayPal or provisioning work end to end.
 #
 # LIMITS -- read before trusting this as a pager:
 #   - GitHub cron is best-effort. Runs are commonly 5-15 minutes late and are
@@ -121,6 +122,22 @@ jobs:
             fail "/api/health did not return ok:true (got: ${hb:-<no response>})"
           else
             echo "ok: /api/health ok:true"
+          fi
+
+          # ---- 4b. Can checkout actually work? ----------------------------
+          # /api/health above only proves Node is up. /api/health/deep also
+          # checks the things checkout depends on (Frappe, and the session
+          # store when one is configured) and answers 503 when one is down.
+          # A 404 means the running build predates the endpoint: warn, do not
+          # fail, so merging this check never pages anyone on its own.
+          deep_code=$(curl -sS -o /tmp/deep.json -w '%{http_code}' --max-time 25 "https://$APEX/api/health/deep" 2>/dev/null)
+          deep_code=${deep_code:-000}
+          if [ "$deep_code" = "404" ]; then
+            echo "::warning::/api/health/deep is not deployed yet (HTTP 404); dependency health is not being checked"
+          elif [ "$deep_code" != "200" ] || ! grep -q '"ok":[[:space:]]*true' /tmp/deep.json; then
+            fail "/api/health/deep reports a dependency down (HTTP $deep_code: $(head -c 200 /tmp/deep.json 2>/dev/null)) -- sign-in and checkout are likely failing"
+          else
+            echo "ok: /api/health/deep ok:true"
           fi
 
           # ---- 5. Certificate expiry --------------------------------------

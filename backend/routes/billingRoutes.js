@@ -1,5 +1,6 @@
 
 const express = require('express');
+const crypto = require('crypto');
 const { newMailPlanIds, MAIL_PLAN_SETUP_REQUIRED } = require('../services/email/mailPlanGuard');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
 // These are used by the M-Pesa STK push and callback handlers below. They were
@@ -680,7 +681,10 @@ router.post("/api/billing/mpesa/callback", async (req, res) => {
       }
     } else {
       const provided = String(req.query.token || req.headers["x-callback-token"] || "");
-      if (provided !== expectedToken) {
+      // Compared in constant time, so the response time says nothing about how
+      // much of a guessed token was right. Hashing first gives equal lengths.
+      const digest = (v) => crypto.createHash("sha256").update(v).digest();
+      if (!crypto.timingSafeEqual(digest(provided), digest(expectedToken))) {
         console.warn("MPESA CALLBACK: rejected — bad/missing token from", req.ip);
         return res.status(401).json({
           ResultCode: 1,
