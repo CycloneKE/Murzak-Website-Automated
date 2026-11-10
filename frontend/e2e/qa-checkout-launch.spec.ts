@@ -13,7 +13,7 @@ test.describe('LNCH-01 — deep link opens CloudLaunchModal pre-focused', () => 
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false }) })
     );
     await page.goto('/cloud?launch=starter-app-hosting');
-    await expect(page.getByRole('button', { name: /Launch now/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Continue to checkout/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByPlaceholder('https://github.com/you/app')).toBeVisible();
   });
 
@@ -77,7 +77,7 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
 
     // Now launch a second resource and capture the ACTUAL request body sent.
     await page.goto('/cloud?launch=starter-storage');
-    await expect(page.getByRole('button', { name: /Launch now/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Continue to checkout/i })).toBeVisible({ timeout: 10000 });
 
     let capturedBody: Record<string, unknown> | null = null;
     let capturedRawText = '';
@@ -94,7 +94,7 @@ test.describe('LNCH-03 — the client never sends a price the server could trust
 
     const [orderResp] = await Promise.all([
       page.waitForResponse((r) => r.url().endsWith('/api/orders')),
-      page.getByRole('button', { name: /Launch now/i }).click(),
+      page.getByRole('button', { name: /Continue to checkout/i }).click(),
     ]);
     expect(orderResp.status()).toBe(200);
 

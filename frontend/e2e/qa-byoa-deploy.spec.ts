@@ -73,7 +73,7 @@ test.describe('BYOA-02 — deploy is blocked without a paid App Hosting service'
     await expect(getAppHosting).toBeVisible();
     await getAppHosting.click();
     await expect(page).toHaveURL(/\/cloud\?launch=starter-app-hosting/, { timeout: 5000 });
-    await expect(page.getByRole('button', { name: /Launch now/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('button', { name: /Continue to checkout/i })).toBeVisible({ timeout: 10000 });
   });
 
   test('"Back" from the paid-plan gate returns to the wizard, not a dead end', async ({ page }) => {

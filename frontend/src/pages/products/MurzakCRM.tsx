@@ -1,134 +1,112 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, MessageSquare, Mail, Phone, Users, CheckCircle, BarChart3 } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Section } from '../../components/ui/Section';
+import { ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
-import Breadcrumbs from '../../components/Breadcrumbs';
-import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
+import { formatKes, serviceMonthlyKes, serviceSetupKes } from '../../config/serviceCatalog';
 import { ProductCompanions } from '../../components/CompanionPicker';
+import { useAvailability } from '../../components/AvailabilityNotice';
 
 interface Props {
   onNavigate: (page: string) => void;
 }
 
+const SERVICE_ID = 'biz-crm-helpdesk';
+
 const MurzakCRM: React.FC<Props> = ({ onNavigate }) => {
   const [salesOpen, setSalesOpen] = useState(false);
+  const availability = useAvailability();
+  const buy = () => onNavigate(`/checkout/new?serviceId=${SERVICE_ID}`);
+  const setup = serviceSetupKes(SERVICE_ID);
 
   const features = [
-    { icon: <BarChart3 size={20} />, title: "Sales Pipeline", desc: "Drag-and-drop kanban boards to track leads from first contact to closed deal." },
-    { icon: <MessageSquare size={20} />, title: "Support Ticketing", desc: "Convert customer emails into trackable tickets. Assign, tag, and resolve." },
-    { icon: <Mail size={20} />, title: "Email Integration", desc: "Sync your business email. Read and reply to clients without leaving the CRM." },
-    { icon: <Phone size={20} />, title: "WhatsApp Integration", desc: "Centralize WhatsApp communications so your team shares one inbox." },
+    { t: 'Sales pipeline', s: 'A board of your deals, from first contact to closed. Drag a deal along as it moves.' },
+    { t: 'Support tickets', s: 'Customer emails become tickets you can assign, tag and close.' },
+    { t: 'Email in one place', s: 'Connect your business email and reply to customers without leaving the CRM.' },
+    { t: 'Shared WhatsApp inbox', s: 'Bring WhatsApp conversations into one inbox the whole team can see.' },
   ];
 
   const faqs: FaqItem[] = [
-    { q: "Does it integrate with my website?", a: "Yes, you can embed contact forms on your website that automatically create leads or tickets in Murzak CRM." },
-    { q: "Can I connect it to Murzak ERP?", a: "Absolutely. They share the same underlying framework, so a lead won in the CRM becomes a customer in the ERP automatically, ready for invoicing." },
-    { q: "How many users can I have?", a: "The base subscription covers your whole core team, and we scale resources as your data and user base grow." },
+    { q: 'Does it integrate with my website?', a: 'Yes, you can embed contact forms on your website that automatically create leads or tickets in Murzak CRM.' },
+    { q: 'Can I connect it to Murzak ERP?', a: 'Yes. They are built on the same framework, so a lead won in the CRM becomes a customer in the ERP, ready for invoicing.' },
+    { q: 'How many users can I have?', a: 'The base subscription covers your whole core team, and we scale resources as your data and user base grow.' },
   ];
 
   return (
-    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero Section */}
-      <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <Breadcrumbs
-            onNavigate={onNavigate}
-            items={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'CRM & Helpdesk' }]}
-          />
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">Murzak CRM & Helpdesk</span>
-          </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl">
-            Every lead tracked. <span className="text-murzak-gradient">Every ticket answered.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl leading-relaxed">
-            Stop losing leads in personal WhatsApp threads. Centralize your sales and customer support in one place.
-          </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => onNavigate('/checkout/new?serviceId=biz-crm-helpdesk')}>
-              Start from {formatKes(serviceMonthlyKes('biz-crm-helpdesk'))}/mo <ArrowRight size={18} />
-            </Button>
-            <Button variant="outline" onClick={() => setSalesOpen(true)}>
-              Book a Demo
-            </Button>
-          </div>
-        </div>
-      </section>
+    <main>
+      <PageHero
+        onNavigate={onNavigate}
+        crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'CRM & Helpdesk' }]}
+        title="Every lead and every support request in one place."
+        lead="Murzak CRM & Helpdesk keeps sales and customer support out of personal WhatsApp threads and inboxes, so nothing depends on one person's phone."
+        price={
+          <>
+            {formatKes(serviceMonthlyKes(SERVICE_ID))}/mo
+            {setup ? ` + ${formatKes(setup)} one-time setup` : ''}
+          </>
+        }
+      >
+        <Button onClick={buy}>
+          Get Murzak CRM <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => setSalesOpen(true)}>
+          Book a demo
+        </Button>
+      </PageHero>
 
-      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/crm-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
-        <div className="absolute inset-0 z-0 section-bg-wash" />
-        <div className="absolute inset-0 z-0 section-bg-fade" />
+      <PageSection title="What it does">
+        <Points items={features} cols={4} />
+      </PageSection>
 
-      {/* Feature Grid */}
-      <Section className="relative z-10 border-t border-murzak-border/50">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {features.map((f, i) => (
-            <div key={i} className="rounded-3xl border border-transparent bg-white/60 dark:bg-white/5 backdrop-blur-md p-7 hover:border-murzak-accent/40 transition-colors">
-              <div className="inline-flex p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-5">
-                {f.icon}
-              </div>
-              <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{f.title}</h3>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Deep Dive */}
-      <Section className="relative z-10 border-t border-murzak-border/50 bg-white/2">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <PageSection tinted>
+        <div className="grid lg:grid-cols-2 gap-10 items-center">
           <div>
-            <h2 className="text-3xl font-[900] tracking-tight mb-5">Visual sales pipelines.</h2>
-            <p className="text-slate-500 font-medium leading-relaxed mb-6">
-              Know exactly where every deal stands. Customize your pipeline stages to match your actual sales process, and drag deals across the board as they progress.
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">See where every deal stands</h2>
+            <p className={`mt-3 leading-relaxed ${MUTED}`}>
+              Set the pipeline stages to match how you actually sell, then move deals across the board as they progress.
             </p>
-            <ul className="space-y-3">
-               {['Automated follow-up reminders', 'Revenue forecasting', 'Deal win/loss analysis'].map((item, idx) => (
-                 <li key={idx} className="flex items-center gap-3 text-sm font-bold text-murzak-ink dark:text-slate-100">
-                   <CheckCircle size={16} className="text-murzak-accent" /> {item}
-                 </li>
-               ))}
+            <ul className="mt-5 space-y-2.5">
+              {['Follow-up reminders', 'Revenue forecasting', 'Won and lost deal reports'].map((item) => (
+                <li key={item} className="flex items-center gap-2.5 text-sm font-semibold">
+                  <Check size={16} className="text-murzak-success shrink-0" /> {item}
+                </li>
+              ))}
             </ul>
           </div>
-
-          <div className="relative rounded-4xl overflow-hidden shadow-2xl border border-murzak-border group">
-            <img
-              src="/images/crm-kanban.png"
-              alt="Murzak CRM Kanban board showing sales pipeline stages"
-              className="w-full rounded-4xl transition-transform duration-700 group-hover:scale-[1.02]"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 rounded-4xl ring-1 ring-inset ring-white/10" />
-          </div>
+          <img
+            src="/images/crm-kanban.png"
+            alt="Murzak CRM board showing sales pipeline stages"
+            className="w-full rounded-2xl border border-murzak-border dark:border-white/10"
+            loading="lazy"
+          />
         </div>
-      </Section>
+      </PageSection>
 
-      {/* FAQ */}
-      <Section className="relative z-10 bg-murzak-surface/30 border-t border-murzak-border/50">
-        <Faq items={faqs} />
-      </Section>
-
-      </div>
-
-      {/* Final CTA */}
-      <section className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-[0.16]" />
-        <div className="max-w-2xl mx-auto px-6 text-center">
-          <ProductCompanions primaryId="biz-crm-helpdesk" className="mb-12 text-left" />
-          <h2 className="text-3xl sm:text-4xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Never miss a follow-up.</h2>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="primary" onClick={() => onNavigate('/checkout/new?serviceId=biz-crm-helpdesk')}>
-              Configure CRM <ArrowRight size={17} />
-            </Button>
-          </div>
+      {/* Only when add-ons can actually be ordered; the picker draws nothing otherwise. */}
+      {availability && (
+      <PageSection title="Add to your order" lead="Optional extras you can buy with the CRM.">
+        <ProductCompanions primaryId={SERVICE_ID} className="!mx-0" />
+        <div className="mt-8">
+          <Button onClick={buy}>
+            Continue with Murzak CRM <ArrowRight size={18} />
+          </Button>
         </div>
-      </section>
+      </PageSection>
+      )}
+
+      <FaqBand>
+        <Faq items={faqs} title="Questions about Murzak CRM" />
+      </FaqBand>
+
+      <ClosingCta title="Want to see it first?" lead="We can show you the CRM with a pipeline like yours.">
+        <Button onClick={buy}>
+          Get Murzak CRM <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => setSalesOpen(true)}>
+          Book a demo
+        </Button>
+      </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="demo" />
     </main>

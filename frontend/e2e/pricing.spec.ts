@@ -12,16 +12,16 @@ test.describe('Pricing Page & Configurator Calculator', () => {
     await page.goto('/pricing');
 
     // Wait for the pricing page hero to render (past skeleton loading)
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
 
     // Click the Starter-tier plan card's CTA. Plan cards are <article>
     // elements; the Starter plan's label is "Infrastructure Core" and its CTA
     // is "Configure infrastructure" (see PLAN_META.Starter in
     // frontend/src/config/serviceCatalog.ts) — the plan code "Starter" itself
     // never appears in the rendered card.
-    const starterCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
+    const starterCard = page.locator('#prices-cloud');
     await expect(starterCard).toBeVisible();
-    await starterCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    await starterCard.getByRole('button', { name: /Buy several together/i }).click();
 
     // Verify the configurator modal has opened
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });

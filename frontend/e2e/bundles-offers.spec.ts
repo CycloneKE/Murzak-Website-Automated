@@ -28,6 +28,14 @@ const json = (body: unknown, status = 200) => ({ status, contentType: 'applicati
 
 async function mockPortal(page: Page, offersRes: { status?: number; body: unknown }) {
   await page.addInitScript((k) => localStorage.setItem(k, '1'), `murzak_onboarded_${USER.id}`);
+  // Catch-all first (Playwright tries the most recently added route first, so
+  // the specific mocks below still win). Without it, any portal call this file
+  // does not name reaches the real backend, gets a 401 for this fake user, and
+  // the app treats that as an expired session and leaves for /login.
+  await page.route('**/api/**', (r) => r.fulfill(json({ ok: true })));
+  // The welcome page's setup questions are not part of these tests; a refusal is
+  // a state that card handles (a bare { ok: true } is not a catalogue).
+  await page.route('**/api/orders/*/shop-setup', (r) => r.fulfill(json({ error: 'Not available.' }, 404)));
   await page.route('**/api/auth/me', (r) => r.fulfill(json({ ok: true, user: USER })));
   await page.route('**/api/portal/updates', (r) => r.fulfill(json({ ok: true, updates: [] })));
   await page.route('**/api/portal/requests/unread-count', (r) => r.fulfill(json({ ok: true, count: 0 })));
@@ -41,7 +49,8 @@ test('Overview shows a card with name, price, server saving and days left', asyn
   await mockPortal(page, { body: { enabled: true, offers: [offer()] } });
   await page.goto('/portal/overview');
   const card = page.getByTestId('complete-setup-card-starter-email');
-  await expect(card).toBeVisible();
+  // First test in the file: the portal bundle may still be compiling on a cold dev server.
+  await expect(card).toBeVisible({ timeout: 15000 });
   await expect(card).toContainText('Business Email');
   await expect(card).toContainText('KES 1,500');
   await expect(card).toContainText('Save KES 1,500');

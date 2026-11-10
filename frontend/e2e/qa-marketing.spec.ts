@@ -159,26 +159,17 @@ test.describe('MKT-01b — light-mode text contrast', () => {
   }
 });
 
-test.describe('MKT-02 — Home trust strip is merged, not duplicated', () => {
-  test('one compact stats band, no oversized "By the numbers" section', async ({ page }) => {
-    await page.goto('/');
-    // Exact match — the footer's "% uptime SLA →" link also contains
-    // "uptime" case-insensitively and would otherwise make this ambiguous.
-    await expect(page.getByText('Uptime', { exact: true })).toBeVisible();
-    await expect(page.getByText('Go-live', { exact: true })).toBeVisible();
-    await expect(page.getByText('Monitoring', { exact: true })).toBeVisible();
-    await expect(page.getByText('Billing', { exact: true })).toBeVisible();
-
-    // The pre-fix section had its own "Uptime target" / "Typical go-live"
-    // long-form labels in a separate 4-tile grid — that copy must be gone.
-    await expect(page.locator('text=Uptime target')).toHaveCount(0);
-    await expect(page.locator('text=Typical go-live')).toHaveCount(0);
-
-    // No console error from the removed-then-orphaned lucide icon imports
-    // (Gauge/Activity/Banknote) that caused a live crash mid-session.
+test.describe('MKT-02 — Home makes no unbacked numeric claims', () => {
+  test('no uptime/go-live stat band, and the page loads without errors', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    await page.reload();
+    await page.goto('/');
+    await expect(page.locator('h1')).toBeVisible();
+    // The old stat band ("99.9% Uptime", "24/7 Monitoring") and the
+    // "systems operational" pill were decoration, not measurements.
+    await expect(page.locator('main').getByText('Uptime', { exact: true })).toHaveCount(0);
+    await expect(page.locator('main').getByText('Monitoring', { exact: true })).toHaveCount(0);
+    await expect(page.locator('text=systems operational')).toHaveCount(0);
     await page.waitForLoadState('networkidle');
     expect(errors.filter((e) => /is not defined/.test(e))).toEqual([]);
   });
@@ -217,10 +208,11 @@ test.describe('MKT-06 — legacy route redirects replace history (no back-button
     await expect(page).toHaveURL(/\/products$/);
   });
 
-  test('"Your own app" card on /cloud routes to /deploy', async ({ page }) => {
+  test('App hosting on /cloud opens the launch flow on that product', async ({ page }) => {
     await page.goto('/cloud');
-    await page.getByText('Your own app').click();
-    await expect(page).toHaveURL(/\/deploy|\/login\?returnTo=%2Fdeploy/);
+    await page.getByTestId('cloud-offer-app').getByRole('button', { name: 'Launch' }).click();
+    await expect(page.getByText('What do you want to launch?')).toBeVisible();
+    await expect(page.getByText('App Hosting (Node.js / Docker)').first()).toBeVisible();
   });
 });
 
@@ -244,40 +236,23 @@ test.describe('MKT-09 — currency consistency (KES only, no stray USD)', () => 
   });
 });
 
-test.describe('MKT-03 — live config peek never contradicts the real catalog', () => {
-  test('ConfigPeek prices match the same services shown on /pricing', async ({ page }) => {
-    // Home's hero ConfigPeek cycles through PEEK_ITEMS (Website Hosting,
-    // Business Email, Murzak ERP) pulled from serviceCatalog.ts — the single
-    // source of truth. Wait for the widget to finish cycling to all 3, then
-    // read each row's price straight from the DOM.
+test.describe('MKT-03 — Home prices never contradict the Pricing page', () => {
+  test('each product row on Home shows the same price as its row on /pricing', async ({ page }) => {
+    // Both pages render from config/storefront.ts; this guards against either
+    // one growing its own hand-typed price again.
     await page.goto('/');
-    // .first() — this is just a "has the widget mounted" readiness gate, and
-    // "your plan" legitimately renders twice on Home (ConfigPeek plus another
-    // section), which trips Playwright's strict-mode uniqueness check.
-    await expect(page.locator('text=your plan').first()).toBeVisible({ timeout: 10000 });
+    const homeRows = page.getByTestId('home-prices').locator('li');
+    await expect(homeRows.first()).toBeVisible({ timeout: 10000 });
+    const home = await homeRows.evaluateAll((els) => els.map((li) => (li.textContent || '').replace(/\s+/g, ' ').trim()));
+    expect(home.length).toBeGreaterThanOrEqual(8);
+    for (const row of home) expect(row, `Home row "${row}" has no KES price`).toMatch(/KES\s?[\d,]+/);
 
-    // Let the 2.2s cycle interval run through all 3 items before reading.
-    await page.waitForTimeout(2200 * 3 + 500);
-
-    const rows = await page.evaluate(() => {
-      // Also require a price figure in the same <li> — Home's nav menu has
-      // its own "Murzak ERP" list item (a plain link, no price) that matches
-      // the service-name half of this filter but isn't a price row at all.
-      const items = Array.from(document.querySelectorAll('li')).filter((li) => {
-        const text = li.textContent || '';
-        return /Website Hosting|Business Email|Murzak ERP/.test(text) && /KES\s?[\d,]+|\$\s?\d/.test(text);
-      });
-      return items.map((li) => li.textContent?.replace(/\s+/g, ' ').trim() || '');
-    });
-    expect(rows.length, 'ConfigPeek did not render its 3 service rows').toBeGreaterThanOrEqual(3);
-
-    // Cross-check each row's KES figure against the same service's price
-    // wherever it's independently rendered elsewhere on the page (e.g. the
-    // "Ready in days" product list further down Home, which pulls from the
-    // same catalog function). The two must never contradict each other.
-    for (const row of rows) {
-      const m = row.match(/KES\s?[\d,]+/);
-      expect(m, `ConfigPeek row "${row}" has no KES price`).not.toBeNull();
+    await page.goto('/pricing');
+    await expect(page.getByTestId('price-row-pos')).toBeVisible({ timeout: 15000 });
+    const pricingText = (await page.locator('#pricing-plans').innerText()).replace(/\s+/g, ' ');
+    for (const row of home) {
+      const price = row.match(/(from )?KES\s?[\d,]+\/(mo|yr)/)![0];
+      expect(pricingText, `"${row}" is priced differently on /pricing`).toContain(price);
     }
   });
 });
@@ -338,7 +313,7 @@ test.describe('MKT-08 — hero background survives a slow network without breaki
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByRole('button', { name: /Build my plan/i }).first()).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('button', { name: /See products and prices/i }).first()).toBeVisible({ timeout: 15000 });
 
     // No horizontal scrollbar introduced while images are still in flight.
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

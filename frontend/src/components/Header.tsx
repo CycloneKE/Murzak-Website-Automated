@@ -50,20 +50,16 @@ const Header: React.FC<HeaderProps> = ({
       label: "Murzak Cloud", 
       page: "cloud",
       submenu: [
-        { group: "Web & Domains", items: [
-          { label: "Domains", page: "/cloud/domains" },
-          { label: "WordPress", page: "/cloud/wordpress" },
-          { label: "Business Email", page: "/cloud/email" },
+        // One entry per thing you can buy; each label goes to a different page.
+        { group: "Websites & names", items: [
+          { label: "Websites", page: "/cloud/wordpress" },
+          { label: "Domain names", page: "/cloud/domains" },
+          { label: "Business email", page: "/cloud/email" },
         ]},
-        { group: "Databases & Storage", items: [
+        { group: "For developers", items: [
+          { label: "App hosting", page: "/cloud?launch=starter-app-hosting" },
           { label: "Databases", page: "/cloud/databases" },
-          { label: "Redis Cache", page: "/cloud/databases" },
-          { label: "Cloud Storage", page: "/cloud" },
-        ]},
-        { group: "Compute & Automation", items: [
-          { label: "n8n Automation", page: "/cloud/n8n" },
-          { label: "App Hosting", page: "deploy" },
-          { label: "Custom APIs", page: "deploy" },
+          { label: "Automation (n8n)", page: "/cloud/n8n" },
         ]}
       ]
     },
@@ -76,8 +72,7 @@ const Header: React.FC<HeaderProps> = ({
           { label: "Murzak ERP", page: "erp" },
           { label: "CRM & Helpdesk", page: "crm" },
         ]},
-        { group: "Custom Build & Hosting", items: [
-          { label: "App Hosting (BYOA)", page: "deploy" },
+        { group: "Built for you", items: [
           { label: "Custom Software", page: "custom-software" },
         ]},
         { group: "Industries", items: [
@@ -134,7 +129,7 @@ const Header: React.FC<HeaderProps> = ({
                     <button
                       onClick={() => item.submenu ? onNavigate(item.page) : onNavigate(item.page as Page)}
                       className={`flex items-center gap-1.5 text-sm font-semibold transition-all relative py-2 group focus:outline-hidden whitespace-nowrap ${
-                        activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage)))
+                        activePage === item.page || (item.page === "cloud" && activePage.startsWith("cloud-")) || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage)))
                           ? "text-murzak-brand2"
                           : "text-murzak-muted dark:text-slate-400 hover:text-murzak-accent"
                       }`}
@@ -143,7 +138,7 @@ const Header: React.FC<HeaderProps> = ({
                       {item.submenu && <ChevronDown size={16} className="group-hover/nav:rotate-180 transition-transform" />}
                       <span
                         className={`absolute bottom-0 left-0 h-[2px] bg-murzak-accent transition-all duration-300 ease-out origin-left ${
-                          activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "w-full scale-x-100" : "w-full scale-x-0 group-hover:scale-x-100"
+                          activePage === item.page || (item.page === "cloud" && activePage.startsWith("cloud-")) || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "w-full scale-x-100" : "w-full scale-x-0 group-hover:scale-x-100"
                         }`}
                       />
                     </button>
@@ -256,7 +251,7 @@ const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => item.submenu ? setOpenSubmenu(openSubmenu === item.page ? null : item.page) : handleMobileNav(item.page)}
                   className={`text-lg sm:text-xl font-[900] uppercase text-left tracking-tight py-2 transition-colors ${
-                    activePage === item.page || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "text-murzak-accent" : "text-murzak-ink dark:text-slate-100 hover:text-murzak-accent"
+                    activePage === item.page || (item.page === "cloud" && activePage.startsWith("cloud-")) || (item.submenu && item.submenu.some(g => g.items.some(i => i.page === activePage))) ? "text-murzak-accent" : "text-murzak-ink dark:text-slate-100 hover:text-murzak-accent"
                   }`}
                 >
                   {item.label}

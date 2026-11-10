@@ -186,7 +186,7 @@ const attachPendingCloudLaunch = async (): Promise<string | null> => {
   const pendingRaw = localStorage.getItem("murzak_cloud_launch_pending");
   if (!pendingRaw) return null;
 
-  let pending: { serviceId?: string; planKey?: string; source?: string; config?: any };
+  let pending: { serviceId?: string; planKey?: string; source?: string; config?: any; companions?: unknown };
   try {
     pending = JSON.parse(pendingRaw);
   } catch {
@@ -207,6 +207,8 @@ const attachPendingCloudLaunch = async (): Promise<string | null> => {
       planKey: pending.planKey || "Starter",
       source: pending.source || "CloudLaunch",
       config: pending.config || {},
+      // e.g. a database picked alongside app hosting; the server re-validates.
+      ...(Array.isArray(pending.companions) && pending.companions.length ? { companions: pending.companions } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));

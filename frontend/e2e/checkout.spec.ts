@@ -52,7 +52,7 @@ test.describe('CHK-01 — happy path: launch, checkout, pay', () => {
     // ?launch= deep-link mechanism cloud-launch.spec.ts and
     // qa-checkout-launch.spec.ts LNCH-01 already exercise).
     await page.goto(`/cloud?launch=${SERVICE_ID}`);
-    const launchBtn = page.getByRole('button', { name: /Launch now/i });
+    const launchBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
 
     const [orderResp] = await Promise.all([
@@ -100,7 +100,8 @@ test.describe('CHK-01 — happy path: launch, checkout, pay', () => {
     // all assert the post-payment URL/portal state, never that transient copy,
     // after driving a real payment). Asserting the *guaranteed* outcome instead:
     // redirect to the portal, and the purchased service now listed there.
-    await expect(page).toHaveURL(/\/portal\/overview/, { timeout: 15000 });
+    // A cloud purchase lands on the portal's Cloud page, on the new resource.
+    await expect(page).toHaveURL(/\/portal\/cloud/, { timeout: 15000 });
     await expect(page.locator('text=' + SERVICE_NAME).first()).toBeVisible({ timeout: 10000 });
   });
 });
@@ -163,7 +164,8 @@ test.describe('CHK-04 — auth guard: logged-out deep link redirects to /login',
     // the /checkout/new route is wrapped in RequireAuth in App.tsx.
     await page.goto(`/checkout/new?serviceId=${SERVICE_ID}`);
 
-    await expect(page).toHaveURL(/\/login\?returnTo=%2Fcheckout%2Fnew$/, { timeout: 10000 });
+    // The guard keeps the query string, so signing in returns to this exact order.
+    await expect(page).toHaveURL(/\/login\?returnTo=%2Fcheckout%2Fnew%3FserviceId%3Dstarter-web-hosting$/, { timeout: 10000 });
     await expect(page.locator('h1')).toContainText(/Client Dashboard/);
   });
 

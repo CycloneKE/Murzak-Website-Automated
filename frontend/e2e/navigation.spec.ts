@@ -27,8 +27,8 @@ test.describe('Navigation and Page Loading', () => {
     await expect(header.getByRole('button', { name: 'Login' })).toBeVisible();
     await expect(header.getByRole('button', { name: 'Talk to Sales' })).toBeVisible();
 
-    // Verify presence of operational status indicator
-    await expect(page.locator('text=Nairobi · systems operational')).toBeVisible();
+    // The hero headline is the first thing on the page
+    await expect(page.locator('h1')).toContainText(/Run your business/);
   });
 
   test('should navigate to Murzak Cloud', async ({ page }) => {
@@ -36,15 +36,14 @@ test.describe('Navigation and Page Loading', () => {
     await page.locator('header').getByRole('button', { name: 'Murzak Cloud' }).click();
     await expect(page).toHaveURL(/\/cloud/);
     // Actual h1: "Hosting that just stays up."
-    await expect(page.locator('h1')).toContainText(/Hosting that just/);
+    await expect(page.locator('h1')).toContainText(/Hosting without the server work/);
   });
 
   test('should navigate to Products', async ({ page }) => {
     await page.goto('/');
     await page.locator('header').getByRole('button', { name: 'Products' }).click();
     await expect(page).toHaveURL(/\/products/);
-    // Actual h1 (post catalog-IA overhaul): "Software built for how Kenya works."
-    await expect(page.locator('h1')).toContainText(/Software built for how Kenya works/);
+    await expect(page.locator('h1')).toHaveText('Products');
   });
 
   test('should navigate to Pricing', async ({ page }) => {
@@ -52,7 +51,7 @@ test.describe('Navigation and Page Loading', () => {
     await page.locator('header').getByRole('button', { name: 'Pricing' }).click();
     await expect(page).toHaveURL(/\/pricing/);
     // Actual h1: "Pay for what you use. See it first."
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/);
+    await expect(page.locator('h1')).toContainText(/Prices/);
   });
 
   test('should navigate to About', async ({ page }) => {

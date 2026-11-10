@@ -1,9 +1,8 @@
 import React from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Section } from '../../components/ui/Section';
+import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageSection } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
-import Breadcrumbs from '../../components/Breadcrumbs';
 import { formatKes, getService, serviceMonthlyKes } from '../../config/serviceCatalog';
 import { MAIL_HOSTNAME, SUPPORT_EMAIL } from '../../config/contact';
 
@@ -84,125 +83,86 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
     },
   ];
 
+  const name = (id: string) => getService(id)?.name.replace(/^Business Email \(|\)$/g, '') || '';
+
   return (
-    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero */}
-      <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="pointer-events-none absolute -top-40 right-[-10%] w-[640px] h-[640px] rounded-full blur-[140px] bg-brand-gradient opacity-20 animate-drift-slow -z-10" />
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <Breadcrumbs
-            onNavigate={onNavigate}
-            items={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Business Email' }]}
-          />
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 mb-6">
-            <span className="font-mono text-micro font-black uppercase text-amber-700 dark:text-amber-400">
-              Your domain · Webmail · Paid by M-Pesa
-            </span>
-          </div>
+    <main>
+      <PageHero
+        onNavigate={onNavigate}
+        crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Business email' }]}
+        title="Email on your own domain."
+        lead="Addresses like you@yourbusiness.co.ke instead of @gmail.com, with webmail and spam filtering. We handle the technical setup."
+        price={
+          starterMonthly !== undefined && starterBoxes !== undefined ? (
+            <>from {formatKes(starterMonthly)}/mo for {starterBoxes} mailboxes</>
+          ) : undefined
+        }
+      >
+        <Button onClick={() => start()}>
+          Get business email <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => onNavigate('/cloud/domains')}>
+          I need a domain first
+        </Button>
+      </PageHero>
 
-          <h1 className="text-[clamp(2.4rem,6vw,4.6rem)] font-[900] tracking-[-0.03em] leading-[1.02] max-w-3xl">
-            Look professional. <span className="text-murzak-gradient">Email on your own domain.</span>
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-300 font-medium max-w-2xl leading-relaxed">
-            Stop using @gmail.com for business. Get addresses like you@yourbusiness.co.ke with spam filtering and webmail,
-            with the technical setup handled for you.
-          </p>
-
-          <div className="mt-8 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => start()}>
-              Get Business Email <ArrowRight size={18} />
-            </Button>
-          </div>
-          {starterMonthly !== undefined && starterBoxes !== undefined && (
-            <p className="mt-4 font-mono text-xs text-slate-500 dark:text-slate-400">
-              From {formatKes(starterMonthly)}/mo for {starterBoxes} mailboxes
-            </p>
-          )}
+      <PageSection title="Choose a size" lead="The difference is how many mailboxes you get and how much each one holds.">
+        <div className="grid gap-4 md:grid-cols-3">
+          {TIERS.map((id) => {
+            const svc = getService(id);
+            if (!svc) return null;
+            const per = perMailboxKes(id);
+            return (
+              <article key={id} className={`${CARD} p-6 flex flex-col`}>
+                <h3 className="text-lg font-extrabold">{name(id)}</h3>
+                <p className="mt-2 text-2xl font-extrabold tabular-nums">
+                  {formatKes(serviceMonthlyKes(id))}
+                  <span className={`text-sm font-bold ${MUTED}`}>/mo</span>
+                </p>
+                {per !== undefined && <p className={`mt-1 text-xs font-semibold ${MUTED}`}>about {formatKes(per)} per mailbox</p>}
+                <ul className={`mt-5 space-y-2 text-sm grow ${MUTED}`}>
+                  {[
+                    `${svc.mailboxes} mailboxes`,
+                    `${svc.specs.storage.replace(' / mailbox', '')} storage in each mailbox`,
+                    'Webmail on your own domain',
+                    'Spam filtering',
+                  ].map((line) => (
+                    <li key={line} className="flex items-start gap-2">
+                      <Check size={16} className="mt-0.5 shrink-0 text-murzak-success" />
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+                <Button className="mt-6" variant="outline" onClick={() => start(id)}>
+                  Choose {name(id)}
+                </Button>
+              </article>
+            );
+          })}
         </div>
-      </section>
+      </PageSection>
 
-      {/* Tiers */}
-      <Section className="relative z-10 border-t border-murzak-border/50">
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-10">
-            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-2">Plans</p>
-            <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight">Pick the size that fits your team.</h2>
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {TIERS.map((id) => {
-              const svc = getService(id);
-              if (!svc) return null;
-              const per = perMailboxKes(id);
-              return (
-                <div key={id} className="p-7 rounded-3xl border border-murzak-border bg-white dark:bg-white/5 shadow-xs flex flex-col">
-                  <h3 className="text-lg font-black">{svc.name.replace(/^Business Email \(|\)$/g, '')}</h3>
-                  <p className="mt-2 text-3xl font-[900]">
-                    {formatKes(serviceMonthlyKes(id))}
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-400">/mo</span>
-                  </p>
-                  {per !== undefined && (
-                    <p className="mt-1 text-xs font-black text-emerald-700 dark:text-emerald-400">about {formatKes(per)} per mailbox</p>
-                  )}
-                  <ul className="mt-5 space-y-2 text-sm font-semibold text-slate-600 dark:text-slate-400 grow">
-                    <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />{svc.mailboxes} mailboxes</li>
-                    <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />{svc.specs.storage.replace(' / mailbox', '')} storage in each mailbox</li>
-                    <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />Webmail on your own domain</li>
-                    <li className="flex items-start gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />Spam filtering</li>
-                  </ul>
-                  <Button className="mt-6" variant="outline" onClick={() => start(id)}>
-                    Choose {svc.name.replace(/^Business Email \(|\)$/g, '')}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+      <PageSection title="What you get, and what to expect" tinted>
+        <div className="grid md:grid-cols-2 gap-x-10 gap-y-8">
+          {guides.map((g) => (
+            <div key={g.step}>
+              <h3 className="font-extrabold">{g.title}</h3>
+              <p className={`mt-1.5 text-sm leading-relaxed ${MUTED}`}>{g.desc}</p>
+              <p className={`mt-2 text-sm leading-relaxed break-words ${MUTED}`}>{g.details}</p>
+            </div>
+          ))}
         </div>
-      </Section>
+      </PageSection>
 
-      {/* Setup guides */}
-      <Section className="relative z-10 border-t border-murzak-border/50 bg-slate-50/50 dark:bg-black/20">
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-2">How it works</p>
-            <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight">From order to inbox, without the technical work.</h2>
-          </div>
+      <FaqBand>
+        <Faq items={faqs} title="Questions about business email" />
+      </FaqBand>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {guides.map((g) => (
-              <div key={g.step} className="p-8 rounded-3xl border border-murzak-border bg-white dark:bg-white/5 shadow-xs flex flex-col justify-between">
-                <div>
-                  <span className="font-mono text-xl font-[900] text-sky-700 dark:text-murzak-accent block mb-2">{g.step}</span>
-                  <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mb-2">{g.title}</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-4">{g.desc}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-600 dark:text-slate-400 break-words">
-                  <span className="text-amber-700 dark:text-amber-400 font-bold">Good to know: </span>{g.details}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
-      {/* FAQs */}
-      <Section className="relative z-10 border-t border-murzak-border/50">
-        <div className="max-w-[900px] mx-auto px-6 sm:px-10">
-          <Faq items={faqs} title="Business Email Questions" />
-        </div>
-      </Section>
-
-      {/* CTA */}
-      <section className="relative py-20 overflow-hidden border-t border-murzak-border/50">
-        <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-4">Set up your business email today.</h2>
-          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">
-            Pay with M-Pesa and we handle the technical setup. Questions? Write to {SUPPORT_EMAIL}.
-          </p>
-          <Button variant="primary" onClick={() => start()}>
-            Get Business Email <ArrowRight size={17} />
-          </Button>
-        </div>
-      </section>
+      <ClosingCta title="Ready to set up your mailboxes?" lead={<>Pay with M-Pesa and we handle the technical setup. Questions? Write to {SUPPORT_EMAIL}.</>}>
+        <Button onClick={() => start()}>
+          Get business email <ArrowRight size={18} />
+        </Button>
+      </ClosingCta>
     </main>
   );
 };

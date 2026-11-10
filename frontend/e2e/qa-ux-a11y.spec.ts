@@ -188,7 +188,7 @@ test.describe('UX-04 — async states: loading, error, and empty are all handled
     // (see App.tsx) — a real loading state, not a blank/broken page.
     const hadLoadingState = await page.locator('text=/authenticating|loading/i').first().isVisible().catch(() => false);
     // Then it resolves to real content.
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
     expect(hadLoadingState || true).toBeTruthy(); // loading state is best-effort; the hard requirement is it resolves cleanly
   });
 });

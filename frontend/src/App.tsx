@@ -55,6 +55,11 @@ const pathToPage: Record<string, Page> = {
   "/": "home",
   "/services": "services",
   "/cloud": "cloud",
+  "/cloud/domains": "cloud-domains",
+  "/cloud/databases": "cloud-databases",
+  "/cloud/wordpress": "cloud-wordpress",
+  "/cloud/n8n": "cloud-n8n",
+  "/cloud/email": "cloud-email",
   "/pricing": "pricing",
   "/solutions": "solutions",
   "/products": "products",
@@ -85,12 +90,12 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
   home: { title: "Murzak Technologies | Custom Software & Cloud Hosting Nairobi", description: "East Africa's trusted partner for custom enterprise software development." },
   services: { title: "Custom Software Development & ERP Systems Nairobi | Murzak", description: "Professional software engineering for Kenyan enterprises." },
   cloud: { title: "Managed Cloud Hosting & Secure VPS Kenya | Murzak Cloud", description: "Fast, secure, and locally-managed cloud hosting in Nairobi." },
-  "cloud-domains": { title: "Domain Names & DNS Ingress Nairobi | Murzak Cloud", description: "Search and register .co.ke, .com, and .ke domains with M-Pesa." },
+  "cloud-domains": { title: "Register a Domain Name | Murzak Cloud", description: "Search for a domain, see the yearly price in shillings, and pay by M-Pesa or card." },
   "cloud-databases": { title: "Managed MySQL, Postgres & Redis Databases | Murzak Cloud", description: "Locally hosted managed databases in Nairobi with S3 backups." },
   "cloud-wordpress": { title: "LiteSpeed Managed WordPress Hosting Kenya | Murzak Cloud", description: "Blazing fast WordPress hosting on NVMe SSD with free Let's Encrypt SSL." },
   "cloud-n8n": { title: "Private n8n Automation Engine Kenya | Murzak Cloud", description: "Automate M-Pesa callbacks, WhatsApp alerts, and ERP workflows." },
   "cloud-email": { title: "Custom Business Email Hosting Nairobi | Murzak Cloud", description: "Professional email on your custom domain with free email forwarding." },
-  pricing: { title: "Pricing Plans | Custom Software & Managed Cloud Nairobi", description: "Transparent pricing for Murzak services." },
+  pricing: { title: "Pricing | Every Murzak Product, Priced in Shillings", description: "Monthly prices in KES for each Murzak product: POS, ERP, CRM, email, websites, app hosting, databases and domains." },
   solutions: { title: "Solutions | Fixes for Real Business Problems | Murzak", description: "Hosting, business systems and custom software that solve the problems slowing your business down." },
   products: { title: "Products | Ready-Made Systems & Custom Software | Murzak", description: "Hosted ERP, POS and CRM you can use today — or bespoke software built around your workflow." },
   about: { title: "About Murzak Technologies | Our Mission for East Africa", description: "Nairobi-born technology company bridging the gap." },
@@ -118,11 +123,6 @@ const pageMetadata: Record<Page, { title: string; description: string }> = {
 // browser fetches it immediately instead of discovering it only once CSS
 // parses the bg-fixed rule (which otherwise costs a visible fade-in).
 const heroImages: Partial<Record<Page, string>> = {
-  home: "/images/nairobi-skyline.webp",
-  cloud: "/images/server-glow.webp",
-  products: "/images/products-hero.webp",
-  about: "/images/about-hero.webp",
-  "custom-software": "/images/custom-software-hero.webp",
   login: "/images/data-center.webp",
 };
 

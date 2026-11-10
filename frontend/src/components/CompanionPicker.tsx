@@ -73,8 +73,8 @@ const CompanionPicker: React.FC<Props> = ({ primaryId, value, onChange, domain, 
   const anyDomainSaving = model.domainIds.map(model.pairingFor).find((p) => p && p.savingKes);
 
   return (
-    <section data-testid="companion-picker" aria-labelledby="companion-picker-title" className="glass-card rounded-3xl p-6 sm:p-8">
-      <h2 id="companion-picker-title" className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">
+    <section data-testid="companion-picker" aria-labelledby="companion-picker-title" className="rounded-2xl border border-murzak-border dark:border-white/10 bg-white dark:bg-white/5 p-6 sm:p-8">
+      <h2 id="companion-picker-title" className="text-lg font-extrabold text-murzak-ink dark:text-slate-100">
         Add to your order
       </h2>
       <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">
