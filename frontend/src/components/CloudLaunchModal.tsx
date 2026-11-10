@@ -8,9 +8,12 @@ import {
   ServiceItem,
   DomainChoice,
   formatKes,
+  getService,
   planForService,
 } from "../config/serviceCatalog";
 import { toUserMessage } from "../services/errors";
+import { acceptsDatabaseCompanion, gateCompanions, isDatabaseCompanionId } from "../services/bundles";
+import { useAvailability } from "./AvailabilityNotice";
 
 type Props = {
   isOpen: boolean;
@@ -55,6 +58,9 @@ export default function CloudLaunchModal({
   const [capacityFull, setCapacityFull] = useState(false);
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
   const [waitlistJoined, setWaitlistJoined] = useState(false);
+  // A database to launch together with app hosting ("" = none).
+  const [databaseId, setDatabaseId] = useState("");
+  const availability = useAvailability();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -77,12 +83,26 @@ export default function CloudLaunchModal({
     setCapacityFull(false);
     setWaitlistSubmitting(false);
     setWaitlistJoined(false);
+    setDatabaseId("");
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const servicesForCategory = catalog[category] || [];
   const selected = servicesForCategory.find((s) => s.id === selectedId) || null;
+
+  // Databases this order may include: only with app hosting, only what the
+  // server currently allows (it re-validates on order creation).
+  const databaseOptions =
+    selected && availability && acceptsDatabaseCompanion(selected.id)
+      ? availability.allowedCompanionIds
+          .filter(isDatabaseCompanionId)
+          .map((id) => getService(id))
+          .filter((s): s is ServiceItem => !!s)
+      : [];
+  const database = databaseOptions.find((d) => d.id === databaseId) || null;
+  const totalMonthlyKes = selected ? (selected.pricing.monthlyKes || 0) + (database?.pricing.monthlyKes || 0) : null;
+  const companionsFor = async () => (selected && database ? gateCompanions(selected.id, [database.id], "") : []);
 
   const handlePickCategory = (cat: CloudLaunchCategory) => {
     setCategory(cat);
@@ -91,6 +111,7 @@ export default function CloudLaunchModal({
     setRepoUrl("");
     setAppPort("");
     setDomainChoice("Use Murzak Subdomain");
+    setDatabaseId("");
     setErr("");
   };
 
@@ -115,6 +136,7 @@ export default function CloudLaunchModal({
     // Save the repo URL BEFORE creating the order (unchanged rationale: a
     // repo-save failure aborts cleanly with nothing else created).
     await attachRepoIfNeeded();
+    const companions = await companionsFor();
 
     const res = await fetch("/api/orders", {
       method: "POST",
@@ -129,6 +151,7 @@ export default function CloudLaunchModal({
           ...(selected.requiresRepo ? { repoUrl } : {}),
           ...(appPort.trim() ? { appPort: Number(appPort.trim()) } : {}),
         },
+        ...(companions.length ? { companions } : {}),
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -171,8 +194,9 @@ export default function CloudLaunchModal({
   // turns into the wrong invoice (or none at all) once they finish signing
   // up, and they land on the dashboard with no purchase in progress. See
   // attachPendingCloudLaunch() in Login.tsx, which redeems this key.
-  const launchLoggedOut = () => {
+  const launchLoggedOut = async () => {
     if (!selected) return;
+    const companions = await companionsFor();
     const payload = {
       serviceId: selected.id,
       planKey: planForService(selected.id) || "Starter",
@@ -182,6 +206,7 @@ export default function CloudLaunchModal({
         ...(selected.requiresRepo ? { repoUrl } : {}),
         ...(appPort.trim() ? { appPort: Number(appPort.trim()) } : {}),
       },
+      ...(companions.length ? { companions } : {}),
     };
     localStorage.setItem("murzak_cloud_launch_pending", JSON.stringify(payload));
     onClose();
@@ -209,7 +234,7 @@ export default function CloudLaunchModal({
     }
 
     if (!isLoggedIn) {
-      launchLoggedOut();
+      await launchLoggedOut();
       return;
     }
 
@@ -225,16 +250,16 @@ export default function CloudLaunchModal({
 
   return createPortal(
     <div className="fixed inset-0 z-140">
-      <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-murzak-ink/60" onClick={onClose} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
-        <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
+        <div className="relative w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] bg-white dark:bg-[#10141b] rounded-2xl overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
           <div className="px-4 sm:px-8 py-4 sm:py-5 border-b border-murzak-accent/20 bg-murzak-ink text-white flex items-start justify-between gap-3">
             <div>
-              <p className="text-micro font-black uppercase text-murzak-accent/90">
+              <p className="text-sm font-bold text-slate-300">
                 Murzak Cloud
               </p>
-              <h3 className="text-lg sm:text-2xl font-black tracking-tighter text-white mt-1">
-                Launch a cloud resource
+              <h3 className="text-lg sm:text-xl font-extrabold text-white mt-0.5">
+                What do you want to launch?
               </h3>
             </div>
             <button
@@ -253,10 +278,10 @@ export default function CloudLaunchModal({
                   key={cat}
                   type="button"
                   onClick={() => handlePickCategory(cat)}
-                  className={`px-4 py-2 rounded-full text-label font-black uppercase tracking-widest border transition-all ${
+                  className={`px-4 py-2 rounded-full text-sm font-bold border transition-all ${
                     category === cat
                       ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                      : "border-white/15 text-slate-600 dark:text-slate-400 hover:border-murzak-accent/50"
+                      : "border-murzak-border dark:border-white/15 text-slate-600 dark:text-slate-400 hover:border-murzak-accent/50"
                   }`}
                 >
                   {cat}
@@ -270,10 +295,10 @@ export default function CloudLaunchModal({
                   key={svc.id}
                   type="button"
                   onClick={() => setSelectedId(svc.id)}
-                  className={`text-left rounded-3xl p-5 border transition-all ${
+                  className={`text-left rounded-2xl p-5 border transition-colors ${
                     selectedId === svc.id
                       ? "border-murzak-accent bg-murzak-accent/10"
-                      : "border-murzak-border bg-black/5 hover:border-murzak-accent/40"
+                      : "border-murzak-border dark:border-white/10 hover:border-murzak-accent/50"
                   }`}
                 >
                   <p className="text-sm font-black text-murzak-ink dark:text-slate-100">{svc.name}</p>
@@ -299,7 +324,7 @@ export default function CloudLaunchModal({
 
             {selected?.requiresRepo && (
               <div>
-                <label className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                <label className="text-sm font-bold text-murzak-ink dark:text-slate-100">
                   Repository URL
                 </label>
                 <input
@@ -307,10 +332,10 @@ export default function CloudLaunchModal({
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
                   placeholder="https://github.com/you/app"
-                  className="mt-2 w-full rounded-2xl px-5 py-4 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                  className="mt-2 w-full rounded-xl px-4 py-3 bg-white dark:bg-white/5 border border-murzak-border dark:border-white/15 text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                 />
                 <details className="mt-3">
-                  <summary className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest cursor-pointer select-none">
+                  <summary className="text-sm font-bold text-murzak-ink dark:text-slate-100 cursor-pointer select-none">
                     Advanced: app port
                   </summary>
                   <input
@@ -319,7 +344,7 @@ export default function CloudLaunchModal({
                     value={appPort}
                     onChange={(e) => setAppPort(e.target.value)}
                     placeholder="3000"
-                    className="mt-2 w-full sm:w-48 rounded-2xl px-5 py-3 bg-black/20 border border-murzak-border text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full sm:w-48 rounded-xl px-4 py-3 bg-white dark:bg-white/5 border border-murzak-border dark:border-white/15 text-murzak-ink dark:text-slate-100 font-bold focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
                   />
                   <p className="mt-2 text-label text-slate-600 dark:text-slate-400 font-medium">
                     The port your app listens on inside its container. Leave blank if it uses 3000.
@@ -328,9 +353,43 @@ export default function CloudLaunchModal({
               </div>
             )}
 
+            {databaseOptions.length > 0 && (
+              <div data-testid="launch-database">
+                <p className="text-sm font-bold text-murzak-ink dark:text-slate-100">Add a database</p>
+                <p className="mt-0.5 text-label text-slate-600 dark:text-slate-400 font-medium">
+                  Optional. It is set up with your app and billed on the same invoice.
+                </p>
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {[null, ...databaseOptions].map((d) => {
+                    const on = (d?.id || "") === databaseId;
+                    return (
+                      <button
+                        key={d?.id || "none"}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setDatabaseId(d?.id || "")}
+                        className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                          on
+                            ? "border-murzak-accent bg-murzak-accent/10"
+                            : "border-murzak-border hover:border-murzak-accent/50"
+                        }`}
+                      >
+                        <span className="block text-sm font-bold text-murzak-ink dark:text-slate-100">
+                          {d ? d.name.replace(/ Database$/, "") : "No database"}
+                        </span>
+                        <span className="block text-label font-medium text-slate-600 dark:text-slate-400">
+                          {d ? `+ ${formatKes(d.pricing.monthlyKes)}/mo` : "App only"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {selected?.requiresDomainChoice && (
               <div>
-                <label className="text-label font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                <label className="text-sm font-bold text-murzak-ink dark:text-slate-100">
                   Domain
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -339,10 +398,10 @@ export default function CloudLaunchModal({
                       key={choice}
                       type="button"
                       onClick={() => setDomainChoice(choice)}
-                      className={`px-4 py-2 rounded-full text-label font-black border ${
+                      className={`px-4 py-2 rounded-full text-sm font-bold border ${
                         domainChoice === choice
                           ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                          : "border-white/15 text-slate-600 dark:text-slate-400"
+                          : "border-murzak-border dark:border-white/15 text-slate-600 dark:text-slate-400"
                       }`}
                     >
                       {choice}
@@ -366,7 +425,7 @@ export default function CloudLaunchModal({
                     type="button"
                     onClick={joinWaitlist}
                     disabled={waitlistSubmitting}
-                    className="self-start px-4 py-2 rounded-full text-label font-black uppercase tracking-widest bg-murzak-accent text-murzak-ink disabled:opacity-50"
+                    className="self-start px-4 py-2 rounded-full text-sm font-bold bg-murzak-accent text-murzak-ink disabled:opacity-50"
                   >
                     {waitlistSubmitting ? "Joining…" : "Join the waitlist"}
                   </button>
@@ -383,19 +442,21 @@ export default function CloudLaunchModal({
 
           <div className="p-5 sm:p-6 border-t border-murzak-border flex items-center justify-between gap-4">
             <div>
-              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Total</p>
+              <p className="text-label font-bold text-slate-600 dark:text-slate-400">
+                {database ? `${selected?.name} + ${database.name}` : "Monthly total"}
+              </p>
               <p className="text-xl font-black text-murzak-ink dark:text-slate-100">
-                {selected ? formatKes(selected.pricing.monthlyKes) : "—"}/mo
+                {totalMonthlyKes != null ? formatKes(totalMonthlyKes) : "—"}/mo
               </p>
             </div>
             <button
               type="button"
               onClick={handleLaunch}
               disabled={submitting || !selected}
-              className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-murzak-accent text-murzak-ink flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-3 rounded-full font-bold text-sm bg-murzak-accent text-murzak-ink flex items-center gap-2 disabled:opacity-50"
             >
               {submitting ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
-              {submitting ? "Launching…" : "Launch now"}
+              {submitting ? "Starting…" : "Continue to checkout"}
             </button>
           </div>
         </div>

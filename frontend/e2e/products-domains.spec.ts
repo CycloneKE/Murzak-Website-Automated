@@ -61,7 +61,11 @@ test.describe('PRODDOM-01 — domain search selects and launches checkout', () =
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/orders') && r.request().method() === 'POST'
     );
+    // Picking a name only fills in the order summary; the order is created
+    // when the buyer confirms it.
     await selectButton.click();
+    await expect(domainSection.getByTestId('domain-order-review')).toContainText('Due today');
+    await domainSection.getByRole('button', { name: /Continue to payment/i }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
 
@@ -102,9 +106,10 @@ test.describe('PRODDOM-01 — domain search selects and launches checkout', () =
     await expect(selectButton).toBeVisible({ timeout: 10000 });
     await selectButton.click();
 
-    // Products.tsx's handleSelectDomain checks isLoggedIn before ever
-    // calling POST /api/orders, and redirects straight to
-    // /login?returnTo=%2Fproducts.
+    // A signed-out buyer still gets the order summary; confirming it sends
+    // them to /login and back to the domain section, without calling
+    // POST /api/orders first.
+    await domainSection.getByRole('button', { name: /Sign in to continue/i }).click();
     await expect(page).toHaveURL(/\/login\?returnTo=%2Fproducts/, { timeout: 10000 });
   });
 });

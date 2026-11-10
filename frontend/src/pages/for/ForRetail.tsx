@@ -1,76 +1,30 @@
 import React from 'react';
-import { ArrowRight, ShoppingCart, Barcode, Database, Store } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Section } from '../../components/ui/Section';
-import Breadcrumbs from '../../components/Breadcrumbs';
-import { formatKes, serviceMonthlyKes } from '../../config/serviceCatalog';
+import IndustryPage from '../../components/IndustryPage';
 
 interface Props {
   onNavigate: (page: string) => void;
 }
 
-const ForRetail: React.FC<Props> = ({ onNavigate }) => {
-  const stack = [
-    { title: "Murzak POS", desc: "Touch POS on any device, M-Pesa integration, barcode scanning.", path: "pos", icon: <Barcode size={24} /> },
-    { title: "Murzak ERP", desc: "Multi-branch inventory, purchase orders, and retail accounting.", path: "erp", icon: <Database size={24} /> },
-    { title: "Business Email", desc: "Professional emails for your management and branches.", path: "cloud", icon: <Store size={24} /> }
-  ];
-
-  return (
-    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
-          <Breadcrumbs onNavigate={onNavigate} className="justify-center" items={[{ label: 'Home', page: 'home' }, { label: 'For Retail & Shops' }]} />
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Retail & Shops</span>
-          </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
-            Run your shop, not your systems. <span className="text-murzak-gradient">POS, stock and accounting, handled.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            We're building the technology layer Kenya's retail sector has been waiting for. Stop doing manual stock counts and reconciling M-Pesa at midnight.
-          </p>
-        </div>
-      </section>
-
-      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/for-retail-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
-        <div className="absolute inset-0 z-0 section-bg-wash" />
-        <div className="absolute inset-0 z-0 section-bg-fade" />
-
-      <Section className="relative z-10 border-t border-murzak-border/50">
-        <div className="max-w-2xl mx-auto text-center mb-12">
-           <h2 className="text-3xl font-[900] tracking-tight mb-4">The Murzak Retail Stack</h2>
-           <p className="text-slate-500 font-medium mb-8">Integrated tools designed for Kenyan retail workflows.</p>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-6">
-           {stack.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all">
-                <div className="text-murzak-accent mb-5 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
-                <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{item.desc}</p>
-                <div className="text-murzak-accent text-sm font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                  View {item.title} <ArrowRight size={14} />
-                </div>
-             </div>
-           ))}
-        </div>
-      </Section>
-
-      <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
-        <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to upgrade your counters?</h2>
-          <p className="text-slate-600 dark:text-slate-400 font-medium mb-8">POS starting from {formatKes(serviceMonthlyKes('biz-pos-duka'))}/mo with full inventory features.</p>
-          <Button variant="primary" onClick={() => onNavigate('/products/pos#plans')}>
-            Configure your retail stack <ArrowRight size={17} />
-          </Button>
-        </div>
-      </section>
-      </div>
-    </main>
-  );
-};
+const ForRetail: React.FC<Props> = ({ onNavigate }) => (
+  <IndustryPage
+    onNavigate={onNavigate}
+    crumb="Retail & shops"
+    title="For shops: the till, the stock and the books in one place."
+    lead="Stop counting stock by hand and reconciling M-Pesa at midnight. This is what we usually set up for a shop."
+    sectionTitle="What a shop usually needs"
+    sectionLead="Start with the till. Add the rest when you are ready."
+    items={[
+      { kind: 'Ready to buy', title: 'Murzak POS', desc: 'Sell on a tablet or laptop, scan barcodes and take M-Pesa at the counter.', path: 'pos', offer: 'pos' },
+      { kind: 'Ready to buy', title: 'Murzak ERP', desc: 'Stock across branches, purchase orders and accounts.', path: 'erp', offer: 'erp' },
+      { kind: 'Ready to buy', title: 'Business email', desc: 'Mailboxes on your own domain for managers and branches.', path: '/cloud/email', offer: 'email' },
+    ]}
+    closing={{
+      title: 'Ready to set up your till?',
+      lead: 'Pick a POS size and it is ready minutes after payment.',
+      cta: 'See POS prices',
+      action: '/products/pos#plans',
+    }}
+  />
+);
 
 export default ForRetail;

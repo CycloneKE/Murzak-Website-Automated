@@ -19,10 +19,10 @@ test.describe('CFG-02 — self-serve RAM/disk cap routes to a dedicated quote', 
 
   test('adding services past the RAM cap shows the dedicated-capacity guard, not checkout', async ({ page }) => {
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
 
-    const starterCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
-    await starterCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    const starterCard = page.locator('#prices-cloud');
+    await starterCard.getByRole('button', { name: /Buy several together/i }).click();
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
 
     const serviceList = page.locator('.lg\\:col-span-8');
@@ -85,9 +85,9 @@ test.describe('CFG-05 — domain search shows honest available/taken states', ()
     );
 
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
-    const starterCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
-    await starterCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
+    const starterCard = page.locator('#prices-cloud');
+    await starterCard.getByRole('button', { name: /Buy several together/i }).click();
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
 
     const serviceList = page.locator('.lg\\:col-span-8');
@@ -124,9 +124,9 @@ test.describe('CFG-06 — plan selection survives the login gate', () => {
     const email = `test_cfg_persist_${suffix}@example.com`;
 
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
-    const starterCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
-    await starterCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
+    const starterCard = page.locator('#prices-cloud');
+    await starterCard.getByRole('button', { name: /Buy several together/i }).click();
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
 
     const serviceList = page.locator('.lg\\:col-span-8');
@@ -162,19 +162,17 @@ test.describe('CFG-08 — plan tile price/CTA tokens are correct per plan', () =
 
   test('Free/Custom/from-price tokens render on the right tiers', async ({ page }) => {
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
 
-    // "Custom" appears twice on the Enterprise card — the price token itself
-    // and an unrelated "Custom scaling & DR" feature bullet — so this must
-    // be scoped to the price element specifically (font-mono price div),
-    // not a loose text= match across the whole card.
-    const enterpriseCard = page.locator('article').filter({ hasText: 'Enterprise' }).first();
-    await expect(enterpriseCard.getByText('Custom', { exact: true })).toBeVisible();
-
-    const trialCard = page.locator('article').filter({ hasText: /Test Drive|Evaluating/i }).first();
-    if (await trialCard.count()) {
-      await expect(trialCard.getByText('Free', { exact: true })).toBeVisible();
-    }
+    // The page is a per-product price list read from the catalog: a product
+    // sold in several sizes says "from", a single-price one does not, and
+    // the two non-monthly routes (trial, quote) sit below the list.
+    await expect(page.getByTestId('price-row-pos')).toContainText('from KES 2,500/mo');
+    await expect(page.getByTestId('price-row-app')).toContainText('KES 2,200/mo');
+    await expect(page.getByTestId('price-row-app')).not.toContainText('from');
+    await expect(page.getByTestId('price-row-domain')).toContainText('/yr');
+    await expect(page.getByRole('button', { name: 'Request a trial' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Get a quote' })).toBeVisible();
   });
 });
 
@@ -187,7 +185,7 @@ test.describe('CFG-03 — plan advisor recommends exactly one plan with a legibl
 
   test('each need+size answer path yields one recommendation, and "start over" resets it', async ({ page }) => {
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
     await page.getByRole('button', { name: /Not sure\? Help me choose/i }).click();
     await expect(page.locator('text=Find your perfect fit')).toBeVisible({ timeout: 5000 });
 
@@ -221,9 +219,9 @@ test.describe('CFG-07 — the repo requirement for App Hosting is communicated b
 
   test('expanding App Hosting (Node.js / Docker) shows its Git-repo description', async ({ page }) => {
     await page.goto('/pricing');
-    await expect(page.locator('h1')).toContainText(/Pay for what you use/, { timeout: 15000 });
-    const infraCard = page.locator('article').filter({ hasText: 'Infrastructure Core' }).first();
-    await infraCard.getByRole('button', { name: /Configure infrastructure/i }).click();
+    await expect(page.locator('h1')).toContainText(/Prices/, { timeout: 15000 });
+    const infraCard = page.locator('#prices-cloud');
+    await infraCard.getByRole('button', { name: /Buy several together/i }).click();
     await expect(page.locator('text=Configure your plan')).toBeVisible({ timeout: 5000 });
 
     const serviceList = page.locator('.lg\\:col-span-8');

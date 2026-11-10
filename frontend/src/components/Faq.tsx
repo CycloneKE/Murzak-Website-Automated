@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Plus, HelpCircle } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toSafeJsonLdString } from "../utils/jsonLd";
 
 export type FaqItem = { q: string; a: string };
@@ -33,16 +33,15 @@ export default function Faq({ items, title = "Frequently asked questions", subti
     <>
       {/* eslint-disable-next-line react/no-danger */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: faqJsonLdString }} />
-      <section className="max-w-4xl mx-auto px-6 sm:px-10">
-      <div className="mb-10 text-center">
-        <div className="inline-flex items-center gap-2 text-micro font-black text-murzak-accent uppercase mb-4">
-          <HelpCircle size={14} /> {eyebrow}
-        </div>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter">
+      <section className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
+      <div className="max-w-3xl">
+      {/* `eyebrow` is kept in the props for callers but no longer drawn. */}
+      <div className="mb-8">
+        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-murzak-ink dark:text-slate-100">
           {title}
         </h2>
         {subtitle ? (
-          <p className="mt-3 max-w-2xl mx-auto text-sm sm:text-base font-bold text-slate-500 dark:text-slate-400 leading-relaxed">{subtitle}</p>
+          <p className="mt-2 max-w-2xl text-slate-600 dark:text-slate-400 leading-relaxed">{subtitle}</p>
         ) : null}
       </div>
 
@@ -54,8 +53,8 @@ export default function Faq({ items, title = "Frequently asked questions", subti
               key={i}
               className={`rounded-2xl border transition-all ${
                 isOpen
-                  ? "border-murzak-accent bg-murzak-accent/5 dark:bg-murzak-accent/10"
-                  : "border-slate-200 dark:border-murzak-border bg-white dark:bg-murzak-ink"
+                  ? "border-slate-400 dark:border-white/30 bg-white dark:bg-white/5"
+                  : "border-murzak-border dark:border-white/10 bg-white dark:bg-white/5"
               }`}
             >
               <button
@@ -63,20 +62,21 @@ export default function Faq({ items, title = "Frequently asked questions", subti
                 className="w-full flex items-center justify-between gap-4 p-5 sm:p-6 text-left"
                 aria-expanded={isOpen}
               >
-                <span className="text-sm sm:text-base font-black text-murzak-ink dark:text-slate-100">{item.q}</span>
+                <span className="text-sm sm:text-base font-bold text-murzak-ink dark:text-slate-100">{item.q}</span>
                 <Plus
                   size={18}
-                  className={`shrink-0 text-murzak-accent transition-transform duration-300 ${isOpen ? "rotate-45" : ""}`}
+                  className={`shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-300 ${isOpen ? "rotate-45" : ""}`}
                 />
               </button>
               {isOpen && (
-                <p className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-1 text-[13px] font-bold leading-relaxed text-slate-600 dark:text-slate-400 animate-fade-in">
+                <p className="px-5 sm:px-6 pb-5 sm:pb-6 -mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400 animate-fade-in">
                   {item.a}
                 </p>
               )}
             </div>
           );
         })}
+      </div>
       </div>
     </section>
     </>

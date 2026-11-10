@@ -1,79 +1,30 @@
-import React, { useState } from 'react';
-import { ArrowRight, Stethoscope, FileText, CalendarCheck, ShieldAlert } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Section } from '../../components/ui/Section';
-import SalesModal from '../../components/SalesModal';
-import Breadcrumbs from '../../components/Breadcrumbs';
+import React from 'react';
+import IndustryPage from '../../components/IndustryPage';
 
 interface Props {
   onNavigate: (page: string) => void;
 }
 
-const ForHealthcare: React.FC<Props> = ({ onNavigate }) => {
-  const [salesOpen, setSalesOpen] = useState(false);
-
-  const stack = [
-    { title: "Murzak ERP (Healthcare)", desc: "Patient records, billing, inventory for pharmacy and lab.", path: "erp", icon: <FileText size={24} /> },
-    { title: "Custom Booking System", desc: "Online scheduling for patients, integrated with doctors' calendars.", path: "custom-software", icon: <CalendarCheck size={24} /> },
-    { title: "Secure Cloud Storage", desc: "Private, managed cloud storage for medical records and imaging.", path: "cloud", icon: <ShieldAlert size={24} /> }
-  ];
-
-  return (
-    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      <section className="relative pt-20 lg:pt-28 pb-16 overflow-hidden">
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
-          <Breadcrumbs onNavigate={onNavigate} className="justify-center" items={[{ label: 'Home', page: 'home' }, { label: 'For Clinics & Healthcare' }]} />
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-murzak-accent/10 border border-murzak-accent/20 mb-6">
-            <span className="text-micro font-black uppercase text-sky-700 dark:text-murzak-accent">For Clinics & Healthcare</span>
-          </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] mx-auto max-w-4xl">
-            Focus on patients, not paperwork. <span className="text-murzak-gradient">Records, billing and scheduling, sorted.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-600 dark:text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            We're building the technology layer Kenya's healthcare providers have been waiting for. Ditch the paper records and disjointed billing systems.
-          </p>
-        </div>
-      </section>
-
-      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/for-healthcare-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
-        <div className="absolute inset-0 z-0 section-bg-wash" />
-        <div className="absolute inset-0 z-0 section-bg-fade" />
-
-      <Section className="relative z-10 border-t border-murzak-border/50">
-        <div className="max-w-2xl mx-auto text-center mb-12">
-           <h2 className="text-3xl font-[900] tracking-tight mb-4">The Murzak Healthcare Stack</h2>
-           <p className="text-slate-500 font-medium mb-8">Integrated, secure, and compliant with the Kenya Data Protection Act.</p>
-        </div>
-        <div className="grid sm:grid-cols-3 gap-6">
-           {stack.map((item, idx) => (
-             <div key={idx} onClick={() => onNavigate(item.path)} className="cursor-pointer group p-8 rounded-3xl border border-murzak-border bg-white/60 dark:bg-white/5 hover:border-murzak-accent/40 transition-all">
-                <div className="text-murzak-accent mb-5 opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</div>
-                <h3 className="text-xl font-black mb-3 text-murzak-ink dark:text-slate-100">{item.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{item.desc}</p>
-                <div className="text-murzak-accent text-sm font-bold flex items-center gap-2 group-hover:translate-x-1 transition-transform">
-                  View {item.title} <ArrowRight size={14} />
-                </div>
-             </div>
-           ))}
-        </div>
-      </Section>
-
-      <section className="relative z-10 py-24 overflow-hidden border-t border-murzak-border/50">
-        <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-6">Ready to digitize your clinic?</h2>
-          <Button variant="primary" onClick={() => setSalesOpen(true)}>
-            Talk to us about your clinic <ArrowRight size={17} />
-          </Button>
-        </div>
-      </section>
-      </div>
-
-      <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="quote" />
-    </main>
-  );
-};
+const ForHealthcare: React.FC<Props> = ({ onNavigate }) => (
+  <IndustryPage
+    onNavigate={onNavigate}
+    crumb="Clinics & healthcare"
+    title="For clinics: less paperwork, more time with patients."
+    lead="Billing, stock and bookings are where a clinic loses hours. This is what we usually set up, and which parts are built to order."
+    sectionTitle="What a clinic usually needs"
+    sectionLead="One ready-made system for the business side, plus custom work where your clinic is different."
+    items={[
+      { kind: 'Ready to buy', title: 'Murzak ERP', desc: 'Billing, pharmacy and lab stock, and accounts.', path: 'erp', offer: 'erp' },
+      { kind: 'Built for you', title: 'Booking system', desc: 'Online appointment booking that fits how your doctors schedule.', path: 'custom-software' },
+      { kind: 'Built for you', title: 'Patient records', desc: 'A records system designed around your clinic, with access limited to the right staff.', path: 'custom-software' },
+    ]}
+    closing={{
+      title: 'Want to talk through your clinic?',
+      lead: 'Tell us how you work today and we will scope it with you.',
+      cta: 'Get a quote',
+      action: 'quote',
+    }}
+  />
+);
 
 export default ForHealthcare;

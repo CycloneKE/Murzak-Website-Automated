@@ -23,7 +23,7 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     // 1. Deep-link straight into the App Hosting resource.
     await page.goto('/cloud?launch=starter-app-hosting');
 
-    const launchBtn = page.getByRole('button', { name: /Launch now/i });
+    const launchBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
 
     await page.getByPlaceholder('https://github.com/you/app').fill(repoUrl);
@@ -127,7 +127,7 @@ test.describe('E2E Murzak Cloud instant checkout', () => {
     // /api/addons/invoice/create, which before Task 1's fix would have
     // rejected it with a tier-mismatch error).
     await page.goto('/cloud?launch=starter-storage');
-    const launchBtn = page.getByRole('button', { name: /Launch now/i });
+    const launchBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
 
     // Assert the order-creation endpoint itself succeeded (not just that we

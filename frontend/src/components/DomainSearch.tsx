@@ -10,9 +10,14 @@ interface Props {
   onSelect: (domain: string, priceKes: number) => void;
   /** Endings to search; defaults to every TLD we sell. */
   tlds?: TldOption[];
+  /** Standalone domain purchase: the page shows its own order summary, so the
+   *  "added to your first invoice" line is hidden and results are not clipped. */
+  hideSelectionNote?: boolean;
+  /** Field label; defaults to "Find your domain". */
+  label?: string;
 }
 
-export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) {
+export default function DomainSearch({ selectedDomain, onSelect, tlds, hideSelectionNote, label = "Find your domain" }: Props) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DomainResult[] | null>(null);
@@ -32,14 +37,15 @@ export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) 
 
   return (
     <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/20 p-4">
-      <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2.5">
-        Find your domain
-      </div>
+      <label htmlFor="domain-search-input" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2.5">
+        {label}
+      </label>
 
       <form onSubmit={run} className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
+            id="domain-search-input"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="yourbusiness"
@@ -60,7 +66,7 @@ export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) 
       </form>
 
       {results && (
-        <ul className="mt-3 space-y-2 max-h-56 overflow-y-auto pr-1">
+        <ul className={`mt-3 space-y-2 pr-1 ${hideSelectionNote ? "" : "max-h-56 overflow-y-auto"}`}>
           {results.map((r) => {
             const isChosen = selectedDomain === r.domain;
             return (
@@ -78,7 +84,7 @@ export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) 
                   ) : (
                     <CircleSlash className="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
                   )}
-                  <span className={`text-sm font-black truncate ${r.available ? "text-murzak-ink dark:text-slate-100" : "text-slate-500 line-through"}`}>
+                  <span className={`text-sm font-black break-all ${r.available ? "text-murzak-ink dark:text-slate-100" : "text-slate-500 line-through"}`}>
                     {r.domain}
                   </span>
                 </div>
@@ -116,7 +122,13 @@ export default function DomainSearch({ selectedDomain, onSelect, tlds }: Props) 
         </ul>
       )}
 
-      {selectedDomain && (
+      {results && results.length > 0 && !results.some((r) => r.available) && (
+        <p className="mt-3 text-sm font-semibold text-slate-600 dark:text-slate-400">
+          None of those are free. Try a different name.
+        </p>
+      )}
+
+      {selectedDomain && !hideSelectionNote && (
         <p className="mt-3 text-micro font-bold text-murzak-accent">
           Registering <span className="font-black">{selectedDomain}</span> — billed yearly, added to your first invoice.
         </p>

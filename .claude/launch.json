@@ -9,6 +9,7 @@
       "env": {
         "ADMIN_EMAILS": "admin-test@murzaktest.local,dev-user@example.com",
         "NODE_ENV": "development",
+        "BUNDLES_ENABLED": "true",
         "SESSION_SECRET": "dev-throwaway-secret-local-only",
         "ALLOWED_ORIGINS": "http://localhost:5175"
       }

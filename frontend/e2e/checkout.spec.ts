@@ -52,7 +52,7 @@ test.describe('CHK-01 — happy path: launch, checkout, pay', () => {
     // ?launch= deep-link mechanism cloud-launch.spec.ts and
     // qa-checkout-launch.spec.ts LNCH-01 already exercise).
     await page.goto(`/cloud?launch=${SERVICE_ID}`);
-    const launchBtn = page.getByRole('button', { name: /Launch now/i });
+    const launchBtn = page.getByRole('button', { name: /Continue to checkout/i });
     await expect(launchBtn).toBeVisible({ timeout: 10000 });
 
     const [orderResp] = await Promise.all([

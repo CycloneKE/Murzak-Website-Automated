@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowRight, ArrowUpRight, Code, Terminal, Layers, Truck, CalendarDays, Smartphone, LayoutDashboard, Globe } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Section } from '../../components/ui/Section';
+import { ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points, Steps } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
-import Breadcrumbs from '../../components/Breadcrumbs';
 
 interface Props {
   onNavigate: (page: string) => void;
@@ -14,12 +13,12 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
   const [salesOpen, setSalesOpen] = useState(false);
 
   const whatWeBuild = [
-    { icon: <Truck size={20} />, title: "Dispatch & Logistics", desc: "Driver tracking, route planning, and automated customer updates via SMS/WhatsApp." },
-    { icon: <Globe size={20} />, title: "Customer Portals", desc: "Secure web portals for your clients to view their accounts, statements, or project status." },
-    { icon: <Smartphone size={20} />, title: "M-Pesa Integrations", desc: "B2B, B2C, and C2B API integrations to automate your payment reconciliation." },
-    { icon: <CalendarDays size={20} />, title: "Booking & Scheduling", desc: "Custom reservation systems for clinics, fleets, or specialized services." },
-    { icon: <LayoutDashboard size={20} />, title: "Internal Dashboards", desc: "Pull data from multiple spreadsheets and legacy systems into one clean, live view." },
-    { icon: <Layers size={20} />, title: "Platform Modernization", desc: "Taking your 10-year-old Access database and turning it into a secure web application." },
+    { title: "Dispatch & Logistics", desc: "Driver tracking, route planning, and automated customer updates via SMS/WhatsApp." },
+    { title: "Customer Portals", desc: "Secure web portals for your clients to view their accounts, statements, or project status." },
+    { title: "M-Pesa Integrations", desc: "B2B, B2C, and C2B API integrations to automate your payment reconciliation." },
+    { title: "Booking & Scheduling", desc: "Custom reservation systems for clinics, fleets, or specialized services." },
+    { title: "Internal Dashboards", desc: "Pull data from multiple spreadsheets and legacy systems into one clean, live view." },
+    { title: "Platform Modernization", desc: "Taking your 10-year-old Access database and turning it into a secure web application." },
   ];
 
   const faqs: FaqItem[] = [
@@ -30,180 +29,61 @@ const CustomSoftware: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main className="text-murzak-ink dark:text-slate-100 overflow-x-hidden">
-      {/* Hero Section — real code-on-screen photo behind the headline.
-          data-bg-surface="dark": unconditionally dark (photo + murzak-ink
-          overlay, no theme toggle) — see qa-marketing.spec.ts's MKT-01/01b
-          contrast check, which can't see a background painted by these
-          absolutely-positioned sibling layers on its own. */}
-      <section data-bg-surface="dark" className="relative min-h-[65vh] flex items-center pt-32 lg:pt-40 pb-16 overflow-hidden -mt-16 sm:-mt-20 lg:-mt-24">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center" style={{ backgroundImage: "url('/images/custom-software-hero.webp')" }} />
-        <div className="absolute inset-0 z-0 bg-linear-to-r from-murzak-ink/92 via-murzak-ink/75 to-murzak-ink/40" />
-        <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 relative z-10">
-          <Breadcrumbs
-            onNavigate={onNavigate}
-            variant="onDark"
-            items={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'Custom Software' }]}
-          />
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-6">
-            <span className="text-micro font-black uppercase text-murzak-accent">Custom Software Development</span>
-          </div>
-          <h1 className="text-[clamp(2.4rem,6vw,4.8rem)] font-[900] tracking-[-0.03em] leading-[0.98] max-w-3xl text-white">
-            When off-the-shelf <span className="text-murzak-gradient">won't cut it.</span>
-          </h1>
-          <p className="mt-7 text-lg sm:text-xl sm:leading-(--text-xl--line-height) text-slate-300 font-medium max-w-2xl leading-relaxed">
-            We design and build the exact system your business needs. Unlike typical agencies, we don't hand over the code and disappear. We host it and keep it running.
-          </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4">
-            <Button onClick={() => setSalesOpen(true)}>
-              Start a Build & Get a Quote <ArrowRight size={18} />
-            </Button>
-            <Button variant="outlineOnDark" onClick={() => onNavigate('products')}>
-              View Ready-Made Products
-            </Button>
-          </div>
-        </div>
-      </section>
+    <main>
+      <PageHero
+        onNavigate={onNavigate}
+        crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'Custom software' }]}
+        title="Software built around how you work."
+        lead="When nothing ready-made fits, we design and build the system you need. We also host it and keep it running afterwards, so you are not left with code and no one to call."
+        price={<>Projects typically start from KES 150,000, quoted at a fixed price before any code is written.</>}
+      >
+        <Button onClick={() => setSalesOpen(true)}>
+          Start a build <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => onNavigate('products')}>
+          See ready-made products
+        </Button>
+      </PageHero>
 
-      {/* GLOBAL BACKGROUND WRAPPER — one shared background image behind every
-          section below the hero, instead of a different image per section. */}
-      <div className="relative">
-        <div className="absolute inset-0 z-0 bg-fixed bg-cover bg-center opacity-45" style={{ backgroundImage: "url('/images/customsoftware-section-bg.webp')", filter: "saturate(.5) contrast(1.05)" }} />
-        <div className="absolute inset-0 z-0 section-bg-wash" />
-        <div className="absolute inset-0 z-0 section-bg-fade" />
+      <PageSection title="How a build works">
+        <Steps
+          items={[
+            { t: 'We listen', s: 'We map out your current bottlenecks, spreadsheets and manual processes.' },
+            { t: 'Design and quote', s: 'You get a clickable wireframe and a fixed-price quote before we write any code.' },
+            { t: 'We build', s: 'Our Nairobi-based engineers build your system and show you progress every week.' },
+            { t: 'We run it', s: 'We deploy it to Murzak Cloud and provide ongoing support.' },
+          ]}
+        />
+      </PageSection>
 
-        {/* The Process */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
-          <div className="max-w-2xl mb-12">
-            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">How we work</p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight">One team. No ghosting.</h2>
-          </div>
+      <PageSection
+        title="Examples of what we build"
+        lead="If your team is doing it by hand on WhatsApp or Excel, it can probably be a system."
+        tinted
+      >
+        <Points items={whatWeBuild.map((w) => ({ t: w.title, s: w.desc }))} />
+      </PageSection>
 
-          <div className="grid md:grid-cols-4 gap-6">
-             <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
-                <div className="absolute top-4 right-4 text-slate-600 dark:text-slate-400 font-black text-4xl opacity-30">1</div>
-                <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">We Listen</h3>
-                <p className="text-sm text-slate-500">We map out your current bottlenecks, spreadsheets, and manual processes.</p>
-             </div>
-             <div className="p-6 rounded-2xl bg-black/5 border border-murzak-border relative">
-                <div className="absolute top-4 right-4 text-slate-600 dark:text-slate-400 font-black text-4xl opacity-30">2</div>
-                <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">Design & Quote</h3>
-                <p className="text-sm text-slate-500">You get a clickable wireframe and a fixed-price quote before writing any code.</p>
-             </div>
-             <div className="p-6 rounded-2xl bg-murzak-accent/10 border border-murzak-accent/30 relative">
-                <div className="absolute top-4 right-4 text-murzak-accent/20 font-black text-4xl">3</div>
-                <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">We Build</h3>
-                <p className="text-sm text-slate-500">Our Nairobi-based engineers build your system with weekly demo updates.</p>
-             </div>
-             <div className="p-6 rounded-2xl bg-white/60 dark:bg-white/5 border border-murzak-border relative">
-                <div className="absolute top-4 right-4 text-slate-600 dark:text-slate-400 font-black text-4xl opacity-30">4</div>
-                <h3 className="font-bold text-murzak-ink dark:text-slate-100 mb-2 text-lg">We Run It</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">We deploy it to Murzak Cloud, handle the backups, and provide ongoing support.</p>
-             </div>
-          </div>
-        </Section>
+      <PageSection title="Tested before you get it">
+        <p className={`max-w-2xl leading-relaxed ${MUTED}`}>
+          Every build goes through a review pass covering payment flows, edge cases and the things that only break in
+          real use, before we hand it over. We write it in widely used, well-supported technology (React, Node.js,
+          Python, PostgreSQL, Flutter) so it stays maintainable for years.
+        </p>
+      </PageSection>
 
-        {/* Quality before it ships */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
-          <div className="max-w-2xl">
-            <p className="font-mono text-micro uppercase text-sky-700 dark:text-murzak-accent mb-3">Before it ships</p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-[900] tracking-tight mb-5">We test it like it's our own business on the line.</h2>
-            <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
-              Every build goes through a real review pass, covering payment flows, edge cases, and the things that only break in production, before we hand you the keys. If it's not something we'd trust with our own operations, it doesn't ship.
-            </p>
-          </div>
-        </Section>
+      <FaqBand>
+        <Faq items={faqs} title="Questions about custom software" />
+      </FaqBand>
 
-        {/* What we build */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-             <h2 className="text-3xl font-[900] tracking-tight text-murzak-ink dark:text-slate-100 mb-4">Examples of what we build</h2>
-             <p className="text-slate-500 font-medium">If your team is doing it manually on WhatsApp or Excel, we can automate it.</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {whatWeBuild.map((w, i) => (
-              // data-bg-surface="dark": card is unconditionally dark
-              // (bg-slate-900/50, no `dark:` pairing) with unconditional
-              // white/slate-400 text to match — see qa-marketing.spec.ts's
-              // MKT-01/01b contrast check.
-              <div key={i} data-bg-surface="dark" className="rounded-3xl border border-murzak-border bg-slate-900/50 p-7">
-                <div className="text-murzak-accent mb-4">
-                  {w.icon}
-                </div>
-                <h3 className="text-md font-black text-white mb-2">{w.title}</h3>
-                <p className="text-[13px] text-slate-400 font-medium leading-relaxed">{w.desc}</p>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Deep Dive: Code viz */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-             <div>
-                <h2 className="text-3xl font-[900] tracking-tight mb-5">Built on modern technology.</h2>
-                <p className="text-slate-500 font-medium leading-relaxed mb-6">
-                   We don't use fragile drag-and-drop builders. We write clean, scalable code using industry-standard frameworks, so your application stays secure and maintainable for years to come.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                   {['React', 'Node.js', 'Python', 'PostgreSQL', 'Flutter', 'Tailwind'].map(tech => (
-                     <span key={tech} className="px-3 py-1 rounded-full bg-black/5 text-xs font-mono text-slate-600 dark:text-slate-400">
-                       {tech}
-                     </span>
-                   ))}
-                </div>
-             </div>
-             <div className="rounded-4xl bg-[#0d1117] border border-murzak-border shadow-2xl p-6 font-mono text-label sm:text-xs overflow-hidden">
-                <div className="flex gap-2 mb-4">
-                   <div className="w-3 h-3 rounded-full bg-red-500/80"></div>
-                   <div className="w-3 h-3 rounded-full bg-yellow-500/80"></div>
-                   <div className="w-3 h-3 rounded-full bg-green-500/80"></div>
-                </div>
-                <div className="text-slate-500">
-                  <span className="text-purple-400">export</span> <span className="text-purple-400">const</span> <span className="text-blue-400">processMpesaPayment</span> = <span className="text-purple-400">async</span> (req: Request) =&gt; {'{'}
-                  <br />
-                  &nbsp;&nbsp;<span className="text-purple-400">const</span> {'{'} phoneNumber, amount, reference {'}'} = req.body;
-                  <br />
-                  <br />
-                  &nbsp;&nbsp;<span className="text-slate-500">// 1. Initiate STK Push via Daraja API</span>
-                  <br />
-                  &nbsp;&nbsp;<span className="text-purple-400">const</span> response = <span className="text-purple-400">await</span> mpesaClient.stkPush({'{'}
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;phoneNumber,
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;amount,
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;accountReference: reference
-                  <br />
-                  &nbsp;&nbsp;{'}'});
-                  <br />
-                  <br />
-                  &nbsp;&nbsp;<span className="text-slate-500">// 2. Create pending record in database</span>
-                  <br />
-                  &nbsp;&nbsp;<span className="text-purple-400">await</span> db.transactions.insert({'{'}
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;checkoutRequestId: response.CheckoutRequestID,
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;status: <span className="text-green-300">'PENDING'</span>,
-                  <br />
-                  &nbsp;&nbsp;&nbsp;&nbsp;timestamp: <span className="text-purple-400">new</span> Date()
-                  <br />
-                  &nbsp;&nbsp;{'}'});
-                  <br />
-                  <br />
-                  &nbsp;&nbsp;<span className="text-purple-400">return</span> response;
-                  <br />
-                  {'}'};
-                </div>
-             </div>
-          </div>
-        </Section>
-
-        {/* FAQ */}
-        <Section className="relative z-10 border-t border-murzak-border/50">
-          <Faq items={faqs} />
-        </Section>
-      </div>
+      <ClosingCta title="Have something in mind?" lead="Describe the problem and we will tell you what it would take.">
+        <Button onClick={() => setSalesOpen(true)}>
+          Start a build <ArrowRight size={18} />
+        </Button>
+        <Button variant="outline" onClick={() => onNavigate('contact')}>
+          Talk to us
+        </Button>
+      </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="quote" />
     </main>

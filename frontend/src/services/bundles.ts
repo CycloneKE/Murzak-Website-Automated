@@ -134,6 +134,17 @@ export function toCompanionInputs(ids: string[], domain: string): CompanionInput
   );
 }
 
+const DATABASE_COMPANION_IDS = ["db-postgres", "db-mysql", "db-mongo", "db-redis"];
+
+/** A managed database engine that can ride along with an app-hosting order. */
+export const isDatabaseCompanionId = (id: string) => DATABASE_COMPANION_IDS.includes(id);
+
+/** Mirrors the server rule: only a self-serve app-hosting order takes a database. */
+export function acceptsDatabaseCompanion(primaryId: string): boolean {
+  const svc = getService(primaryId);
+  return !!svc && svc.category === "App Hosting" && svc.capacityClass === "volume";
+}
+
 export const isBusinessApp = (id: string) => id === "biz-crm-helpdesk" || id.startsWith("biz-erp-");
 
 /** A bench-lane (Frappe) primary takes a bench slot itself. */
@@ -164,6 +175,7 @@ export function productFamily(serviceId: string): string {
 export function isPickableCompanion(id: string, primaryId: string, allowedIds: string[]): boolean {
   if (!allowedIds.includes(id)) return false;
   if (productFamily(id) === productFamily(primaryId)) return false;
+  if (isDatabaseCompanionId(id)) return acceptsDatabaseCompanion(primaryId);
   if (isDomainCompanionId(id)) return true;
   const svc = getService(id);
   return !!svc && !svc.app;
@@ -188,6 +200,8 @@ export async function gateCompanions(primaryId: string, ids: string[], domain: s
     .filter((id) => isPickableCompanion(id, primaryId, a.allowedCompanionIds))
     .filter((id) => !(appBlocked && isBusinessApp(id)))
     .filter((id) => !isDomainCompanionId(id) || (!!domain && domainServiceIdFor(domain) === id))
+    // One database per order (the server rejects a second).
+    .filter((id, i, all) => !isDatabaseCompanionId(id) || all.findIndex(isDatabaseCompanionId) === i)
     .slice(0, MAX_COMPANIONS);
   return toCompanionInputs(kept, domain);
 }
