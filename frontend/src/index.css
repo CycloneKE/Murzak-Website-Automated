@@ -402,3 +402,19 @@
     .hero-rise { animation: none; }
   }
 }
+
+/* Themed pages (components/ui/Page.tsx): the photo is fixed behind the page, so
+   every content section after the hero sits on a translucent panel. Sections
+   that set their own background (tinted bands) win, because this is in the
+   base layer. The hero and closing band carry data-bg-surface="dark" and are
+   left alone. */
+@layer base {
+  main[data-page-theme] > section:not([data-bg-surface]),
+  main[data-page-theme] > div:not([data-bg-surface]) {
+    background-color: rgb(255 255 255 / 0.8);
+  }
+  html.dark main[data-page-theme] > section:not([data-bg-surface]),
+  html.dark main[data-page-theme] > div:not([data-bg-surface]) {
+    background-color: rgb(9 12 16 / 0.8);
+  }
+}
