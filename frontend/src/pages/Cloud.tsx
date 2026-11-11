@@ -85,8 +85,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <PageMain theme="cloud">
-      <div className="text-murzak-ink dark:text-slate-100">
+    <PageMain theme="cloud" className="text-murzak-ink dark:text-slate-100">
       <PageHero
         onNavigate={onNavigate}
         label="Murzak Cloud"
@@ -156,7 +155,7 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
       </section>
 
       {/* Common setups */}
-      <section className="border-t border-murzak-border dark:border-white/10 bg-slate-50/70 dark:bg-white/[0.02]">
+      <section className="border-t border-murzak-border dark:border-white/10 bg-slate-100/90 dark:bg-black/80">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-14 sm:py-20">
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Things people buy together</h2>
           <p className={`mt-2 max-w-xl ${MUTED}`}>Most projects need more than one piece. These are the usual ones, with the total worked out.</p>
@@ -231,7 +230,6 @@ const Cloud: React.FC<CloudProps> = ({ onNavigate, isLoggedIn = false }) => {
         onNavigate={onNavigate}
         initialServiceId={launchServiceId}
       />
-      </div>
     </PageMain>
   );
 };

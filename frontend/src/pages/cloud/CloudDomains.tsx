@@ -41,8 +41,7 @@ const CloudDomains: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <PageMain theme="domains">
-      <div className="text-murzak-ink dark:text-slate-100">
+    <PageMain theme="domains" className="text-murzak-ink dark:text-slate-100">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Domains' }]}
@@ -108,7 +107,6 @@ const CloudDomains: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
       <section className="border-t border-murzak-border dark:border-white/10 py-14 sm:py-20">
         <Faq items={faqs} title="Questions about domains" eyebrow="Before you buy" />
       </section>
-      </div>
     </PageMain>
   );
 };

@@ -1,4 +1,5 @@
 import React, { createContext, useContext } from "react";
+import { ChevronDown } from "lucide-react";
 import Breadcrumbs, { type BreadcrumbItem } from "../Breadcrumbs";
 import { PAGE_THEMES, type PageTheme, type PageThemeKey } from "../../config/pageThemes";
 
@@ -30,31 +31,37 @@ const ThemeContext = createContext<PageTheme | null>(null);
 const useTheme = () => useContext(ThemeContext);
 
 /**
- * Page wrapper. Sets the page's theme for the hero and closing band, and
- * exposes its accent as --page-accent for everything in between.
+ * Page wrapper. Fixes the page's photograph behind everything (so it stays put
+ * while the page scrolls over it), gives the hero and closing band the theme,
+ * and exposes the accent as --page-accent for everything in between.
  */
-export function PageMain({ theme, children }: { theme?: PageThemeKey; children: React.ReactNode }) {
+export function PageMain({ theme, className = "", children }: { theme?: PageThemeKey; className?: string; children: React.ReactNode }) {
   const t = theme ? PAGE_THEMES[theme] : null;
   return (
     <ThemeContext.Provider value={t}>
-      <main data-page-theme={theme} style={t ? ({ "--page-accent": t.accent } as React.CSSProperties) : undefined}>
+      <main data-page-theme={theme} className={className} style={t ? ({ "--page-accent": t.accent } as React.CSSProperties) : undefined}>
+        {t && <PageBackdrop theme={t} />}
         {children}
       </main>
     </ThemeContext.Provider>
   );
 }
 
-/** The themed photograph with its washes. Always dark, whatever the site theme. */
-function Backdrop({ theme, strength = "hero" }: { theme: PageTheme; strength?: "hero" | "band" }) {
+/**
+ * The themed photograph, fixed to the viewport behind the whole page. Always
+ * dark, whatever the site theme. Content sections after the hero sit on a
+ * translucent panel (see "Themed pages" in index.css), so the photo reads
+ * faintly through them and strongly in the hero and closing band.
+ */
+function PageBackdrop({ theme }: { theme: PageTheme }) {
   const duo = theme.tone === "duotone";
   return (
-    <div className="absolute inset-0 overflow-hidden bg-murzak-ink" aria-hidden="true">
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-murzak-ink" aria-hidden="true">
       <img
         src={theme.image}
         alt=""
-        // The hero image is the largest thing above the fold; fetch it first.
-        fetchPriority={strength === "hero" ? "high" : "low"}
-        loading={strength === "hero" ? "eager" : "lazy"}
+        // Largest thing above the fold; fetch it first.
+        fetchPriority="high"
         decoding="async"
         className="absolute inset-0 h-full w-full object-cover"
         style={{
@@ -69,17 +76,7 @@ function Backdrop({ theme, strength = "hero" }: { theme: PageTheme; strength?: "
           <div className="absolute inset-0 mix-blend-soft-light opacity-60" style={{ background: theme.accent }} />
         </>
       )}
-      {/* Ink from the left, where the words sit; the photo stays open on the right. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            strength === "hero"
-              ? "linear-gradient(100deg, rgba(9,12,16,.94) 0%, rgba(9,12,16,.80) 38%, rgba(9,12,16,.42) 68%, rgba(9,12,16,.22) 100%)"
-              : "linear-gradient(100deg, rgba(9,12,16,.95) 0%, rgba(9,12,16,.86) 55%, rgba(9,12,16,.62) 100%)",
-        }}
-      />
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-linear-to-t from-murzak-ink/80 to-transparent" />
+      <div className="absolute inset-0 bg-murzak-ink/30" />
       <div className="absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ backgroundImage: GRAIN }} />
     </div>
   );
@@ -125,11 +122,21 @@ export function PageHero({ onNavigate, crumbs, label, title, lead, price, childr
   return (
     // data-bg-surface="dark": this band is dark in both site themes, so its
     // text colours are fixed rather than paired with dark: variants.
-    <section data-bg-surface="dark" className="relative isolate overflow-hidden text-white">
-      <Backdrop theme={theme} />
-      <div className={`${CONTAINER} relative pt-10 sm:pt-14 pb-16 sm:pb-24 lg:pb-28`}>
+    // Fills the screen below the fixed header (4rem / 5rem / 7rem, matching
+    // the padding App.tsx gives <main>); the photo is the page backdrop.
+    <section
+      data-bg-surface="dark"
+      className="relative flex items-center overflow-hidden text-white min-h-[calc(100svh-4rem)] sm:min-h-[calc(100svh-5rem)] lg:min-h-[calc(100svh-7rem)]"
+    >
+      {/* Ink from the left, where the words sit; the photo stays open on the right. */}
+      <div
+        className="absolute inset-0"
+        style={{ background: "linear-gradient(100deg, rgba(9,12,16,.92) 0%, rgba(9,12,16,.74) 38%, rgba(9,12,16,.28) 70%, rgba(9,12,16,.06) 100%)" }}
+        aria-hidden="true"
+      />
+      <div className={`${CONTAINER} relative w-full pt-8 pb-20 sm:pb-24`}>
         {crumbs && <Breadcrumbs onNavigate={onNavigate} items={crumbs} variant="onDark" />}
-        <div className={`mt-6 sm:mt-10 ${aside ? "grid lg:grid-cols-12 gap-10 items-end" : ""}`}>
+        <div className={`mt-4 sm:mt-8 ${aside ? "grid lg:grid-cols-12 gap-10 items-end" : ""}`}>
           <div className={`hero-rise ${aside ? "lg:col-span-7" : ""}`}>
             {tag && (
               <p className="flex items-center gap-3 text-sm font-bold tracking-wide" style={{ color: theme.accent }}>
@@ -154,6 +161,14 @@ export function PageHero({ onNavigate, crumbs, label, title, lead, price, childr
           )}
         </div>
       </div>
+      <button
+        type="button"
+        aria-label="Scroll to the page content"
+        onClick={(e) => e.currentTarget.closest("section")?.nextElementSibling?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full p-2 text-white/70 hover:text-white motion-safe:animate-bounce"
+      >
+        <ChevronDown size={26} />
+      </button>
       <div className="absolute inset-x-0 bottom-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${theme.accent}, transparent 70%)` }} aria-hidden="true" />
     </section>
   );
@@ -170,7 +185,7 @@ interface SectionProps {
 
 export function PageSection({ id, title, lead, tinted, children }: SectionProps) {
   return (
-    <section id={id} className={`${RULE} ${INK} ${id ? "scroll-mt-28" : ""} ${tinted ? "bg-slate-50/70 dark:bg-white/[0.02]" : ""}`}>
+    <section id={id} className={`${RULE} ${INK} ${id ? "scroll-mt-28" : ""} ${tinted ? "bg-slate-100/90 dark:bg-black/80" : ""}`}>
       <div className={`${CONTAINER} py-14 sm:py-20`}>
         {title && (
           <>
@@ -230,9 +245,9 @@ export function ClosingCta({ title, lead, children }: { title: string; lead?: Re
     </div>
   );
   if (!theme) return <section className={`${RULE} ${INK}`}>{inner}</section>;
+  // The photo is the fixed page backdrop, so this is just a lighter scrim over it.
   return (
-    <section data-bg-surface="dark" className="relative isolate overflow-hidden text-white">
-      <Backdrop theme={theme} strength="band" />
+    <section data-bg-surface="dark" className="relative overflow-hidden text-white bg-murzak-ink/70">
       {inner}
     </section>
   );
