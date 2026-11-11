@@ -8,6 +8,7 @@ interface Props {
 const ForServices: React.FC<Props> = ({ onNavigate }) => (
   <IndustryPage
     onNavigate={onNavigate}
+    theme="services"
     crumb="Professional services"
     title="For service firms: win the work, deliver it, get paid."
     lead="From first enquiry to final invoice, this is what we usually set up for agencies, consultancies and firms."

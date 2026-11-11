@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { NavProps } from '../types';
 import { Button } from '../components/ui/Button';
-import { CARD, ClosingCta, LINK, MUTED, PageHero, PageSection, Points } from '../components/ui/Page';
+import { CARD, ClosingCta, LINK, MUTED, PageHero, PageMain, PageSection, Points } from '../components/ui/Page';
 import { SUPPORT_EMAIL } from '../config/contact';
 
 const TEAM = [
@@ -40,7 +40,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
   const go = onNavigate as (pageOrPath: string) => void;
 
   return (
-    <main>
+    <PageMain theme="about">
       <PageHero
         onNavigate={go}
         title="We run the tech, so you can run your business."
@@ -152,7 +152,7 @@ const About: React.FC<NavProps> = ({ onNavigate }) => {
           See products and prices
         </Button>
       </ClosingCta>
-    </main>
+    </PageMain>
   );
 };
 

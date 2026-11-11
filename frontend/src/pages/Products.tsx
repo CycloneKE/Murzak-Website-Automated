@@ -2,7 +2,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { CARD, ClosingCta, LINK, MUTED, PageHero, PageSection } from '../components/ui/Page';
+import { CARD, ClosingCta, LINK, MUTED, PageHero, PageMain, PageSection } from '../components/ui/Page';
 import { Page } from '../types';
 import { formatKes, serviceMonthlyKes } from '../config/serviceCatalog';
 import { BUSINESS_OFFERS, CLOUD_OFFERS, offerPriceLabel, offerSetupLabel, type StoreOffer } from '../config/storefront';
@@ -55,7 +55,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
   );
 
   return (
-    <main>
+    <PageMain theme="products">
       <PageHero
         onNavigate={onNavigate}
         title="Products"
@@ -150,7 +150,7 @@ const Products: React.FC<Props> = ({ onNavigate, isLoggedIn }) => {
           Talk to us
         </Button>
       </ClosingCta>
-    </main>
+    </PageMain>
   );
 };
 

@@ -1,6 +1,8 @@
 import React from 'react';
 import Faq, { type FaqItem } from '../../components/Faq';
-import Breadcrumbs from '../../components/Breadcrumbs';
+import { ArrowRight } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { PageHero, PageMain, PageSection } from '../../components/ui/Page';
 import DomainOrder from '../../components/DomainOrder';
 import { formatKes } from '../../config/serviceCatalog';
 import { TLD_OPTIONS } from '../../services/domains';
@@ -39,27 +41,28 @@ const CloudDomains: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
   ];
 
   return (
-    <main className="text-murzak-ink dark:text-slate-100">
-      <section className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 pt-10 sm:pt-14 pb-14 sm:pb-20">
-        <Breadcrumbs
-          onNavigate={onNavigate}
-          items={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Domains' }]}
-        />
-        <div className="grid lg:grid-cols-12 gap-10 mt-2">
-          <div className="lg:col-span-7">
-            <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.05]">Register a domain name.</h1>
-            <p className={`mt-4 text-lg leading-relaxed max-w-xl ${MUTED}`}>
-              Search for the name you want, check the yearly price, and pay in shillings. Nothing is charged until you
-              review your order.
-            </p>
-            <div className="mt-8 max-w-xl">
-              <DomainOrder isLoggedIn={isLoggedIn} onNavigate={onNavigate} returnTo="/cloud/domains" />
-            </div>
-          </div>
+    <PageMain theme="domains">
+      <div className="text-murzak-ink dark:text-slate-100">
+      <PageHero
+        onNavigate={onNavigate}
+        crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Domains' }]}
+        title="Register a domain name."
+        lead="Search for the name you want, check the yearly price, and pay in shillings. Nothing is charged until you review your order."
+        price={<>from {formatKes(Math.min(...TLD_OPTIONS.map((t) => t.priceKes)))} a year</>}
+      >
+        <Button onClick={() => document.getElementById('domain-search-input')?.focus()}>
+          Search for a name <ArrowRight size={18} />
+        </Button>
+      </PageHero>
 
+      <PageSection id="find" title="Find your name">
+        <div className="grid lg:grid-cols-12 gap-10">
+          <div className="lg:col-span-7">
+            <DomainOrder isLoggedIn={isLoggedIn} onNavigate={onNavigate} returnTo="/cloud/domains" />
+          </div>
           <aside className="lg:col-span-5" aria-labelledby="domain-prices-title">
             <div className="rounded-2xl border border-murzak-border dark:border-white/10 bg-white dark:bg-white/5 p-5 sm:p-6">
-              <h2 id="domain-prices-title" className="font-extrabold">Yearly prices</h2>
+              <h3 id="domain-prices-title" className="font-extrabold">Yearly prices</h3>
               <table className="mt-3 w-full text-sm">
                 <tbody className="divide-y divide-murzak-border dark:divide-white/10">
                   {TLD_OPTIONS.map((t) => (
@@ -75,7 +78,7 @@ const CloudDomains: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
             </div>
           </aside>
         </div>
-      </section>
+      </PageSection>
 
       <section className="border-t border-murzak-border dark:border-white/10">
         <div className="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16 py-14 sm:py-20">
@@ -105,7 +108,8 @@ const CloudDomains: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => {
       <section className="border-t border-murzak-border dark:border-white/10 py-14 sm:py-20">
         <Faq items={faqs} title="Questions about domains" eyebrow="Before you buy" />
       </section>
-    </main>
+      </div>
+    </PageMain>
   );
 };
 

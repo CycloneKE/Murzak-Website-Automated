@@ -8,6 +8,7 @@ interface Props {
 const ForRetail: React.FC<Props> = ({ onNavigate }) => (
   <IndustryPage
     onNavigate={onNavigate}
+    theme="retail"
     crumb="Retail & shops"
     title="For shops: the till, the stock and the books in one place."
     lead="Stop counting stock by hand and reconciling M-Pesa at midnight. This is what we usually set up for a shop."

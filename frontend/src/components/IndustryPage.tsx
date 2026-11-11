@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from './ui/Button';
-import { CARD, ClosingCta, MUTED, PageHero, PageSection } from './ui/Page';
+import { CARD, ClosingCta, MUTED, PageHero, PageMain, PageSection } from './ui/Page';
+import type { PageThemeKey } from '../config/pageThemes';
 import SalesModal from './SalesModal';
 import { BUSINESS_OFFERS, CLOUD_OFFERS, offerPriceLabel } from '../config/storefront';
 
@@ -21,6 +22,8 @@ export interface IndustryItem {
 
 interface Props {
   onNavigate: (page: string) => void;
+  /** Photo and accent for this industry (config/pageThemes.ts). */
+  theme: PageThemeKey;
   crumb: string;
   title: string;
   lead: string;
@@ -44,12 +47,12 @@ function priceOf(key?: string): string {
   return offer ? offerPriceLabel(offer) : '';
 }
 
-const IndustryPage: React.FC<Props> = ({ onNavigate, crumb, title, lead, sectionTitle, sectionLead, items, closing, note }) => {
+const IndustryPage: React.FC<Props> = ({ onNavigate, theme, crumb, title, lead, sectionTitle, sectionLead, items, closing, note }) => {
   const [salesOpen, setSalesOpen] = useState(false);
   const act = () => (closing.action === 'quote' ? setSalesOpen(true) : onNavigate(closing.action));
 
   return (
-    <main>
+    <PageMain theme={theme}>
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: crumb }]}
@@ -100,7 +103,7 @@ const IndustryPage: React.FC<Props> = ({ onNavigate, crumb, title, lead, section
       </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="quote" />
-    </main>
+    </PageMain>
   );
 };
 

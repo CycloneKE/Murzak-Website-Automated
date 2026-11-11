@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageSection, Steps } from '../../components/ui/Page';
+import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection, Steps } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import CloudLaunchModal from '../../components/CloudLaunchModal';
 import { formatKes, serviceMonthlyKes, serviceSetupKes } from '../../config/serviceCatalog';
@@ -38,7 +38,7 @@ const CloudDatabases: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => 
   ];
 
   return (
-    <main>
+    <PageMain theme="databases">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Databases' }]}
@@ -107,7 +107,7 @@ const CloudDatabases: React.FC<Props> = ({ onNavigate, isLoggedIn = false }) => 
         onNavigate={onNavigate}
         initialServiceId={selectedDb}
       />
-    </main>
+    </PageMain>
   );
 };
 

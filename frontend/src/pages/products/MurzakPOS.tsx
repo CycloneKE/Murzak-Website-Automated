@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { ClosingCta, FaqBand, MUTED, PageHero, PageSection, Points, RULE } from '../../components/ui/Page';
+import { ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection, Points, RULE } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import SalesModal from '../../components/SalesModal';
 import AppPlans from '../../components/apps/AppPlans';
@@ -40,7 +40,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <main>
+    <PageMain theme="pos">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Products', page: 'products' }, { label: 'Murzak POS' }]}
@@ -114,7 +114,7 @@ const MurzakPOS: React.FC<Props> = ({ onNavigate }) => {
       </ClosingCta>
 
       <SalesModal isOpen={salesOpen} onClose={() => setSalesOpen(false)} initialMode="demo" />
-    </main>
+    </PageMain>
   );
 };
 

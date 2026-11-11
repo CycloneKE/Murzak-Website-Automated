@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageSection } from '../../components/ui/Page';
+import { CARD, ClosingCta, FaqBand, MUTED, PageHero, PageMain, PageSection } from '../../components/ui/Page';
 import Faq, { type FaqItem } from '../../components/Faq';
 import { formatKes, getService, serviceMonthlyKes } from '../../config/serviceCatalog';
 import { MAIL_HOSTNAME, SUPPORT_EMAIL } from '../../config/contact';
@@ -86,7 +86,7 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
   const name = (id: string) => getService(id)?.name.replace(/^Business Email \(|\)$/g, '') || '';
 
   return (
-    <main>
+    <PageMain theme="email">
       <PageHero
         onNavigate={onNavigate}
         crumbs={[{ label: 'Home', page: 'home' }, { label: 'Murzak Cloud', page: 'cloud' }, { label: 'Business email' }]}
@@ -163,7 +163,7 @@ const CloudEmail: React.FC<Props> = ({ onNavigate }) => {
           Get business email <ArrowRight size={18} />
         </Button>
       </ClosingCta>
-    </main>
+    </PageMain>
   );
 };
 

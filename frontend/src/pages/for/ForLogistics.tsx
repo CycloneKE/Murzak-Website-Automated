@@ -8,6 +8,7 @@ interface Props {
 const ForLogistics: React.FC<Props> = ({ onNavigate }) => (
   <IndustryPage
     onNavigate={onNavigate}
+    theme="logistics"
     crumb="Logistics & delivery"
     title="For logistics: stop running dispatch on WhatsApp."
     lead="Track every delivery and give drivers, dispatch and customers the same status. Most of this is built to order, because no two fleets work the same way."
