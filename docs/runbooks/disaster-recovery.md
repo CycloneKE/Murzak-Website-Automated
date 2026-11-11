@@ -120,10 +120,11 @@ Payments made in the hours before the loss may be newer than the last backup. Af
 - **One server.** Every product shares one failure. The cheapest meaningful improvement is moving
   the website and its Frappe site to a second small server, so customers can still sign in, pay and
   be told what is happening while the tenant server is rebuilt.
-- **Capacity.** `sellableRamMb` in the catalogue assumes 6,400 MB can be sold, while about 3,500 MB
-  was actually free when measured on 2026-09-05 (`deploy/vps/README.md`). Until that number is
-  corrected the capacity gate can accept more premium tenants than the server can hold, and the
-  kernel will kill a container to make room.
+- **Capacity.** The server had about 3,500 MB free when measured on 2026-09-05, and the catalogue
+  treats 3,000 MB of that as sellable. With the default limit of 85% the gate commits up to
+  2,550 MB, leaving under 1 GB spare. Setting `PROVISIONING_RAM_THRESHOLD_PCT=70` in the website's
+  environment leaves about 1.4 GB spare (`backend/.env.example` explains the trade-off). The
+  measurement is two months old: run `free -m` on the server and re-check it.
 - **Backups are nightly.** Up to a day of each shop's sales can be lost. Shortening that needs
   MariaDB binary logs shipped off the server, which is not set up.
 - **This has not been rehearsed.** Restore one customer site onto a scratch server, time it, and
