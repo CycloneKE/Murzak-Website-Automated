@@ -160,6 +160,43 @@ const T0 = 1_800_000_000_000; // fixed epoch for deterministic tests
     );
   }
 
+  section("capacity: an order that adds no RAM is never refused for capacity");
+  {
+    // A domain registration uses no box RAM. On a box that is ALREADY over the
+    // threshold (other paths can put it there, and the threshold itself drops
+    // when MAIL_STACK_RAM_MB is set), "reserved + 0 > threshold" was still
+    // true, so buying a domain showed "We are at capacity". The fleet gate in
+    // orderCapacity.js already skips zero-footprint purchases; this one did not.
+    const full = thresholdMb() + 500;
+    const o = await createOrder({
+      client: makeClient(), webAccountName: "a", serviceId: "domain-com",
+      config: { domain: "acme.com" }, fleetReservedRamMb: full, nowMs: T0,
+    });
+    ok(o && o.serviceId === "domain-com" && o.status === "Draft", "a domain order is created on an over-threshold box");
+
+    // The gate still bites for anything that does take RAM on that same box.
+    await throws(
+      () => createOrder({
+        client: makeClient(), webAccountName: "a", serviceId: "starter-web-hosting",
+        config: {}, fleetReservedRamMb: full, nowMs: T0,
+      }),
+      409, "a RAM-holding order is still refused on the same over-threshold box"
+    );
+
+    // Same rule when companions are edited: replacing the list on a domain
+    // order (still zero RAM) must not be refused either.
+    process.env.BUNDLES_ENABLED = "true";
+    const client = makeClient();
+    const d = await createOrder({
+      client, webAccountName: "a", serviceId: "domain-com",
+      config: { domain: "acme.com" }, fleetReservedRamMb: 0, nowMs: T0,
+    });
+    const after = await setCompanions({
+      client, orderId: d.id, webAccountName: "a", companions: [], fleetReservedRamMb: full, nowMs: T0 + 1000,
+    });
+    ok(after && after.id === d.id, "companions can be saved on a zero-RAM order when the box is over threshold");
+  }
+
   section("getOrder: ownership, renewal heartbeat, paid derivation");
   {
     const invoices = { "PINV-1": { name: "PINV-1", status: "Paid" } };

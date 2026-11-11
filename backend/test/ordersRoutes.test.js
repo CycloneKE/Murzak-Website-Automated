@@ -208,6 +208,21 @@ function baseCtx(client, overrides = {}) {
     ok(res.body?.waitlistAvailable === true, "waitlistAvailable === true");
   }
 
+  section("POST /api/orders — a domain is still sold on a full box (it takes no RAM)");
+  {
+    // What a buyer hit: the box was over its threshold and the checkout page
+    // showed "We are at capacity" for a domain name. Same full-box setup as
+    // the test above; only the product differs.
+    const client = makeMockFrappe();
+    const router = createOrdersRouter(baseCtx(client, { getReservedRamMb: async () => 999999 }));
+    const handler = findHandler(router, "post", "/api/orders");
+    const req = { session: { webAccount: "acct-1" }, body: { serviceId: "domain-com", config: { domain: "acme.com" } } };
+    const res = makeRes();
+    await handler(req, res);
+    ok(res.statusCode === 200, "status 200: " + res.statusCode + " " + JSON.stringify(res.body).slice(0, 120));
+    ok(res.body?.order?.serviceId === "domain-com" && res.body?.order?.status === "Draft", "a Draft domain order is returned");
+  }
+
   section("GET /api/orders/:id — another account is 403");
   {
     const client = makeMockFrappe();

@@ -326,7 +326,11 @@ async function createOrder({
     const footprint = bundle ? footprintOf(serviceId, bundle.companions) : effectiveFootprint(meta);
     const ramMb = footprint.ramMb;
     const reserved = sumReservedFromRows(rows, nowMs);
-    if ((Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) throw capacityError();
+    // An order that takes no RAM (a domain) is never refused for capacity:
+    // on a box already over the threshold, "reserved + 0 > threshold" is
+    // still true, which showed "at capacity" to someone buying a domain name.
+    // Same exemption as assertFleetHasHeadroom in services/orderCapacity.js.
+    if (ramMb > 0 && (Number(fleetReservedRamMb) || 0) + reserved + ramMb > thresholdMb()) throw capacityError();
 
     const payload = {
       web_account: webAccountName,
@@ -550,7 +554,11 @@ async function setCompanions({ client, webAccountName, orderId, companions, nowM
 
     const rows = (await listDraftRows(client)).filter((r) => r.name !== doc.name);
     const reserved = sumReservedFromRows(rows, nowMs);
-    if ((Number(fleetReservedRamMb) || 0) + reserved + footprint.ramMb > thresholdMb()) throw capacityError();
+    // Only gate a change that makes this order take MORE RAM than it already
+    // holds. A zero-RAM order, or a list that shrinks or keeps its footprint,
+    // cannot push the box any further over, so it is never refused.
+    const growsBy = footprint.ramMb - (Number(doc.ram_mb) || 0);
+    if (growsBy > 0 && (Number(fleetReservedRamMb) || 0) + reserved + footprint.ramMb > thresholdMb()) throw capacityError();
 
     const { bundle: _old, ...rest } = parseConfig(doc.config_json);
     const configJson = JSON.stringify(bundle ? { ...rest, bundle } : rest);
