@@ -16,6 +16,8 @@ function section(name) { console.log(`\n# ${name}`); }
 delete process.env.BULWARK_SERVICE_UUID;
 delete process.env.BULWARK_APP_UUID;
 delete process.env.BULWARK_MERGE_MS;
+delete process.env.BULWARK_KEEP_ADDRESSES;
+delete process.env.WEBMAIL_TARGET;
 
 const mod = require("../services/email/webmailBranding");
 const { buildBranding, loadActiveClients, enqueueDomain, mergeWindowMs } = mod;
@@ -197,6 +199,36 @@ const storedBranding = (clients) => JSON.stringify(clients.map((c) => ({ domain:
     ok(written.includes("a.co.ke") && written.includes("b.co.ke") && written.includes("pre.co.ke"), "written branding has A, B and the pre-existing client");
     const addr = cool.state.addressWrites;
     ok(addr.length === 1 && addr[0].includes("webmail.a.co.ke") && addr[0].includes("webmail.b.co.ke") && addr[0].includes("webmail.pre.co.ke"), "address list written once, complete");
+  }
+
+  section("enqueueDomain: the shared webmail address is never dropped from the list");
+  {
+    // The list sent to Coolify REPLACES the service's addresses. Every customer's
+    // webmail.<domain> CNAME points at the shared address, so losing it breaks all of them.
+    const { deps, cool } = makeDeps({ envs: [], activeClients: [] });
+    await enqueueDomain(null, { domain: "first.co.ke", title: "First" }, deps);
+    const list = (cool.state.addressWrites[0] || "").split(",");
+    ok(list.includes("webmail.cloud.murzaktech.tech"), "default WEBMAIL_TARGET is kept on the first order");
+    ok(list.includes("webmail.first.co.ke"), "the customer's address is added");
+  }
+
+  section("enqueueDomain: WEBMAIL_TARGET and BULWARK_KEEP_ADDRESSES are kept, invalid entries ignored");
+  {
+    process.env.WEBMAIL_TARGET = "Webmail.Example.net";
+    process.env.BULWARK_KEEP_ADDRESSES = " test.cloud.murzaktech.tech , https://bad/,webmail.example.net,";
+    try {
+      const { deps, cool } = makeDeps({ envs: [], activeClients: [] });
+      await enqueueDomain(null, { domain: "second.co.ke", title: "Second" }, deps);
+      const list = (cool.state.addressWrites[0] || "").split(",");
+      ok(list.includes("webmail.example.net"), "custom WEBMAIL_TARGET is kept (lowercased)");
+      ok(list.includes("test.cloud.murzaktech.tech"), "extra kept address is kept");
+      ok(list.filter((a) => a === "webmail.example.net").length === 1, "no duplicates");
+      ok(!list.some((a) => a.includes("/") || a === ""), "invalid and empty entries are dropped");
+      ok(!list.includes("webmail.cloud.murzaktech.tech"), "default is replaced, not added, when WEBMAIL_TARGET is set");
+    } finally {
+      delete process.env.WEBMAIL_TARGET;
+      delete process.env.BULWARK_KEEP_ADDRESSES;
+    }
   }
 
   section("enqueueDomain: refuses to shrink when loadActiveClients returns [] but env has entries");
