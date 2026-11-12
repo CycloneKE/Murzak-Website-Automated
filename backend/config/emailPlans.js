@@ -24,7 +24,9 @@ const PLANS = Object.freeze({
   "mail-pro": Object.freeze({
     id: "mail-pro",
     mailboxes: 30,
-    quotaGb: 15,
+    // 5GB, not 15: 30 x 15GB = 450GB promised could never pass the disk gate on
+    // the shared VPS (decided 2026-11-12). 30 x 5GB = 150GB.
+    quotaGb: 5,
     monthlyKes: 2900,
     annualKes: 29000,
   }),

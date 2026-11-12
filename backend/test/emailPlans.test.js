@@ -22,7 +22,7 @@ const { PLANS, isMailPlan, domainPriceKes } = emailPlans;
   const expected = {
     "mail-starter": { mailboxes: 3, quotaGb: 5, monthlyKes: 450, annualKes: 4500 },
     "mail-business": { mailboxes: 10, quotaGb: 10, monthlyKes: 1200, annualKes: 12000 },
-    "mail-pro": { mailboxes: 30, quotaGb: 15, monthlyKes: 2900, annualKes: 29000 },
+    "mail-pro": { mailboxes: 30, quotaGb: 5, monthlyKes: 2900, annualKes: 29000 },
   };
   for (const [id, want] of Object.entries(expected)) {
     const plan = PLANS[id];

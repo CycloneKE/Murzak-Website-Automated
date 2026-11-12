@@ -635,11 +635,11 @@ export const SERVICE_CATALOG: Record<PlanCode, ServiceItem[]> = {
     {
       id: "mail-pro",
       name: "Business Email (Pro)",
-      description: "Professional email on your domain: up to 30 mailboxes, 15GB each.",
+      description: "Professional email on your domain: up to 30 mailboxes, 5GB each.",
       category: "Email Hosting",
       tier: "Light",
       capacityClass: "volume",
-      specs: { ram: "Shared", storage: "15GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
+      specs: { ram: "Shared", storage: "5GB / mailbox", cpu: "Shared", bandwidth: "Fair-use", backups: "Standard", sla: "99.5%" },
       // Zero footprint: mailboxes are hosted on Hostinger, not our VPS.
       resources: { ramMb: 0, diskGb: 0 },
       // Mailbox allowance; must match config/emailPlans.js PLANS.

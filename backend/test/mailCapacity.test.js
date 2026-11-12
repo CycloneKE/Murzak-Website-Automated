@@ -114,9 +114,9 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
   section("canSellMailPlan refuses a Pro order that would exceed the cap");
   {
     setEnv({});
-    // Pro = 30 mailboxes x 15GB = 450GB; /3 overcommit = 150 > 100GB disk.
-    const r = canSellMailPlan("mail-pro", { provisionedGb: 0, diskGb: 100, overcommit: 3 });
-    ok(r.ok === false, "Pro on a 100GB disk at 3x overcommit is refused");
+    // Pro = 30 mailboxes x 5GB = 150GB; /3 overcommit = 50 > 40GB disk.
+    const r = canSellMailPlan("mail-pro", { provisionedGb: 0, diskGb: 40, overcommit: 3 });
+    ok(r.ok === false, "Pro on a 40GB disk at 3x overcommit is refused");
     ok(typeof r.reason === "string" && /capacity/i.test(r.reason), "the reason mentions capacity");
     ok(!VENDOR_NAME.test(r.reason || ""), "the reason names no vendor or infrastructure");
   }
@@ -124,9 +124,9 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
   section("Starter fits when Pro does not");
   {
     setEnv({});
-    // Starter = 3 x 5GB = 15GB; /3 = 5 <= 100.
-    ok(canSellMailPlan("mail-starter", { provisionedGb: 0, diskGb: 100, overcommit: 3 }).ok === true, "Starter fits the same disk");
-    ok(canSellMailPlan("mail-pro", { provisionedGb: 0, diskGb: 100, overcommit: 3 }).ok === false, "Pro does not fit the same disk");
+    // Starter = 3 x 5GB = 15GB; /3 = 5 <= 40.
+    ok(canSellMailPlan("mail-starter", { provisionedGb: 0, diskGb: 40, overcommit: 3 }).ok === true, "Starter fits the same disk");
+    ok(canSellMailPlan("mail-pro", { provisionedGb: 0, diskGb: 40, overcommit: 3 }).ok === false, "Pro does not fit the same disk");
   }
 
   section("the cap is inclusive: equal to diskGb is allowed, just over is refused");
@@ -152,11 +152,11 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
 
   section("MAIL_OVERCOMMIT defaults to 3 and is read from env");
   {
-    setEnv({ MAIL_DISK_GB: "100" });
-    // Pro: 450/3 = 150 > 100 refused by default; 450/5 = 90 <= 100 allowed at 5x.
-    ok(canSellMailPlan("mail-pro", { provisionedGb: 0 }).ok === false, "default overcommit 3 refuses Pro on 100GB");
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "5" });
-    ok(canSellMailPlan("mail-pro", { provisionedGb: 0 }).ok === true, "MAIL_OVERCOMMIT=5 admits Pro on 100GB");
+    setEnv({ MAIL_DISK_GB: "40" });
+    // Pro: 150/3 = 50 > 40 refused by default; 150/5 = 30 <= 40 allowed at 5x.
+    ok(canSellMailPlan("mail-pro", { provisionedGb: 0 }).ok === false, "default overcommit 3 refuses Pro on 40GB");
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "5" });
+    ok(canSellMailPlan("mail-pro", { provisionedGb: 0 }).ok === true, "MAIL_OVERCOMMIT=5 admits Pro on 40GB");
   }
 
   section("gate disabled when MAIL_DISK_GB is unset");
@@ -183,7 +183,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
     setEnv({});
     const client = makeMockFrappe({
       "Checkout Order": {
-        "CHK-PAID": mailOrder({ name: "CHK-PAID", status: "Paid", planId: "mail-pro" }), // 450
+        "CHK-PAID": mailOrder({ name: "CHK-PAID", status: "Paid", planId: "mail-pro" }), // 150
         "CHK-DRAFT": mailOrder({ name: "CHK-DRAFT", status: "Draft", planId: "mail-starter" }), // 15, live reservation
         "CHK-CANCELLED": mailOrder({ name: "CHK-CANCELLED", status: "Cancelled", planId: "mail-pro" }), // excluded
         "CHK-LAPSED": mailOrder({ name: "CHK-LAPSED", status: "Draft", planId: "mail-pro", expiresInMs: -60000 }), // excluded
@@ -191,7 +191,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
       },
     });
     const gb = await provisionedMailGb(client);
-    ok(gb === 465, `live Pro (450) + live Starter (15) = 465GB, got ${gb}`);
+    ok(gb === 165, `live Pro (150) + live Starter (15) = 165GB, got ${gb}`);
   }
 
   // ---- checkMailCapacity (route-facing) -----------------------------------
@@ -205,10 +205,10 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
 
   section("checkMailCapacity refuses when the box is full");
   {
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "3" });
     const client = makeMockFrappe({ "Checkout Order": {} });
     const pro = await checkMailCapacity(client, "mail-pro");
-    ok(pro.ok === false && /capacity/i.test(pro.reason || ""), "Pro is refused on an empty 100GB box");
+    ok(pro.ok === false && /capacity/i.test(pro.reason || ""), "Pro is refused on an empty 40GB box");
     const starter = await checkMailCapacity(client, "mail-starter");
     ok(starter.ok === true, "Starter is allowed on the same box");
   }
@@ -216,7 +216,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
   // ---- ordersRoutes 422 path --------------------------------------------
   section("POST /api/orders returns 422 MAIL_CAPACITY and creates nothing when the gate refuses");
   {
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "3" });
     const client = makeMockFrappe();
     const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
     const res = makeRes();
@@ -231,7 +231,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
 
   section("POST /api/orders still accepts a mail order that fits");
   {
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "3" });
     const client = makeMockFrappe();
     const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
     const res = makeRes();
@@ -289,7 +289,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
   // ---- fail closed when orders cannot be read ----------------------------
   section("checkMailCapacity fails CLOSED with 503 MAIL_CAPACITY_UNKNOWN when orders cannot be read");
   {
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "3" });
     const brokenClient = { get: async () => { throw new Error("frappe unreachable"); } };
     let caught = null;
     try { await checkMailCapacity(brokenClient, "mail-starter"); } catch (e) { caught = e; }
@@ -304,7 +304,7 @@ const MAIL_STARTER = Object.freeze({ ...MAIL_PRO, planId: "mail-starter" });
     // so an outage there is reached first and surfaces as a generic failure. The
     // exact 503 MAIL_CAPACITY_UNKNOWN is asserted at the gate above; here the
     // contract is only that the order fails closed.
-    setEnv({ MAIL_DISK_GB: "100", MAIL_OVERCOMMIT: "3" });
+    setEnv({ MAIL_DISK_GB: "40", MAIL_OVERCOMMIT: "3" });
     const client = makeMockFrappe();
     client.get = async () => { throw new Error("frappe unreachable"); };
     const handler = findHandler(createOrdersRouter(baseCtx(client)), "post", "/api/orders");
