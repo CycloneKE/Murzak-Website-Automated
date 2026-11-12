@@ -16,13 +16,15 @@
  * after a failed restart therefore sees a stale marker and restarts again.
  *
  * Env: BULWARK_SERVICE_UUID (required), BULWARK_APP_UUID (optional),
- *      BULWARK_MERGE_MS (default 20000), BULWARK_CONTAINER_NAME (optional, fallback path only).
+ *      BULWARK_MERGE_MS (default 20000), BULWARK_CONTAINER_NAME (optional, fallback path only),
+ *      WEBMAIL_TARGET + BULWARK_KEEP_ADDRESSES (addresses always kept on the service).
  *
  * Secrets: nothing here logs env values or tokens. Domains and titles are logged.
  */
 const crypto = require("crypto");
 const axios = require("axios");
 const { ORDER_DOCTYPE } = require("../checkout/orderStore");
+const { DEFAULT_WEBMAIL_TARGET } = require("./mailDns");
 
 const BRANDING_KEY = "DOMAIN_BRANDING";
 const APPLIED_KEY = "DOMAIN_BRANDING_APPLIED";
@@ -67,6 +69,38 @@ function buildBranding(clients) {
     addresses: sorted.map((c) => `webmail.${c.domain}`).join(","),
     brandingJson: JSON.stringify(sorted),
   };
+}
+
+/**
+ * Addresses the Bulwark service must ALWAYS keep, whatever clients exist.
+ *
+ * The address list written to Coolify REPLACES the service's current list. The
+ * shared webmail address (WEBMAIL_TARGET) is where every customer's
+ * webmail.<domain> CNAME points, and Murzak's own webmail lives on it, so it must
+ * never be dropped. BULWARK_KEEP_ADDRESSES (comma-separated hostnames) adds any
+ * other address already on the service that should survive. Invalid entries are
+ * ignored rather than sent to Coolify.
+ */
+function baseAddresses() {
+  const raw = [
+    process.env.WEBMAIL_TARGET || DEFAULT_WEBMAIL_TARGET,
+    ...String(process.env.BULWARK_KEEP_ADDRESSES || "").split(","),
+  ];
+  const out = [];
+  for (const r of raw) {
+    const host = String(r || "").trim().toLowerCase();
+    if (DOMAIN_RE.test(host) && !out.includes(host)) out.push(host);
+  }
+  return out;
+}
+
+/** Base addresses first, then the client addresses, without duplicates. */
+function withBaseAddresses(clientAddresses) {
+  const out = baseAddresses();
+  for (const a of String(clientAddresses || "").split(",")) {
+    if (a && !out.includes(a)) out.push(a);
+  }
+  return out.join(",");
 }
 
 /** Short fingerprint of what is actually running: branding value plus address list. */
@@ -239,7 +273,8 @@ async function runBatch(items, client, d) {
     );
   }
 
-  const { addresses, brandingJson } = buildBranding(merged);
+  const { addresses: clientAddresses, brandingJson } = buildBranding(merged);
+  const addresses = withBaseAddresses(clientAddresses);
   const applied = appliedMarker(addresses, brandingJson);
   if (stored.brandingJson === brandingJson && stored.applied === applied) {
     console.log(`[webmail] branding already applied for ${items.map((c) => c.domain).join(", ")}; no restart`);

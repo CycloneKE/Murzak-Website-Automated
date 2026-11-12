@@ -60,7 +60,8 @@ commented block for them). Secrets are marked; never commit real values.
 | `STALWART_DNS_SERVER_ID` | Id of the DNS server object new domains attach to | none | Yes (live). Without it the whole client reports "not configured", including read-only calls | No |
 | `STALWART_MOCK` | `1` = in-memory fake Stalwart (tests, local dev). Refused when `NODE_ENV=production`: the client reports it as not configured | off | Never in production | No |
 | `MAIL_HOST` | Public mail host: the MX target and the IMAP/SMTP name. Its registrable domain is also refused as a customer domain | none | Yes. Provisioning fails permanently without it | No |
-| `WEBMAIL_TARGET` | Where each `webmail.<domain>` CNAME points | `webmail.cloud.murzaktech.tech` | No | No |
+| `WEBMAIL_TARGET` | Where each `webmail.<domain>` CNAME points. Always kept in the Bulwark address list | `webmail.cloud.murzaktech.tech` | No | No |
+| `BULWARK_KEEP_ADDRESSES` | Extra comma-separated hostnames to keep on the Bulwark service when its address list is rewritten (the rewrite REPLACES the list). Example: `test.cloud.murzaktech.tech` | none | No | No |
 | `MAIL_LINK_SECRET` | Signs the no-login status links and confirmation codes (30-day links) | none | Yes. Without it links and codes cannot be made | **Yes** |
 | `APP_BASE_URL` | Public site URL used to build the status link in emails | none | Yes. Without it emailed links are relative | No |
 | `SUPPORT_EMAIL` | Support address shown in the hand-over email | falls back to `SMTP_FROM_EMAIL` | No | No |
@@ -204,6 +205,13 @@ and self-made samples, not from the real servers.
       tries GET and repeats as POST on a 405 (`runResourceAction` in
       `lanes/coolify.js`, test `coolifyActionCompat.test.js`), so it works on both. The
       checker reports which style the live server uses.
+- [ ] **Shared webmail address survives the first order.** The address-list PATCH
+      replaces the whole list; since 2026-11-12 the code always sends
+      `WEBMAIL_TARGET` (plus `BULWARK_KEEP_ADDRESSES`) along with the customer
+      addresses. After the first real order, confirm in Coolify that
+      `webmail.cloud.murzaktech.tech` is still on the Bulwark service and answers.
+      Live Bulwark service uuid (2026-11-12): `o62w0u2qlcwbhtxfosd7kyf1`; the other
+      Bulwark container (`3oh8nmakj09hjzvdmpqresgg`) has no domain and looks unused.
 - [ ] **`DOMAIN_BRANDING` env format** that Bulwark actually reads, and that the
       restart brings up `webmail.<domain>` with the client's title and logo.
       Check Bulwark's real page title (the title check is advisory only).
