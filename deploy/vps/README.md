@@ -70,11 +70,13 @@ sudo systemctl enable --now murzak-app-sync.timer
   sudo swapoff /swapfile && sudo swapon -a && sudo swapon --show
   ```
 
-  **This does not fix the capacity accounting.** `sellableRamMb: 6400` in the
-  catalog reserves ~1.8 GB for overhead, but the box actually carries ~4.3 GB
-  of non-sellable load (OSRM 887 MB, tileserver 453 MB, the Coolify stack,
-  minio, other tenants). Measured 2026-09-05: 7,941 MB total, ~3,500 MB free.
-  That constant still needs a decision.
+  **The capacity accounting was corrected separately.** `sellableRamMb` in the
+  catalogue was 6400, which reserved ~1.8 GB for overhead while the box actually
+  carries ~4.3 GB of non-sellable load (OSRM 887 MB, tileserver 453 MB, the
+  Coolify stack, minio, other tenants). Measured 2026-09-05: 7,941 MB total,
+  ~3,500 MB free. It is now 3000 (`frontend/src/config/serviceCatalog.ts`).
+  How much of that may be committed is `PROVISIONING_RAM_THRESHOLD_PCT`; see
+  `backend/.env.example` for the value to use on this server and why.
 - `server_names_hash_bucket_size 128;` is set in `nginx.conf` — the default 64
   is too small for the ~64-character hostnames the provisioner generates.
 - A wildcard DNS record `*.apps.murzaktech.tech A -> 187.124.217.78`.

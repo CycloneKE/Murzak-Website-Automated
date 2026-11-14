@@ -20,6 +20,7 @@ Start with the doc that matches who you are:
 | **Running the business (staff)** | [docs/operations-manual.md](docs/operations-manual.md) | The human runbook: orders, provisioning, support, billing, capacity, incidents |
 | **Turning on provisioning automation** | [docs/provisioning-go-live.md](docs/provisioning-go-live.md) | Stage-by-stage go-live, env var by env var, kill switches |
 | **Working on provisioning code** | [backend/services/provisioning/README.md](backend/services/provisioning/README.md) | Subsystem internals, lanes, runner, dispatch, tests |
+| **The server is lost or badly broken** | [docs/runbooks/disaster-recovery.md](docs/runbooks/disaster-recovery.md) | What must exist off the server, and the order to rebuild in |
 | **Planning the architecture** | [docs/provisioning-automation-plan.md](docs/provisioning-automation-plan.md) | Strategy + design of the provisioning automation |
 
 ---

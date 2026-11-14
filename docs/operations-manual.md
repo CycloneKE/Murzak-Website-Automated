@@ -217,7 +217,8 @@ roughly 1.5-4 GB (POS and ERP Light list 2 GB). Slots left =
 (sellableRamMb × 85% − RAM already reserved) ÷ 480 MB, rounded down. That is the
 same 85% threshold as above, so adding a second box raises the slots
 automatically. Two overrides move the count: `PROVISIONING_RAM_THRESHOLD_PCT`
-(default 85) and `BENCH_TENANT_RAM_MB` (default 480).
+(default 85; 70 is recommended on the current server to keep more memory
+free, see `backend/.env.example`) and `BENCH_TENANT_RAM_MB` (default 480).
 
 **Pre-enable checklist** (do all five, in order):
 

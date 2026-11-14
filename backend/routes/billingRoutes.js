@@ -1,5 +1,6 @@
 
 const express = require('express');
+const crypto = require('crypto');
 const { newMailPlanIds, MAIL_PLAN_SETUP_REQUIRED } = require('../services/email/mailPlanGuard');
 const coolifyLane = require('../services/provisioning/lanes/coolify');
 // These are used by the M-Pesa STK push and callback handlers below. They were
@@ -627,7 +628,9 @@ router.post("/api/billing/mpesa/stk-push", requireAuth, async (req, res) => {
       || "";
     const invoiceUpdate = {
       mpesa_checkout_request_id: stkData.CheckoutRequestID,
-      mpesa_checkout_request_ids: appendCheckoutRequestId(priorHistory, stkData.CheckoutRequestID)
+      // The amount is kept with the id so the pending-payment sweep can check
+      // what this push actually charged (see services/mpesaPendingSweep.js).
+      mpesa_checkout_request_ids: appendCheckoutRequestId(priorHistory, stkData.CheckoutRequestID, amountKes)
     };
     try {
       await client.put(`/api/resource/Portal Invoice/${encodeURIComponent(invoiceDocName)}`, invoiceUpdate);
@@ -678,7 +681,10 @@ router.post("/api/billing/mpesa/callback", async (req, res) => {
       }
     } else {
       const provided = String(req.query.token || req.headers["x-callback-token"] || "");
-      if (provided !== expectedToken) {
+      // Compared in constant time, so the response time says nothing about how
+      // much of a guessed token was right. Hashing first gives equal lengths.
+      const digest = (v) => crypto.createHash("sha256").update(v).digest();
+      if (!crypto.timingSafeEqual(digest(provided), digest(expectedToken))) {
         console.warn("MPESA CALLBACK: rejected — bad/missing token from", req.ip);
         return res.status(401).json({
           ResultCode: 1,
