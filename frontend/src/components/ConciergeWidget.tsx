@@ -81,7 +81,7 @@ const ConciergeWidget: React.FC = () => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 p-4 rounded-full bg-murzak-accent text-murzak-ink shadow-[0_0_20px_rgba(0,189,252,0.4)] hover:scale-105 transition-transform z-50 flex items-center justify-center"
+          className="fixed bottom-6 right-6 p-4 rounded-full bg-p-accent text-p-accent-fg shadow-lg transition-transform z-50 flex items-center justify-center"
         >
           <MessageSquare size={24} />
         </button>
@@ -89,36 +89,36 @@ const ConciergeWidget: React.FC = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-80 sm:w-96 h-[500px] max-h-[80vh] glass-dark border border-murzak-accent/30 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden">
+        <div className="fixed bottom-6 right-6 w-80 sm:w-96 h-[500px] max-h-[80vh] bg-p-panel border border-p-accent/40 rounded-lg shadow-2xl flex flex-col z-50 overflow-hidden">
           {/* Header */}
-          <div className="bg-black/5 border-b border-murzak-border p-4 flex justify-between items-center">
+          <div className="bg-p-panel-2 border-b border-p-border p-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-murzak-accent/20 text-murzak-accent flex items-center justify-center border border-murzak-accent/30">
+              <div className="w-8 h-8 rounded-full bg-p-accent-soft text-p-accent-text flex items-center justify-center border border-p-accent/40">
                 <Bot size={18} />
               </div>
               <div>
-                <h3 className="text-murzak-ink dark:text-slate-100 font-bold text-sm">Murzaker</h3>
-                <p className="text-murzak-accent text-micro uppercase">AI Concierge</p>
+                <h3 className="text-p-text font-medium text-sm">Murzaker</h3>
+                <p className="text-p-accent-text text-xs ">AI Concierge</p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-murzak-ink transition-colors">
+            <button onClick={() => setIsOpen(false)} className="text-p-muted hover:text-p-text transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-murzak-surface/30">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 ">
             {isInitializing ? (
               <div className="flex justify-center items-center h-full">
-                <Loader2 className="animate-spin text-murzak-accent" size={24} />
+                <Loader2 className="animate-spin text-p-accent-text" size={24} />
               </div>
             ) : (
               messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  <div className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed ${
                     msg.role === 'user' 
-                      ? 'bg-murzak-accent text-murzak-ink rounded-tr-sm'
-                      : 'bg-black/5 text-slate-100 border border-murzak-border/50 rounded-tl-sm'
+                      ? 'bg-p-accent text-p-accent-fg rounded-tr-sm'
+                      : 'bg-p-panel-2 text-p-text border border-p-border rounded-tl-sm'
                   }`}>
                     {msg.content}
                   </div>
@@ -127,7 +127,7 @@ const ConciergeWidget: React.FC = () => {
             )}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-black/5 text-murzak-ink dark:text-slate-100 border border-murzak-border/50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm flex gap-1">
+                <div className="bg-p-panel-2 text-p-text border border-p-border rounded-lg rounded-tl-sm px-4 py-3 text-sm flex gap-1">
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-100" />
                   <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-200" />
@@ -138,26 +138,26 @@ const ConciergeWidget: React.FC = () => {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 bg-black/5 border-t border-murzak-border">
+          <div className="p-4 bg-p-panel-2 border-t border-p-border">
             <div className="relative">
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Murzaker..."
-                className="w-full bg-black/5 border border-murzak-border rounded-xl pl-4 pr-12 py-3 text-sm text-murzak-ink dark:text-slate-100 placeholder-slate-500 focus:outline-hidden focus:border-murzak-accent/50 resize-none max-h-32"
+                className="w-full bg-p-panel-2 border border-p-border rounded-md pl-4 pr-12 py-3 text-sm text-p-text placeholder-slate-500 focus:outline-hidden focus:border-p-accent resize-none max-h-32"
                 rows={1}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-murzak-accent hover:bg-murzak-accent/10 rounded-lg disabled:opacity-50 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-p-accent-text hover:bg-p-accent-soft rounded-lg disabled:opacity-50 transition-colors"
               >
                 <Send size={18} />
               </button>
             </div>
             <div className="mt-2 text-center">
-              <span className="text-micro text-slate-600 dark:text-slate-400 uppercase">Murzaker AI can make mistakes. Verify important info.</span>
+              <span className="text-xs text-p-muted ">Murzaker AI can make mistakes. Verify important info.</span>
             </div>
           </div>
         </div>

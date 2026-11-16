@@ -43,25 +43,25 @@ type SetupTab = "overview" | "setup" | "requests";
 type LiveTab = "overview" | "files" | "deployments" | "subdomains" | "requests" | "activity";
 
 const cardClass =
-  "rounded-[1.75rem] border border-murzak-border bg-white dark:bg-murzak-ink p-5 sm:p-6";
+  "rounded-lg border border-p-border bg-p-panel p-5 sm:p-6";
 
 const inputClass =
-  "w-full rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-hidden text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
+  "w-full rounded-lg border border-p-border bg-p-panel px-4 py-3 outline-hidden text-p-text placeholder:text-p-muted focus:border-p-accent focus:ring-2 focus:ring-p-accent/40 transition-all";
 
 const textareaClass =
-  "w-full min-h-[120px] rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-3 outline-hidden text-slate-700 dark:text-slate-100 placeholder:text-slate-500 focus:border-murzak-accent/60 focus:ring-2 focus:ring-murzak-accent/10 transition-all";
+  "w-full min-h-[120px] rounded-lg border border-p-border bg-p-panel px-4 py-3 outline-hidden text-p-text placeholder:text-p-muted focus:border-p-accent focus:ring-2 focus:ring-p-accent/40 transition-all";
 
 const primaryBtnClass =
-  "px-4 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black uppercase text-micro disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-[1.01]";
+  "px-4 py-3 rounded-lg bg-p-accent text-p-accent-fg font-semibold text-xs disabled:opacity-50 disabled:cursor-not-allowed transition-all ";
 
 const secondaryBtnClass =
-  "px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-700 dark:text-slate-100 font-black uppercase text-micro transition-all hover:border-murzak-accent/50 disabled:opacity-50 disabled:cursor-not-allowed";
+  "px-4 py-3 rounded-lg border border-p-border bg-p-panel text-p-text font-semibold text-xs transition-all hover:border-p-accent disabled:opacity-50 disabled:cursor-not-allowed";
 
 const tabClass = (active: boolean) =>
-  `px-4 py-2.5 rounded-2xl text-micro font-black uppercase border transition-all ${
+  `px-4 py-2.5 rounded-lg text-xs font-semibold border transition-all ${
     active
-      ? "bg-murzak-accent text-murzak-ink border-murzak-accent shadow-xs"
-      : "bg-white dark:bg-black/5 border-murzak-border border-2 text-slate-500 dark:text-slate-400 hover:border-murzak-accent/50"
+      ? "bg-p-accent text-p-accent-fg border-p-accent/40 "
+      : "bg-p-panel border-p-border border-2 text-p-muted hover:border-p-accent"
   }`;
 
 const formatDateTime = (value?: string) => {
@@ -120,15 +120,15 @@ function statusTone(status: string | undefined): "green" | "orange" | "blue" | "
 
 const badgeClass = (tone: "green" | "orange" | "blue" | "slate") => {
   if (tone === "green") {
-    return "px-3 py-1 rounded-full text-micro font-black uppercase bg-green-500/10 text-green-600 border border-green-500/20";
+    return "px-3 py-1 rounded-full text-xs font-semibold bg-p-success-soft text-p-success border border-p-success/40";
   }
   if (tone === "orange") {
-    return "px-3 py-1 rounded-full text-micro font-black uppercase bg-orange-500/10 text-orange-600 border border-orange-500/20";
+    return "px-3 py-1 rounded-full text-xs font-semibold bg-p-warning-soft text-p-warning border border-p-warning/40";
   }
   if (tone === "blue") {
-    return "px-3 py-1 rounded-full text-micro font-black uppercase bg-murzak-accent/10 text-murzak-accent border border-murzak-accent/20";
+    return "px-3 py-1 rounded-full text-xs font-semibold bg-p-accent-soft text-p-accent-text border border-p-accent/40";
   }
-  return "px-3 py-1 rounded-full text-micro font-black uppercase bg-slate-100 dark:bg-black/5 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-murzak-border";
+  return "px-3 py-1 rounded-full text-xs font-semibold bg-p-panel-2 text-p-muted border border-p-border ";
 };
 
 function choiceMeta(choice: HostingDomainChoice | null) {
@@ -179,7 +179,7 @@ function FileList({
   emptyText: string;
 }) {
   if (!files.length) {
-    return <p className="text-sm text-slate-500">{emptyText}</p>;
+    return <p className="text-sm text-p-muted">{emptyText}</p>;
   }
 
   return (
@@ -187,11 +187,11 @@ function FileList({
       {files.map((file) => (
         <div
           key={file.id}
-          className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+          className="rounded-lg border border-p-border p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-black text-murzak-ink dark:text-white break-all">
+              <p className="font-semibold text-p-text break-all">
                 {file.fileName}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -199,14 +199,14 @@ function FileList({
                 <span className={badgeClass(statusTone(file.status))}>{file.status}</span>
                 {file.isActiveBuild ? <span className={badgeClass("green")}>Active Build</span> : null}
               </div>
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-p-muted">
                 {getFileTypeLabel(file)} • {formatMb(file.fileSizeMb)} • {formatDateTime(file.createdAt)}
               </p>
               {file.filePath ? (
-                <p className="mt-2 text-xs text-slate-500 break-all">{file.filePath}</p>
+                <p className="mt-2 text-xs text-p-muted break-all">{file.filePath}</p>
               ) : null}
               {file.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{file.notes}</p>
+                <p className="mt-2 text-sm text-p-muted ">{file.notes}</p>
               ) : null}
             </div>
           </div>
@@ -224,7 +224,7 @@ function DeploymentList({
   emptyText: string;
 }) {
   if (!deployments.length) {
-    return <p className="text-sm text-slate-500">{emptyText}</p>;
+    return <p className="text-sm text-p-muted">{emptyText}</p>;
   }
 
   return (
@@ -232,23 +232,23 @@ function DeploymentList({
       {deployments.map((dep) => (
         <div
           key={dep.id}
-          className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+          className="rounded-lg border border-p-border p-4"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-black text-murzak-ink dark:text-white">
+              <p className="font-semibold text-p-text ">
                 {dep.sourceFile || "Deployment Request"}
               </p>
-              <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+              <p className="text-xs text-p-muted mt-1">
                 {dep.deploymentType || "manual"}
               </p>
               {dep.targetPath ? (
-                <p className="mt-2 text-xs text-slate-500 break-all">Target: {dep.targetPath}</p>
+                <p className="mt-2 text-xs text-p-muted break-all">Target: {dep.targetPath}</p>
               ) : null}
               {dep.notes ? (
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{dep.notes}</p>
+                <p className="mt-2 text-sm text-p-muted ">{dep.notes}</p>
               ) : null}
-              <p className="mt-2 text-xs text-slate-500">{formatDateTime(dep.createdAt)}</p>
+              <p className="mt-2 text-xs text-p-muted">{formatDateTime(dep.createdAt)}</p>
             </div>
             <span className={badgeClass(statusTone(dep.status))}>{dep.status}</span>
           </div>
@@ -577,18 +577,18 @@ const WebsiteHostingDashboard: React.FC = () => {
     return (
       <div className={`${cardClass} flex items-center justify-center py-16`}>
         <Loader2 className="w-5 h-5 animate-spin mr-3" />
-        <span className="text-sm font-bold">Loading Website Hosting...</span>
+        <span className="text-sm font-medium">Loading Website Hosting...</span>
       </div>
     );
   }
 
   if (pageError || !payload) {
     return (
-      <div className="rounded-4xl border border-red-200 bg-red-50 p-6 text-red-700">
+      <div className="rounded-lg border border-p-danger/40 bg-p-danger-soft p-6 text-red-700">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 mt-0.5" />
           <div>
-            <h3 className="font-black text-lg">Website Hosting dashboard unavailable</h3>
+            <h3 className="font-semibold text-lg">Website Hosting dashboard unavailable</h3>
             <p className="mt-2 text-sm">{pageError || "Failed to load dashboard data."}</p>
             <button onClick={loadDashboard} className={`${secondaryBtnClass} mt-4`}>
               <RefreshCw className="w-4 h-4 inline-block mr-2" />
@@ -604,44 +604,44 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Setup Type
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="mt-3 text-lg font-semibold text-p-text ">
             {choiceDetails.title}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Tier
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="mt-3 text-lg font-semibold text-p-text ">
             {payload.service.tier || "Standard"}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Open Requests
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="mt-3 text-lg font-semibold text-p-text ">
             {openRequestsCount}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Setup Progress
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="mt-3 text-lg font-semibold text-p-text ">
             {setupProgress}%
           </h3>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 rounded-4xl border border-murzak-accent/25 bg-murzak-accent/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="xl:col-span-2 rounded-lg border border-p-accent/40 bg-p-accent-soft p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
             <ChoiceIcon className="w-20 h-20" />
           </div>
@@ -657,11 +657,11 @@ const WebsiteHostingDashboard: React.FC = () => {
               </span>
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-semibold text-p-text ">
               Finish setup to activate your hosting
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-400">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-p-muted ">
               {choiceDetails.description}
             </p>
 
@@ -677,16 +677,16 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Quick Status</h3>
+          <h3 className="text-lg font-semibold text-p-text ">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 mt-0.5 text-p-success" />
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">
+                <p className="font-medium text-p-text ">
                   Hosting service active
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-p-muted mt-1">
                   Your hosting plan is active and waiting for final setup.
                 </p>
               </div>
@@ -694,27 +694,27 @@ const WebsiteHostingDashboard: React.FC = () => {
 
             <div className="flex items-start gap-3">
               {setupSubmitted ? (
-                <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600" />
+                <CheckCircle2 className="w-5 h-5 mt-0.5 text-p-success" />
               ) : (
-                <Clock3 className="w-5 h-5 mt-0.5 text-slate-500" />
+                <Clock3 className="w-5 h-5 mt-0.5 text-p-muted" />
               )}
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">
+                <p className="font-medium text-p-text ">
                   Domain setup submitted
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-p-muted mt-1">
                   Submit your chosen domain or subdomain setup request to proceed.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 mt-0.5 text-slate-500" />
+              <ShieldCheck className="w-5 h-5 mt-0.5 text-p-muted" />
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">
+                <p className="font-medium text-p-text ">
                   Activation pending
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-p-muted mt-1">
                   Murzak Tech will finalize DNS, SSL and provisioning before the dashboard switches into live hosting mode.
                 </p>
               </div>
@@ -724,41 +724,41 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Setup Checklist</h3>
+        <h3 className="text-lg font-semibold text-p-text ">Setup Checklist</h3>
 
         <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-3">
             {domainChoice ? (
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-p-success" />
             ) : (
-              <Clock3 className="w-5 h-5 text-slate-500" />
+              <Clock3 className="w-5 h-5 text-p-muted" />
             )}
-            <span className="font-semibold text-slate-700 dark:text-slate-100">
+            <span className="font-semibold text-p-text ">
               Domain setup type identified
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             {setupSubmitted ? (
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-p-success" />
             ) : (
-              <Clock3 className="w-5 h-5 text-slate-500" />
+              <Clock3 className="w-5 h-5 text-p-muted" />
             )}
-            <span className="font-semibold text-slate-700 dark:text-slate-100">
+            <span className="font-semibold text-p-text ">
               Initial setup request submitted
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <Clock3 className="w-5 h-5 text-slate-500" />
-            <span className="font-semibold text-slate-700 dark:text-slate-100">
+            <Clock3 className="w-5 h-5 text-p-muted" />
+            <span className="font-semibold text-p-text ">
               DNS / infrastructure configuration
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <Clock3 className="w-5 h-5 text-slate-500" />
-            <span className="font-semibold text-slate-700 dark:text-slate-100">
+            <Clock3 className="w-5 h-5 text-p-muted" />
+            <span className="font-semibold text-p-text ">
               Site activation and hosting control panel
             </span>
           </div>
@@ -771,20 +771,20 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Globe className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <Globe className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Request a Domain Purchase
           </h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Choose the name and extension you want. Murzak Tech will review availability,
           purchase it, and connect it to your hosting setup.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Domain Name
             </label>
             <input
@@ -801,7 +801,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Domain Extension
             </label>
             <select
@@ -818,11 +818,11 @@ const WebsiteHostingDashboard: React.FC = () => {
             </select>
           </div>
 
-          <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <div className="rounded-lg border border-p-accent/40 bg-p-accent-soft px-4 py-3">
+            <p className="text-xs font-semibold text-p-muted ">
               Full Domain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
+            <p className="mt-2 text-lg font-semibold text-p-text break-all">
               {domainForm.requestedName
                 ? `${domainForm.requestedName}${domainForm.requestedTld}`
                 : `yourdomain${domainForm.requestedTld}`}
@@ -830,7 +830,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -853,29 +853,29 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="text-lg font-semibold text-p-text ">
             Your Domain Requests
           </h3>
 
           <div className="mt-4 space-y-3">
             {payload.registerNewDomainRequests.length === 0 ? (
-              <p className="text-sm text-slate-500">No domain purchase requests yet.</p>
+              <p className="text-sm text-p-muted">No domain purchase requests yet.</p>
             ) : (
               payload.registerNewDomainRequests.map((r) => (
                 <div
                   key={r.id}
-                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                  className="rounded-lg border border-p-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink dark:text-white break-all">
+                      <p className="font-semibold text-p-text break-all">
                         {r.fullDomain}
                       </p>
-                      <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+                      <p className="text-xs text-p-muted mt-1">
                         Provider: {r.provider || "Murzak Cloud"}
                       </p>
                       {r.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                        <p className="text-sm text-p-muted mt-2">
                           {r.notes}
                         </p>
                       ) : null}
@@ -889,10 +889,10 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="text-lg font-semibold text-p-text ">
             What Happens Next
           </h3>
-          <div className="mt-4 space-y-2 text-sm text-slate-500">
+          <div className="mt-4 space-y-2 text-sm text-p-muted">
             <p>1. Murzak Tech reviews availability.</p>
             <p>2. Domain purchase and setup are completed.</p>
             <p>3. Hosting environment is linked and activated.</p>
@@ -906,20 +906,20 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Wand2 className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <Wand2 className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Choose Your Murzak Subdomain
           </h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Your website can be hosted under a Murzak-owned subdomain such as
-          <span className="font-semibold text-slate-700 dark:text-slate-100"> example.murzaktech.tech</span>.
+          <span className="font-semibold text-p-text "> example.murzaktech.tech</span>.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Subdomain Name
             </label>
             <input
@@ -935,17 +935,17 @@ const WebsiteHostingDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <div className="rounded-lg border border-p-success/40 bg-p-success-soft px-4 py-3">
+            <p className="text-xs font-semibold text-p-muted ">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
+            <p className="mt-2 text-lg font-semibold text-p-text break-all">
               {murzakPreview}
             </p>
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Target Type
             </label>
             <select
@@ -960,7 +960,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Target Value
             </label>
             <input
@@ -972,7 +972,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -995,29 +995,29 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="text-lg font-semibold text-p-text ">
             Your Murzak Subdomains
           </h3>
 
           <div className="mt-4 space-y-3">
             {payload.murzakSubdomains.length === 0 ? (
-              <p className="text-sm text-slate-500">No Murzak subdomains requested yet.</p>
+              <p className="text-sm text-p-muted">No Murzak subdomains requested yet.</p>
             ) : (
               payload.murzakSubdomains.map((s) => (
                 <div
                   key={s.id}
-                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                  className="rounded-lg border border-p-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink dark:text-white break-all">
+                      <p className="font-semibold text-p-text break-all">
                         {s.fullSubdomain}
                       </p>
-                      <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+                      <p className="text-xs text-p-muted mt-1">
                         {s.targetType || "folder"} {s.targetValue ? `• ${s.targetValue}` : ""}
                       </p>
                       {s.notes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                        <p className="text-sm text-p-muted mt-2">
                           {s.notes}
                         </p>
                       ) : null}
@@ -1031,8 +1031,8 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Best Practice</h3>
-          <div className="mt-4 space-y-2 text-sm text-slate-500">
+          <h3 className="text-lg font-semibold text-p-text ">Best Practice</h3>
+          <div className="mt-4 space-y-2 text-sm text-p-muted">
             <p>Choose a short, memorable label.</p>
             <p>Avoid spaces and special characters.</p>
             <p>Murzak Tech will provision and point the subdomain for you.</p>
@@ -1046,20 +1046,20 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <LinkIcon className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <LinkIcon className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Connect Your Existing Domain
           </h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Enter the domain you already own. Murzak Tech will review the domain and guide
           or complete the connection to your hosting environment.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Domain Name
             </label>
             <input
@@ -1076,7 +1076,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Registrar
             </label>
             <input
@@ -1088,7 +1088,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -1111,29 +1111,29 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="space-y-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="text-lg font-semibold text-p-text ">
             Connected / Pending Domains
           </h3>
 
           <div className="mt-4 space-y-3">
             {payload.externalDomains.length === 0 ? (
-              <p className="text-sm text-slate-500">No external domains submitted yet.</p>
+              <p className="text-sm text-p-muted">No external domains submitted yet.</p>
             ) : (
               payload.externalDomains.map((d) => (
                 <div
                   key={d.id}
-                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                  className="rounded-lg border border-p-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-black text-murzak-ink dark:text-white break-all">
+                      <p className="font-semibold text-p-text break-all">
                         {d.domainName}
                       </p>
-                      <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+                      <p className="text-xs text-p-muted mt-1">
                         {d.registrar || "Registrar not provided"}
                       </p>
                       {d.verificationNotes ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                        <p className="text-sm text-p-muted mt-2">
                           {d.verificationNotes}
                         </p>
                       ) : null}
@@ -1142,7 +1142,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                   </div>
 
                   {(d.nameserver1 || d.nameserver2 || d.aRecord) && (
-                    <div className="mt-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border p-3 text-xs text-slate-500">
+                    <div className="mt-4 rounded-lg bg-p-panel-2 border border-p-border p-3 text-xs text-p-muted">
                       {d.nameserver1 ? <p>NS1: {d.nameserver1}</p> : null}
                       {d.nameserver2 ? <p>NS2: {d.nameserver2}</p> : null}
                       {d.aRecord ? <p>A Record: {d.aRecord}</p> : null}
@@ -1155,10 +1155,10 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="text-lg font-semibold text-p-text ">
             DNS Connection Notes
           </h3>
-          <div className="mt-4 space-y-2 text-sm text-slate-500">
+          <div className="mt-4 space-y-2 text-sm text-p-muted">
             <p>Keep your registrar account accessible during connection.</p>
             <p>Murzak Tech may request nameserver or DNS record changes.</p>
             <p>Once verified, the dashboard will switch into live hosting mode.</p>
@@ -1174,11 +1174,11 @@ const WebsiteHostingDashboard: React.FC = () => {
     if (domainChoice === "Bring My Domain") return renderBringMyDomainPanel();
 
     return (
-      <div className="rounded-4xl border border-orange-200 bg-orange-50 p-6 text-orange-700">
+      <div className="rounded-lg border border-p-warning/40 bg-p-warning-soft p-6 text-orange-700">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 mt-0.5" />
           <div>
-            <h3 className="font-black text-lg">Domain setup type missing</h3>
+            <h3 className="font-semibold text-lg">Domain setup type missing</h3>
             <p className="mt-2 text-sm">
               This hosting service does not yet have a saved domain setup option. Please
               contact Murzak Tech support.
@@ -1196,15 +1196,15 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <LifeBuoy className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <LifeBuoy className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Submit Hosting Request
           </h3>
         </div>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Category
             </label>
             <select
@@ -1222,7 +1222,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Title
             </label>
             <input
@@ -1234,7 +1234,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Description
             </label>
             <textarea
@@ -1260,27 +1260,27 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Request History</h3>
+        <h3 className="text-lg font-semibold text-p-text ">Request History</h3>
 
         <div className="mt-4 space-y-3">
           {payload.requests.length === 0 ? (
-            <p className="text-sm text-slate-500">No hosting requests submitted yet.</p>
+            <p className="text-sm text-p-muted">No hosting requests submitted yet.</p>
           ) : (
             payload.requests.map((r) => (
               <div
                 key={r.id}
-                className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                className="rounded-lg border border-p-border p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-ink dark:text-white">{r.title}</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+                    <p className="font-semibold text-p-text ">{r.title}</p>
+                    <p className="text-xs text-p-muted mt-1">
                       {r.category}
                     </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+                    <p className="text-sm text-p-muted mt-2">
                       {r.description}
                     </p>
-                    <p className="text-xs text-slate-500 mt-2">{formatDateTime(r.createdAt)}</p>
+                    <p className="text-xs text-p-muted mt-2">{formatDateTime(r.createdAt)}</p>
                   </div>
                   <span className={badgeClass(statusTone(r.status))}>{r.status}</span>
                 </div>
@@ -1296,16 +1296,16 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Active Host
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white break-all">
+          <h3 className="mt-3 text-lg font-semibold text-p-text break-all">
             {activeSite?.primaryHost || "—"}
           </h3>
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Hosting Status
           </p>
           <div className="mt-3">
@@ -1314,7 +1314,7 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             SSL Status
           </p>
           <div className="mt-3">
@@ -1325,17 +1325,17 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-semibold text-p-muted ">
             Storage Used
           </p>
-          <h3 className="mt-3 text-lg font-black text-murzak-ink dark:text-white">
+          <h3 className="mt-3 text-lg font-semibold text-p-text ">
             {formatMb(storageUsed)} / {isUnlimitedStorage ? "Unlimited" : formatMb(storageLimit)}
           </h3>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 rounded-4xl border border-green-500/20 bg-green-500/5 p-6 sm:p-8 relative overflow-hidden">
+        <div className="xl:col-span-2 rounded-lg border border-p-success/40 bg-p-success-soft p-6 sm:p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
             <Server className="w-20 h-20" />
           </div>
@@ -1349,11 +1349,11 @@ const WebsiteHostingDashboard: React.FC = () => {
               {latestActiveBuild ? <span className={badgeClass("green")}>Build Active</span> : null}
             </div>
 
-            <h3 className="mt-5 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white break-all">
+            <h3 className="mt-5 text-2xl sm:text-3xl font-semibold text-p-text break-all">
               {activeSite?.primaryHost}
             </h3>
 
-            <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 dark:text-slate-400">
+            <p className="mt-3 max-w-2xl text-sm sm:text-base text-p-muted ">
               Your hosting setup is active. You can now manage storage, files, deployments,
               subdomains, support requests and activity from this dashboard.
             </p>
@@ -1370,34 +1370,34 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Quick Status</h3>
+          <h3 className="text-lg font-semibold text-p-text ">Quick Status</h3>
 
           <div className="mt-5 space-y-4">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 mt-0.5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 mt-0.5 text-p-success" />
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">Site active</p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="font-medium text-p-text ">Site active</p>
+                <p className="text-xs text-p-muted mt-1">
                   Your domain or subdomain is provisioned and linked to hosting.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <HardDrive className="w-5 h-5 mt-0.5 text-murzak-accent" />
+              <HardDrive className="w-5 h-5 mt-0.5 text-p-accent-text" />
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">Storage usage</p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="font-medium text-p-text ">Storage usage</p>
+                <p className="text-xs text-p-muted mt-1">
                   {formatMb(storageUsed)} used out of {isUnlimitedStorage ? "Unlimited" : formatMb(storageLimit)}.
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Rocket className="w-5 h-5 mt-0.5 text-slate-500" />
+              <Rocket className="w-5 h-5 mt-0.5 text-p-muted" />
               <div>
-                <p className="font-bold text-slate-700 dark:text-slate-100">Latest deployment</p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="font-medium text-p-text ">Latest deployment</p>
+                <p className="text-xs text-p-muted mt-1">
                   {payload.deployments[0]
                     ? `${payload.deployments[0].status} • ${formatDateTime(payload.deployments[0].createdAt)}`
                     : "No deployment requests yet."}
@@ -1426,8 +1426,8 @@ const WebsiteHostingDashboard: React.FC = () => {
       <div className={cardClass}>
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-black text-murzak-ink dark:text-white">Storage Usage</h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <h3 className="text-lg font-semibold text-p-text ">Storage Usage</h3>
+            <p className="mt-2 text-sm text-p-muted">
               Monitor how much hosting storage is being used by your uploaded site files.
             </p>
           </div>
@@ -1437,13 +1437,13 @@ const WebsiteHostingDashboard: React.FC = () => {
         </div>
 
         <div className="mt-5">
-          <div className="w-full h-4 rounded-full bg-slate-100 dark:bg-black/5 overflow-hidden">
+          <div className="w-full h-4 rounded-full bg-p-panel-2 overflow-hidden">
             <div
-              className="h-full rounded-full bg-murzak-accent transition-all duration-700"
+              className="h-full rounded-full bg-p-accent transition-all duration-700"
               style={{ width: `${storagePercent ?? 0}%` }}
             />
           </div>
-          <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-slate-500">
+          <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-p-muted">
             <span>{isUnlimitedStorage ? "Unlimited total" : `${formatMb(storageLimit)} total`}</span>
             <span
               className={badgeClass(
@@ -1459,9 +1459,9 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           {!isUnlimitedStorage && storagePercent !== null && storagePercent >= 80 && (
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4">
-              <AlertCircle size={18} className="text-amber-500 shrink-0" />
-              <p className="grow text-sm font-bold text-amber-600 dark:text-amber-300">
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-p-warning/40 bg-p-warning-soft p-4">
+              <AlertCircle size={18} className="text-p-warning shrink-0" />
+              <p className="grow text-sm font-medium text-p-warning ">
                 You've used {storagePercent}% of your {formatMb(storageLimit)} storage.
                 {storageUpsell === "sent"
                   ? " Request received. Our team will reach out with upgrade options."
@@ -1490,7 +1490,7 @@ const WebsiteHostingDashboard: React.FC = () => {
                 </button>
               )}
               {storageUpsell === "error" && (
-                <p className="text-xs font-bold text-red-500">Could not send. Try again or use the Requests tab.</p>
+                <p className="text-xs font-medium text-p-danger">Could not send. Try again or use the Requests tab.</p>
               )}
             </div>
           )}
@@ -1499,61 +1499,61 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Site Details</h3>
+          <h3 className="text-lg font-semibold text-p-text ">Site Details</h3>
           <div className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Plan</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-100">
+              <span className="text-p-muted">Plan</span>
+              <span className="font-semibold text-p-text ">
                 {activeSite?.planName || payload.service.tier || "Standard"}
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Tier</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-100">
+              <span className="text-p-muted">Tier</span>
+              <span className="font-semibold text-p-text ">
                 {activeSite?.tier || payload.service.tier || "Standard"}
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Site Type</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-100">
+              <span className="text-p-muted">Site Type</span>
+              <span className="font-semibold text-p-text ">
                 {activeSite?.siteType || "—"}
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">Document Root</span>
-              <span className="font-semibold text-slate-700 dark:text-slate-100 break-all text-right">
+              <span className="text-p-muted">Document Root</span>
+              <span className="font-semibold text-p-text break-all text-right">
                 {activeSite?.documentRoot || "—"}
               </span>
             </div>
           </div>
           {activeSite?.notes ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 dark:border-murzak-border p-4 text-sm text-slate-600 dark:text-slate-400">
+            <div className="mt-4 rounded-lg border border-p-border p-4 text-sm text-p-muted ">
               {activeSite.notes}
             </div>
           ) : null}
         </div>
 
         <div className={cardClass}>
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Recent Activity</h3>
+          <h3 className="text-lg font-semibold text-p-text ">Recent Activity</h3>
           <div className="mt-4 space-y-3">
             {payload.activity.length === 0 ? (
-              <p className="text-sm text-slate-500">No recent activity yet.</p>
+              <p className="text-sm text-p-muted">No recent activity yet.</p>
             ) : (
               payload.activity.slice(0, 4).map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                  className="rounded-lg border border-p-border p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-bold text-slate-700 dark:text-slate-100">{item.title}</p>
+                      <p className="font-medium text-p-text ">{item.title}</p>
                       {item.description ? (
-                        <p className="mt-1 text-sm text-slate-500">{item.description}</p>
+                        <p className="mt-1 text-sm text-p-muted">{item.description}</p>
                       ) : null}
                     </div>
                     <span className={badgeClass("slate")}>{item.eventType || "event"}</span>
                   </div>
-                  <p className="mt-2 text-xs text-slate-500">{formatDateTime(item.createdAt)}</p>
+                  <p className="mt-2 text-xs text-p-muted">{formatDateTime(item.createdAt)}</p>
                 </div>
               ))
             )}
@@ -1567,17 +1567,17 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Upload className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">Upload Files</h3>
+          <Upload className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">Upload Files</h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Upload deployment packages, migration archives, project assets or website files into your hosting space.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Upload Category
             </label>
             <select
@@ -1593,7 +1593,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               File
             </label>
             <input
@@ -1607,14 +1607,14 @@ const WebsiteHostingDashboard: React.FC = () => {
               className={inputClass}
             />
             {uploadForm.file ? (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-p-muted">
                 Selected: {uploadForm.file.name} • {(uploadForm.file.size / (1024 * 1024)).toFixed(2)} MB
               </p>
             ) : null}
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -1636,7 +1636,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Uploaded Files</h3>
+        <h3 className="text-lg font-semibold text-p-text ">Uploaded Files</h3>
         <div className="mt-4">
           <FileList files={payload.files} emptyText="No files uploaded yet." />
         </div>
@@ -1648,19 +1648,19 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Rocket className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <Rocket className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Request Deployment
           </h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Submit a deployment request after uploading your build files or when you need Murzak Tech to deploy changes.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Source File
             </label>
             <input
@@ -1670,14 +1670,14 @@ const WebsiteHostingDashboard: React.FC = () => {
               className={inputClass}
             />
             {latestFileName ? (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-p-muted">
                 Latest uploaded file: {latestFileName}
               </p>
             ) : null}
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Deployment Type
             </label>
             <select
@@ -1696,7 +1696,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -1718,7 +1718,7 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+        <h3 className="text-lg font-semibold text-p-text ">
           Deployment History
         </h3>
         <div className="mt-4">
@@ -1735,19 +1735,19 @@ const WebsiteHostingDashboard: React.FC = () => {
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div className={cardClass}>
         <div className="flex items-center gap-3">
-          <Network className="w-5 h-5 text-murzak-accent" />
-          <h3 className="text-lg font-black text-murzak-ink dark:text-white">
+          <Network className="w-5 h-5 text-p-accent-text" />
+          <h3 className="text-lg font-semibold text-p-text ">
             Request a Subdomain
           </h3>
         </div>
 
-        <p className="mt-3 text-sm text-slate-500">
+        <p className="mt-3 text-sm text-p-muted">
           Create additional subdomains under your active host for apps, blogs, landing pages or redirects.
         </p>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Subdomain Label
             </label>
             <input
@@ -1763,17 +1763,17 @@ const WebsiteHostingDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-murzak-accent/20 bg-murzak-accent/5 px-4 py-3">
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+          <div className="rounded-lg border border-p-accent/40 bg-p-accent-soft px-4 py-3">
+            <p className="text-xs font-semibold text-p-muted ">
               Subdomain Preview
             </p>
-            <p className="mt-2 text-lg font-black text-murzak-ink dark:text-white break-all">
+            <p className="mt-2 text-lg font-semibold text-p-text break-all">
               {liveSubdomainPreview}
             </p>
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Target Type
             </label>
             <select
@@ -1788,7 +1788,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Target Value
             </label>
             <input
@@ -1800,7 +1800,7 @@ const WebsiteHostingDashboard: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-2">
+            <label className="block text-xs font-semibold text-p-muted mb-2">
               Notes
             </label>
             <textarea
@@ -1822,30 +1822,30 @@ const WebsiteHostingDashboard: React.FC = () => {
       </div>
 
       <div className={cardClass}>
-        <h3 className="text-lg font-black text-murzak-ink dark:text-white">Subdomains</h3>
+        <h3 className="text-lg font-semibold text-p-text ">Subdomains</h3>
         <div className="mt-4 space-y-3">
           {payload.murzakSubdomains.length === 0 ? (
-            <p className="text-sm text-slate-500">No subdomains created for this site yet.</p>
+            <p className="text-sm text-p-muted">No subdomains created for this site yet.</p>
           ) : (
             payload.murzakSubdomains.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+                className="rounded-lg border border-p-border p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-black text-murzak-ink dark:text-white break-all">
+                    <p className="font-semibold text-p-text break-all">
                       {item.fullSubdomain}
                     </p>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">
+                    <p className="text-xs text-p-muted mt-1">
                       {item.targetType || "folder"} {item.targetValue ? `• ${item.targetValue}` : ""}
                     </p>
                     {item.notes ? (
-                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                      <p className="mt-2 text-sm text-p-muted ">
                         {item.notes}
                       </p>
                     ) : null}
-                    <p className="mt-2 text-xs text-slate-500">{formatDateTime(item.createdAt)}</p>
+                    <p className="mt-2 text-xs text-p-muted">{formatDateTime(item.createdAt)}</p>
                   </div>
                   <span className={badgeClass(statusTone(item.status))}>{item.status}</span>
                 </div>
@@ -1859,28 +1859,28 @@ const WebsiteHostingDashboard: React.FC = () => {
 
   const renderLiveActivity = () => (
     <div className={cardClass}>
-      <h3 className="text-lg font-black text-murzak-ink dark:text-white">Hosting Activity</h3>
+      <h3 className="text-lg font-semibold text-p-text ">Hosting Activity</h3>
       <div className="mt-4 space-y-3">
         {payload.activity.length === 0 ? (
-          <p className="text-sm text-slate-500">No hosting activity yet.</p>
+          <p className="text-sm text-p-muted">No hosting activity yet.</p>
         ) : (
           payload.activity.map((item) => (
             <div
               key={item.id}
-              className="rounded-2xl border border-slate-200 dark:border-murzak-border p-4"
+              className="rounded-lg border border-p-border p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-black text-murzak-ink dark:text-white">{item.title}</p>
+                  <p className="font-semibold text-p-text ">{item.title}</p>
                   {item.description ? (
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                    <p className="mt-2 text-sm text-p-muted ">
                       {item.description}
                     </p>
                   ) : null}
                 </div>
                 <span className={badgeClass("slate")}>{item.eventType || "event"}</span>
               </div>
-              <p className="mt-2 text-xs text-slate-500">{formatDateTime(item.createdAt)}</p>
+              <p className="mt-2 text-xs text-p-muted">{formatDateTime(item.createdAt)}</p>
             </div>
           ))
         )}
@@ -1891,10 +1891,10 @@ const WebsiteHostingDashboard: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div
-        className={`rounded-4xl border p-6 sm:p-8 relative overflow-hidden ${
+        className={`rounded-lg border p-6 sm:p-8 relative overflow-hidden ${
           isLiveMode
-            ? "border-green-500/20 bg-green-500/5"
-            : "border-murzak-accent/30 bg-murzak-accent/5"
+            ? "border-p-success/40 bg-p-success-soft"
+            : "border-p-accent/40 bg-p-accent-soft"
         }`}
       >
         <div className="absolute top-0 right-0 p-6 opacity-10">
@@ -1903,15 +1903,15 @@ const WebsiteHostingDashboard: React.FC = () => {
 
         <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <p className="text-xs font-semibold text-p-muted ">
               Website Hosting • {payload.service.tier || "Standard"}
             </p>
 
-            <h2 className="mt-2 text-2xl sm:text-3xl font-black tracking-tighter text-murzak-ink dark:text-white">
+            <h2 className="mt-2 text-2xl sm:text-3xl font-semibold text-p-text ">
               {isLiveMode ? "Hosting Control Panel" : "Website Hosting Setup"}
             </h2>
 
-            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-3 max-w-2xl text-sm text-p-muted ">
               {isLiveMode
                 ? "Your hosting is active. Manage domain access, storage, uploads, deployments, subdomains and support from one place."
                 : "Complete your domain or subdomain setup. Once Murzak Tech finishes provisioning, this dashboard will automatically switch into live hosting mode."}
@@ -1950,10 +1950,10 @@ const WebsiteHostingDashboard: React.FC = () => {
 
       {(bannerError || bannerSuccess) && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+          className={`rounded-lg border px-4 py-3 text-sm font-semibold ${
             bannerError
-              ? "bg-red-50 border-red-200 text-red-700"
-              : "bg-green-50 border-green-200 text-green-700"
+              ? "bg-p-danger-soft border-p-danger/40 text-red-700"
+              : "bg-p-success-soft border-p-success/40 text-green-700"
           }`}
         >
           {bannerError || bannerSuccess}
@@ -2025,18 +2025,18 @@ const WebsiteHostingDashboard: React.FC = () => {
         </>
       )}
 
-      <div className="rounded-[1.75rem] border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 p-5 sm:p-6">
+      <div className="rounded-lg border border-p-border bg-p-panel p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <p className="text-xs font-semibold text-p-muted ">
               Need help next?
             </p>
-            <h3 className="mt-2 text-lg font-black text-murzak-ink dark:text-white">
+            <h3 className="mt-2 text-lg font-semibold text-p-text ">
               {isLiveMode
                 ? "Use requests for DNS, SSL, deployments and support"
                 : "Murzak Tech will complete provisioning after setup"}
             </h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-p-muted">
               {isLiveMode
                 ? "Open a request whenever you need deployment help, DNS changes, SSL assistance or site support."
                 : "After your setup request is submitted, Murzak Tech will handle domain connection, infrastructure provisioning and activation."}

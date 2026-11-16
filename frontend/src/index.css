@@ -418,3 +418,99 @@
     background-color: rgb(9 12 16 / 0.8);
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Customer portal design tokens (docs/superpowers/specs/2026-11-16-portal-
+   coolify-inspired-redesign-design.md). One value per theme, so portal
+   components use `bg-p-panel` / `text-p-muted` and never need a paired
+   `dark:` class. Flat surfaces, hairline borders, purple as the only accent.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --p-bg: #f7f7f9;
+  --p-panel: #ffffff;
+  --p-panel-2: #f3f3f6;
+  --p-sidebar: #fbfbfd;
+  --p-border: #e4e4ea;
+  --p-border-strong: #cfcfd9;
+  --p-text: #14141a;
+  --p-muted: #5f6170;
+  --p-accent: #7a22f0;
+  --p-accent-hover: #6a18d8;
+  --p-accent-fg: #ffffff;
+  --p-accent-soft: #f1e8ff;
+  --p-accent-text: #6a18d8;
+  --p-success: #15803d;
+  --p-success-soft: #e7f6ec;
+  --p-warning: #a16207;
+  --p-warning-soft: #fdf3d7;
+  --p-danger: #c81e1e;
+  --p-danger-soft: #fdecec;
+  --p-info: #1d5fd0;
+  --p-info-soft: #e8f0fe;
+}
+html.dark {
+  --p-bg: #0c0c10;
+  --p-panel: #15151b;
+  --p-panel-2: #1c1c24;
+  --p-sidebar: #120f1a;
+  --p-border: #27272f;
+  --p-border-strong: #3a3a46;
+  --p-text: #ececf1;
+  --p-muted: #9a9aa8;
+  --p-accent: #8b45f7;
+  --p-accent-hover: #9a5cf9;
+  --p-accent-fg: #ffffff;
+  --p-accent-soft: #24183d;
+  --p-accent-text: #b48cff;
+  --p-success: #4ade80;
+  --p-success-soft: #12261a;
+  --p-warning: #fbbf24;
+  --p-warning-soft: #2a2110;
+  --p-danger: #f87171;
+  --p-danger-soft: #2c1515;
+  --p-info: #7fb0ff;
+  --p-info-soft: #131f36;
+}
+@theme inline {
+  --color-p-bg: var(--p-bg);
+  --color-p-panel: var(--p-panel);
+  --color-p-panel-2: var(--p-panel-2);
+  --color-p-sidebar: var(--p-sidebar);
+  --color-p-border: var(--p-border);
+  --color-p-border-strong: var(--p-border-strong);
+  --color-p-text: var(--p-text);
+  --color-p-muted: var(--p-muted);
+  --color-p-accent: var(--p-accent);
+  --color-p-accent-hover: var(--p-accent-hover);
+  --color-p-accent-fg: var(--p-accent-fg);
+  --color-p-accent-soft: var(--p-accent-soft);
+  --color-p-accent-text: var(--p-accent-text);
+  --color-p-success: var(--p-success);
+  --color-p-success-soft: var(--p-success-soft);
+  --color-p-warning: var(--p-warning);
+  --color-p-warning-soft: var(--p-warning-soft);
+  --color-p-danger: var(--p-danger);
+  --color-p-danger-soft: var(--p-danger-soft);
+  --color-p-info: var(--p-info);
+  --color-p-info-soft: var(--p-info-soft);
+}
+@layer base {
+  .portal {
+    background: var(--p-bg);
+    color: var(--p-text);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .portal :focus-visible {
+    outline: 2px solid var(--p-accent);
+    outline-offset: 2px;
+  }
+  .portal ::selection { background: var(--p-accent-soft); }
+}
+@layer utilities {
+  /* Touch devices get taller hit areas; pointer devices stay dense. */
+  .p-tap { min-height: 2.25rem; }
+  @media (pointer: coarse) {
+    .p-tap { min-height: 2.5rem; }
+  }
+}

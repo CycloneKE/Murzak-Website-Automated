@@ -26,3 +26,9 @@ export function classifyActivity(u: { content: string; type?: string }): "paymen
   if (u.type === "milestone") return "account";
   return "system"; // technical, alert, and anything unrecognized reads as infra activity
 }
+
+/** URL of a service's own page, optionally at one of its sections. */
+export function servicePath(id: string, section?: string): string {
+  const base = `/portal/cloud/${encodeURIComponent(id)}`;
+  return section && section !== "general" ? `${base}/${section}` : base;
+}

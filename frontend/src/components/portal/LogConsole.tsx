@@ -96,26 +96,26 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
       <div className="w-full max-w-5xl bg-[#0a0a0a] border border-white/20 rounded-t-xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] overflow-hidden font-mono flex flex-col" style={{ height: isMinimized ? '400px' : '400px' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-murzak-border cursor-pointer select-none" onClick={() => setIsMinimized(!isMinimized)}>
+        <div className="flex items-center justify-between px-4 py-2 bg-[#1a1a1a] border-b border-p-border cursor-pointer select-none" onClick={() => setIsMinimized(!isMinimized)}>
           <div className="flex items-center text-gray-300 text-sm">
             <Terminal className="w-4 h-4 mr-2" />
             <span>provisioning activity: {activeService?.name || activeService?.category}</span>
             {isLive ? (
-              <span className="ml-3 px-2 py-0.5 rounded-sm text-micro uppercase bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live
+              <span className="ml-3 px-2 py-0.5 rounded-sm text-xs bg-p-success-soft text-p-success flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-p-success animate-pulse" /> Live
               </span>
             ) : (
-              <span className="ml-3 px-2 py-0.5 rounded-sm text-micro uppercase bg-black/5 text-gray-300">Recorded</span>
+              <span className="ml-3 px-2 py-0.5 rounded-sm text-xs bg-p-panel-2 text-gray-300">Recorded</span>
             )}
           </div>
           <div className="flex items-center space-x-2 text-gray-500">
-            <button className="hover:text-murzak-ink dark:text-white transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh" aria-label="Refresh logs">
+            <button className="hover:text-p-text transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40" onClick={(e) => { e.stopPropagation(); load(); }} title="Refresh" aria-label="Refresh logs">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
-            <button className="hover:text-murzak-ink dark:text-white transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} title={isMinimized ? "Expand" : "Minimize"} aria-label={isMinimized ? "Expand log console" : "Minimize log console"}>
+            <button className="hover:text-p-text transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} title={isMinimized ? "Expand" : "Minimize"} aria-label={isMinimized ? "Expand log console" : "Minimize log console"}>
               {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
             </button>
-            <button className="hover:text-red-400 transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent" onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" aria-label="Close log console">
+            <button className="hover:text-p-danger transition-colors p-2 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40" onClick={(e) => { e.stopPropagation(); onClose(); }} title="Close" aria-label="Close log console">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -123,9 +123,9 @@ const LogConsole: React.FC<LogConsoleProps> = ({ serviceId, onClose, services })
 
         {/* Log Body */}
         <div className="flex-1 overflow-y-auto p-4 text-xs text-gray-300 leading-relaxed custom-scrollbar">
-          {loadError && <div className="text-red-400">{loadError}</div>}
+          {loadError && <div className="text-p-danger">{loadError}</div>}
           {logs.map((log, idx) => (
-            <div key={idx} className={`${log.includes('WARN') || log.includes('ERROR') ? 'text-orange-400' : ''}`}>
+            <div key={idx} className={`${log.includes('WARN') || log.includes('ERROR') ? 'text-p-warning' : ''}`}>
               {log}
             </div>
           ))}

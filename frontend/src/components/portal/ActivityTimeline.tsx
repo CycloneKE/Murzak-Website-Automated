@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { CreditCard, Server, Headphones, Activity, Sparkles } from "lucide-react";
-import EmptyState from "./EmptyState";
+import { Empty } from "./ui";
 
 export interface TimelineEvent {
   id: string;
@@ -19,46 +19,36 @@ const TYPE_ICONS = {
   payment: <CreditCard size={14} />,
   system: <Server size={14} />,
   support: <Headphones size={14} />,
-  account: <Sparkles size={14} />
-};
-
-const TYPE_COLORS = {
-  payment: "bg-green-500/10 text-green-400 border-green-500/20",
-  system: "bg-murzak-accent/10 text-murzak-accent border-murzak-accent/20",
-  support: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  account: "bg-blue-500/10 text-blue-400 border-blue-500/20"
+  account: <Sparkles size={14} />,
 };
 
 export default function ActivityTimeline({ events }: ActivityTimelineProps) {
+  if (events.length === 0) {
+    return (
+      <Empty
+        icon={<Activity />}
+        title="No recent activity"
+        description="Updates from your engineers and account changes will show up here."
+      />
+    );
+  }
+
   return (
-    <div className="relative pl-6 space-y-8 before:absolute before:inset-y-0 before:left-[11px] before:w-px before:bg-linear-to-b before:from-murzak-accent/50 before:to-transparent">
-      {events.map((event, index) => (
-        <div key={event.id} className="relative group animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-          <div className={`absolute -left-6 top-1 w-6 h-6 rounded-full border flex items-center justify-center bg-murzak-ink ${TYPE_COLORS[event.type]} shadow-[0_0_10px_currentColor] transition-transform group-hover:scale-110`}>
+    <ol className="relative space-y-5 before:absolute before:top-2 before:bottom-2 before:left-[13px] before:w-px before:bg-p-border">
+      {events.map((event) => (
+        <li key={event.id} className="relative flex gap-3">
+          <span className="relative z-10 shrink-0 w-7 h-7 rounded-full border border-p-border bg-p-panel text-p-muted flex items-center justify-center">
             {TYPE_ICONS[event.type]}
-          </div>
-          
-          <div className="glass-panel p-4 rounded-2xl hover:border-white/20 transition-all cursor-default">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h4 className="text-[12px] font-black text-murzak-ink dark:text-white">{event.title}</h4>
-                <p className="text-label font-medium text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{event.description}</p>
-              </div>
-              <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 shrink-0">
-                {event.timestamp}
-              </span>
+          </span>
+          <div className="min-w-0 grow">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-medium text-p-text truncate">{event.title}</p>
+              <span className="text-xs text-p-muted shrink-0">{event.timestamp}</span>
             </div>
+            <p className="mt-0.5 text-[13px] text-p-muted wrap-break-word">{event.description}</p>
           </div>
-        </div>
+        </li>
       ))}
-      
-      {events.length === 0 && (
-        <EmptyState
-          icon={<Activity size={22} />}
-          title="No recent activity"
-          description="Updates from your engineers and account changes will show up here."
-        />
-      )}
-    </div>
+    </ol>
   );
 }

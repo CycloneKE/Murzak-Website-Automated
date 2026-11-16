@@ -4,7 +4,11 @@
     {
       "name": "murzak-backend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "backend", "start"],
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "start"
+      ],
       "port": 3001,
       "env": {
         "ADMIN_EMAILS": "admin-test@murzaktest.local,dev-user@example.com",
@@ -15,9 +19,51 @@
       }
     },
     {
+      "name": "murzak-backend-mock",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "start"
+      ],
+      "port": 3001,
+      "env": {
+        "ADMIN_EMAILS": "admin-test@murzaktest.local,dev-user@example.com",
+        "NODE_ENV": "development",
+        "BUNDLES_ENABLED": "true",
+        "DEV_AUTO_LOGIN": "true",
+        "MOCK_FRAPPE": "true",
+        "SESSION_SECRET": "dev-throwaway-secret-local-only",
+        "ALLOWED_ORIGINS": "http://localhost:5175"
+      }
+    },
+    {
+      "name": "murzak-backend-e2e",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "start"
+      ],
+      "port": 3001,
+      "env": {
+        "ADMIN_EMAILS": "admin-test@murzaktest.local,dev-user@example.com",
+        "NODE_ENV": "development",
+        "BUNDLES_ENABLED": "true",
+        "MOCK_FRAPPE": "true",
+        "SESSION_SECRET": "dev-throwaway-secret-local-only",
+        "ALLOWED_ORIGINS": "http://localhost:5175"
+      }
+    },
+    {
       "name": "murzak-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 5175
     }
   ]

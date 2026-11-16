@@ -240,27 +240,27 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
   if (!loading && !eligibility?.enabled) return null;
 
   const shell = (children: React.ReactNode) => (
-    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
+    <div className="mt-4 rounded-lg border border-p-border bg-p-panel-2 p-5">
       <div className="flex items-center gap-3 mb-3">
-        <SlidersHorizontal className="w-5 h-5 text-murzak-accent" />
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Advanced Controls</p>
+        <SlidersHorizontal className="w-5 h-5 text-p-accent-text" />
+        <p className="text-xs font-semibold text-p-muted ">Advanced Controls</p>
       </div>
       {children}
     </div>
   );
 
-  if (loading) return shell(<p className="text-label font-medium text-slate-500">Checking access…</p>);
+  if (loading) return shell(<p className="text-[13px] font-medium text-p-muted">Checking access…</p>);
 
   if (!eligibility?.planAllowed) {
     return shell(
       <div>
-        <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-3">
+        <p className="text-[13px] font-medium text-p-muted mb-3">
           Managing your own environment variables and reading live logs is available on the Business plan and above.
         </p>
         <button
           type="button"
           onClick={onRequestUpgrade}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition"
+          className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition"
         >
           Request Upgrade
         </button>
@@ -272,20 +272,20 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
     return shell(
       <div>
         <div className="flex items-start gap-3 mb-3">
-          <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-label font-medium text-slate-600 dark:text-slate-400">
+          <Clock className="w-4 h-4 text-p-warning shrink-0 mt-0.5" />
+          <p className="text-[13px] font-medium text-p-muted ">
             {accessRequestSent
               ? "Request sent. Our team will follow up in your Support tab, usually the same day."
               : "Managing your own environment variables and reading live logs needs a quick approval from our team first."}
           </p>
         </div>
-        {accessRequestError && <p className="text-label font-bold text-red-500 mb-3">{accessRequestError}</p>}
+        {accessRequestError && <p className="text-[13px] font-medium text-p-danger mb-3">{accessRequestError}</p>}
         {!accessRequestSent && (
           <button
             type="button"
             onClick={handleRequestAccess}
             disabled={requestingAccess}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+            className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
           >
             {requestingAccess ? "Sending…" : "Request advanced access"}
           </button>
@@ -298,8 +298,8 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
     return shell(
       <div>
         <div className="flex items-start gap-3 mb-4">
-          <ShieldCheck className="w-4 h-4 text-murzak-accent shrink-0 mt-0.5" />
-          <div className="text-label font-medium text-slate-600 dark:text-slate-400 space-y-2">
+          <ShieldCheck className="w-4 h-4 text-p-accent-text shrink-0 mt-0.5" />
+          <div className="text-[13px] font-medium text-p-muted space-y-2">
             <p>
               Before you take the wheel: these controls change your live service directly. A bad
               environment variable can stop it from starting, and removing one your app depends on will
@@ -312,12 +312,12 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             </p>
           </div>
         </div>
-        {error && <p className="text-label font-bold text-red-500 mb-3">{error}</p>}
+        {error && <p className="text-[13px] font-medium text-p-danger mb-3">{error}</p>}
         <button
           type="button"
           onClick={handleAccept}
           disabled={accepting}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+          className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
         >
           {accepting ? "Saving…" : "I understand and agree"}
         </button>
@@ -327,33 +327,33 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
 
   return shell(
     <div className="space-y-6">
-      {notice && <p className="text-label font-bold text-emerald-600 dark:text-emerald-400">{notice}</p>}
+      {notice && <p className="text-[13px] font-medium text-p-success ">{notice}</p>}
 
       {/* --- Environment variables --- */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-label font-black text-slate-700 dark:text-slate-300">Environment Variables</p>
+          <p className="text-[13px] font-semibold text-p-text ">Environment Variables</p>
           <button
             type="button"
             onClick={loadEnvs}
-            className="text-micro font-bold uppercase text-slate-500 hover:text-murzak-accent transition inline-flex items-center gap-1"
+            className="text-xs font-medium text-p-muted hover:text-p-accent-text transition inline-flex items-center gap-1"
           >
             <RefreshCw className="w-3 h-3" /> Refresh
           </button>
         </div>
 
         {restartNeeded && (
-          <div className="mb-3 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 p-3 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="mb-3 rounded-md border border-amber-300/60 bg-p-warning-soft p-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-p-warning shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-label font-medium text-amber-800 dark:text-amber-300">
+              <p className="text-[13px] font-medium text-amber-800 ">
                 Saved, but not live yet. Your service keeps its current environment until it restarts.
               </p>
               <button
                 type="button"
                 onClick={handleRestart}
                 disabled={restarting}
-                className="mt-2 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+                className="mt-2 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold transition disabled:opacity-60"
               >
                 {restarting ? "Restarting…" : "Restart now"}
               </button>
@@ -361,21 +361,21 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
           </div>
         )}
 
-        {envsError && <p className="text-label font-bold text-red-500 mb-2">{envsError}</p>}
+        {envsError && <p className="text-[13px] font-medium text-p-danger mb-2">{envsError}</p>}
 
         {envs === null ? (
-          <p className="text-label font-medium text-slate-500">Loading…</p>
+          <p className="text-[13px] font-medium text-p-muted">Loading…</p>
         ) : envs.length === 0 ? (
-          <p className="text-label font-medium text-slate-500">No variables set yet.</p>
+          <p className="text-[13px] font-medium text-p-muted">No variables set yet.</p>
         ) : (
           <div className="space-y-1.5">
             {envs.map((env) => (
               <div
                 key={env.uuid || env.key}
-                className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border px-3 py-2"
+                className="flex items-center gap-3 rounded-md bg-p-panel border border-p-border px-3 py-2"
               >
-                <code className="text-label font-bold text-slate-700 dark:text-slate-300 shrink-0">{env.key}</code>
-                <code className="text-label font-medium text-slate-500 truncate flex-1">
+                <code className="text-[13px] font-medium text-p-text shrink-0">{env.key}</code>
+                <code className="text-[13px] font-medium text-p-muted truncate flex-1">
                   {env.redacted
                     ? "•••••••• (write-only)"
                     : revealed[env.key]
@@ -386,7 +386,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setRevealed((r) => ({ ...r, [env.key]: !r[env.key] }))}
-                    className="text-slate-400 hover:text-murzak-accent transition shrink-0"
+                    className="text-p-muted hover:text-p-accent-text transition shrink-0"
                     aria-label={revealed[env.key] ? `Hide ${env.key}` : `Reveal ${env.key}`}
                   >
                     {revealed[env.key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -396,7 +396,7 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
                   type="button"
                   onClick={() => handleDeleteEnv(env)}
                   disabled={!!deletingEnvUuid}
-                  className="text-slate-400 hover:text-red-500 transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-p-muted hover:text-p-danger transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   aria-label={`Remove ${env.key}`}
                 >
                   <Trash2 className={`w-4 h-4 ${deletingEnvUuid === env.uuid ? "animate-pulse" : ""}`} />
@@ -411,24 +411,24 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
             value={draftKey}
             onChange={(e) => setDraftKey(e.target.value)}
             placeholder="VARIABLE_NAME"
-            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+            className="flex-1 rounded-md border border-p-border bg-p-panel px-3 py-2 text-[13px] font-medium text-p-text "
           />
           <input
             value={draftValue}
             onChange={(e) => setDraftValue(e.target.value)}
             placeholder="value"
-            className="flex-1 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+            className="flex-1 rounded-md border border-p-border bg-p-panel px-3 py-2 text-[13px] font-medium text-p-text "
           />
           <button
             type="button"
             onClick={handleAddEnv}
             disabled={savingEnv || !draftKey.trim()}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center justify-center gap-1"
+            className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60 inline-flex items-center justify-center gap-1"
           >
             <Plus className="w-3.5 h-3.5" /> {savingEnv ? "Saving…" : "Save"}
           </button>
         </div>
-        <p className="mt-1.5 text-micro font-medium text-slate-400">
+        <p className="mt-1.5 text-xs font-medium text-p-muted">
           Letters, numbers and underscores only. Saving an existing name replaces its value.
         </p>
       </section>
@@ -436,12 +436,12 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
       {/* --- Runtime logs --- */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-label font-black text-slate-700 dark:text-slate-300">Live Logs</p>
+          <p className="text-[13px] font-semibold text-p-text ">Live Logs</p>
           <div className="flex items-center gap-2">
             <select
               value={logLines}
               onChange={(e) => setLogLines(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-2 py-1 text-micro font-bold text-slate-600 dark:text-slate-300"
+              className="rounded-lg border border-p-border bg-p-panel px-2 py-1 text-xs font-medium text-p-muted "
             >
               <option value={100}>100 lines</option>
               <option value={200}>200 lines</option>
@@ -452,22 +452,22 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               type="button"
               onClick={handleLoadLogs}
               disabled={logsLoading}
-              className="text-micro font-bold uppercase text-slate-500 hover:text-murzak-accent transition inline-flex items-center gap-1 disabled:opacity-60"
+              className="text-xs font-medium text-p-muted hover:text-p-accent-text transition inline-flex items-center gap-1 disabled:opacity-60"
             >
               <RefreshCw className={`w-3 h-3 ${logsLoading ? "animate-spin" : ""}`} /> Fetch
             </button>
           </div>
         </div>
-        {logsError && <p className="text-label font-bold text-red-500 mb-2">{logsError}</p>}
-        <pre className="rounded-xl bg-slate-900 text-slate-200 p-3 text-micro font-mono overflow-x-auto max-h-72 overflow-y-auto whitespace-pre-wrap">
+        {logsError && <p className="text-[13px] font-medium text-p-danger mb-2">{logsError}</p>}
+        <pre className="rounded-md bg-slate-900 text-slate-200 p-3 text-xs font-mono overflow-x-auto max-h-72 overflow-y-auto whitespace-pre-wrap">
           {logs || "Press Fetch to load what your service is logging right now."}
         </pre>
       </section>
 
       {/* --- Human-fulfilled requests --- */}
       <section>
-        <p className="text-label font-black text-slate-700 dark:text-slate-300 mb-1">Ask for more</p>
-        <p className="text-micro font-medium text-slate-400 mb-2">
+        <p className="text-[13px] font-semibold text-p-text mb-1">Ask for more</p>
+        <p className="text-xs font-medium text-p-muted mb-2">
           These aren't self-service yet. A Murzak engineer sets them up for you.
         </p>
         <div className="flex flex-wrap gap-2 mb-2">
@@ -477,10 +477,10 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               type="button"
               onClick={() => setRequestTopic(requestTopic === t.id ? "" : t.id)}
               title={t.hint}
-              className={`px-3 py-1.5 rounded-lg text-micro font-bold uppercase transition border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
                 requestTopic === t.id
-                  ? "bg-murzak-accent text-murzak-ink border-transparent"
-                  : "border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-300 hover:border-murzak-accent"
+                  ? "bg-p-accent text-p-accent-fg border-transparent"
+                  : "border-p-border text-p-muted hover:border-p-accent"
               }`}
             >
               {t.label}
@@ -494,13 +494,13 @@ const ResourceAdminPanel: React.FC<ResourceAdminPanelProps> = ({
               onChange={(e) => setRequestDetail(e.target.value)}
               rows={3}
               placeholder={REQUEST_TOPICS.find((t) => t.id === requestTopic)?.hint}
-              className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-white/4 px-3 py-2 text-label font-medium text-slate-700 dark:text-slate-200"
+              className="w-full rounded-md border border-p-border bg-p-panel px-3 py-2 text-[13px] font-medium text-p-text "
             />
             <button
               type="button"
               onClick={handleSendRequest}
               disabled={requestSending || !requestDetail.trim()}
-              className="mt-2 px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              className="mt-2 px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
             >
               {requestSending ? "Sending…" : "Send request"}
             </button>

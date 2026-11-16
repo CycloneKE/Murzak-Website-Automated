@@ -1,68 +1,58 @@
 import React from "react";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import ResourceList from "../../../components/portal/ResourceList";
-import WebsiteHostingDashboard from "../../../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
-import ResourceDetail from "./ResourceDetail";
+import { PageHeader, PButton } from "../../../components/portal/ui";
+import ServicePage from "./service/ServicePage";
 import { usePortal } from "../PortalContext";
+import { servicePath } from "../helpers";
 
+/**
+ * "Your services": the list at /portal/cloud, and one service's own page at
+ * /portal/cloud/<id>[/<section>].
+ */
 const CloudTab: React.FC = () => {
-  const { cloudServiceId, navigate, openAddonsModal, selectedServices } =
-    usePortal();
+  const { navigate, openAddonsModal, selectedServices } = usePortal();
+  const { serviceId } = useParams();
+  const location = useLocation();
+
+  // Older links (emails, checkout, bookmarks) use /portal/cloud?service=<id>.
+  // Send them to the service's page, keeping any other query (justProvisioned).
+  if (!serviceId) {
+    const sp = new URLSearchParams(location.search);
+    const legacy = sp.get("service");
+    if (legacy) {
+      sp.delete("service");
+      const rest = sp.toString();
+      return <Navigate replace to={`${servicePath(legacy)}${rest ? `?${rest}` : ""}`} />;
+    }
+  }
+
+  if (serviceId) return <ServicePage />;
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">
-            {cloudServiceId === "biz-web-hosting" ? "Website Hosting" : "Resources"}
-          </h2>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-3">
-            {cloudServiceId === "biz-web-hosting"
-              ? "Manage your hosting service, domains, subdomains, files and requests"
-              : "Systems become active after payment is settled"}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {cloudServiceId && (
-            <button
-              onClick={() => navigate("/portal/cloud")}
-              className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 text-slate-600 dark:text-slate-200 font-black text-micro uppercase"
-            >
-              Back to Resources
-            </button>
-          )}
-
-          {!cloudServiceId && (
-            <button
-              onClick={() => openAddonsModal("cloud")}
-              className="px-5 py-3 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-[1.02] transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Add Services
-            </button>
-          )}
-        </div>
-      </div>
-
-      {!cloudServiceId && (
-        <div className="space-y-8">
-          <ResourceList
-            services={selectedServices}
-            onSelect={(id) => {
-              const svc = selectedServices.find((s) => s.serviceId === id);
-              if (svc?.status === "Awaiting Payment") {
-                navigate("/portal/billing");
-              } else {
-                navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
-              }
-            }}
-          />
-        </div>
-      )}
-
-      {cloudServiceId === "biz-web-hosting" && <WebsiteHostingDashboard />}
-
-      {cloudServiceId && cloudServiceId !== "biz-web-hosting" && <ResourceDetail />}
+    <div>
+      <PageHeader
+        title="Your services"
+        description="Everything you run with us. A service starts once its invoice is paid."
+        actions={
+          <PButton variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => openAddonsModal("cloud")}>
+            Add a service
+          </PButton>
+        }
+      />
+      <ResourceList
+        services={selectedServices}
+        onAdd={() => openAddonsModal("cloud")}
+        onSelect={(id) => {
+          const svc = selectedServices.find((s) => s.serviceId === id);
+          if (svc?.status === "Awaiting Payment") {
+            navigate("/portal/billing");
+          } else {
+            navigate(servicePath(id));
+          }
+        }}
+      />
     </div>
   );
 };

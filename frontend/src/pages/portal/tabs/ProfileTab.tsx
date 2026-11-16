@@ -1,7 +1,16 @@
 import React from "react";
-import { Activity, Crown, Pencil, Plus, Server, Settings, Shield, UserCircle, User as UserIcon, X } from "lucide-react";
+import { Crown, Pencil, Plus, RotateCcw } from "lucide-react";
 import ChangePasswordCard from "../../../components/portal/ChangePasswordCard";
+import { Field, PageHeader, Panel, PButton, StatusPill, inputClass, statusTone } from "../../../components/portal/ui";
 import { usePortal } from "../PortalContext";
+
+/** A label / value row inside a Panel. */
+const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 sm:px-5 py-3 border-b border-p-border last:border-b-0">
+    <dt className="sm:w-40 shrink-0 text-[13px] text-p-muted">{label}</dt>
+    <dd className="min-w-0 grow text-sm text-p-text wrap-break-word">{children}</dd>
+  </div>
+);
 
 const ProfileTab: React.FC = () => {
   const {
@@ -28,234 +37,150 @@ const ProfileTab: React.FC = () => {
   } = usePortal();
 
   return (
-    <div className="space-y-12 animate-fade-in max-w-5xl mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-end gap-3 px-1 sm:px-2">
-        <div>
-          <h2 className="text-3xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] tracking-tighter uppercase leading-none">Account Profile</h2>
-          <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mt-4">
-            Manage your personal information, security and active plans
-          </p>
-        </div>
-      </div>
+    <div className="space-y-5 max-w-3xl">
+      <PageHeader title="Settings" description="Your details, your plan and your password." />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-        {/* Personal Information */}
-        <div className="glass-card bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-8 sm:p-10 rounded-[3rem] shadow-lg sm:shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-125 transition-transform duration-700 pointer-events-none">
-            <UserIcon className="w-24 h-24 text-murzak-accent" />
-          </div>
-          
-          <div className="flex items-center justify-between mb-8 relative z-10">
-            <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-3">
-              <UserCircle className="w-5 h-5 text-murzak-accent" /> Personal Information
-            </h3>
-            {!profileEditing && (
-              <button
-                type="button"
-                onClick={() => {
-                  setProfileNameDraft(user.name || "");
-                  setProfileCompanyDraft(user.company || "");
-                  setProfileEditing(true);
+      <Panel
+        title="Your details"
+        flush={!profileEditing}
+        actions={
+          !profileEditing && (
+            <PButton
+              size="sm"
+              icon={<Pencil className="w-3.5 h-3.5" />}
+              onClick={() => {
+                setProfileNameDraft(user.name || "");
+                setProfileCompanyDraft(user.company || "");
+                setProfileEditing(true);
+              }}
+            >
+              Edit
+            </PButton>
+          )
+        }
+      >
+        {profileEditing ? (
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveProfile();
+            }}
+          >
+            <Field label="Full name" htmlFor="profile-name">
+              <input
+                id="profile-name"
+                type="text"
+                value={profileNameDraft}
+                onChange={(e) => setProfileNameDraft(e.target.value)}
+                autoComplete="name"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Business name" htmlFor="profile-company">
+              <input
+                id="profile-company"
+                type="text"
+                value={profileCompanyDraft}
+                onChange={(e) => setProfileCompanyDraft(e.target.value)}
+                autoComplete="organization"
+                className={inputClass}
+              />
+            </Field>
+            {profileMsg && !profileMsg.ok && <p role="alert" className="text-[13px] text-p-danger">{profileMsg.text}</p>}
+            <div className="flex gap-2">
+              <PButton type="submit" variant="primary" loading={profileSaving} disabled={!profileNameDraft.trim()}>
+                {profileSaving ? "Saving…" : "Save"}
+              </PButton>
+              <PButton disabled={profileSaving} onClick={() => setProfileEditing(false)}>
+                Cancel
+              </PButton>
+            </div>
+          </form>
+        ) : (
+          <dl>
+            <Row label="Full name">{user.name}</Row>
+            <Row label="Email address">{user.email}</Row>
+            <Row label="Business name">{user.company}</Row>
+          </dl>
+        )}
+      </Panel>
+
+      <Panel
+        title="Project repository"
+        description={
+          <>
+            The Git repo we deploy your App Hosting services from. Add <span className="font-mono">#branch</span> to pin a branch.
+          </>
+        }
+      >
+        <form
+          className="flex flex-col sm:flex-row sm:items-end gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveRepo();
+          }}
+        >
+          <div className="grow min-w-0">
+            <Field label="Repository URL" htmlFor="profile-repo">
+              <input
+                id="profile-repo"
+                type="url"
+                value={repoDraft}
+                onChange={(e) => {
+                  setRepoDraft(e.target.value);
+                  if (repoMsg) setRepoMsg(null);
                 }}
-                className="inline-flex items-center gap-1.5 text-micro font-black uppercase text-slate-500 hover:text-murzak-accent transition"
-              >
-                <Pencil className="w-3.5 h-3.5" /> Edit
-              </button>
-            )}
+                placeholder="https://github.com/you/your-app"
+                className={inputClass}
+              />
+            </Field>
           </div>
+          <PButton type="submit" variant="primary" loading={repoSaving} disabled={repoDraft.trim() === (user.sourceCode || "")}>
+            {repoSaving ? "Saving…" : "Save"}
+          </PButton>
+        </form>
+        {repoMsg && (
+          <p role="status" className={`mt-3 text-[13px] ${repoMsg.ok ? "text-p-success" : "text-p-danger"}`}>
+            {repoMsg.text}
+          </p>
+        )}
+      </Panel>
 
-          {profileEditing ? (
-            <div className="space-y-5 relative z-10">
-              <div>
-                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 block">Full Name</label>
-                <input
-                  type="text"
-                  value={profileNameDraft}
-                  onChange={(e) => setProfileNameDraft(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:border-murzak-accent/60"
-                />
-              </div>
-              <div>
-                <label className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 block">Business Name</label>
-                <input
-                  type="text"
-                  value={profileCompanyDraft}
-                  onChange={(e) => setProfileCompanyDraft(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:border-murzak-accent/60"
-                />
-              </div>
-              {profileMsg && !profileMsg.ok && (
-                <p className="text-micro font-bold text-red-500">{profileMsg.text}</p>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={saveProfile}
-                  disabled={profileSaving || !profileNameDraft.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase disabled:opacity-40 hover:scale-[1.02] transition-all"
-                >
-                  {profileSaving ? "Saving…" : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProfileEditing(false)}
-                  disabled={profileSaving}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-300 font-black text-micro uppercase hover:bg-slate-100 dark:hover:bg-black/5 transition"
-                >
-                  <X className="w-3.5 h-3.5" /> Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-          <div className="space-y-8 relative z-10">
-            <div className="group/item">
-              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Full Name
-              </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
-                {user.name}
-              </p>
-            </div>
+      <Panel
+        title="Your plan"
+        flush
+        actions={
+          <>
+            <PButton icon={<Plus className="w-4 h-4" />} onClick={() => setAddonsOpen(true)}>
+              Add services
+            </PButton>
+            <PButton icon={<Crown className="w-4 h-4" />} onClick={goToUpgrade}>
+              Change plan
+            </PButton>
+          </>
+        }
+      >
+        <dl>
+          <Row label="Plan">{user.plan || "None"}</Row>
+          <Row label="Status">
+            <StatusPill tone={statusTone(user.accountStatus)}>{user.accountStatus}</StatusPill>
+          </Row>
+          <Row label="Services">{selectedServices.length}</Row>
+        </dl>
+      </Panel>
 
-            <div className="group/item">
-              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Email Address
-              </p>
-              <p className="text-lg sm:text-xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
-                {user.email}
-              </p>
-            </div>
+      <ChangePasswordCard />
 
-            <div className="group/item">
-              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Business Name
-              </p>
-              <p className="text-xl sm:text-2xl font-black text-murzak-ink dark:text-slate-100 wrap-break-word pl-3 border-l-2 border-transparent group-hover/item:border-murzak-accent/30 transition-all">
-                {user.company}
-              </p>
-            </div>
-
-            <div className="group/item">
-              <p className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-murzak-accent/50 group-hover/item:bg-murzak-accent transition-colors"></span> Project Repository
-              </p>
-              <p className="text-micro text-slate-600 dark:text-slate-400 mb-3 pl-3">
-                The Git repo we deploy your App Hosting services from. Add <span className="font-mono">#branch</span> to pin a branch.
-              </p>
-              <div className="flex gap-2 pl-3">
-                <input
-                  type="url"
-                  value={repoDraft}
-                  onChange={(e) => { setRepoDraft(e.target.value); if (repoMsg) setRepoMsg(null); }}
-                  placeholder="https://github.com/you/your-app"
-                  className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-murzak-border bg-white dark:bg-black/5 px-4 py-2.5 text-sm font-semibold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:border-murzak-accent/60"
-                />
-                <button
-                  type="button"
-                  onClick={saveRepo}
-                  disabled={repoSaving || repoDraft.trim() === (user.sourceCode || "")}
-                  className="shrink-0 px-4 py-2.5 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase disabled:opacity-40 hover:scale-[1.02] transition-all"
-                >
-                  {repoSaving ? "Saving…" : "Save"}
-                </button>
-              </div>
-              {repoMsg && (
-                <p className={`text-micro font-bold mt-2 pl-3 ${repoMsg.ok ? "text-emerald-500" : "text-red-500"}`}>
-                  {repoMsg.text}
-                </p>
-              )}
-            </div>
-          </div>
-          )}
-        </div>
-
-        {/* Service Plan */}
-        <div className="glass-card glass-dark p-8 sm:p-10 rounded-[3rem] shadow-xl flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute inset-0 bg-linear-to-br from-transparent to-murzak-accent/5 z-0 pointer-events-none"></div>
-          <div className="absolute -top-20 -right-20 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full opacity-50 group-hover:opacity-80 transition-opacity duration-700 pointer-events-none z-0"></div>
-
-          {/* This card is `.glass-dark` — a fixed dark backdrop that does not
-              switch with the site theme (see index.css). Text here must
-              therefore always use the light palette; a `dark:` variant means
-              "near-black on near-black in light mode", which is what made
-              the plan name and this panel unreadable in light mode. */}
-          <div className="relative z-10">
-            <h3 className="text-[12px] font-black text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
-              <Shield className="w-5 h-5 text-murzak-accent" /> Service Plan
-            </h3>
-
-            <div className="flex flex-col gap-2 mb-8">
-              <p className="text-4xl sm:text-5xl font-[900] tracking-tighter uppercase text-slate-100">
-                {user.plan || "None"}
-              </p>
-              <div className="inline-flex self-start items-center gap-2 px-3 py-1 bg-black/5 rounded-full border border-white/20 backdrop-blur-md">
-                <div className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === 'Active' ? 'bg-green-400 shadow-[0_0_8px_#4ade80]' : 'bg-orange-400 shadow-[0_0_8px_#fb923c]'}`}></div>
-                <span className="text-micro font-black uppercase text-slate-400">
-                  Status: {user.accountStatus}
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-murzak-border bg-black/5 p-6 backdrop-blur-xs group-hover:bg-black/5 transition-colors">
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-micro font-black uppercase text-murzak-accent">
-                  Provisioned Services
-                </p>
-                <div className="w-8 h-8 rounded-full bg-black/5 flex items-center justify-center">
-                  <Server className="w-4 h-4 text-slate-100" />
-                </div>
-              </div>
-
-              <div className="flex items-end gap-2">
-                <span className="text-3xl font-black">{selectedServices.length}</span>
-                <span className="text-micro font-bold text-slate-400 uppercase pb-1">
-                  Active
-                </span>
-              </div>
-
-            </div>
-          </div>
-
-          <div className="space-y-3 mt-8 relative z-10">
-            <button
-              onClick={() => setAddonsOpen(true)}
-              className="w-full bg-murzak-accent text-murzak-ink rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(0,189,252,0.2)] flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Add Services
-            </button>
-
-            <button
-              onClick={goToUpgrade}
-              className="w-full bg-black/5 border border-white/15 text-slate-100 rounded-xl font-black text-micro uppercase py-3 sm:py-4 hover:bg-black/5 transition-all backdrop-blur-md flex items-center justify-center gap-2"
-            >
-              <Crown className="w-4 h-4 text-murzak-accent" /> Upgrade Plan
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="glass-panel p-8 sm:p-10 rounded-[3rem] border border-murzak-border">
-        <h3 className="text-[12px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-8 flex items-center gap-3">
-          <Settings className="w-5 h-5 text-murzak-accent" /> Account Preferences
-        </h3>
-        
-        <div className="space-y-6">
-          <ChangePasswordCard />
-          
-          <div className="pt-8 border-t border-slate-200 dark:border-murzak-border flex flex-col sm:flex-row justify-between items-center gap-6">
-            <div>
-              <h4 className="text-sm font-black text-murzak-ink dark:text-slate-100">Welcome Tour</h4>
-              <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mt-1">Re-run the onboarding experience</p>
-            </div>
-            <button
-              onClick={() => setShowOnboarding(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase hover:border-murzak-accent hover:bg-murzak-accent/5 transition-all"
-            >
-              <Activity className="w-4 h-4 text-murzak-accent" /> Replay Tour
-            </button>
-          </div>
-        </div>
-      </div>
+      <Panel
+        title="Welcome tour"
+        description="See the short introduction to the portal again."
+        actions={
+          <PButton icon={<RotateCcw className="w-4 h-4" />} onClick={() => setShowOnboarding(true)}>
+            Replay tour
+          </PButton>
+        }
+      />
     </div>
   );
 };

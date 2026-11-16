@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, GitCommit, RefreshCw, Rocket } from "lucide-react";
-import EmptyState from "../../../components/portal/EmptyState";
+import { Empty, Modal, PageHeader, Panel, PButton, StatusPill } from "../../../components/portal/ui";
+import { servicePath } from "../helpers";
 import { usePortal } from "../PortalContext";
 import { fetchServiceDeployments, type DeploymentEntry } from "../../../services/serviceActivity";
 import { toUserMessage } from "../../../services/errors";
@@ -20,11 +21,6 @@ import { toUserMessage } from "../../../services/errors";
  */
 
 type Row = DeploymentEntry & { serviceId: string; serviceName: string };
-
-const RESULT_TONE: Record<string, string> = {
-  success: "bg-emerald-500",
-  failure: "bg-red-500",
-};
 
 function fmt(ts?: string) {
   if (!ts) return "";
@@ -87,123 +83,78 @@ const DeploymentsTab: React.FC = () => {
   }, [candidates.length]);
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase text-murzak-ink dark:text-slate-100">
-            Deployments
-          </h2>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
-            Every build across your apps, newest first.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent self-start"
-          title="Refresh"
-          aria-label="Refresh deployments"
-        >
-          <RefreshCw className={`w-[18px] h-[18px] ${loading ? "animate-spin" : ""}`} />
-        </button>
-      </div>
+    <div>
+      <PageHeader
+        title="Updates"
+        description="Every build across your apps, newest first."
+        actions={
+          <PButton
+            icon={<RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />}
+            onClick={load}
+            aria-label="Refresh updates"
+          >
+            Refresh
+          </PButton>
+        }
+      />
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
+        <p role="alert" className="mb-4 flex items-center gap-2 text-[13px] text-p-danger">
           <AlertCircle className="w-4 h-4" /> {error}
-        </div>
+        </p>
       )}
 
-      {loading && rows.length === 0 ? (
-        <div className="py-16 text-center text-micro font-black uppercase text-slate-600 dark:text-slate-400">
-          Loading deployments...
-        </div>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          icon={<Rocket className="w-6 h-6" />}
-          title="No deployments yet"
-          description="Apps deployed from a Git repository record every build here: what changed, whether it worked, and the log. Managed systems don't deploy this way, so they won't appear."
-          actionLabel="Go to your resources"
-          onAction={() => navigate("/portal/cloud")}
-        />
-      ) : (
-        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] shadow-lg overflow-hidden">
-          <div className="divide-y divide-slate-100 dark:divide-murzak-border">
+      <Panel flush>
+        {loading && rows.length === 0 ? (
+          <p className="py-12 text-center text-[13px] text-p-muted">Loading updates...</p>
+        ) : rows.length === 0 ? (
+          <Empty
+            icon={<Rocket />}
+            title="No updates yet"
+            description="Apps deployed from a Git repository record every build here: what changed, whether it worked, and the log. Managed systems don't update this way, so they won't appear."
+            actionLabel="Go to your services"
+            onAction={() => navigate("/portal/cloud")}
+          />
+        ) : (
+          <ul className="divide-y divide-p-border">
             {rows.map((d) => (
-              <div key={`${d.serviceId}-${d.uuid}`} className="p-5 flex flex-wrap items-center gap-4">
-                <span
-                  className={`shrink-0 w-2.5 h-2.5 rounded-full ${
-                    RESULT_TONE[String(d.result)] || "bg-amber-400 animate-pulse"
-                  }`}
-                  aria-label={d.result || "in progress"}
-                />
+              <li key={`${d.serviceId}-${d.uuid}`} className="px-4 sm:px-5 py-3 flex flex-wrap items-center gap-3">
+                <StatusPill tone={d.result === "success" ? "ok" : d.result === "failure" ? "bad" : "progress"}>
+                  {d.status || "unknown"}
+                </StatusPill>
                 <div className="min-w-0 grow">
-                  <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
-                    {d.serviceName}
-                    <span className="ml-2 font-bold text-slate-500 normal-case">{d.status || "unknown"}</span>
-                  </p>
-                  <p className="text-micro font-medium text-slate-600 dark:text-slate-400 truncate mt-0.5">
-                    <GitCommit className="inline w-3 h-3 mr-1 -mt-0.5" />
+                  <p className="text-sm font-medium text-p-text truncate">{d.serviceName}</p>
+                  <p className="text-[13px] text-p-muted truncate">
+                    <GitCommit className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
                     {[d.commit ? d.commit.slice(0, 8) : d.uuid.slice(0, 8), d.commitMessage, fmt(d.createdAt)]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => openDeployLog(d.uuid)}
-                    className="h-9 px-4 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase text-slate-600 dark:text-slate-300 hover:border-murzak-accent/40 hover:text-murzak-accent transition"
-                  >
-                    Log
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/portal/cloud?service=${encodeURIComponent(d.serviceId)}`)}
-                    className="h-9 px-4 rounded-xl text-micro font-black uppercase text-murzak-accent hover:bg-murzak-accent/10 transition"
-                  >
-                    Open
-                  </button>
+                  <PButton size="sm" onClick={() => openDeployLog(d.uuid)}>Log</PButton>
+                  <PButton size="sm" variant="ghost" onClick={() => navigate(servicePath(d.serviceId))}>Open</PButton>
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
-        </div>
-      )}
+          </ul>
+        )}
+      </Panel>
 
-      {deployLogView && (
-        <div
-          className="fixed inset-0 z-130 flex items-center justify-center p-4 bg-murzak-ink/50 backdrop-blur-xs"
-          onClick={() => setDeployLogView(null)}
-        >
-          <div
-            className="w-full max-w-2xl max-h-[80vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-white/10">
-              <span className="text-gray-300 text-xs truncate">
-                Deployment {deployLogView.uuid.slice(0, 12)}: build log
-              </span>
-              <button
-                className="text-gray-500 hover:text-white p-1"
-                onClick={() => setDeployLogView(null)}
-                aria-label="Close log"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {deployLogView.loading ? (
-                <p className="text-xs text-gray-500">Loading log…</p>
-              ) : (
-                <pre className="whitespace-pre-wrap wrap-break-word text-label text-gray-300 leading-relaxed">
-                  {deployLogView.logs}
-                </pre>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!deployLogView}
+        onClose={() => setDeployLogView(null)}
+        title={`Update ${deployLogView?.uuid.slice(0, 12) || ""}: build log`}
+        size="lg"
+      >
+        {deployLogView?.loading ? (
+          <p className="text-[13px] text-p-muted">Loading log…</p>
+        ) : (
+          <pre className="whitespace-pre-wrap wrap-break-word font-mono text-xs leading-relaxed text-p-text bg-p-panel-2 border border-p-border rounded-md p-3">
+            {deployLogView?.logs}
+          </pre>
+        )}
+      </Modal>
     </div>
   );
 };

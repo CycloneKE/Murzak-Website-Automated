@@ -41,7 +41,7 @@ import {
 } from "../../services/serviceActivity";
 import { SERVICE_CATALOG, getService, type PlanCode } from "../../config/serviceCatalog";
 import { isDomainCompanionId } from "../../services/bundles";
-import { normalizePlanToCode } from "./helpers";
+import { normalizePlanToCode, servicePath } from "./helpers";
 import { isTab, type PortalProps, type Tab } from "./types";
 import { useCustomerDomains } from "./state/useCustomerDomains";
 import { useUploads } from "./state/useUploads";
@@ -149,7 +149,7 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const handleServiceHealthAction = (action: string, id: string) => {
     if (action === "manage") {
       onTabClick("cloud");
-      navigate(`/portal/cloud?service=${encodeURIComponent(id)}`);
+      navigate(servicePath(id));
       return;
     }
     if (action === "stop") {
@@ -268,8 +268,10 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   const needsTrialVerify = isTestUser && !!trialVerifyInvoice && !trialActive;
 
   const activeTab: Tab = useMemo(() => {
-    const last = location.pathname.split("/").filter(Boolean).pop();
-    return isTab(last) ? last : "overview";
+    // First segment after /portal — a service page (/portal/cloud/<id>/<section>)
+    // still belongs to the "cloud" tab.
+    const seg = location.pathname.split("/").filter(Boolean)[1];
+    return isTab(seg) ? seg : "overview";
   }, [location.pathname]);
 
   useEffect(() => {
@@ -282,9 +284,37 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   };
 
   const cloudServiceId = useMemo(() => {
+    // /portal/cloud/<id>[/<section>] is the service page. The older
+    // /portal/cloud?service=<id> form is still honoured (emails, checkout,
+    // bookmarks) and redirected by the shell.
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (parts[1] === "cloud" && parts[2]) {
+      try { return decodeURIComponent(parts[2]); } catch { return parts[2]; }
+    }
     const sp = new URLSearchParams(location.search);
     return sp.get("service") || null;
-  }, [location.search]);
+  }, [location.pathname, location.search]);
+  const cloudSection = useMemo(() => {
+    const parts = location.pathname.split("/").filter(Boolean);
+    return parts[1] === "cloud" && parts[3] ? parts[3] : "general";
+  }, [location.pathname]);
+
+  // Sidebar rail preference (per browser). Storage can throw in private
+  // windows — the sidebar must still render.
+  const [navCollapsed, setNavCollapsedRaw] = useState<boolean>(() => {
+    try { return localStorage.getItem("murzak_portal_nav_collapsed") === "1"; } catch { return false; }
+  });
+  const setNavCollapsed = (v: boolean) => {
+    setNavCollapsedRaw(v);
+    try { localStorage.setItem("murzak_portal_nav_collapsed", v ? "1" : "0"); } catch { /* ignore */ }
+  };
+
+  // A page can add crumbs, a status pill and one primary action to the top bar.
+  const [topBar, setTopBar] = useState<{
+    crumbs?: { label: string; to?: string }[];
+    status?: React.ReactNode;
+    actions?: React.ReactNode;
+  } | null>(null);
 
   // Real site URL + honest provisioning state for the generic (non-website-
   // hosting) service panel. The backend only ever returns the CUSTOMER's URL
@@ -682,8 +712,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
   );
 
   const allMenuItems: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: "overview", label: "Overview", icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: "cloud", label: "Resources", icon: <Server className="w-5 h-5" /> },
+    { id: "overview", label: "Home", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: "cloud", label: "Your services", icon: <Server className="w-5 h-5" /> },
     { id: "domains", label: "Domains", icon: <Globe className="w-5 h-5" /> },
     ...(databaseServices.length
       ? [{ id: "databases" as Tab, label: "Databases", icon: <Database className="w-5 h-5" /> }]
@@ -693,10 +723,10 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       : []),
     // Only git-sourced apps deploy; a managed-ERP-only account never sees this.
     ...(deployableServices.length
-      ? [{ id: "deployments" as Tab, label: "Deployments", icon: <Rocket className="w-5 h-5" /> }]
+      ? [{ id: "deployments" as Tab, label: "Updates", icon: <Rocket className="w-5 h-5" /> }]
       : []),
     { id: "billing", label: "Billing", icon: <CreditCard className="w-5 h-5" /> },
-    { id: "support", label: "Support", icon: <Headphones className="w-5 h-5" />, badge: unreadChatCount },
+    { id: "support", label: "Help", icon: <Headphones className="w-5 h-5" />, badge: unreadChatCount },
     { id: "profile", label: "Settings", icon: <UserIcon className="w-5 h-5" /> },
     // Staff only. Carries the support badge so an unanswered customer is
     // visible from anywhere in the portal, not just inside the inbox.
@@ -704,6 +734,17 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
       ? [{ id: "admin" as Tab, label: "Admin", icon: <ShieldCheck className="w-5 h-5" />, badge: adminUnread }]
       : []),
   ];
+
+  // Sidebar groups, Coolify-style: ungrouped Home, then what the customer
+  // runs, then their account, then staff. Empty groups are dropped.
+  const SERVICE_TABS: Tab[] = ["cloud", "domains", "databases", "storage", "deployments"];
+  const ACCOUNT_TABS: Tab[] = ["billing", "support", "profile"];
+  const navGroups: { id: string; label?: string; items: typeof allMenuItems }[] = [
+    { id: "main", items: allMenuItems.filter((i) => i.id === "overview") },
+    { id: "services", label: "Services", items: allMenuItems.filter((i) => SERVICE_TABS.includes(i.id)) },
+    { id: "account", label: "Account", items: allMenuItems.filter((i) => ACCOUNT_TABS.includes(i.id)) },
+    { id: "staff", label: "Staff", items: allMenuItems.filter((i) => i.id === "admin") },
+  ].filter((g) => g.items.length > 0);
 
   // Real usage metrics (Phase 3) for the Overview ResourceUtilizationCard —
   // the account-level card shows usage for the first Active service, since
@@ -745,22 +786,24 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const commandActions = useMemo<CommandAction[]>(() => {
     const actions: CommandAction[] = [
-      { id: "nav-overview", title: "Go to Overview", subtitle: "Dashboard home", icon: <LayoutDashboard className="w-4 h-4" />, onSelect: () => onTabClick("overview") },
-      { id: "nav-systems", title: "Go to My Systems", subtitle: "View active services and servers", icon: <Server className="w-4 h-4" />, onSelect: () => onTabClick("cloud") },
-      { id: "nav-billing", title: "Go to Billing", subtitle: "Manage invoices and payment methods", icon: <CreditCard className="w-4 h-4" />, onSelect: () => onTabClick("billing") },
-      { id: "nav-profile", title: "Go to Profile", subtitle: "Account settings", icon: <UserIcon className="w-4 h-4" />, onSelect: () => onTabClick("profile") },
-      { id: "action-support", title: "Contact Support", subtitle: "Get help from our Nairobi team", icon: <Headphones className="w-4 h-4" />, onSelect: () => setIsContactOpen(true) },
-      { id: "action-deploy", title: "Deploy New Service", subtitle: "Add a new system to your infrastructure", icon: <Plus className="w-4 h-4" />, onSelect: () => openAddonsModal("overview") },
+      { id: "nav-overview", title: "Home", subtitle: "Your dashboard", icon: <LayoutDashboard className="w-4 h-4" />, onSelect: () => onTabClick("overview") },
+      { id: "nav-systems", title: "Your services", subtitle: "Everything you run with us", icon: <Server className="w-4 h-4" />, onSelect: () => onTabClick("cloud") },
+      { id: "nav-domains", title: "Domains", subtitle: "Your domains and what they point at", icon: <Globe className="w-4 h-4" />, onSelect: () => onTabClick("domains") },
+      { id: "nav-help", title: "Help", subtitle: "How to reach us", icon: <Headphones className="w-4 h-4" />, onSelect: () => onTabClick("support") },
+      { id: "nav-billing", title: "Billing", subtitle: "Manage invoices and payment methods", icon: <CreditCard className="w-4 h-4" />, onSelect: () => onTabClick("billing") },
+      { id: "nav-profile", title: "Settings", subtitle: "Your account details", icon: <UserIcon className="w-4 h-4" />, onSelect: () => onTabClick("profile") },
+      { id: "action-support", title: "Get help", subtitle: "Talk to our Nairobi team", icon: <Headphones className="w-4 h-4" />, onSelect: () => setIsContactOpen(true) },
+      { id: "action-deploy", title: "Add a service", subtitle: "Add something new to your account", icon: <Plus className="w-4 h-4" />, onSelect: () => openAddonsModal("overview") },
     ];
     selectedServices.forEach(s => {
       actions.push({
         id: `sys-${s.serviceId}`,
-        title: `Manage ${s.name}`,
+        title: s.name,
         subtitle: `${s.category} System`,
         icon: <Terminal className="w-4 h-4" />,
         onSelect: () => {
           onTabClick("cloud");
-          navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
+          navigate(servicePath(s.serviceId));
         }
       });
     });
@@ -1251,6 +1294,12 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     addonsSourceTab,
     adminUnread,
     allMenuItems,
+    navGroups,
+    navCollapsed,
+    setNavCollapsed,
+    topBar,
+    setTopBar,
+    cloudSection,
     applyAddonsSelection,
     buyOfferedDomain,
     cloudAccessUrl,
