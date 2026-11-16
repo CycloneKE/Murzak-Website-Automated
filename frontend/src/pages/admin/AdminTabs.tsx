@@ -28,7 +28,7 @@ const InfraAccessBar: React.FC = () => {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-micro font-black uppercase border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 text-slate-600 dark:text-slate-400 hover:text-murzak-accent hover:border-murzak-accent/40 transition"
+        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold border border-p-border bg-p-panel text-p-muted hover:text-p-accent-text hover:border-p-accent transition"
       >
         {icon} {label} <ExternalLink className="w-3 h-3 opacity-60" />
       </a>
@@ -69,15 +69,15 @@ const AdminTabs: React.FC<AdminTabsProps> = ({ onUnreadChange }) => {
     <button
       type="button"
       onClick={() => setView(id)}
-      className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-2xl text-micro font-black uppercase border transition ${
+      className={`inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg text-xs font-semibold border transition ${
         view === id
-          ? "bg-murzak-accent text-murzak-ink border-transparent shadow-md"
-          : "bg-white/60 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40"
+          ? "bg-p-accent text-p-accent-fg border-transparent "
+          : "bg-p-panel border-p-border text-p-muted hover:text-p-accent-text hover:border-p-accent"
       }`}
     >
       {icon} {label}
       {!!badge && (
-        <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black">
+        <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white text-[10px] font-semibold">
           {badge > 99 ? "99+" : badge}
         </span>
       )}

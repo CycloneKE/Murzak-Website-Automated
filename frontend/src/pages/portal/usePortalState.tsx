@@ -786,17 +786,19 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
 
   const commandActions = useMemo<CommandAction[]>(() => {
     const actions: CommandAction[] = [
-      { id: "nav-overview", title: "Go to Home", subtitle: "Your dashboard", icon: <LayoutDashboard className="w-4 h-4" />, onSelect: () => onTabClick("overview") },
-      { id: "nav-systems", title: "Go to Your services", subtitle: "Everything you run with us", icon: <Server className="w-4 h-4" />, onSelect: () => onTabClick("cloud") },
-      { id: "nav-billing", title: "Go to Billing", subtitle: "Manage invoices and payment methods", icon: <CreditCard className="w-4 h-4" />, onSelect: () => onTabClick("billing") },
-      { id: "nav-profile", title: "Go to Settings", subtitle: "Your account details", icon: <UserIcon className="w-4 h-4" />, onSelect: () => onTabClick("profile") },
+      { id: "nav-overview", title: "Home", subtitle: "Your dashboard", icon: <LayoutDashboard className="w-4 h-4" />, onSelect: () => onTabClick("overview") },
+      { id: "nav-systems", title: "Your services", subtitle: "Everything you run with us", icon: <Server className="w-4 h-4" />, onSelect: () => onTabClick("cloud") },
+      { id: "nav-domains", title: "Domains", subtitle: "Your domains and what they point at", icon: <Globe className="w-4 h-4" />, onSelect: () => onTabClick("domains") },
+      { id: "nav-help", title: "Help", subtitle: "How to reach us", icon: <Headphones className="w-4 h-4" />, onSelect: () => onTabClick("support") },
+      { id: "nav-billing", title: "Billing", subtitle: "Manage invoices and payment methods", icon: <CreditCard className="w-4 h-4" />, onSelect: () => onTabClick("billing") },
+      { id: "nav-profile", title: "Settings", subtitle: "Your account details", icon: <UserIcon className="w-4 h-4" />, onSelect: () => onTabClick("profile") },
       { id: "action-support", title: "Get help", subtitle: "Talk to our Nairobi team", icon: <Headphones className="w-4 h-4" />, onSelect: () => setIsContactOpen(true) },
       { id: "action-deploy", title: "Add a service", subtitle: "Add something new to your account", icon: <Plus className="w-4 h-4" />, onSelect: () => openAddonsModal("overview") },
     ];
     selectedServices.forEach(s => {
       actions.push({
         id: `sys-${s.serviceId}`,
-        title: `Manage ${s.name}`,
+        title: s.name,
         subtitle: `${s.category} System`,
         icon: <Terminal className="w-4 h-4" />,
         onSelect: () => {

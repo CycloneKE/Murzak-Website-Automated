@@ -25,7 +25,7 @@ const STATUS_COLORS = {
   online: "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-glow-pulse",
   warning: "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)] animate-glow-pulse",
   offline: "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]",
-  provisioning: "bg-murzak-accent shadow-[0_0_10px_rgba(0,189,252,0.5)] animate-pulse"
+  provisioning: "bg-p-info animate-pulse"
 };
 
 const STATUS_LABELS = {
@@ -47,7 +47,7 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
     <button
       onClick={() => onAction?.(action, service.id)}
       disabled={busy}
-      className={`min-w-10 min-h-10 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent ${className || "bg-black/5 hover:bg-black/5 text-slate-500 hover:text-murzak-ink dark:text-white"}`}
+      className={`min-w-10 min-h-10 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40 ${className || "bg-p-panel-2 hover:bg-p-panel-2 text-p-muted hover:text-p-text "}`}
       title={title}
       aria-label={title}
     >
@@ -56,20 +56,20 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
   );
 
   return (
-    <div className="glass-card rounded-4xl p-5 relative group overflow-hidden border border-murzak-border hover:-translate-y-1 transition-all">
+    <div className="bg-p-panel border border-p-border rounded-lg p-5 relative group overflow-hidden border border-p-border hover:-translate-y-1 transition-all">
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div>
-          <h4 className="text-[13px] font-black text-murzak-ink dark:text-white">{service.name}</h4>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1">{service.type}</p>
+          <h4 className="text-[13px] font-semibold text-p-text ">{service.name}</h4>
+          <p className="text-xs font-semibold text-p-muted mt-1">{service.type}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">{STATUS_LABELS[service.status]}</span>
+          <span className="text-xs font-semibold text-p-muted ">{STATUS_LABELS[service.status]}</span>
           <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[service.status]}`} />
         </div>
       </div>
 
-      <div className="mt-1 pt-4 border-t border-murzak-border flex items-center justify-between relative z-10">
-        <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <div className="mt-1 pt-4 border-t border-p-border flex items-center justify-between relative z-10">
+        <div className="text-xs font-semibold text-p-muted ">
           Resource monitoring not yet available
         </div>
         <div className="flex gap-2">
@@ -83,7 +83,7 @@ export default function ServiceHealthCard({ service, onAction, pendingAction }: 
             action="manage"
             title="Manage"
             icon={<MoreHorizontal size={14} />}
-            className="bg-murzak-accent/10 hover:bg-murzak-accent/20 text-murzak-accent"
+            className="bg-p-accent-soft hover:bg-p-accent-soft text-p-accent-text"
           />
         </div>
       </div>

@@ -20,7 +20,7 @@
       "runtimeArgs": ["--prefix", "backend", "start"],
       "port": 3001,
       "env": {
-        "ADMIN_EMAILS": "admin-test@murzaktest.local",
+        "ADMIN_EMAILS": "admin-test@murzaktest.local,dev-user@example.com",
         "NODE_ENV": "development",
         "BUNDLES_ENABLED": "true",
         "DEV_AUTO_LOGIN": "true",

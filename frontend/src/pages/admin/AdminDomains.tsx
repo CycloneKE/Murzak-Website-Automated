@@ -30,11 +30,11 @@ const TRANSITIONS: Record<DomainStatus, DomainStatus[]> = {
 };
 
 const STATUS_CLASSES: Record<string, string> = {
-  pending: "bg-amber-500/15 text-amber-300 border-amber-500/20",
-  active: "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
-  failed: "bg-red-500/15 text-red-400 border-red-500/20",
-  expired: "bg-orange-500/15 text-orange-300 border-orange-500/20",
-  cancelled: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-murzak-border",
+  pending: "bg-p-warning-soft text-p-warning border-p-warning/40",
+  active: "bg-p-success-soft text-p-success border-p-success/40",
+  failed: "bg-p-danger-soft text-p-danger border-p-danger/40",
+  expired: "bg-p-warning-soft text-p-warning border-p-warning/40",
+  cancelled: "bg-slate-500/10 text-p-muted border-p-border",
 };
 
 const KIND_LABELS: Record<string, string> = {
@@ -141,10 +141,10 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
       key={key}
       type="button"
       onClick={() => setFilter(key)}
-      className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-micro font-black uppercase border transition ${
+      className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition ${
         filter === key
-          ? "bg-murzak-accent text-murzak-ink border-transparent shadow-md"
-          : "bg-white/60 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40"
+          ? "bg-p-accent text-p-accent-fg border-transparent "
+          : "bg-p-panel border-p-border text-p-muted hover:text-p-accent-text hover:border-p-accent"
       }`}
     >
       {label}
@@ -157,8 +157,8 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
   return (
     <div className="w-full">
       <div className="mb-8">
-        <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Domain Queue</h2>
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
+        <h2 className="text-2xl sm:text-3xl font-semibold ">Domain Queue</h2>
+        <p className="text-xs font-semibold text-p-muted mt-2">
           Domains awaiting manual registration, verification or renewal.
         </p>
       </div>
@@ -170,18 +170,18 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
         {chip("expired", "Expired", summary.expired)}
         {chip("all", "All")}
         <div className="relative ml-auto min-w-[220px]">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-p-muted w-4 h-4" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search domain, account..."
-            className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-4 py-2.5
-                       text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+            className="w-full bg-p-panel-2 border border-p-border rounded-lg pl-11 pr-4 py-2.5
+                       text-sm font-medium text-p-text placeholder:text-p-muted focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
           />
         </div>
         <button
           onClick={load}
-          className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
+          className="p-3 rounded-lg hover:bg-p-accent-soft text-p-muted hover:text-p-accent-text transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40"
           title="Refresh"
           aria-label="Refresh domains"
           type="button"
@@ -191,19 +191,19 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-p-danger">
           <AlertCircle className="w-4 h-4" /> {error}
         </div>
       )}
       {note && (
-        <div className="mb-4 text-micro font-black uppercase text-murzak-accent">{note}</div>
+        <div className="mb-4 text-xs font-semibold text-p-accent-text">{note}</div>
       )}
 
-      <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg overflow-hidden">
+      <div className="bg-p-panel border border-p-border rounded-lg sm:rounded-lg overflow-hidden">
         {visible.length === 0 ? (
           <div className="p-12 text-center">
-            <Globe className="w-6 h-6 mx-auto text-slate-400 mb-3" />
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <Globe className="w-6 h-6 mx-auto text-p-muted mb-3" />
+            <p className="text-xs font-semibold text-p-muted ">
               {loading ? "Loading..." : filter === "pending" ? "Nothing waiting. Queue is clear." : "No domains match."}
             </p>
           </div>
@@ -213,18 +213,18 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
               <div key={d.id} className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center gap-4">
                 <div className="min-w-0 grow">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">
+                    <p className="text-sm font-semibold text-p-text truncate">
                       {d.domainName}
                     </p>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-micro font-black uppercase ${STATUS_CLASSES[d.status] || STATUS_CLASSES.cancelled}`}>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold ${STATUS_CLASSES[d.status] || STATUS_CLASSES.cancelled}`}>
                       {d.status}
                     </span>
                   </div>
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1.5 truncate">
+                  <p className="text-xs font-semibold text-p-muted mt-1.5 truncate">
                     {d.webAccount} • {KIND_LABELS[d.kind] || d.kind}
                     {d.registrar ? ` • ${d.registrar}` : ""}
                   </p>
-                  <p className="text-micro font-bold text-slate-500 dark:text-slate-500 mt-1">
+                  <p className="text-xs font-medium text-p-muted mt-1">
                     Requested {fmtDate(d.createdAt)}
                     {d.expiresOn ? ` • expires ${fmtDate(d.expiresOn)}` : ""}
                     {d.attachedToService
@@ -240,17 +240,17 @@ const AdminDomains: React.FC<AdminDomainsProps> = ({ onActionableChange }) => {
                       type="button"
                       disabled={busyId === d.id}
                       onClick={() => act(d, next)}
-                      className={`h-9 px-4 inline-flex items-center rounded-xl text-micro font-black uppercase transition disabled:opacity-50 ${
+                      className={`h-9 px-4 inline-flex items-center rounded-md text-xs font-semibold transition disabled:opacity-50 ${
                         next === "active"
-                          ? "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
-                          : "border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-300 hover:border-murzak-accent/40 hover:text-murzak-accent"
+                          ? "bg-p-accent text-p-accent-fg "
+                          : "border border-p-border text-p-muted hover:border-p-accent hover:text-p-accent-text"
                       }`}
                     >
                       {busyId === d.id ? "Working..." : ACTION_LABELS[next] || next}
                     </button>
                   ))}
                   {TRANSITIONS[d.status].length === 0 && (
-                    <span className="text-micro font-black uppercase text-slate-500">No actions</span>
+                    <span className="text-xs font-semibold text-p-muted">No actions</span>
                   )}
                 </div>
               </div>

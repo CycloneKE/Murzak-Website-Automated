@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import {
-  AlertTriangle, ExternalLink, FileText, Headphones, Lock, Maximize2, SearchX, ShieldCheck, Square,
+  AlertTriangle, ExternalLink, FileText, Headphones, Lock, Maximize2, RotateCw, SearchX, ShieldCheck, Square, X,
 } from "lucide-react";
 import DeveloperTerminalPanel from "../../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../../components/portal/cloud/ResourceAdminPanel";
@@ -52,6 +52,7 @@ const ServicePage: React.FC = () => {
     pendingServiceAction, redeployNote, redeploying, resourceAdminActive, selectedServices,
     setActiveLogServiceId, setDeployLogView, setDeveloperUpsellSvc, setDomainInput,
     setIsContactOpen, setResourceAdminActive, setTopBar, submitDomainAttach,
+    serviceActionNotice, setServiceActionNotice,
   } = usePortal();
 
   const svc = selectedServices.find((s) => s.serviceId === cloudServiceId);
@@ -113,6 +114,8 @@ const ServicePage: React.FC = () => {
   const sections = sectionsFor({ service: svc, deployable: deploymentsAvailable });
   const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
   const stopping = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "stop";
+  const restarting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "restart";
+  const restartable = isActive && sections.some((x) => x.id === "advanced");
 
   return (
     <div className="flex flex-col lg:flex-row gap-5 lg:gap-8">
@@ -132,6 +135,20 @@ const ServicePage: React.FC = () => {
             {svc.category || "Service"}{svc.tier ? ` · ${svc.tier}` : ""}
           </p>
         </div>
+
+        {serviceActionNotice && (
+          <div
+            role="status"
+            className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+              serviceActionNotice.type === "success" ? "border-p-success/40 bg-p-success-soft" : "border-p-danger/40 bg-p-danger-soft"
+            }`}
+          >
+            <span>{serviceActionNotice.text}</span>
+            <button type="button" aria-label="Dismiss" onClick={() => setServiceActionNotice(null)} className="p-1 rounded-md text-p-muted hover:text-p-text">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {active === "general" && svc.serviceId === "biz-web-hosting" && <WebsiteHostingDashboard />}
 
@@ -180,7 +197,22 @@ const ServicePage: React.FC = () => {
               </Banner>
             )}
 
-            <Panel title="Details" flush>
+            <Panel
+              title="Details"
+              flush
+              actions={
+                restartable && (
+                  <PButton
+                    icon={<RotateCw className="w-4 h-4" />}
+                    loading={restarting}
+                    disabled={pendingServiceAction?.id === cloudServiceId}
+                    onClick={() => handleServiceHealthAction("restart", cloudServiceId)}
+                  >
+                    {restarting ? "Restarting…" : "Restart"}
+                  </PButton>
+                )
+              }
+            >
               <dl>
                 <Row label="Name">{name}</Row>
                 <Row label="Type">{svc.category || "Service"}{svc.tier ? ` · ${svc.tier}` : ""}</Row>

@@ -88,20 +88,20 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
 
   return (
     <div className="fixed inset-0 z-300 flex items-center justify-center p-4 sm:p-6">
-      <div className="absolute inset-0 bg-murzak-ink/70 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative w-full max-w-xl bg-white dark:bg-murzak-ink rounded-[2.5rem] border border-slate-100 dark:border-murzak-border shadow-2xl overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-xl bg-p-panel rounded-lg border border-p-border shadow-2xl overflow-hidden animate-fade-in">
         {/* Cosy header: a real, human workspace photo on the welcome step —
             the sparkle-only gradient felt sterile for a first impression —
             plain gradient again on the functional steps that follow. */}
-        <div className="relative px-7 sm:px-10 pt-8 pb-7 overflow-hidden bg-murzak-base dark:bg-white/3 text-murzak-ink dark:text-white dark:text-slate-100">
+        <div className="relative px-7 sm:px-10 pt-8 pb-7 overflow-hidden bg-murzak-base text-p-text ">
           {step === 0 ? (
             <>
               <div
                 className="absolute inset-0 -z-10 bg-cover bg-center opacity-25 dark:opacity-20"
                 style={{ backgroundImage: "url('/images/about-hero.webp')" }}
               />
-              <div className="absolute inset-0 -z-10 bg-linear-to-t from-white dark:from-murzak-ink via-white/70 dark:via-murzak-ink/70 to-transparent" />
+              <div className="absolute inset-0 -z-10 bg-linear-to-t from-white via-white/70 to-transparent" />
             </>
           ) : (
             <div className="absolute inset-0 -z-10 bg-brand-gradient opacity-25" />
@@ -111,15 +111,15 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
               "top-4 left-8", "top-10 right-12", "top-16 left-1/3",
               "bottom-6 right-8", "bottom-10 left-12",
             ].map((pos, i) => (
-              <Sparkles key={i} size={i % 2 ? 14 : 18} className={`absolute ${pos} text-murzak-accent animate-pulse`} style={{ animationDelay: `${i * 0.4}s` }} />
+              <Sparkles key={i} size={i % 2 ? 14 : 18} className={`absolute ${pos} text-p-accent-text animate-pulse`} style={{ animationDelay: `${i * 0.4}s` }} />
             ))}
           </div>
 
           <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-2 text-micro font-black uppercase text-murzak-accent">
+            <div className="flex items-center gap-2 text-xs font-semibold text-p-accent-text">
               <Rocket size={14} /> Getting started
             </div>
-            <button onClick={onClose} className="p-2 rounded-xl text-murzak-ink dark:text-white/70 hover:text-murzak-ink dark:text-white hover:bg-black/5 transition" aria-label="Close">
+            <button onClick={onClose} className="p-2 rounded-md text-p-text hover:text-p-text hover:bg-p-panel-2 transition" aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -127,7 +127,7 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
           {/* Progress dots */}
           <div className="relative mt-5 flex items-center gap-2">
             {[0, 1, 2, 3].map((i) => (
-              <span key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= step ? "bg-murzak-accent w-8" : "bg-white/20 w-4"}`} />
+              <span key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i <= step ? "bg-p-accent w-8" : "bg-p-panel w-4"}`} />
             ))}
           </div>
         </div>
@@ -136,23 +136,23 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
           {/* STEP 0 — Welcome */}
           {step === 0 && (
             <div className="animate-fade-in text-center">
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-murzak-accent/10 text-murzak-accent flex items-center justify-center mb-6">
+              <div className="mx-auto w-16 h-16 rounded-lg bg-p-accent-soft text-p-accent-text flex items-center justify-center mb-6">
                 <PartyPopper size={30} />
               </div>
-              <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight text-murzak-ink dark:text-white">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-p-text ">
                 Welcome to Murzak, {first} 👋
               </h2>
-              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+              <p className="mt-4 text-[15px] font-medium text-p-muted leading-relaxed max-w-md mx-auto">
                 This is your home base. From here you’ll set up your services, pay in shillings, and reach
                 a real person in Nairobi whenever you need one. Let’s get you sorted, it takes about two minutes.
               </p>
               <button
                 onClick={next}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-p-accent text-p-accent-fg px-8 py-4 font-semibold text-[13px] transition-all "
               >
                 Let’s go <ArrowRight size={16} />
               </button>
-              <button onClick={onClose} className="mt-4 block mx-auto text-micro font-black uppercase text-slate-600 dark:text-slate-400 hover:text-murzak-accent transition">
+              <button onClick={onClose} className="mt-4 block mx-auto text-xs font-semibold text-p-muted hover:text-p-accent-text transition">
                 Skip for now
               </button>
             </div>
@@ -161,10 +161,10 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
           {/* STEP 1 — Goal */}
           {step === 1 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl sm:text-2xl font-[900] tracking-tight text-murzak-ink dark:text-white text-center">
+              <h2 className="text-xl sm:text-2xl font-semibold text-p-text text-center">
                 What brings you here?
               </h2>
-              <p className="mt-2 text-[13px] font-medium text-slate-500 dark:text-slate-500 text-center">
+              <p className="mt-2 text-[13px] font-medium text-p-muted text-center">
                 So we can point you to the right place. (You can change your mind anytime.)
               </p>
               <div className="mt-6 grid grid-cols-2 gap-3">
@@ -172,25 +172,25 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                   <button
                     key={g.id}
                     onClick={() => chooseGoal(g.id)}
-                    className={`text-left rounded-2xl border p-4 transition-all ${
+                    className={`text-left rounded-lg border p-4 transition-all ${
                       goal === g.id
-                        ? "border-murzak-accent bg-murzak-accent/10 shadow-md"
-                        : "border-slate-200 dark:border-murzak-border hover:border-murzak-accent/50"
+                        ? "border-p-accent/40 bg-p-accent-soft "
+                        : "border-p-border hover:border-p-accent"
                     }`}
                   >
-                    <span className={`inline-flex p-2.5 rounded-xl mb-3 ${goal === g.id ? "bg-murzak-accent text-murzak-ink" : "bg-murzak-accent/10 text-murzak-accent"}`}>{g.icon}</span>
-                    <div className="text-sm font-black text-murzak-ink dark:text-white">{g.label}</div>
-                    <div className="text-label font-bold text-slate-600 dark:text-slate-400">{g.sub}</div>
+                    <span className={`inline-flex p-2.5 rounded-md mb-3 ${goal === g.id ? "bg-p-accent text-p-accent-fg" : "bg-p-accent-soft text-p-accent-text"}`}>{g.icon}</span>
+                    <div className="text-sm font-semibold text-p-text ">{g.label}</div>
+                    <div className="text-[13px] font-medium text-p-muted ">{g.sub}</div>
                   </button>
                 ))}
               </div>
               <div className="mt-7 flex items-center gap-3">
-                <button onClick={back} className="p-3.5 rounded-2xl border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent transition" aria-label="Back">
+                <button onClick={back} className="p-3.5 rounded-lg border border-p-border text-p-muted hover:text-p-accent-text transition" aria-label="Back">
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-p-accent text-p-accent-fg px-6 py-4 font-semibold text-[13px] transition-all "
                 >
                   Continue <ArrowRight size={16} />
                 </button>
@@ -201,32 +201,32 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
           {/* STEP 2 — Checklist */}
           {step === 2 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl sm:text-2xl font-[900] tracking-tight text-murzak-ink dark:text-white text-center">
+              <h2 className="text-xl sm:text-2xl font-semibold text-p-text text-center">
                 Your setup checklist
               </h2>
-              <p className="mt-2 text-[13px] font-medium text-slate-500 dark:text-slate-500 text-center">
+              <p className="mt-2 text-[13px] font-medium text-p-muted text-center">
                 {doneCount} of {checklist.length} done. Knock these out whenever you like.
               </p>
               <div className="mt-6 space-y-2.5">
                 {checklist.map((c) => (
                   <div
                     key={c.id}
-                    className={`flex items-center gap-3 rounded-2xl border p-3.5 ${
-                      c.done ? "border-murzak-accent/30 bg-murzak-accent/6" : "border-slate-200 dark:border-murzak-border"
+                    className={`flex items-center gap-3 rounded-lg border p-3.5 ${
+                      c.done ? "border-p-accent/40 bg-p-accent-soft" : "border-p-border "
                     }`}
                   >
-                    <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
-                      c.done ? "bg-murzak-accent text-murzak-ink" : "bg-slate-100 dark:bg-black/5 text-slate-500"
+                    <span className={`shrink-0 w-9 h-9 rounded-md flex items-center justify-center ${
+                      c.done ? "bg-p-accent text-p-accent-fg" : "bg-p-panel-2 text-p-muted"
                     }`}>
                       {c.done ? <Check size={16} /> : c.icon}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className={`text-sm font-black ${c.done ? "text-slate-500 line-through" : "text-murzak-ink dark:text-white"}`}>{c.title}</div>
+                      <div className={`text-sm font-semibold ${c.done ? "text-p-muted line-through" : "text-p-text "}`}>{c.title}</div>
                     </div>
                     {!c.done && c.action && (
                       <button
                         onClick={() => { c.action!(); onClose(); }}
-                        className="shrink-0 px-3.5 py-2 rounded-xl bg-black/5 text-murzak-ink dark:text-white font-black text-micro uppercase hover:bg-murzak-accent hover:text-murzak-ink dark:hover:text-murzak-ink transition-all"
+                        className="shrink-0 px-3.5 py-2 rounded-md bg-p-panel-2 text-p-text font-semibold text-xs hover:bg-p-accent-hover hover:text-p-text transition-all"
                       >
                         {c.cta}
                       </button>
@@ -235,12 +235,12 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                 ))}
               </div>
               <div className="mt-7 flex items-center gap-3">
-                <button onClick={back} className="p-3.5 rounded-2xl border border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent transition" aria-label="Back">
+                <button onClick={back} className="p-3.5 rounded-lg border border-p-border text-p-muted hover:text-p-accent-text transition" aria-label="Back">
                   <ChevronLeft size={16} />
                 </button>
                 <button
                   onClick={next}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-6 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.01] transition-all shadow-lg shadow-murzak-accent/20"
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-p-accent text-p-accent-fg px-6 py-4 font-semibold text-[13px] transition-all "
                 >
                   Looks good <ArrowRight size={16} />
                 </button>
@@ -265,17 +265,17 @@ export default function OnboardingWizard({ isOpen, user, onClose, onChooseServic
                   />
                 ))}
               </div>
-              <div className="mx-auto w-16 h-16 rounded-2xl bg-murzak-accent/10 text-murzak-accent flex items-center justify-center mb-6 relative">
+              <div className="mx-auto w-16 h-16 rounded-lg bg-p-accent-soft text-p-accent-text flex items-center justify-center mb-6 relative">
                 <PartyPopper size={30} />
               </div>
-              <h2 className="text-2xl sm:text-3xl font-[900] tracking-tight text-murzak-ink dark:text-white">You’re all set! 🎉</h2>
-              <p className="mt-4 text-[15px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-p-text ">You’re all set! 🎉</h2>
+              <p className="mt-4 text-[15px] font-medium text-p-muted leading-relaxed max-w-md mx-auto">
                 That’s the tour. Everything you need is in the menu on the left, and our Nairobi team is one
                 message away. Welcome aboard, {first}.
               </p>
               <button
                 onClick={onClose}
-                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-murzak-accent text-murzak-ink px-8 py-4 font-black text-label uppercase tracking-widest hover:scale-[1.02] transition-all shadow-lg shadow-murzak-accent/20"
+                className="mt-8 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-p-accent text-p-accent-fg px-8 py-4 font-semibold text-[13px] transition-all "
               >
                 Explore my portal <ArrowRight size={16} />
               </button>

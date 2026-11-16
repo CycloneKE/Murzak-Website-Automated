@@ -137,12 +137,12 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
 
   if (!isActive) {
     return (
-      <div className="rounded-2xl bg-slate-50 dark:bg-white/2 border border-slate-100 dark:border-murzak-border p-5">
+      <div className="rounded-lg bg-p-panel-2 border border-p-border p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Mail className="w-4 h-4 text-murzak-accent" />
-          <h4 className="text-label font-black uppercase text-slate-700 dark:text-slate-200">Mailboxes</h4>
+          <Mail className="w-4 h-4 text-p-accent-text" />
+          <h4 className="text-[13px] font-semibold text-p-text ">Mailboxes</h4>
         </div>
-        <p className="text-label font-medium text-slate-500">
+        <p className="text-[13px] font-medium text-p-muted">
           Your email isn't set up yet. We'll email you the moment it's ready.
         </p>
       </div>
@@ -152,33 +152,33 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
   const allowance = unlimited ? "Unlimited" : limit === null ? "—" : String(limit);
 
   return (
-    <div className="rounded-2xl bg-slate-50 dark:bg-white/2 border border-slate-100 dark:border-murzak-border p-5">
+    <div className="rounded-lg bg-p-panel-2 border border-p-border p-5">
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Mail className="w-4 h-4 text-murzak-accent" />
-            <h4 className="text-label font-black uppercase text-slate-700 dark:text-slate-200">Mailboxes</h4>
+            <Mail className="w-4 h-4 text-p-accent-text" />
+            <h4 className="text-[13px] font-semibold text-p-text ">Mailboxes</h4>
           </div>
-          <p className="text-micro font-bold text-slate-500">
+          <p className="text-xs font-medium text-p-muted">
             {mailboxes.length} of {allowance} in use
           </p>
         </div>
         <button
           type="button"
           onClick={load}
-          className="text-micro font-bold uppercase text-slate-500 hover:text-murzak-accent transition inline-flex items-center gap-1"
+          className="text-xs font-medium text-p-muted hover:text-p-accent-text transition inline-flex items-center gap-1"
         >
           <RefreshCw className="w-3 h-3" /> Refresh
         </button>
       </div>
 
-      {error && <p className="text-label font-bold text-red-500 mb-3">{error}</p>}
-      {notice && <p className="text-label font-bold text-emerald-600 dark:text-emerald-400 mb-3">{notice}</p>}
+      {error && <p className="text-[13px] font-medium text-p-danger mb-3">{error}</p>}
+      {notice && <p className="text-[13px] font-medium text-p-success mb-3">{notice}</p>}
 
       {loading ? (
-        <p className="text-label font-medium text-slate-500 mb-4">Loading…</p>
+        <p className="text-[13px] font-medium text-p-muted mb-4">Loading…</p>
       ) : mailboxes.length === 0 ? (
-        <p className="text-label font-medium text-slate-500 mb-4">
+        <p className="text-[13px] font-medium text-p-muted mb-4">
           No mailboxes yet. Create your first one below.
         </p>
       ) : (
@@ -186,13 +186,13 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
           {mailboxes.map((mb) => (
             <div
               key={mb.id}
-              className="flex items-center gap-3 rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border px-3 py-2"
+              className="flex items-center gap-3 rounded-md bg-p-panel border border-p-border px-3 py-2"
             >
-              <span className="text-label font-bold text-slate-700 dark:text-slate-300 truncate flex-1">
+              <span className="text-[13px] font-medium text-p-text truncate flex-1">
                 {mb.address || `${mb.localPart}@`}
               </span>
               {mb.quotaBytes > 0 && (
-                <span className="text-micro font-medium text-slate-500 dark:text-slate-400 shrink-0 hidden sm:inline">
+                <span className="text-xs font-medium text-p-muted shrink-0 hidden sm:inline">
                   {mb.usedBytes === null || mb.usedBytes === undefined
                     ? `usage unavailable · ${formatBytes(mb.quotaBytes)} quota`
                     : `${formatBytes(mb.usedBytes)} / ${formatBytes(mb.quotaBytes)}`}
@@ -202,7 +202,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
                 type="button"
                 onClick={() => handlePassword(mb)}
                 disabled={busyId === mb.id}
-                className="text-slate-400 hover:text-murzak-accent transition shrink-0 disabled:opacity-50"
+                className="text-p-muted hover:text-p-accent-text transition shrink-0 disabled:opacity-50"
                 aria-label={`Change password for ${mb.address || mb.localPart}`}
               >
                 <KeyRound className="w-4 h-4" />
@@ -211,7 +211,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
                 type="button"
                 onClick={() => handleDelete(mb)}
                 disabled={busyId === mb.id}
-                className="text-slate-400 hover:text-red-500 transition shrink-0 disabled:opacity-50"
+                className="text-p-muted hover:text-p-danger transition shrink-0 disabled:opacity-50"
                 aria-label={`Delete ${mb.address || mb.localPart}`}
               >
                 <Trash2 className="w-4 h-4" />
@@ -222,9 +222,9 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
       )}
 
       {showForm ? (
-        <form onSubmit={handleCreate} className="rounded-xl bg-white dark:bg-white/4 border border-slate-100 dark:border-murzak-border p-3 mb-3 space-y-2">
+        <form onSubmit={handleCreate} className="rounded-md bg-p-panel border border-p-border p-3 mb-3 space-y-2">
           <div>
-            <label htmlFor="mb-local" className="block text-micro font-bold uppercase text-slate-500 mb-1">
+            <label htmlFor="mb-local" className="block text-xs font-medium text-p-muted mb-1">
               Mailbox name
             </label>
             <input
@@ -235,14 +235,14 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               placeholder="info"
               autoComplete="off"
               required
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/6 border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
+              className="w-full px-3 py-2 rounded-lg bg-p-panel-2 border border-p-border text-[13px] font-medium text-p-text "
             />
-            <p className="text-micro font-medium text-slate-400 mt-1">
+            <p className="text-xs font-medium text-p-muted mt-1">
               Letters, numbers, dots, dashes or underscores.
             </p>
           </div>
           <div>
-            <label htmlFor="mb-pw" className="block text-micro font-bold uppercase text-slate-500 mb-1">
+            <label htmlFor="mb-pw" className="block text-xs font-medium text-p-muted mb-1">
               Password
             </label>
             <input
@@ -252,9 +252,9 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               onChange={(e) => setNewPassword(e.target.value)}
               autoComplete="new-password"
               required
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-white/6 border border-slate-200 dark:border-murzak-border text-label font-medium text-slate-800 dark:text-slate-200"
+              className="w-full px-3 py-2 rounded-lg bg-p-panel-2 border border-p-border text-[13px] font-medium text-p-text "
             />
-            <p className="text-micro font-medium text-slate-400 mt-1">
+            <p className="text-xs font-medium text-p-muted mt-1">
               At least 8 characters, with an uppercase letter, a lowercase letter and a number.
             </p>
           </div>
@@ -262,14 +262,14 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
             <button
               type="submit"
               disabled={creating}
-              className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+              className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
             >
               {creating ? "Creating…" : "Create mailbox"}
             </button>
             <button
               type="button"
               onClick={() => { setShowForm(false); setError(""); }}
-              className="text-micro font-bold uppercase text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition"
+              className="text-xs font-medium text-p-muted hover:text-p-text transition"
             >
               Cancel
             </button>
@@ -281,25 +281,25 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
           onClick={() => setShowForm(true)}
           disabled={!canCreate}
           title={canCreate ? undefined : "You've used every mailbox on your plan."}
-          className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60 inline-flex items-center gap-1"
+          className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60 inline-flex items-center gap-1"
         >
           <Plus className="w-3.5 h-3.5" /> Add mailbox
         </button>
       )}
 
       {(webmailUrl || imap || smtp) && (
-        <div className="mt-5 pt-4 border-t border-slate-200 dark:border-murzak-border">
-          <h5 className="text-micro font-black uppercase text-slate-500 mb-2">Connect your mail app</h5>
+        <div className="mt-5 pt-4 border-t border-p-border ">
+          <h5 className="text-xs font-semibold text-p-muted mb-2">Connect your mail app</h5>
           {(imap || smtp) && (
           <div className="grid sm:grid-cols-2 gap-2">
             {imap && (
-              <p className="text-micro font-medium text-slate-500">
-                <span className="font-bold text-slate-600 dark:text-slate-400">IMAP</span> {imap.host}:{imap.port} ({imap.security})
+              <p className="text-xs font-medium text-p-muted">
+                <span className="font-medium text-p-muted ">IMAP</span> {imap.host}:{imap.port} ({imap.security})
               </p>
             )}
             {smtp && (
-              <p className="text-micro font-medium text-slate-500">
-                <span className="font-bold text-slate-600 dark:text-slate-400">SMTP</span> {smtp.host}:{smtp.port} ({smtp.security})
+              <p className="text-xs font-medium text-p-muted">
+                <span className="font-medium text-p-muted ">SMTP</span> {smtp.host}:{smtp.port} ({smtp.security})
               </p>
             )}
           </div>
@@ -309,7 +309,7 @@ const MailboxManager: React.FC<MailboxManagerProps> = ({ serviceId, isActive }) 
               href={webmailUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-micro font-black uppercase text-murzak-accent hover:underline"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-p-accent-text hover:underline"
             >
               Open webmail <ExternalLink className="w-3 h-3" />
             </a>

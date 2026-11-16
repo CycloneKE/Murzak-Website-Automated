@@ -76,7 +76,7 @@ const ResourceList: React.FC<ResourceListProps> = ({ services, onSelect, onAdd, 
           },
           {
             key: "detail",
-            header: "Address",
+            header: "Details",
             cell: (s) => {
               const st = state(s);
               return loading ? "" : st.detail || "—";
