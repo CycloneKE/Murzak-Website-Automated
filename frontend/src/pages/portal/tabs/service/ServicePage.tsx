@@ -4,6 +4,13 @@ import {
 } from "lucide-react";
 import DeveloperTerminalPanel from "../../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../../components/portal/cloud/ResourceAdminPanel";
+import ResourceAdminGate from "../../../../components/portal/cloud/ResourceAdminGate";
+import EnvironmentPanel from "../../../../components/portal/cloud/EnvironmentPanel";
+import RuntimeLogsPanel from "../../../../components/portal/cloud/RuntimeLogsPanel";
+import HealthcheckPanel from "../../../../components/portal/cloud/HealthcheckPanel";
+import DomainsPanel from "../../../../components/portal/cloud/DomainsPanel";
+import BackupsPanel from "../../../../components/portal/cloud/BackupsPanel";
+import LogViewer from "../../../../components/portal/LogViewer";
 import StorageFileBrowser from "../../../../components/portal/cloud/StorageFileBrowser";
 import MailboxManager from "../../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../../components/portal/cloud/DatabaseConnectionPanel";
@@ -288,41 +295,54 @@ const ServicePage: React.FC = () => {
         {active === "mailboxes" && <MailboxManager serviceId={cloudServiceId} isActive={isActive} />}
         {active === "connection" && <DatabaseConnectionPanel serviceId={cloudServiceId} isActive={isActive} />}
 
-        {active === "address" && (
-          <Panel
-            title="Connect your own domain"
-            description="Own a domain already? Point an A record at our server, then connect it here. SSL is issued automatically."
+        {active === "address" && <DomainsPanel serviceId={cloudServiceId} />}
+
+        {active === "environment" && (
+          <ResourceAdminGate
+            serviceId={cloudServiceId}
+            serviceName={name}
+            isActive={isActive}
+            capability="Environment variables"
+            onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+            onActiveChange={setResourceAdminActive}
           >
-            <form
-              className="flex flex-col sm:flex-row sm:items-end gap-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitDomainAttach();
-              }}
-            >
-              <div className="grow">
-                <Field label="Domain" htmlFor="svc-domain">
-                  <input
-                    id="svc-domain"
-                    type="text"
-                    value={domainInput}
-                    onChange={(e) => setDomainInput(e.target.value)}
-                    placeholder="shop.yourbusiness.co.ke"
-                    className={inputClass}
-                  />
-                </Field>
-              </div>
-              <PButton type="submit" variant="primary" loading={domainSubmitting} disabled={!domainInput.trim()}>
-                {domainSubmitting ? "Connecting…" : "Connect"}
-              </PButton>
-            </form>
-            {domainResult && (
-              <p role="status" className={`mt-3 text-[13px] ${domainResult.type === "success" ? "text-p-success" : "text-p-danger"}`}>
-                {domainResult.text}
-              </p>
-            )}
-          </Panel>
+            <EnvironmentPanel serviceId={cloudServiceId} />
+          </ResourceAdminGate>
         )}
+
+        {active === "logs" && (
+          <ResourceAdminGate
+            serviceId={cloudServiceId}
+            serviceName={name}
+            isActive={isActive}
+            capability="Runtime logs"
+            onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+          >
+            <RuntimeLogsPanel serviceId={cloudServiceId} />
+          </ResourceAdminGate>
+        )}
+
+        {active === "health" && (
+          <ResourceAdminGate
+            serviceId={cloudServiceId}
+            serviceName={name}
+            isActive={isActive}
+            capability="Healthcheck settings"
+            onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+          >
+            <HealthcheckPanel serviceId={cloudServiceId} />
+          </ResourceAdminGate>
+        )}
+
+        {active === "terminal" && (
+          <DeveloperTerminalPanel
+            serviceId={cloudServiceId}
+            isActive={isActive}
+            onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
+          />
+        )}
+
+        {active === "backups" && <BackupsPanel serviceId={cloudServiceId} serviceName={name} />}
 
         {active === "updates" && (
           <Panel
@@ -363,18 +383,7 @@ const ServicePage: React.FC = () => {
 
         {active === "advanced" && (
           <>
-            <ResourceAdminPanel
-              serviceId={cloudServiceId}
-              serviceName={name}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-              onAdminActiveChange={setResourceAdminActive}
-            />
-            <DeveloperTerminalPanel
-              serviceId={cloudServiceId}
-              isActive={isActive}
-              onRequestUpgrade={() => setDeveloperUpsellSvc(cloudServiceId)}
-            />
+            <ResourceAdminPanel serviceId={cloudServiceId} serviceName={name} />
             {svc.capacityClass === "scalable" && isActive && (
               <Panel
                 title="Scaling"
@@ -434,13 +443,14 @@ const ServicePage: React.FC = () => {
         title={`Update ${deployLogView?.uuid.slice(0, 12) || ""}: build log`}
         size="lg"
       >
-        {deployLogView?.loading ? (
-          <p className="text-[13px] text-p-muted">Loading log…</p>
-        ) : (
-          <pre className="whitespace-pre-wrap wrap-break-word font-mono text-xs leading-relaxed text-p-text bg-p-panel-2 border border-p-border rounded-md p-3">
-            {deployLogView?.logs}
-          </pre>
-        )}
+        <LogViewer
+          logs={deployLogView?.logs || ""}
+          loading={!!deployLogView?.loading}
+          empty="No log was recorded for this deployment."
+          filename={`deployment-${deployLogView?.uuid.slice(0, 12) || "log"}`}
+          follow={false}
+          heightClass="max-h-[60vh]"
+        />
       </Modal>
     </div>
   );

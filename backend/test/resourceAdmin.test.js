@@ -205,8 +205,8 @@ const LANE_ENV = {
     // that format ever changes to interpolate a value, this must fail.
     const src = require("fs").readFileSync(require("path").join(__dirname, "..", "routes", "portalRoutes.js"), "utf8");
     const auditLines = src.split("\n").filter((l) => /\[ACTION\] env\./.test(l));
-    ok(auditLines.length === 3, "three env audit lines (create/update/delete)");
-    ok(auditLines.every((l) => /\$\{key\}|\$\{target\.key\}/.test(l)), "each audit line interpolates the KEY");
+    ok(auditLines.length === 4, "four env audit lines (create/update/delete/bulk)");
+    ok(auditLines.every((l) => /\$\{key\}|\$\{target\.key\}|r\.key/.test(l)), "each audit line interpolates the KEY");
     ok(auditLines.every((l) => !/\$\{value\}|\$\{req\.body/.test(l)), "no audit line interpolates a VALUE");
   }
 
