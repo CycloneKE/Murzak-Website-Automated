@@ -107,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 glass-panel border-b-0 transition-all duration-300">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl border-b border-murzak-border dark:border-white/10 shadow-sm transition-all duration-300">
         <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10 opacity-30">
           <div className="absolute top-[-60px] right-[30%] w-[500px] h-[100px] bg-murzak-brand1/20 blur-[80px] rounded-full animate-drift" />
         </div>
