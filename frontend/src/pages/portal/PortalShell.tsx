@@ -2,24 +2,16 @@ import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import {
   AlertCircle,
-  ArrowRight,
   CheckCircle2,
-  ChevronRight,
   Database,
-  LogOut,
-  Menu,
-  Moon,
   Receipt,
-  Settings,
   Shield,
-  Sun,
   Terminal,
   Timer,
-  X,
   Zap,
 } from "lucide-react";
 
-import Logo from "../../components/Logo";
+import { Banner, Modal, PButton, SideNav, TopBar, UserMenu, inputClass } from "../../components/portal/ui";
 import { useTheme } from "../../context/ThemeContext";
 import Contact from "../Contact";
 import AddonsModal from "../../components/AddonsModal";
@@ -60,280 +52,132 @@ const PortalShell: React.FC = () => {
     setIsSystemsNavOpen, setScalingServiceId, databaseServices, storageServices, setStopConfirmService, setUpgradePromptOpen,
     showOnboarding, stopConfirmService, trialActive, trialEndStr, trialExpired,
     trialVerifyInvoice, upgradePromptOpen, user,
+    navGroups, navCollapsed, setNavCollapsed, topBar,
   } = usePortal();
   const { effective: theme, toggle: toggleTheme } = useTheme();
 
-  return (
-    <div className="h-dvh bg-transparent flex overflow-hidden">
-      {/* Sidebar */}
-      {isSidebarOpen && (
-        <button
-          type="button"
-          aria-label="Close menu"
-          onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 z-90 bg-black/40 backdrop-blur-xs lg:hidden"
-        />
-      )}
-      <aside
-        className={`fixed inset-y-0 left-0 z-100 w-72 sm:w-80 bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl
-                    border-r border-slate-100 dark:border-murzak-border/50 flex flex-col transition-transform duration-500 lg:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="px-5 sm:px-7 pt-6 sm:pt-8 pb-4 flex items-center justify-between">
-          <Logo className="h-7 sm:h-8" />
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500 p-2">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+  // Crumbs: Home / <current tab>, unless the page supplied its own.
+  const activeItem = navGroups.flatMap((g) => g.items).find((i) => i.id === activeTab);
+  const defaultCrumbs =
+    activeTab === "overview" || !activeItem
+      ? [{ label: "Home" }]
+      : [{ label: "Home", to: "/portal/overview" }, { label: activeItem.label }];
 
-        {/* User profile */}
-        <button
-          onClick={() => onTabClick("profile")}
-          className="mx-4 sm:mx-6 mb-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-3 text-left hover:border-murzak-accent/40 transition-all"
+  // Billing / trial status banner — one slot, highest-priority state wins.
+  const statusBanner = (() => {
+    // Highest priority: direct feedback on an action the customer just took
+    // (a signup/login-time plan attach, or a developer-access request) — more
+    // urgent than the passive account-status banners below.
+    if (planAttachBanner) {
+      return planAttachBannerTone === "success" ? (
+        <Banner tone="success" icon={<CheckCircle2 size={18} />}>{planAttachBanner}</Banner>
+      ) : (
+        <Banner tone="danger" icon={<AlertCircle size={18} />}>{planAttachBanner}</Banner>
+      );
+    }
+    if (accountSuspended && dueSubscriptionInvoice) {
+      return (
+        <Banner
+          tone="danger"
+          icon={<AlertCircle size={18} />}
+          action={{ label: "Pay & restore", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }}
         >
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-murzak-accent/15 text-sky-700 dark:text-murzak-accent flex items-center justify-center font-black text-sm">
-            {(user.name || "U").split(" ").map((n) => n[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-black text-murzak-ink dark:text-slate-100 truncate">{user.name}</p>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className="px-2 py-0.5 rounded-full bg-murzak-accent/10 text-sky-700 dark:text-murzak-accent text-micro font-black uppercase">
-                {user.plan || "No plan"}
-              </span>
-              <span className={`w-1.5 h-1.5 rounded-full ${user.accountStatus === "Active" ? "bg-green-500" : "bg-orange-400"}`} />
-              <span className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 truncate">{user.accountStatus}</span>
-            </div>
-          </div>
-        </button>
+          Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away. Your data is safe.
+        </Banner>
+      );
+    }
+    if (needsTrialVerify && trialVerifyInvoice?.docName) {
+      return (
+        <Banner
+          tone="info"
+          icon={<Zap size={18} />}
+          action={{ label: "Verify & start trial", onClick: () => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`) }}
+        >
+          Your free trial is ready. A one-time KES 1 verification confirms your payment method and starts your 36-hour sandbox immediately.
+        </Banner>
+      );
+    }
+    if (trialExpired) {
+      return (
+        <Banner tone="warning" icon={<Timer size={18} />} action={{ label: "Choose a plan", onClick: () => navigate("/pricing") }}>
+          Your trial has ended and the sandbox is paused. Your data is held for 7 days. Choose a plan to restore it exactly as you left it.
+        </Banner>
+      );
+    }
+    if (dueSubscriptionInvoice) {
+      return (
+        <Banner
+          tone="warning"
+          icon={<Receipt size={18} />}
+          action={{ label: "Pay now", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }}
+        >
+          Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due: KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.
+        </Banner>
+      );
+    }
+    if (trialActive && trialEndStr) {
+      return (
+        <Banner tone="info" icon={<CheckCircle2 size={18} />} action={{ label: "Choose a plan", onClick: () => navigate("/pricing") }}>
+          Trial sandbox live, ends {trialEndStr}. Pick a plan before then to keep everything you build.
+        </Banner>
+      );
+    }
+    return null;
+  })();
 
-        <nav className="grow px-4 sm:px-6 space-y-1.5 mt-3 overflow-y-auto">
-          {allMenuItems.map((item) => {
-            if (item.id !== "cloud") {
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onTabClick(item.id)}
-                  className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-micro sm:text-label font-black uppercase transition-all ${
-                    activeTab === item.id
-                      ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
-                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
-                  }`}
-                >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="grow text-left">{item.label}</span>
-                  {!!item.badge && (
-                    <span className="shrink-0 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-black">
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            }
+  return (
+    <div className="portal h-dvh flex overflow-hidden">
+      <SideNav
+        groups={navGroups}
+        activeId={activeTab}
+        onSelect={(id) => onTabClick(id as typeof activeTab)}
+        collapsed={navCollapsed}
+        onToggleCollapsed={() => setNavCollapsed(!navCollapsed)}
+        onSearch={() => {
+          setIsSidebarOpen(false);
+          setIsCommandPaletteOpen(true);
+        }}
+        open={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        footer={
+          <UserMenu
+            name={user.name || "Account"}
+            email={user.email}
+            plan={isTestUser ? "Free trial" : `${user.plan} plan`}
+            accountStatus={user.accountStatus}
+            theme={theme === "dark" ? "dark" : "light"}
+            onToggleTheme={toggleTheme}
+            onSettings={() => onTabClick("profile")}
+            onLogout={onLogout}
+            compact={navCollapsed}
+          />
+        }
+      />
 
-            // "My Systems" — expands to the account's real provisioned services
-            // (selectedServices, derived above from the Frappe web account —
-            // never fabricated). Sub-items reuse the same navigate(?service=)
-            // pattern already used by the service cards in the Cloud tab.
-            const hasServices = selectedServices.length > 0;
-            return (
-              <div key={item.id}>
-                <button
-                  onClick={() => {
-                    onTabClick("cloud");
-                    if (hasServices) setIsSystemsNavOpen((v) => activeTab === "cloud" ? !v : true);
-                  }}
-                  className={`w-full flex items-center gap-3.5 px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl text-micro sm:text-label font-black uppercase transition-all ${
-                    activeTab === item.id
-                      ? "bg-murzak-accent text-murzak-ink shadow-md sm:shadow-lg shadow-murzak-accent/20"
-                      : "text-slate-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
-                  }`}
-                >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {hasServices && (
-                    <ChevronRight
-                      className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSystemsNavOpen ? "rotate-90" : ""}`}
-                    />
-                  )}
-                </button>
-
-                {hasServices && isSystemsNavOpen && (
-                  <div className="ml-[1.35rem] mt-1 mb-1 pl-4 border-l-2 border-slate-100 dark:border-murzak-border space-y-0.5">
-                    {selectedServices.map((s) => (
-                      <button
-                        key={s.serviceId}
-                        type="button"
-                        disabled={s.status !== "Active"}
-                        onClick={() => {
-                          onTabClick("cloud");
-                          navigate(`/portal/cloud?service=${encodeURIComponent(s.serviceId)}`);
-                        }}
-                        title={s.status !== "Active" ? `${s.name}: ${s.status || "pending"}` : s.name}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-micro font-bold text-left tracking-wide truncate transition-colors ${
-                          s.status === "Active"
-                            ? "text-slate-500 hover:bg-slate-100 dark:hover:bg-black/5 hover:text-murzak-ink dark:hover:text-slate-100"
-                            : "text-slate-300 cursor-not-allowed"
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            s.status === "Active" ? "bg-green-500" : s.status === "Setting up" ? "bg-blue-500" : "bg-orange-400"
-                          }`}
-                        />
-                        <span className="truncate">{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-          <div className="mt-auto px-4 sm:px-6 pb-10 pt-4 border-t border-slate-100 dark:border-murzak-border flex items-center gap-3">
-            <button
-              onClick={onLogout}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 sm:py-3.5 rounded-2xl
-                text-red-500 border border-red-500/20 bg-red-500/10 hover:bg-red-500/15 transition-all
-                font-black text-micro uppercase"
-              title="Log out"
-            >
-              <LogOut className="w-4 h-4" /> Log out
-            </button>
-            <button
-              onClick={toggleTheme}
-              className="shrink-0 p-3 sm:p-3.5 rounded-2xl border border-slate-200 dark:border-murzak-border
-                text-slate-500 hover:text-murzak-accent hover:border-murzak-accent/40 transition-all"
-              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          </div>
-      </aside>
-
-      {/* Main */}
       <main
         id="portal-scroll"
-        className="flex-1 min-h-0 lg:ml-80 p-5 sm:p-8 lg:p-14 relative z-10 w-full overflow-y-auto overscroll-contain pb-24"
-        style={{
-          WebkitOverflowScrolling: "touch",
-          paddingBottom: "calc(6rem + env(safe-area-inset-bottom))",
-        }}
+        className={`flex-1 min-w-0 min-h-0 ${navCollapsed ? "lg:ml-16" : "lg:ml-58"} overflow-y-auto overscroll-contain`}
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
-        {/* Portal canvas: a theme-aware mesh instead of a flat wash. Light is a
-            airy white->cyan tint; dark is deep ink with brand-purple/accent glows. */}
-        <div className="absolute inset-0 -z-10 bg-linear-to-br from-white/70 via-cyan-50/40 to-white/60 dark:from-murzak-ink/40 dark:via-[#0d1322]/60 dark:to-murzak-ink/40 backdrop-blur-md sm:backdrop-blur-xl" />
-        <div className="absolute inset-0 -z-10 opacity-50 dark:opacity-100 bg-[radial-gradient(circle_at_15%_15%,rgba(34,211,238,0.25),transparent_55%),radial-gradient(circle_at_85%_25%,rgba(59,130,246,0.2),transparent_55%)] dark:bg-[radial-gradient(circle_at_12%_8%,rgba(136,47,253,0.22),transparent_50%),radial-gradient(circle_at_88%_20%,rgba(0,189,252,0.14),transparent_50%),radial-gradient(circle_at_50%_100%,rgba(51,136,242,0.12),transparent_55%)]" />
+        <TopBar
+          crumbs={topBar?.crumbs || defaultCrumbs}
+          status={topBar?.status}
+          actions={topBar?.actions}
+          onOpenMenu={() => setIsSidebarOpen(true)}
+        />
 
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-14 gap-4 sm:gap-8">
-          <div className="grow">
-            <h1 className="text-2xl sm:text-4xl sm:leading-(--text-4xl--line-height) font-[900] text-murzak-ink dark:text-slate-100 tracking-tighter uppercase leading-none">
-              Welcome back, {(user.name || "User").split(" ")[0]}
-            </h1>
-            <p className="text-micro sm:text-micro font-black text-slate-600 dark:text-slate-400 uppercase sm:mt-3 sm:mt-4">
-              {user.company} • {isTestUser ? "Free trial" : `${user.plan} plan`} • Nairobi
-            </p>
-          </div>
+        <div
+          className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-6"
+          style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}
+        >
+          {statusBanner && <div className="mb-5">{statusBanner}</div>}
 
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(true)}
-            className="lg:hidden fixed top-5 right-5 z-140 p-3 bg-white dark:bg-murzak-ink rounded-xl shadow-lg flex items-center justify-center border border-slate-100 dark:border-murzak-border"
-            aria-label="Open menu"
-            title="Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </header>
-
-        {/* Billing / trial status banner — one slot, highest-priority state wins.
-            (The trial states were computed but unrendered after the portal
-            redesign; this restores the verify-to-start prompt.) */}
-        {(() => {
-          const banner = (tone: "red" | "amber" | "cyan", icon: React.ReactNode, text: React.ReactNode, cta?: { label: string; onClick: () => void }) => {
-            const tones = {
-              red: "border-red-500/30 bg-red-500/10",
-              amber: "border-amber-400/30 bg-amber-400/10",
-              cyan: "border-murzak-accent/30 bg-murzak-accent/10",
-            } as const;
-            return (
-              <div className={`max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl border p-5 sm:p-6 ${tones[tone]}`}>
-                <div className="shrink-0">{icon}</div>
-                <p className="grow text-sm font-bold text-murzak-ink dark:text-slate-100 leading-relaxed">{text}</p>
-                {cta && (
-                  <button
-                    type="button"
-                    onClick={cta.onClick}
-                    className="shrink-0 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-murzak-accent text-murzak-ink font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
-                  >
-                    {cta.label} <ArrowRight size={14} />
-                  </button>
-                )}
-              </div>
-            );
-          };
-
-          // Highest priority: direct feedback on an action the customer just
-          // took (a signup/login-time plan attach, or a developer-access
-          // request) — more urgent than passive account-status banners below.
-          if (planAttachBanner) {
-            return banner(
-              planAttachBannerTone === "success" ? "cyan" : "red",
-              planAttachBannerTone === "success"
-                ? <CheckCircle2 size={22} className="text-murzak-accent" />
-                : <AlertCircle size={22} className="text-red-500" />,
-              <>{planAttachBanner}</>
-            );
-          }
-          if (accountSuspended && dueSubscriptionInvoice) {
-            return banner(
-              "red",
-              <AlertCircle size={22} className="text-red-500" />,
-              <>Your services are paused because invoice {dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id} is unpaid. Pay it and everything is restored right away. Your data is safe.</>,
-              { label: "Pay & restore", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
-            );
-          }
-          if (needsTrialVerify && trialVerifyInvoice?.docName) {
-            return banner(
-              "cyan",
-              <Zap size={22} className="text-murzak-accent" />,
-              <>Your free trial is ready. A one-time KES 1 verification confirms your payment method and starts your 36-hour sandbox immediately.</>,
-              { label: "Verify & start trial", onClick: () => navigate(`/payment/${encodeURIComponent(trialVerifyInvoice.docName)}`) }
-            );
-          }
-          if (trialExpired) {
-            return banner(
-              "amber",
-              <Timer size={22} className="text-amber-500" />,
-              <>Your trial has ended and the sandbox is paused. Your data is held for 7 days. Choose a plan to restore it exactly as you left it.</>,
-              { label: "Choose a plan", onClick: () => navigate("/pricing") }
-            );
-          }
-          if (dueSubscriptionInvoice) {
-            return banner(
-              "amber",
-              <Receipt size={22} className="text-amber-500" />,
-              <>Your {dueSubscriptionInvoice.plan || user.plan} plan invoice ({dueSubscriptionInvoice.invoiceNo || dueSubscriptionInvoice.id}) is due: KES {Number(dueSubscriptionInvoice.amount || 0).toLocaleString()}. Pay it to keep services running without interruption.</>,
-              { label: "Pay now", onClick: () => navigate(`/payment/${encodeURIComponent(dueSubscriptionInvoice.docName)}`) }
-            );
-          }
-          if (trialActive && trialEndStr) {
-            return banner(
-              "cyan",
-              <CheckCircle2 size={22} className="text-murzak-accent" />,
-              <>Trial sandbox live, ends {trialEndStr}. Pick a plan before then to keep everything you build.</>,
-              { label: "Choose a plan", onClick: () => navigate("/pricing") }
-            );
-          }
-          return null;
-        })()}
-
-        <div className="max-w-7xl mx-auto">
           <Routes>
             <Route index element={<PortalLanding />} />
             <Route path="overview" element={<OverviewTab />} />
             <Route path="cloud" element={<CloudTab />} />
+            <Route path="cloud/:serviceId" element={<CloudTab />} />
+            <Route path="cloud/:serviceId/:section" element={<CloudTab />} />
             <Route path="domains" element={<DomainsTab />} />
             <Route
               path="databases"
@@ -404,38 +248,31 @@ const PortalShell: React.FC = () => {
         services={selectedServices}
       />
 
-      {stopConfirmService && (
-        <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => setStopConfirmService(null)} />
-          <div className="relative w-full max-w-md bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-7 shadow-2xl">
-            <p className="text-micro font-black uppercase text-orange-500">Stop service</p>
-            <h3 className="text-lg font-black text-murzak-ink dark:text-slate-100 mt-2">
-              Stop {stopConfirmService.name}?
-            </h3>
-            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-500 mt-3 leading-relaxed">
-              This takes your service offline until you start it again. Visitors won't be able to reach it while stopped.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setStopConfirmService(null)}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:bg-slate-50 dark:hover:bg-black/5 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const svc = stopConfirmService;
-                  setStopConfirmService(null);
-                  performServiceAction("stop", svc.id);
-                }}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-murzak-ink dark:text-slate-100 text-micro font-black uppercase hover:bg-red-600 transition"
-              >
-                Stop it
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!stopConfirmService}
+        onClose={() => setStopConfirmService(null)}
+        title={`Stop ${stopConfirmService?.name || "this service"}?`}
+        size="sm"
+        footer={
+          <>
+            <PButton onClick={() => setStopConfirmService(null)}>Cancel</PButton>
+            <PButton
+              variant="danger"
+              onClick={() => {
+                const svc = stopConfirmService;
+                setStopConfirmService(null);
+                if (svc) performServiceAction("stop", svc.id);
+              }}
+            >
+              Stop it
+            </PButton>
+          </>
+        }
+      >
+        <p className="text-sm text-p-muted">
+          This takes your service offline until you start it again. Visitors won't be able to reach it while stopped.
+        </p>
+      </Modal>
 
       <OnboardingWizard
         isOpen={showOnboarding}
@@ -446,186 +283,127 @@ const PortalShell: React.FC = () => {
         onOpenSupport={() => setIsContactOpen(true)}
       />
 
-      {deleteTarget && (
-        <div className="fixed inset-0 z-200">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-xl" onClick={() => !deleteLoading && setDeleteTarget(null)} />
-            <div className="relative max-w-lg mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
-              <p className="text-micro font-black uppercase text-red-500">
-                Paid service deletion
-              </p>
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        busy={deleteLoading}
+        title={`Delete ${deleteTarget?.name || "service"}`}
+        footer={
+          <>
+            <PButton disabled={deleteLoading} onClick={() => setDeleteTarget(null)}>Cancel</PButton>
+            <PButton
+              variant="danger"
+              loading={deleteLoading}
+              disabled={deleteConfirmText.trim() !== "DELETE"}
+              onClick={() => deleteTarget && void handleDelete(deleteTarget.serviceId, deleteConfirmText)}
+            >
+              {deleteLoading ? "Deleting..." : "Confirm Delete"}
+            </PButton>
+          </>
+        }
+      >
+        <p className="text-sm font-medium text-p-text">
+          You are about to delete a paid service: {deleteTarget?.name}
+        </p>
+        <p className="mt-2 text-sm text-p-muted">
+          This shuts down and destroys the service itself, not just its listing here. Its
+          container, configuration and any data inside it are removed and cannot be restored.
+        </p>
+        <label htmlFor="delete-confirm" className="mt-4 block text-[13px] font-medium text-p-text">
+          Type <span className="font-semibold text-p-danger">DELETE</span> to confirm removal.
+        </label>
+        <input
+          id="delete-confirm"
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          className={`mt-1.5 ${inputClass}`}
+          placeholder="Type DELETE"
+          autoComplete="off"
+        />
+        {deleteError && <p role="alert" className="mt-3 text-[13px] text-p-danger">{deleteError}</p>}
+      </Modal>
 
-              <p className="mt-3 text-sm font-black text-murzak-ink dark:text-slate-100">
-                You are about to delete a paid service: {deleteTarget.name}
-              </p>
-
-              <p className="mt-2 text-label font-medium text-slate-600 dark:text-slate-400">
-                This shuts down and destroys the service itself, not just its listing here. Its
-                container, configuration and any data inside it are removed and cannot be restored.
-              </p>
-
-              <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-400">
-                Type <span className="font-black text-red-500">DELETE</span> to confirm removal.
-              </p>
-
-              <input
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                className="mt-4 w-full rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 px-4 py-3 text-sm font-bold text-murzak-ink dark:text-slate-100"
-                placeholder="Type DELETE"
-              />
-
-              {deleteError && (
-                <p className="mt-3 text-micro font-black uppercase text-red-500">
-                  {deleteError}
-                </p>
-              )}
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  type="button"
-                  disabled={deleteLoading}
-                  onClick={() => setDeleteTarget(null)}
-                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-slate-600 dark:text-slate-400 font-black text-micro uppercase"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  disabled={deleteLoading || deleteConfirmText.trim() !== "DELETE"}
-                  onClick={() => void handleDelete(deleteTarget.serviceId, deleteConfirmText)}
-                  className={`flex-1 py-3 rounded-xl font-black text-micro uppercase ${
-                    deleteConfirmText.trim() === "DELETE"
-                      ? "bg-red-500 text-murzak-ink dark:text-slate-100"
-                      : "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
-                  }`}
-                >
-                  {deleteLoading ? "Deleting..." : "Confirm Delete"}
-                </button>
-              </div>
-            </div>
-          </div>
-      )}
-
-      {upgradePromptOpen && (
-        <div className="fixed inset-0 z-220">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-2xl"
-            onClick={() => setUpgradePromptOpen(false)}
-          />
-          <div className="relative max-w-xl mx-auto mt-24 bg-white dark:bg-murzak-ink rounded-4xl border border-slate-200 dark:border-murzak-border p-6 shadow-2xl">
-            <p className="text-micro font-black uppercase text-murzak-accent">
-              Upgrade plan
-            </p>
-
-            <p className="mt-3 text-sm font-black text-murzak-ink dark:text-slate-100">
-              Your current plan is already paid.
-            </p>
-
-            <p className="mt-2 text-label font-bold text-slate-600 dark:text-slate-400">
-              Do you want to retain your current services as you switch plans?
-            </p>
-
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  sessionStorage.setItem("murzak_upgrade_mode", "retain");
-                  setUpgradePromptOpen(false);
-                  navigateToPricingUpgrade();
-                }}
-                className="py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase"
-              >
-                Retain services
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  sessionStorage.setItem("murzak_upgrade_mode", "replace");
-                  setUpgradePromptOpen(false);
-                  navigateToPricingUpgrade();
-                }}
-                className="py-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-500 font-black text-micro uppercase"
-              >
-                Replace services
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        title="Change plan"
+        footer={
+          <>
+            <PButton
+              variant="danger"
+              onClick={() => {
+                sessionStorage.setItem("murzak_upgrade_mode", "replace");
+                setUpgradePromptOpen(false);
+                navigateToPricingUpgrade();
+              }}
+            >
+              Replace services
+            </PButton>
+            <PButton
+              variant="primary"
+              onClick={() => {
+                sessionStorage.setItem("murzak_upgrade_mode", "retain");
+                setUpgradePromptOpen(false);
+                navigateToPricingUpgrade();
+              }}
+            >
+              Retain services
+            </PButton>
+          </>
+        }
+      >
+        <p className="text-sm font-medium text-p-text">Your current plan is already paid.</p>
+        <p className="mt-2 text-sm text-p-muted">
+          Do you want to retain your current services as you switch plans?
+        </p>
+      </Modal>
 
       {/* Scaling Settings Modal */}
       {scalingServiceId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+        <div className="fixed inset-0 z-200 flex items-center justify-center p-4 bg-black/60">
           <ScalingSettings serviceId={scalingServiceId} onClose={() => setScalingServiceId(null)} />
         </div>
       )}
 
-      {/* Developer Upsell Modal */}
-      {developerUpsellSvc && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-murzak-ink/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-4xl p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-murzak-accent/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/3"></div>
-            
-            <button onClick={() => !requestingDeveloper && setDeveloperUpsellSvc(null)} className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 dark:bg-black/5 hover:bg-slate-200 dark:hover:bg-black/5 transition z-10 text-slate-500">
-              <X className="w-5 h-5" />
-            </button>
-            
-            <div className="relative z-10">
-              <div className="inline-flex p-4 rounded-2xl bg-murzak-accent/10 text-murzak-accent mb-6">
-                <Terminal className="w-8 h-8" />
+      <Modal
+        open={!!developerUpsellSvc}
+        onClose={() => setDeveloperUpsellSvc(null)}
+        busy={requestingDeveloper}
+        title="Unlock Developer Tier"
+        footer={
+          <PButton variant="primary" loading={requestingDeveloper} onClick={handleDeveloperUpsell}>
+            {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
+          </PButton>
+        }
+      >
+        <p className="text-sm text-p-muted">
+          Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
+        </p>
+        <ul className="mt-4 divide-y divide-p-border rounded-lg border border-p-border">
+          {[
+            { icon: <Terminal className="w-4 h-4" />, title: "Jailed SSH access", text: "Secure shell access directly into your service environment." },
+            { icon: <Database className="w-4 h-4" />, title: "Direct database connection", text: "Read/Write access to your isolated MariaDB instance." },
+            { icon: <Shield className="w-4 h-4" />, title: "Full platform administrator", text: "Create custom data models, server scripts, and UI tweaks." },
+          ].map((f) => (
+            <li key={f.title} className="flex gap-3 p-3.5">
+              <span className="shrink-0 mt-0.5 text-p-accent-text">{f.icon}</span>
+              <div>
+                <p className="text-sm font-medium text-p-text">{f.title}</p>
+                <p className="text-[13px] text-p-muted">{f.text}</p>
               </div>
-              <h3 className="text-2xl font-[900] tracking-tighter text-murzak-ink dark:text-slate-100 mb-2">Unlock Developer Tier</h3>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-500 mb-6">
-                Need more control? Upgrade this service to the Developer Tier to get raw programmatic access while maintaining our managed infrastructure.
-              </p>
-              
-              <div className="space-y-4 mb-8">
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
-                  <Terminal className="w-5 h-5 text-murzak-accent shrink-0" />
-                  <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Jailed SSH Access</h4>
-                    <p className="text-xs text-slate-500">Secure shell access directly into your service environment.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
-                  <Database className="w-5 h-5 text-murzak-accent shrink-0" />
-                  <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Direct DB Connection</h4>
-                    <p className="text-xs text-slate-500">Read/Write access to your isolated MariaDB instance.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border/50">
-                  <Shield className="w-5 h-5 text-murzak-accent shrink-0" />
-                  <div>
-                    <h4 className="text-label font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-1">Full Platform Administrator</h4>
-                    <p className="text-xs text-slate-500">Create custom data models, server scripts, and UI tweaks.</p>
-                  </div>
-                </div>
-              </div>
-
-              {developerUpsellError && (
-                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {developerUpsellError}
-                </div>
-              )}
-
-              <button 
-                onClick={handleDeveloperUpsell} 
-                disabled={requestingDeveloper}
-                className="w-full px-6 py-4 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {requestingDeveloper ? "Submitting Request..." : "Request Upgrade"}
-              </button>
-              <p className="text-micro font-bold text-slate-600 dark:text-slate-400 text-center uppercase mt-4">
-                Submitting creates a high-priority ticket with our engineering team.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+            </li>
+          ))}
+        </ul>
+        {developerUpsellError && (
+          <p role="alert" className="mt-4 flex items-center gap-2 text-[13px] text-p-danger">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {developerUpsellError}
+          </p>
+        )}
+        <p className="mt-4 text-[13px] text-p-muted">
+          Submitting creates a high-priority ticket with our engineering team.
+        </p>
+      </Modal>
 
       {/* AI Concierge Widget - Only show if user has active service */}
       {user.plan !== "None" && user.selectedServices && user.selectedServices.length > 0 && (
