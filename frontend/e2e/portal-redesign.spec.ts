@@ -149,11 +149,11 @@ test.describe('Service page', () => {
   test('lists only the sections that apply', async ({ page }) => {
     await open(page, '/portal/cloud/biz-erp-light');
     const sections = page.getByRole('navigation', { name: 'Shop ERP sections' });
-    for (const label of ['General', 'Web address', 'Advanced', 'Danger zone']) {
+    for (const label of ['General', 'Domains', 'Backups', 'Advanced', 'Danger zone']) {
       await expect(sections.getByRole('button', { name: label, exact: true })).toBeVisible();
     }
     // A managed system has no build history, files or mailboxes.
-    for (const label of ['Updates', 'Files', 'Mailboxes', 'Connection']) {
+    for (const label of ['Deployments', 'Environment', 'Logs', 'Healthcheck', 'Files', 'Mailboxes', 'Connection']) {
       await expect(sections.getByRole('button', { name: label, exact: true })).toHaveCount(0);
     }
     await sections.getByRole('button', { name: 'Danger zone' }).click();

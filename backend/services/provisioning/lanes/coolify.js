@@ -1769,6 +1769,124 @@ async function getLogs(externalRef, { lines = 200 } = {}, opts) {
   return { logs: typeof d.logs === "string" ? d.logs : "" };
 }
 
+/* ------------------------------------------------------------------------ *
+ * SERVICE SETTINGS — domains, healthcheck, bulk env import, backups.
+ *
+ * ⚠️ UNVERIFIED against the live instance (API is IP-allowlisted to the VPS).
+ * Field names follow the published Coolify v4 reference for applications:
+ * `fqdn` is a comma-separated string, `PATCH` accepts `domains` (same shape)
+ * and the `health_check_*` fields, and `PATCH .../envs/bulk` takes `{ data: [] }`.
+ * Probed by scripts/coolify-smoke.js — run it ON THE BOX before release.
+ * ------------------------------------------------------------------------ */
+
+function splitDomains(fqdn) {
+  return String(fqdn || "")
+    .split(",")
+    .map((d) => d.trim())
+    .filter(Boolean)
+    .map((d) => {
+      const m = d.match(/^(https?):\/\/([^/]+)/i);
+      return m ? { host: m[2].toLowerCase(), scheme: m[1].toLowerCase() } : { host: d.toLowerCase(), scheme: "https" };
+    });
+}
+
+async function getSettings(externalRef, opts) {
+  const client = http(opts);
+  const res = await client.get(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`);
+  const d = res.data?.data || res.data || {};
+  const num = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+  return {
+    domains: splitDomains(d.fqdn),
+    forceHttps: d.is_force_https_enabled === undefined ? null : !!d.is_force_https_enabled,
+    redirect: d.redirect ?? null,
+    healthcheck: {
+      enabled: !!d.health_check_enabled,
+      path: d.health_check_path || "/",
+      method: d.health_check_method || "GET",
+      scheme: d.health_check_scheme || "http",
+      port: num(d.health_check_port),
+      returnCode: num(d.health_check_return_code) ?? 200,
+      intervalSeconds: num(d.health_check_interval) ?? 5,
+      timeoutSeconds: num(d.health_check_timeout) ?? 5,
+      retries: num(d.health_check_retries) ?? 10,
+      startPeriodSeconds: num(d.health_check_start_period) ?? 5,
+    },
+  };
+}
+
+/** Replace the full domain list. Callers decide WHICH hosts stay; this just writes them. */
+async function setDomains(externalRef, hosts, opts) {
+  const client = http(opts);
+  const res = await client.patch(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`,
+    { domains: hosts.map((h) => `https://${h}`).join(","), force_domain_override: true }
+  );
+  return res.data;
+}
+
+const HEALTHCHECK_FIELDS = {
+  enabled: "health_check_enabled",
+  path: "health_check_path",
+  method: "health_check_method",
+  scheme: "health_check_scheme",
+  port: "health_check_port",
+  returnCode: "health_check_return_code",
+  intervalSeconds: "health_check_interval",
+  timeoutSeconds: "health_check_timeout",
+  retries: "health_check_retries",
+  startPeriodSeconds: "health_check_start_period",
+};
+
+async function updateHealthcheck(externalRef, hc, opts) {
+  const body = {};
+  for (const [k, apiKey] of Object.entries(HEALTHCHECK_FIELDS)) {
+    if (hc[k] !== undefined && hc[k] !== null) body[apiKey] = hc[k];
+  }
+  const client = http(opts);
+  const res = await client.patch(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}`, body);
+  return res.data;
+}
+
+/** Upsert many variables at once (the "Developer view" paste editor). */
+async function bulkUpsertEnvs(externalRef, rows, opts) {
+  const client = http(opts);
+  const res = await client.patch(
+    `/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs/bulk`,
+    {
+      data: rows.map((r) => ({
+        key: r.key,
+        value: r.value,
+        is_buildtime: !!r.isBuildTime,
+        is_literal: !!r.isLiteral,
+      })),
+    }
+  );
+  return res.data;
+}
+
+/**
+ * Backup schedules. Coolify only has a backups API for DATABASES; applications
+ * and compose services have none, so those return `{ supported: false }`
+ * rather than an empty list a customer would read as "no backups configured."
+ */
+async function listBackups(externalRef, opts) {
+  if (opts?.kind !== "database") return { supported: false, schedules: [] };
+  const client = http(opts);
+  const res = await client.get(`/api/v1/databases/${encodeURIComponent(externalRef)}/backups`);
+  const rows = res.data?.data || res.data || [];
+  return {
+    supported: true,
+    schedules: (Array.isArray(rows) ? rows : []).map((b) => ({
+      uuid: String(b.uuid || b.id || ""),
+      enabled: !!b.enabled,
+      frequency: b.frequency || null,
+      retentionCount: b.database_backup_retention_amount_locally ?? null,
+      lastStatus: b.executions?.[0]?.status ?? null,
+      lastRunAt: b.executions?.[0]?.created_at ?? null,
+    })),
+  };
+}
+
 /**
  * Destroy the resource. Irreversible, and the ONLY thing in this codebase that
  * deletes live infrastructure — orphans.js deliberately only *reports*. The
@@ -1796,6 +1914,12 @@ module.exports = {
   listServices,
   getUsage,
   attachDomain,
+  getSettings,
+  setDomains,
+  updateHealthcheck,
+  bulkUpsertEnvs,
+  listBackups,
+  splitDomains,
   resourceName,
   resourceLimits,
   generateRandomSecret,

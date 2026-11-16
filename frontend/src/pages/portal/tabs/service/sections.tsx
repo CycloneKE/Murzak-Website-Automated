@@ -1,11 +1,19 @@
 import React from "react";
-import { AlertTriangle, Database, FolderOpen, Globe, Mail, RefreshCw, Settings, SlidersHorizontal } from "lucide-react";
+import {
+  AlertTriangle, Archive, Database, FileText, FolderOpen, Globe, HeartPulse, KeyRound, Mail, RefreshCw, Settings,
+  SlidersHorizontal, SquareTerminal,
+} from "lucide-react";
 import { type SelectedServiceView } from "../../../../types";
 
 export type SectionId =
   | "general"
   | "address"
+  | "environment"
   | "updates"
+  | "logs"
+  | "terminal"
+  | "health"
+  | "backups"
   | "files"
   | "mailboxes"
   | "connection"
@@ -44,8 +52,13 @@ export function sectionsFor({ service, deployable }: SectionContext): ServiceSec
   if (isStorage) out.push({ id: "files", label: "Files", icon: <FolderOpen /> });
   if (isEmail) out.push({ id: "mailboxes", label: "Mailboxes", icon: <Mail /> });
   if (isDatabase) out.push({ id: "connection", label: "Connection", icon: <Database /> });
-  if (hasContainer && isActive) out.push({ id: "address", label: "Web address", icon: <Globe /> });
-  if (deployable) out.push({ id: "updates", label: "Updates", icon: <RefreshCw /> });
+  if (hasContainer && isActive) out.push({ id: "address", label: "Domains", icon: <Globe /> });
+  if (deployable && isActive) out.push({ id: "environment", label: "Environment", icon: <KeyRound /> });
+  if (deployable) out.push({ id: "updates", label: "Deployments", icon: <RefreshCw /> });
+  if (deployable && isActive) out.push({ id: "logs", label: "Logs", icon: <FileText /> });
+  if (deployable && isActive) out.push({ id: "health", label: "Healthcheck", icon: <HeartPulse /> });
+  if (hasContainer && isActive) out.push({ id: "terminal", label: "Terminal", icon: <SquareTerminal /> });
+  if (hasContainer && isActive) out.push({ id: "backups", label: "Backups", icon: <Archive /> });
   if (hasContainer) out.push({ id: "advanced", label: "Advanced", icon: <SlidersHorizontal /> });
   if (!isWebsiteHosting) out.push({ id: "danger", label: "Danger zone", icon: <AlertTriangle />, tone: "danger" });
   return out;

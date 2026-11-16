@@ -5,6 +5,7 @@ const k8sLane = require("../services/provisioning/lanes/k8s");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
 const terminalEligibilityLib = require('../services/terminalEligibility');
+const { parseEnvText } = require('../services/envText');
 const resourceAdminEligibilityLib = require('../services/resourceAdminEligibility');
 const storageS3Lib = require('../services/storage/storageS3');
 const storageEligibilityLib = require('../services/storageEligibility');
@@ -1382,7 +1383,13 @@ router.post("/api/portal/services/:serviceId/domain", requireAuth, domainAttachL
   }
 
   try {
-    await coolifyLane.attachDomain(job.external_ref, domain, { kind: jobResourceKind(job) });
+    // Append, never overwrite: a bare `domains: <one>` PATCH would silently drop
+    // every domain already on the service (including the platform subdomain).
+    const laneOpts = { kind: jobResourceKind(job) };
+    const current = await coolifyLane.getSettings(job.external_ref, laneOpts);
+    const hosts = current.domains.map((d) => d.host);
+    if (!hosts.includes(domain)) hosts.push(domain);
+    await coolifyLane.setDomains(job.external_ref, hosts, laneOpts);
     const ts = new Date().toISOString();
     const auditLine = `[${ts}] [DOMAIN] ${domain} attached by ${webAccountName}`;
     client
@@ -1679,6 +1686,193 @@ router.delete("/api/portal/services/:serviceId/envs/:envUuid", requireAuth, envM
     return res.status(502).json({ error: "Couldn't remove that variable. Please try again." });
   } finally {
     actionInFlight.delete(job.name);
+  }
+});
+
+// --- Bulk environment import ("Developer view") ---
+
+router.post("/api/portal/services/:serviceId/envs/bulk", requireAuth, envMutationLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const { rows, errors } = parseEnvText(req.body?.text);
+  if (errors.length) return res.status(400).json({ error: errors.slice(0, 3).join(" ") });
+  if (!rows.length) return res.status(400).json({ error: "Nothing to save — add at least one NAME=value line." });
+  if (rows.length > 200) return res.status(400).json({ error: "Too many variables at once (200 max)." });
+
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+  try {
+    await coolifyLane.bulkUpsertEnvs(job.external_ref, rows, { kind: "application" });
+    // Keys only — never values — in the audit trail.
+    appendJobAudit(frappeClient(), job, `[ACTION] env.bulk ${rows.map((r) => r.key).join(",").slice(0, 300)} requested by ${webAccountName}`);
+    return res.json({
+      ok: true,
+      count: rows.length,
+      message: `${rows.length} variable${rows.length === 1 ? "" : "s"} saved. Restart the service to apply them.`,
+      restartRequired: true,
+    });
+  } catch (err) {
+    console.error("ENV BULK ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't save those variables. Please try again." });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+});
+
+// --- Domains (list / remove; add is POST /domain above) ---
+
+function isSystemHost(host) {
+  const base = String(process.env.APP_DOMAIN_BASE || "").toLowerCase();
+  return host === "murzaktech.tech" || host.endsWith(".murzaktech.tech") || (!!base && host.endsWith(`.${base}`));
+}
+
+async function loadDomainJob(req, res) {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) { res.status(401).json({ error: "No session account." }); return null; }
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, req.params.serviceId);
+  } catch (err) {
+    console.error("DOMAIN LOOKUP ERROR:", err.response?.data || err.message);
+    res.status(500).json({ error: "Failed to look up this service." });
+    return null;
+  }
+  if (!job || job.lane !== "coolify" || !job.external_ref || job.status !== "active") {
+    res.status(404).json({ error: "Domains aren't available for this service." });
+    return null;
+  }
+  return { job, webAccountName };
+}
+
+router.get("/api/portal/services/:serviceId/domains", requireAuth, async (req, res) => {
+  const ctx = await loadDomainJob(req, res);
+  if (!ctx) return;
+  try {
+    const s = await coolifyLane.getSettings(ctx.job.external_ref, { kind: jobResourceKind(ctx.job) });
+    return res.json({
+      ok: true,
+      serverIp: process.env.COOLIFY_SERVER_IP || null,
+      forceHttps: s.forceHttps,
+      domains: s.domains.map((d) => ({ host: d.host, scheme: d.scheme, system: isSystemHost(d.host) })),
+    });
+  } catch (err) {
+    console.error("DOMAIN LIST ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't load domains right now. Please try again." });
+  }
+});
+
+router.delete("/api/portal/services/:serviceId/domains/:host", requireAuth, domainAttachLimiter, async (req, res) => {
+  const ctx = await loadDomainJob(req, res);
+  if (!ctx) return;
+  const host = String(req.params.host || "").trim().toLowerCase();
+  if (!host || !isValidDomain(host)) return res.status(400).json({ error: "Unknown domain." });
+  if (isSystemHost(host)) return res.status(403).json({ error: "This is your built-in address and can't be removed." });
+
+  const laneOpts = { kind: jobResourceKind(ctx.job) };
+  try {
+    const s = await coolifyLane.getSettings(ctx.job.external_ref, laneOpts);
+    const hosts = s.domains.map((d) => d.host);
+    if (!hosts.includes(host)) return res.status(404).json({ error: "That domain isn't on this service." });
+    const remaining = hosts.filter((h) => h !== host);
+    if (!remaining.length) return res.status(409).json({ error: "A service needs at least one address." });
+    await coolifyLane.setDomains(ctx.job.external_ref, remaining, laneOpts);
+    appendJobAudit(frappeClient(), ctx.job, `[DOMAIN] ${host} removed by ${ctx.webAccountName}`);
+    return res.json({ ok: true, message: `${host} removed.` });
+  } catch (err) {
+    console.error("DOMAIN REMOVE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't remove that domain. Please try again." });
+  }
+});
+
+// --- Healthcheck ---
+
+const HEALTHCHECK_LIMITS = {
+  intervalSeconds: [1, 3600], timeoutSeconds: [1, 3600], retries: [1, 100],
+  startPeriodSeconds: [0, 3600], returnCode: [100, 599], port: [1, 65535],
+};
+
+router.get("/api/portal/services/:serviceId/healthcheck", requireAuth, runtimeLogsLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+  try {
+    const { healthcheck } = await coolifyLane.getSettings(job.external_ref, { kind: "application" });
+    return res.json({ ok: true, healthcheck });
+  } catch (err) {
+    console.error("HEALTHCHECK READ ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't load healthcheck settings. Please try again." });
+  }
+});
+
+router.put("/api/portal/services/:serviceId/healthcheck", requireAuth, envMutationLimiter, async (req, res) => {
+  const webAccountName = await requireResourceAdmin(req, res);
+  if (!webAccountName) return;
+  const job = await loadResourceAdminJob(res, webAccountName, req.params.serviceId);
+  if (!job) return;
+
+  const b = req.body || {};
+  const hc = {};
+  if (b.enabled !== undefined) hc.enabled = !!b.enabled;
+  if (b.path !== undefined) {
+    const path = String(b.path);
+    if (!/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$/.test(path)) {
+      return res.status(400).json({ error: "Path must start with / and contain only URL-safe characters." });
+    }
+    hc.path = path;
+  }
+  if (b.method !== undefined) {
+    if (!["GET", "HEAD", "POST", "OPTIONS"].includes(b.method)) return res.status(400).json({ error: "Unsupported method." });
+    hc.method = b.method;
+  }
+  if (b.scheme !== undefined) {
+    if (!["http", "https"].includes(b.scheme)) return res.status(400).json({ error: "Scheme must be http or https." });
+    hc.scheme = b.scheme;
+  }
+  for (const [k, [lo, hi]] of Object.entries(HEALTHCHECK_LIMITS)) {
+    if (b[k] === undefined || b[k] === null || b[k] === "") continue;
+    const n = Number(b[k]);
+    if (!Number.isInteger(n) || n < lo || n > hi) {
+      return res.status(400).json({ error: `${k} must be a whole number from ${lo} to ${hi}.` });
+    }
+    hc[k] = n;
+  }
+
+  if (actionInFlight.has(job.name)) {
+    return res.status(429).json({ error: "An action is already in progress for this service." });
+  }
+  actionInFlight.add(job.name);
+  try {
+    await coolifyLane.updateHealthcheck(job.external_ref, hc, { kind: "application" });
+    appendJobAudit(frappeClient(), job, `[ACTION] healthcheck.update ${Object.keys(hc).join(",")} requested by ${webAccountName}`);
+    return res.json({ ok: true, message: "Healthcheck saved. It applies on the next restart.", restartRequired: true });
+  } catch (err) {
+    console.error("HEALTHCHECK UPDATE ERROR:", err.response?.data || err.message);
+    return res.status(502).json({ error: "Couldn't save the healthcheck. Please try again." });
+  } finally {
+    actionInFlight.delete(job.name);
+  }
+});
+
+// --- Backups (read-only; Coolify has a backup API for databases only) ---
+
+router.get("/api/portal/services/:serviceId/backups", requireAuth, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  try {
+    const job = await loadOwnedJob(frappeClient(), webAccountName, req.params.serviceId);
+    if (!job || job.lane !== "coolify" || !job.external_ref) return res.json({ ok: true, supported: false, schedules: [] });
+    const kind = job.category === "Database Hosting" ? "database" : jobResourceKind(job);
+    return res.json({ ok: true, ...(await coolifyLane.listBackups(job.external_ref, { kind })) });
+  } catch (err) {
+    console.error("BACKUPS LIST ERROR:", err.response?.data || err.message);
+    // Never turn an API failure into "no backups" — say we couldn't tell.
+    return res.status(502).json({ error: "Couldn't load backup status right now." });
   }
 });
 
