@@ -172,8 +172,14 @@ test.describe('PORT-06 — empty-state dashboard for a brand-new account', () =>
     const label = page.locator('text=No Active Services');
     const color = await label.evaluate((el) => getComputedStyle(el).color);
     const [r, g, b] = await computedTextRgb(label);
-    // slate-600 (#475569 ~ rgb(71,85,105)) is what the bug looked like; the
-    // fixed dark: override is slate-400 (~rgb(148,163,184)) or lighter.
-    expect(r + g + b, `label color ${color} looks like the pre-fix too-dark slate-600`).toBeGreaterThan(200);
+    // The portal now takes its text colour from a per-theme token, so the
+    // label must be light on the dark theme and dark on the light one. (The
+    // original bug was a fixed slate-600 that stayed dark on a dark panel.)
+    const dark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
+    if (dark) {
+      expect(r + g + b, `label color ${color} is too dark for the dark theme`).toBeGreaterThan(450);
+    } else {
+      expect(r + g + b, `label color ${color} is too light for the light theme`).toBeLessThan(300);
+    }
   });
 });

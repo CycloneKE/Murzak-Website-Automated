@@ -69,21 +69,21 @@ test('clicking a card opens the Add-ons modal with that service preselected', as
 test('enabled:false renders nothing', async ({ page }) => {
   await mockPortal(page, { body: { enabled: false, offers: [offer()] } });
   await page.goto('/portal/overview');
-  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
   await expect(cards(page)).toHaveCount(0);
 });
 
 test('empty offers renders nothing', async ({ page }) => {
   await mockPortal(page, { body: { enabled: true, offers: [] } });
   await page.goto('/portal/overview');
-  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
   await expect(cards(page)).toHaveCount(0);
 });
 
 test('a failing offers fetch renders nothing and the page still works', async ({ page }) => {
   await mockPortal(page, { status: 500, body: { error: 'boom' } });
   await page.goto('/portal/overview');
-  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
   await expect(cards(page)).toHaveCount(0);
   await expect(page.getByText(/unavailable right now/i)).toHaveCount(0);
 });
@@ -91,7 +91,7 @@ test('a failing offers fetch renders nothing and the page still works', async ({
 test('an offer whose window already ended renders no card', async ({ page }) => {
   await mockPortal(page, { body: { enabled: true, offers: [offer({ windowEndsAtMs: Date.now() - 1000 })] } });
   await page.goto('/portal/overview');
-  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
   await expect(cards(page)).toHaveCount(0);
 });
 
@@ -113,7 +113,7 @@ for (const [label, delta, expected] of [
     await page.clock.setFixedTime(FIXED);
     await mockPortal(page, { body: { enabled: true, offers: [offer({ windowEndsAtMs: FIXED + delta })] } });
     await page.goto('/portal/overview');
-    await expect(page.getByText('System Health')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
     if (expected === null) await expect(cards(page)).toHaveCount(0);
     else await expect(page.getByTestId('complete-setup-card-starter-email')).toContainText(expected);
   });
@@ -129,7 +129,7 @@ test('a closed preselected modal does not leak its preselection into the Profile
   // Client-side navigation (no reload) so portal state survives, as in real use.
   await page.getByText('Settings', { exact: true }).first().click();
   await expect(page).toHaveURL(/\/portal\/profile/);
-  await page.getByRole('button', { name: /Add Services/ }).click();
+  await page.getByRole('button', { name: /Add services/i }).click();
   await expect(page.getByText('Purchase extra services')).toBeVisible();
   await expect(page.getByText('Selected: 0').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Business Email/, pressed: true })).toHaveCount(0);
@@ -149,7 +149,7 @@ test('AppWelcome card lands on the portal with the modal preselected; reload doe
   await expect(page.getByText('Purchase extra services')).toBeVisible();
   await expect(page.getByRole('button', { name: /Business Email/, pressed: true })).toBeVisible();
   await page.reload();
-  await expect(page.getByText('System Health')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent activity' })).toBeVisible();
   await expect(page.getByText('Purchase extra services')).toHaveCount(0);
 });
 

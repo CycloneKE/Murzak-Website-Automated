@@ -121,9 +121,11 @@ test.describe('AUTH-06 — logout clears the session', () => {
       await skipOnboarding.click();
     }
 
+    // Log out lives in the account menu at the bottom of the sidebar.
+    await page.getByRole('button', { name: 'Account menu' }).click();
     const [logoutResp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/logout')),
-      page.getByRole('button', { name: /Log out/i }).click(),
+      page.getByRole('menuitem', { name: /Log out/i }).click(),
     ]);
     expect(logoutResp.status()).toBeLessThan(500);
 
