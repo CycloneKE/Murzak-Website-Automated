@@ -38,9 +38,11 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, rowLab
       onRowClick(row);
     }
   };
-  const stop = (e: React.SyntheticEvent) => {
-    // Buttons/links inside a row act on their own, not as a row click.
-    if ((e.target as HTMLElement).closest("button, a, input, select")) e.stopPropagation();
+  // Buttons/links inside a row act on their own, not as a row click.
+  const rowClick = (row: T) => (e: React.MouseEvent) => {
+    if (!onRowClick) return;
+    if ((e.target as HTMLElement).closest("button, a, input, select, label")) return;
+    onRowClick(row);
   };
 
   return (
@@ -62,8 +64,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, rowLab
                 key={rowKey(row)}
                 tabIndex={onRowClick ? 0 : undefined}
                 aria-label={onRowClick && rowLabel ? rowLabel(row) : undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                onClickCapture={stop}
+                onClick={rowClick(row)}
                 onKeyDown={activate(row)}
                 className={`border-b border-p-border last:border-b-0 ${onRowClick ? "cursor-pointer hover:bg-p-panel-2" : ""}`}
               >
@@ -85,8 +86,7 @@ export default function DataTable<T>({ columns, rows, rowKey, onRowClick, rowLab
             tabIndex={onRowClick ? 0 : undefined}
             role={onRowClick ? "button" : undefined}
             aria-label={onRowClick && rowLabel ? rowLabel(row) : undefined}
-            onClick={onRowClick ? () => onRowClick(row) : undefined}
-            onClickCapture={stop}
+            onClick={rowClick(row)}
             onKeyDown={activate(row)}
             className={`px-4 py-3.5 ${onRowClick ? "cursor-pointer active:bg-p-panel-2" : ""}`}
           >

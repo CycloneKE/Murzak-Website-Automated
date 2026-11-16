@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import {
-  AlertTriangle, ExternalLink, FileText, Headphones, Lock, Maximize2, RotateCw, SearchX, ShieldCheck, Square, X,
+  AlertTriangle, ExternalLink, FileText, Headphones, Lock, Maximize2, Play, RotateCw, SearchX, ShieldCheck, Square, X,
 } from "lucide-react";
 import DeveloperTerminalPanel from "../../../../components/portal/DeveloperTerminalPanel";
 import ResourceAdminPanel from "../../../../components/portal/cloud/ResourceAdminPanel";
@@ -115,6 +115,7 @@ const ServicePage: React.FC = () => {
   const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
   const stopping = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "stop";
   const restarting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "restart";
+  const starting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "start";
   const restartable = isActive && sections.some((x) => x.id === "advanced");
 
   return (
@@ -202,6 +203,15 @@ const ServicePage: React.FC = () => {
               flush
               actions={
                 restartable && (
+                  <>
+                  <PButton
+                    icon={<Play className="w-4 h-4" />}
+                    loading={starting}
+                    disabled={pendingServiceAction?.id === cloudServiceId}
+                    onClick={() => handleServiceHealthAction("start", cloudServiceId)}
+                  >
+                    {starting ? "Starting…" : "Start"}
+                  </PButton>
                   <PButton
                     icon={<RotateCw className="w-4 h-4" />}
                     loading={restarting}
@@ -210,6 +220,7 @@ const ServicePage: React.FC = () => {
                   >
                     {restarting ? "Restarting…" : "Restart"}
                   </PButton>
+                  </>
                 )
               }
             >
