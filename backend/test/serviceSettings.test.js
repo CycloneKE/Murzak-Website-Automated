@@ -78,6 +78,21 @@ function script(handlers) {
     ok(d.supported && d.schedules[0].lastStatus === "success", "database schedules mapped with last status");
   }
 
+  section("listEnvs: real Coolify 4.5.3 shape");
+  {
+    script({ get: async () => ({ data: [
+      { uuid: "a", key: "NODE", is_buildtime: true, is_preview: false },
+      { uuid: "b", key: "SMOKE", is_runtime: true, is_preview: false },
+      { uuid: "c", key: "NODE", is_buildtime: true, is_preview: true },
+      { uuid: "d", key: "SMOKE", is_runtime: true, is_preview: true },
+      { uuid: "e", key: "WITH_VALUE", value: "x", is_preview: false },
+    ] }) });
+    const envs = await coolify.listEnvs("U1", { kind: "application" });
+    ok(envs.length === 3, "preview-deployment copies are dropped (each variable listed once)");
+    ok(envs[0].valueHidden === true, "no `value` field (token lacks read:sensitive) is flagged hidden, not blank");
+    ok(envs[2].valueHidden === false && envs[2].value === "x", "a returned value is kept and not hidden");
+  }
+
   axios.create = origCreate;
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

@@ -389,7 +389,8 @@ async function main() {
         data: [{ key: "SMOKE_BULK", value: "1", is_buildtime: false, is_literal: false }],
       });
       show("PATCH /envs/bulk { data: [...] }", bulk);
-      const row = ((await client.get(`/api/v1/applications/${appUuid}/envs`)).data?.data || []).find((e) => e.key === "SMOKE_BULK");
+      const envBody = (await client.get(`/api/v1/applications/${appUuid}/envs`)).data;
+      const row = (envBody?.data || envBody || []).find((e) => e.key === "SMOKE_BULK" && !e.is_preview);
       if (row?.uuid) await client.delete(`/api/v1/applications/${appUuid}/envs/${row.uuid}`);
       else console.log("SETTINGS PROBE: SMOKE_BULK not found after bulk — bulkUpsertEnvs shape is wrong.");
     } catch (e) {

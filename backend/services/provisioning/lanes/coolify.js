@@ -1712,10 +1712,17 @@ async function listEnvs(externalRef, opts) {
   const client = http(opts);
   const res = await client.get(`/api/v1/${pathRoot(opts)}/${encodeURIComponent(externalRef)}/envs`);
   const rows = res.data?.data || res.data || [];
-  return (Array.isArray(rows) ? rows : []).map((e) => ({
+  // Coolify 4.5.x lists every variable twice: once for production, once as an
+  // `is_preview` copy for preview deployments. Only the production rows are
+  // the service's real configuration (verified live 2026-11-16).
+  return (Array.isArray(rows) ? rows : []).filter((e) => !e.is_preview).map((e) => ({
     uuid: String(e.uuid || e.id || "").trim(),
     key: e.key || "",
     value: e.value ?? null,
+    // 4.5.x omits `value` entirely unless the API token carries the
+    // read:sensitive ability. Absent is not the same as empty: the caller must
+    // say "hidden", never show a blank that could be written back over the secret.
+    valueHidden: !("value" in e),
     isBuildTime: !!(e.is_buildtime ?? e.is_build_time),
     isLiteral: !!e.is_literal,
     isMultiline: !!e.is_multiline,
