@@ -2,8 +2,8 @@ import { test, expect, Page } from '@playwright/test';
 
 // Portal redesign (docs/superpowers/specs/2026-11-16-portal-coolify-inspired-
 // redesign-design.md). Every test serves its own account through an
-// intercepted /api/auth/me, so the suite does not depend on what a local
-// backend happens to hold or on DEV_AUTO_LOGIN.
+// intercepted /api/auth/me and stubs the rest of the API, so the suite needs
+// no backend session and does not depend on DEV_AUTO_LOGIN.
 
 const LONG_NAME = 'Kariuki and Daughters Wholesale Hardware Point of Sale System';
 
@@ -42,6 +42,13 @@ async function open(page: Page, path: string, body = account()) {
       localStorage.removeItem('murzak_portal_nav_collapsed');
     } catch { /* ignore */ }
   });
+  // Everything else the portal asks the API for gets a harmless empty answer.
+  // Without this, a backend with no session (CI) answers 401 and the app's
+  // session-expiry handler signs the test out mid-page.
+  await page.route('**/api/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }),
+  );
+  // Registered last, so it wins over the catch-all above.
   await page.route('**/api/auth/me', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) }),
   );
