@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Lock, RefreshCw, ShieldCheck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { ShieldCheck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Field, Panel, PButton, inputClass } from "./ui";
 import { toUserMessage } from "../../services/errors";
 
 const ChangePasswordCard: React.FC = () => {
@@ -10,9 +11,6 @@ const ChangePasswordCard: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
-  const inputCls =
-    "w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-2xl pl-11 pr-11 py-3.5 text-sm font-semibold text-murzak-ink dark:text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,76 +48,70 @@ const ChangePasswordCard: React.FC = () => {
     }
   };
 
-  return (
-    <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 p-6 sm:p-8 lg:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-lg sm:shadow-xl">
-      <h3 className="text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-8 flex items-center gap-2">
-        <Lock size={14} className="text-murzak-accent" /> Security · Change Password
-      </h3>
+  const type = show ? "text" : "password";
 
+  return (
+    <Panel
+      title="Change password"
+      actions={
+        <PButton
+          size="sm"
+          icon={show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+          onClick={() => setShow((v) => !v)}
+          aria-label={show ? "Hide passwords" : "Show passwords"}
+          aria-pressed={show}
+        >
+          {show ? "Hide" : "Show"}
+        </PButton>
+      }
+    >
       {error && (
-        <div className="mb-5 p-3.5 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl text-red-600 text-label font-bold flex items-center gap-2">
+        <p role="alert" className="mb-4 flex items-center gap-2 text-[13px] text-p-danger">
           <AlertCircle size={14} /> {error}
-        </div>
+        </p>
       )}
       {success && (
-        <div className="mb-5 p-3.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl text-emerald-600 text-label font-bold flex items-center gap-2">
+        <p role="status" className="mb-4 flex items-center gap-2 text-[13px] text-p-success">
           <ShieldCheck size={14} /> {success}
-        </div>
+        </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+        <Field label="Current password" htmlFor="pw-current">
           <input
-            type={show ? "text" : "password"}
+            id="pw-current"
+            type={type}
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            placeholder="Current password"
             autoComplete="current-password"
-            className={inputCls}
+            className={inputClass}
           />
-        </div>
-        <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+        </Field>
+        <Field label="New password" hint="At least 8 characters." htmlFor="pw-new">
           <input
-            type={show ? "text" : "password"}
+            id="pw-new"
+            type={type}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="New password (min 8 characters)"
             autoComplete="new-password"
-            className={inputCls}
+            className={inputClass}
           />
-          <button
-            type="button"
-            onClick={() => setShow((s) => !s)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-500 hover:text-murzak-accent transition"
-            aria-label={show ? "Hide passwords" : "Show passwords"}
-          >
-            {show ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        </div>
-        <div className="relative">
-          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+        </Field>
+        <Field label="Confirm new password" htmlFor="pw-confirm">
           <input
-            type={show ? "text" : "password"}
+            id="pw-confirm"
+            type={type}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
             autoComplete="new-password"
-            className={inputCls}
+            className={inputClass}
           />
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting || !currentPassword || !newPassword}
-          className="w-full bg-murzak-accent text-murzak-ink py-3.5 rounded-2xl font-black text-micro uppercase hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-        >
-          {submitting ? <RefreshCw size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-          {submitting ? "Updating..." : "Update Password"}
-        </button>
+        </Field>
+        <PButton type="submit" variant="primary" loading={submitting} disabled={!currentPassword || !newPassword}>
+          {submitting ? "Updating..." : "Update password"}
+        </PButton>
       </form>
-    </div>
+    </Panel>
   );
 };
 

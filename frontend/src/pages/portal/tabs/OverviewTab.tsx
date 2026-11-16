@@ -1,27 +1,12 @@
 import React from "react";
-import {
-  Activity,
-  AlertCircle,
-  ArrowRight,
-  CreditCard,
-  Crown,
-  DollarSign,
-  Download,
-  FileText,
-  Headphones,
-  Plus,
-  Server,
-  UploadCloud,
-  X,
-} from "lucide-react";
+import { AlertCircle, ChevronRight, Download, FileText, Headphones, Plus, Server, UploadCloud, X } from "lucide-react";
 import ActivityTimeline, { TimelineEvent } from "../../../components/portal/ActivityTimeline";
-import EmptyState from "../../../components/portal/EmptyState";
-import MetricCard from "../../../components/portal/MetricCard";
+import ResourceList from "../../../components/portal/ResourceList";
 import ResourceUtilizationCard from "../../../components/portal/ResourceUtilizationCard";
 import SecurityOverviewCard from "../../../components/portal/SecurityOverviewCard";
-import ServiceHealthCard, { ServiceHealth } from "../../../components/portal/ServiceHealthCard";
 import CompleteSetupCards from "../../../components/CompleteSetupCards";
-import { classifyActivity } from "../helpers";
+import { Empty, PageHeader, Panel, PButton, StatusPill, statusTone } from "../../../components/portal/ui";
+import { classifyActivity, servicePath } from "../helpers";
 import { usePortal } from "../PortalContext";
 import { formatKes, getService, isYearlyBilled } from "../../../config/serviceCatalog";
 
@@ -37,13 +22,13 @@ const OverviewTab: React.FC = () => {
   const {
     goToAddServices,
     handleGeneralUpload,
-    handleServiceHealthAction,
+    isTestUser,
     localInvoices,
     localUpdates,
+    navigate,
     onTabClick,
     openAddonsModal,
     buyOfferedDomain,
-    pendingServiceAction,
     provisionProgress,
     selectedServices,
     serviceActionNotice,
@@ -56,54 +41,38 @@ const OverviewTab: React.FC = () => {
     user,
   } = usePortal();
 
-  // Provisioning view unchanged (kept, trimmed)
+  const firstName = (user.name || "there").split(" ")[0];
+
   if (user.accountStatus === "Provisioning" && provisionProgress < 100) {
     return (
-      <div className="space-y-12 animate-fade-in">
-        <div className="bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-2xl lg:backdrop-blur-3xl shadow-lg sm:shadow-2xl lg:shadow-3xl p-6 sm:p-10 lg:p-16 rounded-[2.25rem] sm:rounded-[3rem] lg:rounded-[4rem] border border-slate-100 dark:border-murzak-border/50 relative overflow-hidden">
-          <div className="max-w-4xl relative z-10">
-            <div className="inline-flex items-center gap-3 bg-murzak-accent/10 text-murzak-accent px-4 py-2 rounded-full border border-murzak-accent/20 mb-8">
-              <Activity className="w-4 h-4 animate-pulse" />
-              <span className="text-micro font-black uppercase">Live Launch Progress</span>
-            </div>
-
-            <h2 className="text-xl sm:text-2xl sm:leading-(--text-2xl--line-height) lg:text-3xl lg:leading-(--text-3xl--line-height) font-[900] tracking-tighter uppercase leading-[0.9] mb-4">
-              Setting up <br />
-              <span className="text-murzak-accent">Your System.</span>
-            </h2>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-micro font-black uppercase text-murzak-accent">
-                  Preparing...
-                </span>
-                <span className="text-2xl sm:text-4xl lg:text-5xl font-[900] tracking-tighter">
-                  {provisionProgress}%
-                </span>
-              </div>
-              <div className="h-4 w-full bg-slate-100 dark:bg-black/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-murzak-accent transition-all duration-500 ease-out"
-                  style={{ width: `${provisionProgress}%` }}
-                />
-              </div>
-            </div>
+      <div>
+        <PageHeader title="Setting up your system" description="This usually takes a few minutes. You can leave this page open." />
+        <Panel>
+          <div className="flex items-end justify-between mb-2">
+            <span className="text-sm text-p-muted">Preparing…</span>
+            <span className="text-2xl font-semibold tabular-nums">{provisionProgress}%</span>
           </div>
-        </div>
+          <div
+            className="h-2 w-full bg-p-panel-2 rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={provisionProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="h-full bg-p-accent transition-all duration-500 ease-out" style={{ width: `${provisionProgress}%` }} />
+          </div>
+        </Panel>
       </div>
     );
   }
 
-  const onlineServiceCount = selectedServices.filter(s => s.status === 'Active').length;
-  const hasDegradedService = selectedServices.some(s => s.status !== 'Active' && s.status !== 'Setting up');
+  const onlineServiceCount = selectedServices.filter((s) => s.status === "Active").length;
   // Sums every currently Active service's real catalog price — NOT
   // localInvoices[0]?.amount, which only ever read the FIRST invoice ever
-  // issued. An account that adds a second service (an add-on invoice, not a
-  // new "subscription" invoice) kept showing only its original signup total
-  // forever. Uses the same 'Active' predicate as onlineServiceCount above so
+  // issued. Uses the same 'Active' predicate as onlineServiceCount above so
   // the two numbers never disagree about what's actually running.
   const monthlySpendKes = selectedServices
-    .filter(s => s.status === 'Active')
+    .filter((s) => s.status === "Active")
     .reduce((sum, s) => sum + (getService(s.serviceId)?.pricing.monthlyKes || 0), 0);
 
   // Next-invoice estimate uses the same 30-day billing cycle the backend
@@ -113,69 +82,46 @@ const OverviewTab: React.FC = () => {
   function nextInvoiceLabel(): string {
     const latest = localInvoices[0];
     if (!latest) return "—";
-    if (latest.status === "Unpaid" || latest.status === "Overdue") return "Due Now";
+    if (latest.status === "Unpaid" || latest.status === "Overdue") return "Due now";
     const paidDate = new Date(latest.date);
     if (Number.isNaN(paidDate.getTime())) return "—";
     const daysSincePaid = Math.floor((Date.now() - paidDate.getTime()) / 86400000);
     const daysRemaining = Math.max(0, 30 - daysSincePaid);
-    return daysRemaining === 0 ? "Due Now" : `${daysRemaining} Days`;
+    return daysRemaining === 0 ? "Due now" : `In ${daysRemaining} days`;
   }
+  const nextInvoice = nextInvoiceLabel();
 
-  const metricCards = [
+  const stats: { label: string; value: React.ReactNode; action?: { label: string; onClick: () => void } }[] = [
+    { label: "Services running", value: selectedServices.length ? `${onlineServiceCount} of ${selectedServices.length}` : "0" },
+    { label: "Monthly cost", value: `KES ${monthlySpendKes.toLocaleString()}` },
     {
-      title: "Active Services",
-      value: onlineServiceCount,
-      icon: <Server size={20} />
+      label: "Next invoice",
+      value: nextInvoice,
+      action: nextInvoice === "Due now" ? { label: "Pay now", onClick: () => onTabClick("billing") } : undefined,
     },
-    {
-      title: "Monthly Spend",
-      value: `KES ${monthlySpendKes.toLocaleString()}`,
-      icon: <DollarSign size={20} />
-    },
-    {
-      title: "Service Status",
-      value: selectedServices.length ? `${onlineServiceCount}/${selectedServices.length} Online` : "—",
-      icon: <Activity size={20} />,
-      trend: selectedServices.length ? (hasDegradedService ? "Attention needed" : "Healthy") : undefined,
-      trendUp: !hasDegradedService
-    },
-    {
-      title: "Next Invoice",
-      value: nextInvoiceLabel(),
-      icon: <CreditCard size={20} />,
-      actionLabel: nextInvoiceLabel() === "Due Now" ? "Pay Now" : undefined,
-      onAction: nextInvoiceLabel() === "Due Now" ? () => onTabClick("billing") : undefined
-    }
   ];
 
-  const timelineEvents: TimelineEvent[] = localUpdates.slice(0, 5).map((u, i) => ({
+  // Anything that isn't simply running: unpaid, still being set up, or stopped.
+  const needsAttention = selectedServices.filter((s) => s.status !== "Active");
+
+  const timelineEvents: TimelineEvent[] = localUpdates.slice(0, 5).map((u) => ({
     id: u.id,
     type: classifyActivity(u),
     title: u.engineer,
     description: u.content,
     timestamp: "Recent",
-    status: "success"
+    status: "success",
   }));
-  
-  // Add a default welcome event if none
   if (timelineEvents.length === 0) {
     timelineEvents.push({
       id: "welcome",
       type: "account",
-      title: "Account Created",
+      title: "Account created",
       description: "Welcome to Murzak Technologies. Your account is ready.",
       timestamp: "Just now",
-      status: "success"
+      status: "success",
     });
   }
-
-  const healthServices: ServiceHealth[] = selectedServices.map(s => ({
-    id: s.serviceId,
-    name: s.name,
-    type: s.category || "Service",
-    status: s.status === "Active" ? "online" : s.status === "Setting up" ? "provisioning" : "warning",
-    capacityClass: s.capacityClass,
-  }));
 
   // Resolved from the catalog every render (not hardcoded) so a suggestion
   // can never show a stale name/price if the catalog changes; filters out
@@ -184,131 +130,129 @@ const OverviewTab: React.FC = () => {
     .map((id) => getService(id))
     .filter((svc): svc is NonNullable<ReturnType<typeof getService>> => Boolean(svc));
 
+  const openService = (id: string) => {
+    const svc = selectedServices.find((s) => s.serviceId === id);
+    navigate(svc?.status === "Awaiting Payment" ? "/portal/billing" : servicePath(id));
+  };
+
   return (
-    <div className="space-y-8 animate-fade-in pb-12">
-      {/* Status band — the persistent page header already renders the "Welcome
-          back" greeting, so this strip focuses on live status + quick actions
-          instead of repeating it. */}
-      <div className="glass-card rounded-4xl sm:rounded-[2.5rem] p-6 sm:p-8 relative overflow-hidden group border border-murzak-border">
-        <div className="absolute inset-0 bg-linear-to-r from-murzak-brand1/90 via-murzak-brand2/80 to-murzak-accent/70 dark:from-murzak-brand1/45 dark:via-murzak-brand2/30 dark:to-murzak-accent/15"></div>
-        <div className="absolute right-0 top-0 w-1/2 h-full opacity-25 bg-[url('/portal-hero-bg.webp')] bg-cover mix-blend-overlay blur-xs transition-transform duration-1000 group-hover:scale-105"></div>
+    <div className="space-y-5">
+      <PageHeader
+        title={`Welcome back, ${firstName}`}
+        description={[user.company, isTestUser ? "Free trial" : `${user.plan} plan`].filter(Boolean).join(" · ")}
+        actions={
+          <>
+            <PButton icon={<Headphones className="w-4 h-4" />} onClick={() => setIsContactOpen(true)}>
+              Get help
+            </PButton>
+            <PButton variant="primary" icon={<Plus className="w-4 h-4" />} onClick={() => openAddonsModal("overview")}>
+              Add a service
+            </PButton>
+          </>
+        }
+      />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-black/25 rounded-full border border-white/25 backdrop-blur-md">
-              <Crown className="w-4 h-4 text-white" />
-              <span className="text-micro font-black uppercase text-white">
-                {user.plan} Plan
-              </span>
-            </div>
-            <p className="text-body font-bold text-white">
-              {selectedServices.length === 0
-                ? "No services deployed yet"
-                : hasDegradedService
-                  ? `${onlineServiceCount}/${selectedServices.length} services online, some need attention`
-                  : `${onlineServiceCount}/${selectedServices.length} services online, all healthy`}
-            </p>
+      <dl className="grid grid-cols-1 sm:grid-cols-3 rounded-lg border border-p-border bg-p-panel divide-y sm:divide-y-0 sm:divide-x divide-p-border">
+        {stats.map((s) => (
+          <div key={s.label} className="px-4 sm:px-5 py-3.5">
+            <dt className="text-[13px] text-p-muted">{s.label}</dt>
+            <dd className="mt-1 flex items-center gap-3">
+              <span className="text-lg font-semibold tabular-nums text-p-text">{s.value}</span>
+              {s.action && (
+                <PButton size="sm" variant="primary" onClick={s.action.onClick}>{s.action.label}</PButton>
+              )}
+            </dd>
           </div>
-
-          <div className="flex flex-wrap gap-3">
-            {healthServices.filter(s => s.status === 'online').slice(0, 2).map((s) => (
-              <button
-                key={`quick-${s.id}`}
-                onClick={() => onTabClick("cloud")}
-                className="px-5 py-3 rounded-2xl bg-white text-murzak-ink font-black text-micro uppercase border border-white hover:bg-murzak-accent hover:border-murzak-accent hover:shadow-[0_0_20px_rgba(0,189,252,0.4)] hover:scale-105 transition-all flex items-center gap-2 backdrop-blur-md"
-              >
-                <ArrowRight className="w-4 h-4" /> Open {s.name.split(' ')[0]}
-              </button>
-            ))}
-            <button onClick={() => setIsContactOpen(true)} className="px-5 py-3 rounded-2xl bg-black/20 text-white font-black text-micro uppercase border border-white/40 hover:bg-black/30 transition-all flex items-center gap-2 backdrop-blur-md">
-              <Headphones className="w-4 h-4" /> Get Support
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Metric Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {metricCards.map((metric, i) => (
-          <MetricCard key={i} {...metric} />
         ))}
-      </div>
-
-      <CompleteSetupCards onChoose={(serviceId) => openAddonsModal("overview", serviceId)} onChooseDomain={buyOfferedDomain} />
+      </dl>
 
       {serviceActionNotice && (
-        <div className={`px-6 py-4 rounded-2xl border text-label font-bold flex items-center justify-between gap-4 ${
-          serviceActionNotice.type === "success"
-            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-            : "bg-red-500/10 border-red-500/20 text-red-400"
-        }`}>
+        <div
+          role="status"
+          className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+            serviceActionNotice.type === "success"
+              ? "border-p-success/40 bg-p-success-soft text-p-text"
+              : "border-p-danger/40 bg-p-danger-soft text-p-text"
+          }`}
+        >
           <span>{serviceActionNotice.text}</span>
-          <button onClick={() => setServiceActionNotice(null)} className="opacity-70 hover:opacity-100">
+          <button type="button" aria-label="Dismiss" onClick={() => setServiceActionNotice(null)} className="p-1 rounded-md text-p-muted hover:text-p-text">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Dashboard Area */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* System Health */}
-          <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">System Health</h3>
-                <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Live status of your active infrastructure</p>
-              </div>
-              <button onClick={() => onTabClick("cloud")} className="text-murzak-accent hover:text-murzak-ink dark:hover:text-slate-100 transition-colors p-2">
-                <ArrowRight size={20} />
-              </button>
-            </div>
+      {needsAttention.length > 0 && (
+        <Panel title="Needs your attention" flush>
+          <ul className="divide-y divide-p-border">
+            {needsAttention.map((s) => (
+              <li key={s.serviceId}>
+                <button
+                  type="button"
+                  onClick={() => openService(s.serviceId)}
+                  className="w-full flex items-center gap-3 px-4 sm:px-5 py-3 text-left hover:bg-p-panel-2"
+                >
+                  <span className="min-w-0 grow">
+                    <span className="block text-sm font-medium text-p-text truncate">{s.name}</span>
+                    <span className="block text-[13px] text-p-muted">
+                      {s.status === "Awaiting Payment"
+                        ? "Pay its invoice to start it."
+                        : s.status === "Setting up"
+                          ? "We're setting this up. Nothing for you to do."
+                          : "Open it to see what's needed."}
+                    </span>
+                  </span>
+                  <StatusPill tone={statusTone(s.status)}>{s.status === "Awaiting Payment" ? "Awaiting payment" : s.status}</StatusPill>
+                  <ChevronRight className="w-4 h-4 shrink-0 text-p-muted" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
-            {healthServices.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {healthServices.map(service => (
-                  <ServiceHealthCard
-                    key={service.id}
-                    service={service}
-                    onAction={handleServiceHealthAction}
-                    pendingAction={pendingServiceAction?.id === service.id ? pendingServiceAction.action : null}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 rounded-4xl border border-dashed border-murzak-border bg-black/5">
-                <Server className="w-8 h-8 text-slate-500 mx-auto mb-4" />
-                <p className="text-label font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 mb-2">No Active Services</p>
-                <p className="text-micro text-slate-600 dark:text-slate-400 max-w-xs mx-auto mb-6">Your account is ready. Here's what you can add.</p>
+      <CompleteSetupCards onChoose={(serviceId) => openAddonsModal("overview", serviceId)} onChooseDomain={buyOfferedDomain} />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 space-y-5 min-w-0">
+          {selectedServices.length > 0 ? (
+            <ResourceList title="Your services" services={selectedServices} onSelect={openService} />
+          ) : (
+            <Panel title="Your services">
+              <div className="text-center py-6">
+                <div className="w-10 h-10 mx-auto mb-3 rounded-md border border-p-border bg-p-panel-2 text-p-muted flex items-center justify-center">
+                  <Server className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-semibold text-p-text">No Active Services</p>
+                <p className="mt-1 text-[13px] text-p-muted">Your account is ready. Here's what you can add.</p>
 
                 {emptyStateSuggestions.length > 0 && (
-                  <div className="flex flex-wrap items-stretch justify-center gap-3 max-w-2xl mx-auto mb-6">
+                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
                     {emptyStateSuggestions.map((svc) => (
                       <button
                         key={svc.id}
                         type="button"
                         onClick={goToAddServices}
                         title={svc.description}
-                        className="flex-1 min-w-[150px] max-w-[220px] text-left px-5 py-4 rounded-2xl bg-white/80 dark:bg-white/5 border border-murzak-border hover:border-murzak-accent/50 hover:scale-[1.02] transition-all"
+                        className="text-left px-4 py-3 rounded-lg border border-p-border bg-p-panel hover:border-p-accent"
                       >
-                        <p className="text-micro font-black uppercase tracking-wide text-murzak-ink dark:text-slate-100 truncate">{svc.name}</p>
-                        <p className="text-micro font-bold text-murzak-accent mt-1.5">
+                        <span className="block text-sm font-medium text-p-text truncate">{svc.name}</span>
+                        <span className="block text-[13px] text-p-accent-text mt-0.5">
                           {formatKes(svc.pricing.monthlyKes)}{svc.pricing.monthlyKes != null ? (isYearlyBilled(svc) ? "/yr" : "/mo") : ""}
-                        </p>
+                        </span>
                       </button>
                     ))}
                   </div>
                 )}
 
-                <button onClick={goToAddServices} className="px-6 py-3 rounded-xl bg-murzak-accent text-murzak-ink font-black text-micro uppercase hover:scale-105 transition-all inline-flex items-center gap-2">
-                  <Plus className="w-4 h-4" /> Browse All Services
-                </button>
+                <PButton variant="primary" icon={<Plus className="w-4 h-4" />} onClick={goToAddServices} className="mt-5">
+                  Browse all services
+                </PButton>
               </div>
-            )}
-          </div>
+            </Panel>
+          )}
 
-          {/* New Insights Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <SecurityOverviewCard />
             <ResourceUtilizationCard
               diskUsagePercent={serviceUsage.diskUsagePercent}
@@ -316,19 +260,16 @@ const OverviewTab: React.FC = () => {
             />
           </div>
 
-          {/* General Upload */}
-          <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100">Project Files</h3>
-                <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Upload assets for engineers</p>
-              </div>
-              <label className="cursor-pointer px-4 py-2 rounded-xl bg-black/5 hover:bg-white/20 text-murzak-ink dark:text-slate-100 font-black text-micro uppercase transition-all inline-flex items-center gap-2">
+          <Panel
+            title="Project files"
+            description="Share briefs, logos or documents with our engineers."
+            actions={
+              <label className="p-tap cursor-pointer inline-flex items-center gap-2 rounded-md border border-p-border bg-p-panel px-3.5 text-sm font-medium text-p-text hover:bg-p-panel-2 has-focus-visible:outline-2 has-focus-visible:outline-p-accent">
                 <UploadCloud className="w-4 h-4" />
                 {uploading ? "Uploading..." : "Upload"}
                 <input
                   type="file"
-                  className="hidden"
+                  className="sr-only"
                   disabled={uploading}
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -338,49 +279,42 @@ const OverviewTab: React.FC = () => {
                   }}
                 />
               </label>
-            </div>
-            
+            }
+          >
             {uploadErr && (
-              <div className="mb-4 text-micro font-black uppercase text-red-400 flex items-center gap-2">
+              <p role="alert" className="mb-3 text-[13px] text-p-danger flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" /> {uploadErr}
-              </div>
+              </p>
             )}
-
             {uploadedFiles.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {uploadedFiles.map((f) => (
-                  <a
-                    key={f.url}
-                    href={`/api/portal/files?url=${encodeURIComponent(f.url)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="glass-card p-3 rounded-xl flex items-center gap-2 hover:border-murzak-accent/50 transition-colors group"
-                  >
-                    <div className="p-2 bg-black/5 rounded-lg group-hover:bg-murzak-accent/10 group-hover:text-murzak-accent transition-colors">
-                      <Download size={14} />
-                    </div>
-                    <span className="text-micro font-bold text-slate-600 dark:text-slate-400 truncate">{f.name}</span>
-                  </a>
+                  <li key={f.url}>
+                    <a
+                      href={`/api/portal/files?url=${encodeURIComponent(f.url)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 rounded-md border border-p-border px-3 py-2 text-sm text-p-text hover:bg-p-panel-2"
+                    >
+                      <Download className="w-4 h-4 shrink-0 text-p-muted" />
+                      <span className="truncate">{f.name}</span>
+                    </a>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
-              <EmptyState
-                icon={<FileText size={22} />}
+              <Empty
+                icon={<FileText />}
                 title="No files uploaded yet"
-                description="Share configs, briefs, or credentials docs with your engineers. Uploads stay attached to your account."
+                description="Uploads stay attached to your account."
               />
             )}
-          </div>
+          </Panel>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-8">
-          {/* Activity Timeline */}
-          <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full">
-            <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-slate-100 mb-8">Activity Hub</h3>
-            <ActivityTimeline events={timelineEvents} />
-          </div>
-        </div>
+        <Panel title="Recent activity" className="self-start">
+          <ActivityTimeline events={timelineEvents} />
+        </Panel>
       </div>
     </div>
   );

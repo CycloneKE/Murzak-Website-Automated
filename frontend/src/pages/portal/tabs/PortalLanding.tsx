@@ -17,7 +17,7 @@ const PortalLanding: React.FC = () => {
 
   const only = resources[0];
   if (only.status === "Awaiting Payment") return <Navigate to="billing" replace />;
-  return <Navigate to={`cloud?service=${encodeURIComponent(only.serviceId)}`} replace />;
+  return <Navigate to={`cloud/${encodeURIComponent(only.serviceId)}`} replace />;
 };
 
 export default PortalLanding;
