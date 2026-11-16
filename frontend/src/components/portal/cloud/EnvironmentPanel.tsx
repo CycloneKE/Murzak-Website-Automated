@@ -159,7 +159,7 @@ const EnvironmentPanel: React.FC<Props> = ({ serviceId }) => {
             <p className="text-[13px] text-p-muted">
               One <code className="font-mono">NAME=value</code> per line. Saving adds new variables and updates
               existing ones; it never deletes. Remove a variable from the table view.
-              {hiddenCount > 0 && ` ${hiddenCount} write-only secret${hiddenCount === 1 ? " is" : "s are"} not shown here and stay as they are.`}
+              {hiddenCount > 0 && ` ${hiddenCount} hidden value${hiddenCount === 1 ? " is" : "s are"} not shown here and stay as they are.`}
             </p>
             <textarea
               aria-label="Environment variables as text"
@@ -198,7 +198,7 @@ const EnvironmentPanel: React.FC<Props> = ({ serviceId }) => {
                     <code className="text-[13px] font-medium text-p-text shrink-0 max-w-[40%] truncate">{env.key}</code>
                     <code className="text-[13px] text-p-muted truncate grow">
                       {env.redacted
-                        ? "write-only"
+                        ? "hidden"
                         : revealed[env.key]
                           ? env.value ?? ""
                           : "•".repeat(Math.min(12, (env.value || "").length) || 4)}

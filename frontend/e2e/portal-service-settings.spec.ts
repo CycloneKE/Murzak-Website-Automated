@@ -98,13 +98,13 @@ test.describe('Service settings sections', () => {
   test('environment: table hides secrets, Developer view round-trips as text', async ({ page }) => {
     const calls = await open(page, '/environment');
     await expect(page.getByText('API_URL', { exact: true })).toBeVisible();
-    await expect(page.getByText('write-only')).toBeVisible();
+    await expect(page.getByText('hidden', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Show STRIPE_SECRET')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Developer view' }).click();
     const editor = page.getByLabel('Environment variables as text');
     await expect(editor).toHaveValue('API_URL=https://api.example.com');
-    await expect(page.getByText(/1 write-only secret is not shown/)).toBeVisible();
+    await expect(page.getByText(/1 hidden value is not shown/)).toBeVisible();
 
     await editor.fill('API_URL=https://api.example.com\nNEW_FLAG=on');
     await page.getByRole('button', { name: 'Save all' }).click();

@@ -1583,7 +1583,7 @@ router.get("/api/portal/services/:serviceId/envs", requireAuth, async (req, res)
     // account that set it — that's the entire meaning of is_shown_once.
     return res.json({
       ok: true,
-      envs: envs.map((e) => (e.isShownOnce ? { ...e, value: null, redacted: true } : { ...e, redacted: false })),
+      envs: envs.map((e) => (e.isShownOnce || e.valueHidden ? { ...e, value: null, redacted: true } : { ...e, redacted: false })),
     });
   } catch (err) {
     console.error("ENV LIST ERROR:", err.response?.data || err.message);
