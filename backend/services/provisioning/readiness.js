@@ -16,6 +16,7 @@ const { CLAIMABLE_JOB_FIELDS } = require("./runner");
 const coolify = require("./lanes/coolify");
 const bench = require("./lanes/bench");
 const backups = require("./backups");
+const dbBackup = require("./dbBackup");
 const edge = require("./edge");
 const targets = require("./targets");
 const queue = require("./queue");
@@ -232,6 +233,12 @@ async function getReadiness(client) {
   // --- Hardening / upsell (optional) ---
   add("backups", "Off-site backups (BACKUP_CONFIG_CMD)", backups.isConfigured(), "optional",
     backups.isConfigured() ? "" : "tenants record backup_status=skipped");
+  // Customer databases (coolify lane) are backed up through Coolify itself, to the S3
+  // destination named here. Conditional once the Coolify lane is in use for real: a
+  // database sold without it runs with no off-server copy.
+  add("db_backups", "Customer database backups (COOLIFY_DB_BACKUP_S3_UUID)", dbBackup.isConfigured(),
+    runnerOn && coolOk && !mockOn ? "conditional" : "optional",
+    dbBackup.isConfigured() ? "" : "not set: databases are handed over with no off-server backup (job shows backup: skipped)");
   add("edge", "Per-tenant edge / WAF (EDGE_CONFIG_CMD)", edge.isConfigured(), "optional",
     edge.isConfigured() ? "" : "tenants record edge_status=skipped");
   const autoscale = flag("PROVISIONING_AUTOSCALE") && !!process.env.HOSTINGER_API_TOKEN;

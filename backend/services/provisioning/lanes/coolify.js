@@ -20,6 +20,7 @@ const crypto = require("crypto");
 const { CAPACITY } = require("../catalog");
 const appDomain = require("../appDomain");
 const { CLOUD_APPS, adminEmailFor } = require("./cloudApps");
+const dbBackup = require("../dbBackup");
 
 // Server-wide budget (from the generated catalog snapshot: KVM 2 = 2 vCPU /
 // 6.4GB sellable). Used to derive a proportional CPU quota per container.
@@ -1407,6 +1408,11 @@ async function provision(job, opts) {
     const uuid = existing.uuid || existing.id || name;
     const status = await ensureServiceRunning(client, uuid);
     const url = await attachServiceUrl(client, uuid, job, name);
+    // A database that was created before the crash still needs its backup scheduled.
+    const recoveredDb = DB_ENGINE_CONFIG[job.service_id];
+    const recoveredBackup = recoveredDb
+      ? await dbBackup.ensureDatabaseBackup(client, { serviceUuid: String(uuid), volumePath: recoveredDb.volumePath })
+      : null;
     return {
       externalRef: String(uuid),
       access: {
@@ -1417,7 +1423,8 @@ async function provision(job, opts) {
         manageUrl: c.baseUrl.replace(/\/+$/, ""),
         uuid: String(uuid),
       },
-      log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}`,
+      ...(recoveredBackup ? { backup: recoveredBackup } : {}),
+      log: `coolify: recovered existing service "${name}" (uuid=${uuid}, status=${status}) url=${url || "(pending)"} on ${opts?.target?.id || "box-1"}${recoveredBackup ? ` backup=${recoveredBackup.status}` : ""}`,
     };
   }
 
@@ -1533,6 +1540,13 @@ async function provision(job, opts) {
   // Creation only registers the compose stack (see ensureServiceRunning) — it
   // must actually be running before this job is ever reported active.
   const status = await ensureServiceRunning(client, uuid);
+  // A customer's database holds their data, so its off-server backup is
+  // scheduled now, while this lane holds the resource. Best-effort (never
+  // throws): the outcome is recorded on the job as backup_status, and
+  // dbBackupSweep.js retries a failure. See services/provisioning/dbBackup.js.
+  const backup = dbConfig
+    ? await dbBackup.ensureDatabaseBackup(client, { serviceUuid: String(uuid), volumePath: dbConfig.volumePath })
+    : null;
   // A database is not an HTTP app — attaching a domain would try to route SQL
   // traffic through Coolify's HTTP reverse proxy, which makes no sense. Real
   // external ("remote") access is phase 2 (see the design doc); skip entirely
@@ -1566,14 +1580,37 @@ async function provision(job, opts) {
         : {}),
       ...(curatedCtx && curatedAppConfig.accessDetails ? curatedAppConfig.accessDetails(curatedCtx, job) : {}),
     },
+    ...(backup ? { backup } : {}),
     // NOTE: disk is intentionally absent — Coolify's /api/v1/services has no
     // disk-quota field (storage_opt 422s), so limits.diskGb is a billing/
     // catalog figure only, not an enforced container bound on this lane.
     // NOTE: dbPassword is intentionally never interpolated into this log
     // string — it lives only in `access`, which the connection-details route
     // (not the build log) is the sole path back to the customer.
-    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status})${dbConfig ? ` engine=${dbConfig.engine}` : ` url=${url || "(pending)"}`} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
+    log: `coolify: created service "${name}" (uuid=${uuid}, status=${status})${dbConfig ? ` engine=${dbConfig.engine} backup=${backup.status}${backup.status === "configured" ? "" : ` (${backup.detail})`}` : ` url=${url || "(pending)"}`} mem=${limits.ramMb}M cpus=${limits.cpus} pids=${limits.pidsLimit} caps=drop-all on ${opts?.target?.id || "box-1"}`,
   };
+}
+
+/**
+ * Schedule (or re-check) the off-server backup of an already-provisioned
+ * customer database. Idempotent: Coolify replaces the schedule of a volume.
+ * Used by the retry sweep (dbBackupSweep.js). Never throws.
+ *
+ * @param externalRef  the Coolify service uuid (the job's external_ref)
+ * @param serviceId    the catalogue id, e.g. "db-postgres"
+ */
+async function ensureDatabaseBackup(externalRef, serviceId, opts) {
+  const dbConfig = DB_ENGINE_CONFIG[serviceId];
+  if (!dbConfig) return { status: "skipped", detail: `${serviceId} is not a database product` };
+  return dbBackup.ensureDatabaseBackup(http(opts), {
+    serviceUuid: String(externalRef || ""),
+    volumePath: dbConfig.volumePath,
+  });
+}
+
+/** True for the catalogue ids this lane deploys as a database. */
+function isDatabaseService(serviceId) {
+  return !!DB_ENGINE_CONFIG[serviceId];
 }
 
 /**
@@ -1800,6 +1837,8 @@ module.exports = {
   resourceLimits,
   generateRandomSecret,
   generateLaravelAppKey,
+  ensureDatabaseBackup,
+  isDatabaseService,
   buildCuratedAppComposeYaml,
   buildMultiServiceComposeYaml,
   __test_invoiceNinjaConfig: CURATED_APP_CONFIG["starter-invoicing"],
