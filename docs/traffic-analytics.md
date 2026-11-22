@@ -11,8 +11,10 @@ shows zeros that could be mistaken for "no traffic".
 ## How it works
 
 ```
-Traefik (Coolify proxy) --writes--> access.log (JSON, on the host)
-                                        |  mounted read-only
+Traefik (Coolify proxy) --writes--> /data/coolify/proxy/access.log (JSON)
+                                        |  copied each minute (cron, newest 8 MB)
+                                        v  /data/coolify/proxy/logs/access.log
+                                        |  mounted into the backend
                                         v
 Backend  GET /api/portal/services/:serviceId/analytics?range=24h|7d|30d
    1. checks the caller owns the service
@@ -28,70 +30,49 @@ to count unique visitors in memory; they are never stored or returned.
 
 ## Switching it on
 
-These steps change the production proxy and the backend app. Do them on the
-box, one at a time, and check each before moving on. Restarting the proxy
-interrupts every site for a few seconds, so pick a quiet moment.
+Coolify 4.5.x already writes a JSON access log of its own, so the proxy needs
+**no change**. It writes `/data/coolify/proxy/access.log`, keeps the User-Agent,
+Referer, X-Forwarded-For and Cf-* headers, and its `coolify-proxy-logrotate`
+container trims the file at 20 MB and keeps five compressed copies.
 
-1. **Create a folder just for the log** (on the server, over SSH):
+Do not edit the proxy configuration for this. A malformed `command:` list can
+stop the proxy and take every site down.
 
-   ```bash
-   sudo mkdir -p /data/coolify/proxy/logs
-   ```
+That folder also holds the Let's Encrypt certificate keys (`acme.json`), which
+must never be visible to the backend. So a small job copies the newest part of
+the log into a folder of its own, and only that folder is given to the backend.
 
-   Use a separate folder on purpose. `/data/coolify/proxy` also holds the
-   Let's Encrypt certificate keys (`acme.json`), which must never be visible to
-   the backend. Confirm the folder mapping first; the line for the proxy folder
-   should read `/data/coolify/proxy -> /traefik`:
-
-   ```bash
-   docker inspect coolify-proxy --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
-   ```
-
-2. **Turn on JSON access logging in Traefik.** In Coolify open Servers, your
-   server, Proxy, Configuration. Add these lines to the proxy `command:` list,
-   save, then restart the proxy:
-
-   ```
-   --accesslog=true
-   --accesslog.format=json
-   --accesslog.filepath=/traefik/logs/access.log
-   --accesslog.fields.headers.names.User-Agent=keep
-   --accesslog.fields.headers.names.Referer=keep
-   --accesslog.fields.headers.names.X-Real-Ip=keep
-   --accesslog.fields.headers.names.X-Forwarded-For=keep
-   ```
-
-   The User-Agent and Referer lines are optional. Without them the Browsers,
-   Operating systems, AI agents, Device type and Referrers panels stay empty.
-
-3. **Check the log is being written:**
+1. **Create the copy folder** on the server:
 
    ```bash
+   mkdir -p /data/coolify/proxy/logs
+   ```
+
+2. **Add the copy job.** Run this as one paste, from `tee` to the final `EOF`.
+   The quotes around `'EOF'` matter: without them the shell treats each `*` as
+   "all files in this folder" and runs something else entirely.
+
+   ```bash
+   tee /etc/cron.d/murzak-proxy-log > /dev/null <<'EOF'
+   * * * * * root tail -c 8388608 /data/coolify/proxy/access.log > /data/coolify/proxy/logs/access.log.tmp && chmod 644 /data/coolify/proxy/logs/access.log.tmp && mv -f /data/coolify/proxy/logs/access.log.tmp /data/coolify/proxy/logs/access.log
+   EOF
+   ```
+
+   Once a minute it copies the last 8 MB of the log into the new folder, and
+   swaps the copy in whole so the backend never reads a half-written file. It
+   keeps working through Coolify's rotation.
+
+3. **Check it** (after a minute):
+
+   ```bash
+   systemctl is-active cron
    ls -l /data/coolify/proxy/logs/access.log
-   tail -n 2 /data/coolify/proxy/logs/access.log
    ```
 
-   The file must be readable by everyone (`-rw-r--r--`), because the backend
-   runs as a non-root user.
+   The service should say `active` and the file should be `-rw-r--r--` with a
+   size above 0. The backend runs as a non-root user and needs to read it.
 
-4. **Rotate the log.** Traefik never trims its own log. Create
-   `/etc/logrotate.d/traefik-access` containing:
-
-   ```
-   /data/coolify/proxy/logs/access.log {
-     weekly
-     rotate 4
-     compress
-     missingok
-     notifempty
-     copytruncate
-   }
-   ```
-
-   `copytruncate` empties the file in place, so Traefik needs no restart and
-   the backend's view of the file stays valid.
-
-5. **Give the backend the folder.** In Coolify open the backend app, Persistent
+4. **Give the backend the folder.** In Coolify open the backend app, Persistent
    Storage, add a directory mount: source `/data/coolify/proxy/logs`,
    destination `/var/log/traefik`. Under Environment Variables add:
 
@@ -103,7 +84,7 @@ interrupts every site for a few seconds, so pick a quiet moment.
 
    Then redeploy. Environment changes do not reach a running container.
 
-6. **Check it in the portal.** Open a customer service that has a domain,
+5. **Check it in the portal.** Open a customer service that has a domain,
    visit that domain a few times, then open Analytics and press Refresh.
 
 If the path is set but the file can't be read, the section says "Traffic data is
@@ -112,14 +93,15 @@ temporarily unavailable" and the backend logs `ANALYTICS ERROR`.
 ## Known limits to check on the real server
 
 - **Visitor addresses.** nginx sits in front of Traefik, so Traefik's own
-  `ClientHost` is probably nginx's address, not the visitor's. Until the log is
-  checked, "Unique visitors" may read as 1 or 2. Look at one log line: if
-  `request_X-Real-Ip` (set by nginx from the real visitor address) is present,
-  the aggregation should use it. Confirm the field name on the server before
-  changing the code.
-- **Long ranges.** Only the newest 16 MB of the log is read, and the log
-  rotates weekly. The 7 and 30 day views will often be partial; the portal says
-  so when that happens. Fixing that properly means storing daily totals.
+  `ClientHost` is probably nginx's address, not the visitor's. Until a real log
+  line is checked, "Unique visitors" may read as 1 or 2. The log keeps
+  `request_X-Forwarded-For` and, behind Cloudflare, `request_Cf-Connecting-Ip`;
+  the aggregation should use whichever holds the real visitor. Confirm the field
+  on the server before changing the code.
+- **Long ranges.** The copy holds the newest 8 MB and the log itself is trimmed
+  at 20 MB. At low traffic that is days of history; at high traffic the 7 and 30
+  day views will be partial, and the portal says so. Fixing that properly means
+  storing daily totals.
 
 ## What is deliberately not there
 
