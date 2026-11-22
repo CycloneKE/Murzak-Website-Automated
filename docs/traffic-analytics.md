@@ -28,45 +28,98 @@ to count unique visitors in memory; they are never stored or returned.
 
 ## Switching it on
 
-These steps change the production proxy and the backend container. Do them on
-the box, and verify each one before moving on.
+These steps change the production proxy and the backend app. Do them on the
+box, one at a time, and check each before moving on. Restarting the proxy
+interrupts every site for a few seconds, so pick a quiet moment.
 
-1. **Turn on JSON access logging in Traefik.** In Coolify, open the server's
-   proxy configuration and add these flags to the proxy `command:` list, then
-   restart the proxy:
+1. **Create a folder just for the log** (on the server, over SSH):
+
+   ```bash
+   sudo mkdir -p /data/coolify/proxy/logs
+   ```
+
+   Use a separate folder on purpose. `/data/coolify/proxy` also holds the
+   Let's Encrypt certificate keys (`acme.json`), which must never be visible to
+   the backend. Confirm the folder mapping first; the line for the proxy folder
+   should read `/data/coolify/proxy -> /traefik`:
+
+   ```bash
+   docker inspect coolify-proxy --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+   ```
+
+2. **Turn on JSON access logging in Traefik.** In Coolify open Servers, your
+   server, Proxy, Configuration. Add these lines to the proxy `command:` list,
+   save, then restart the proxy:
 
    ```
    --accesslog=true
    --accesslog.format=json
-   --accesslog.filepath=/traefik/access.log
+   --accesslog.filepath=/traefik/logs/access.log
    --accesslog.fields.headers.names.User-Agent=keep
    --accesslog.fields.headers.names.Referer=keep
+   --accesslog.fields.headers.names.X-Real-Ip=keep
+   --accesslog.fields.headers.names.X-Forwarded-For=keep
    ```
 
-   The last two are optional. Without them the Browsers, Device type and
-   Referrers panels stay empty ("No data").
+   The User-Agent and Referer lines are optional. Without them the Browsers,
+   Operating systems, AI agents, Device type and Referrers panels stay empty.
 
-2. **Rotate the log.** Traefik does not rotate its own log. Add a `logrotate`
-   rule for `/data/coolify/proxy/access.log` (weekly, keep 4, compress), or the
-   file will grow without limit.
+3. **Check the log is being written:**
 
-3. **Mount the log into the backend container**, read-only, and point the
-   backend at it:
-
-   ```
-   volumes:
-     - /data/coolify/proxy/access.log:/var/log/traefik/access.log:ro
-   environment:
-     TRAEFIK_ACCESS_LOG_PATH: /var/log/traefik/access.log
-     # optional, default 16777216 (16 MB). Only the newest bytes are read.
-     TRAEFIK_ACCESS_LOG_MAX_BYTES: "16777216"
+   ```bash
+   ls -l /data/coolify/proxy/logs/access.log
+   tail -n 2 /data/coolify/proxy/logs/access.log
    ```
 
-4. **Check it.** Open a customer service in the portal, then Analytics. If the
-   log only reaches back part of the chosen range, a notice says so.
+   The file must be readable by everyone (`-rw-r--r--`), because the backend
+   runs as a non-root user.
+
+4. **Rotate the log.** Traefik never trims its own log. Create
+   `/etc/logrotate.d/traefik-access` containing:
+
+   ```
+   /data/coolify/proxy/logs/access.log {
+     weekly
+     rotate 4
+     compress
+     missingok
+     notifempty
+     copytruncate
+   }
+   ```
+
+   `copytruncate` empties the file in place, so Traefik needs no restart and
+   the backend's view of the file stays valid.
+
+5. **Give the backend the folder.** In Coolify open the backend app, Persistent
+   Storage, add a directory mount: source `/data/coolify/proxy/logs`,
+   destination `/var/log/traefik`. Under Environment Variables add:
+
+   ```
+   TRAEFIK_ACCESS_LOG_PATH=/var/log/traefik/access.log
+   # optional, default 16777216 (16 MB). Only the newest bytes are read.
+   TRAEFIK_ACCESS_LOG_MAX_BYTES=16777216
+   ```
+
+   Then redeploy. Environment changes do not reach a running container.
+
+6. **Check it in the portal.** Open a customer service that has a domain,
+   visit that domain a few times, then open Analytics and press Refresh.
 
 If the path is set but the file can't be read, the section says "Traffic data is
 temporarily unavailable" and the backend logs `ANALYTICS ERROR`.
+
+## Known limits to check on the real server
+
+- **Visitor addresses.** nginx sits in front of Traefik, so Traefik's own
+  `ClientHost` is probably nginx's address, not the visitor's. Until the log is
+  checked, "Unique visitors" may read as 1 or 2. Look at one log line: if
+  `request_X-Real-Ip` (set by nginx from the real visitor address) is present,
+  the aggregation should use it. Confirm the field name on the server before
+  changing the code.
+- **Long ranges.** Only the newest 16 MB of the log is read, and the log
+  rotates weekly. The 7 and 30 day views will often be partial; the portal says
+  so when that happens. Fixing that properly means storing daily totals.
 
 ## What is deliberately not there
 
