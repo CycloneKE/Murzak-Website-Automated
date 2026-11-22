@@ -41,6 +41,11 @@ export interface TrafficAnalytics {
   topPaths: PathRow[];
   devices: BreakdownRow[];
   browsers: BreakdownRow[];
+  operatingSystems: BreakdownRow[];
+  /** Named AI crawlers and assistants (GPTBot, ClaudeBot, ...). */
+  aiAgents: BreakdownRow[];
+  /** Full user-agent strings, most common first. Visitor-supplied: show as plain text only. */
+  userAgents: BreakdownRow[];
   referrers: BreakdownRow[];
   httpVersions: BreakdownRow[];
   cacheStatuses: BreakdownRow[];
@@ -64,7 +69,17 @@ export async function fetchTrafficAnalytics(serviceId: string, range: AnalyticsR
   if (!(body as any).available) {
     return { available: false, reason: ((body as any).reason as AnalyticsUnavailableReason) || "not_configured" };
   }
-  return { available: true, data: body as TrafficAnalytics };
+  // Newer panels default to empty so an older backend still renders.
+  const data = body as TrafficAnalytics;
+  return {
+    available: true,
+    data: {
+      ...data,
+      operatingSystems: data.operatingSystems ?? [],
+      aiAgents: data.aiAgents ?? [],
+      userAgents: data.userAgents ?? [],
+    },
+  };
 }
 
 /* ---------- display formatting (pure) ---------- */

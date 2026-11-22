@@ -52,7 +52,7 @@ const PortalShell: React.FC = () => {
     setIsSystemsNavOpen, setScalingServiceId, databaseServices, storageServices, setStopConfirmService, setUpgradePromptOpen,
     showOnboarding, stopConfirmService, trialActive, trialEndStr, trialExpired,
     trialVerifyInvoice, upgradePromptOpen, user,
-    navGroups, navCollapsed, setNavCollapsed, topBar,
+    navGroups, navCollapsed, setNavCollapsed, topBar, sideContext,
   } = usePortal();
   const { effective: theme, toggle: toggleTheme } = useTheme();
 
@@ -139,6 +139,7 @@ const PortalShell: React.FC = () => {
         }}
         open={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        context={sideContext}
         footer={
           <UserMenu
             name={user.name || "Account"}

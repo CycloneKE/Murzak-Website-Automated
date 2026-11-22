@@ -91,6 +91,51 @@ function classifyDevice(ua) {
   return "Misc";
 }
 
+/** Operating system from the user agent. Order matters: iPhone and Android UAs also say "Mac OS X" / "Linux". */
+function classifyOs(ua) {
+  if (!ua) return null;
+  if (/iphone|ipod/i.test(ua)) return "iOS";
+  if (/ipad/i.test(ua)) return "iPadOS";
+  if (/android/i.test(ua)) return "Android";
+  if (/cros/i.test(ua)) return "ChromeOS";
+  if (/windows nt 10\.0/i.test(ua)) return "Windows 10";
+  if (/windows nt 6\.3/i.test(ua)) return "Windows 8.1";
+  if (/windows nt 6\.2/i.test(ua)) return "Windows 8";
+  if (/windows nt 6\.1/i.test(ua)) return "Windows 7";
+  if (/windows/i.test(ua)) return "Windows";
+  if (/mac os x|macintosh/i.test(ua)) return "macOS";
+  if (/linux|x11/i.test(ua)) return "Linux";
+  return "Unknown";
+}
+
+/**
+ * Named AI crawlers and assistants, matched on the user-agent token the
+ * operator publishes. Only names that appear here are reported, so the panel
+ * lists real, identifiable agents and never guesses at "AI-looking" traffic.
+ */
+const AI_AGENTS = [
+  ["GPTBot", /gptbot/i], ["OAI-SearchBot", /oai-searchbot/i], ["ChatGPT-User", /chatgpt-user/i],
+  ["ClaudeBot", /claudebot/i], ["Claude-User", /claude-user/i], ["Claude-SearchBot", /claude-searchbot/i],
+  ["Claude-Web", /claude-web/i], ["anthropic-ai", /anthropic-ai/i],
+  ["PerplexityBot", /perplexitybot/i], ["Perplexity-User", /perplexity-user/i],
+  ["Bytespider", /bytespider/i], ["CCBot", /ccbot/i], ["Amazonbot", /amazonbot/i],
+  ["Meta-ExternalAgent", /meta-externalagent/i], ["cohere-ai", /cohere-ai/i], ["Diffbot", /diffbot/i],
+  ["YouBot", /youbot/i], ["DuckAssistBot", /duckassistbot/i], ["Google-CloudVertexBot", /google-cloudvertexbot/i],
+];
+
+function classifyAiAgent(ua) {
+  if (!ua) return null;
+  for (const [name, re] of AI_AGENTS) if (re.test(ua)) return name;
+  return null;
+}
+
+/** User agents are visitor-supplied text: capped in length and only ever shown as plain text. */
+const UA_MAX_LEN = 200;
+function cleanUa(ua) {
+  const t = String(ua || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  return t ? t.slice(0, UA_MAX_LEN) : null;
+}
+
 function referrerHost(ref) {
   if (!ref) return null;
   try {
@@ -140,6 +185,9 @@ function aggregate(lines, { hosts, range, now = Date.now() }) {
   const referrers = new Map();
   const versions = new Map();
   const caches = new Map();
+  const systems = new Map();
+  const aiAgents = new Map();
+  const agents = new Map();
   const clients = new Set();
   const allMs = [];
   let requests = 0;
@@ -176,6 +224,9 @@ function aggregate(lines, { hosts, range, now = Date.now() }) {
     tally(caches, r.cache, r.bytes);
     tally(devices, classifyDevice(r.ua), r.bytes);
     tally(browsers, classifyBrowser(r.ua), r.bytes);
+    tally(systems, classifyOs(r.ua), r.bytes);
+    tally(aiAgents, classifyAiAgent(r.ua), r.bytes);
+    tally(agents, cleanUa(r.ua), r.bytes);
     tally(referrers, referrerHost(r.referer), r.bytes);
 
     const pk = `${r.host}\u0000${r.path}`;
@@ -223,6 +274,9 @@ function aggregate(lines, { hosts, range, now = Date.now() }) {
       })),
     devices: top(devices),
     browsers: top(browsers),
+    operatingSystems: top(systems),
+    aiAgents: top(aiAgents),
+    userAgents: top(agents),
     referrers: top(referrers),
     httpVersions: top(versions),
     cacheStatuses: top(caches),
@@ -231,4 +285,4 @@ function aggregate(lines, { hosts, range, now = Date.now() }) {
   };
 }
 
-module.exports = { aggregate, parseLine, percentile, normalizeRange, cleanHost, classifyBrowser, classifyDevice, RANGES, DEFAULT_RANGE };
+module.exports = { aggregate, parseLine, percentile, normalizeRange, cleanHost, classifyBrowser, classifyDevice, classifyOs, classifyAiAgent, RANGES, DEFAULT_RANGE };

@@ -106,11 +106,47 @@ section("breakdowns: device, browser, referrer, protocol, cache");
   ok(a.cacheStatuses.length === 1 && a.cacheStatuses[0].name === "HIT", "cache status read only when the proxy logs it");
 }
 
+section("operating systems, AI agents and user agents");
+{
+  const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/157.0.0.0 Safari/537.36";
+  const ANDROID = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/157.0.0.0 Mobile Safari/537.36";
+  const GPT = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.4; +https://openai.com/gptbot";
+  const CLAUDE = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ClaudeBot/1.0; +claudebot@anthropic.com)";
+  ok(agg.classifyOs(IPHONE) === "iOS", "an iPhone is iOS, not macOS (its UA also says Mac OS X)");
+  ok(agg.classifyOs(ANDROID) === "Android", "Android is not reported as Linux");
+  ok(agg.classifyOs(WIN) === "Windows 10", "Windows NT 10.0 is Windows 10");
+  ok(agg.classifyOs("Mozilla/5.0 (Windows NT 6.1; WOW64)") === "Windows 7", "Windows NT 6.1 is Windows 7");
+  ok(agg.classifyOs("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)") === "macOS", "a Mac is macOS");
+  ok(agg.classifyOs("Mozilla/5.0 (X11; Linux x86_64)") === "Linux", "desktop Linux");
+  ok(agg.classifyOs("curl/8.0") === "Unknown" && agg.classifyOs("") === null, "unrecognised is Unknown; no UA at all is not counted");
+  ok(agg.classifyAiAgent(GPT) === "GPTBot" && agg.classifyAiAgent(CLAUDE) === "ClaudeBot", "named AI crawlers are recognised");
+  ok(agg.classifyAiAgent("Mozilla/5.0 Googlebot/2.1") === null && agg.classifyAiAgent(WIN) === null, "ordinary crawlers and browsers are not labelled AI");
+
+  const lines = [
+    ...Array.from({ length: 5 }, () => line({ "request_User-Agent": WIN })),
+    line({ "request_User-Agent": ANDROID }), line({ "request_User-Agent": ANDROID }),
+    line({ "request_User-Agent": GPT }), line({ "request_User-Agent": CLAUDE }), line({ "request_User-Agent": CLAUDE }),
+    line({ "request_User-Agent": "x".repeat(500) }),
+    line({ "request_User-Agent": "Mozilla/5.0\u0000\nINJECT" }),
+  ];
+  const a = agg.aggregate(lines, { hosts: ["health.murzaktech.tech"], now: NOW });
+  const osCount = (n) => (a.operatingSystems.find((o) => o.name === n) || {}).requests;
+  ok(osCount("Windows 10") === 5 && osCount("Android") === 2, "operating systems counted by name");
+  ok(a.operatingSystems.every((o, i, all) => i === 0 || all[i - 1].requests >= o.requests), "operating systems ranked by requests");
+  ok(a.aiAgents.length === 2 && a.aiAgents[0].name === "ClaudeBot" && a.aiAgents[0].requests === 2 && a.aiAgents[1].name === "GPTBot", "AI agents counted by name only");
+  ok(a.userAgents[0].requests === 5 && a.userAgents[0].name === WIN, "top user agents are the full strings, most common first");
+  ok(a.userAgents.every((u) => u.name.length <= 200), "very long user agents are capped");
+  ok(a.userAgents.every((u) => !/[\u0000-\u001f]/.test(u.name)), "control characters are stripped from user agents");
+  ok(!JSON.stringify(a).includes("10.0.0.1"), "visitor addresses never appear in the response (no Top IPs)");
+  ok(!("topIps" in a), "there is no Top IPs field");
+}
+
 section("missing fields stay empty, never invented");
 {
   const bare = JSON.stringify({ StartUTC: new Date(NOW - MIN).toISOString(), RequestHost: "health.murzaktech.tech", RequestPath: "/", DownstreamStatus: 200 });
   const a = agg.aggregate([bare], { hosts: ["health.murzaktech.tech"], now: NOW });
   ok(a.totals.requests === 1, "the request still counts");
+  ok(a.operatingSystems.length === 0 && a.aiAgents.length === 0 && a.userAgents.length === 0, "no user agent means empty OS, AI and user-agent panels");
   ok(a.devices.length === 0 && a.browsers.length === 0 && a.referrers.length === 0 && a.cacheStatuses.length === 0 && a.httpVersions.length === 0, "no user agent, referrer, cache or protocol fields means empty panels");
   ok(Array.isArray(a.countries) && a.countries.length === 0, "locations stay empty without a GeoIP database");
   const none = agg.aggregate([], { hosts: ["health.murzaktech.tech"], now: NOW });

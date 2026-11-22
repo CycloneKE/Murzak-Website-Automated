@@ -59,7 +59,7 @@ const ServicePage: React.FC = () => {
     handleServiceHealthAction, navigate, onRequestDelete, onTabClick,
     pendingServiceAction, redeployNote, redeploying, resourceAdminActive, selectedServices,
     setActiveLogServiceId, setDeveloperUpsellSvc, setDomainInput,
-    setIsContactOpen, setResourceAdminActive, setTopBar, submitDomainAttach,
+    setIsContactOpen, setResourceAdminActive, setTopBar, setSideContext, submitDomainAttach,
     serviceActionNotice, setServiceActionNotice,
   } = usePortal();
 
@@ -103,6 +103,30 @@ const ServicePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.serviceId, name, status, openUrl]);
 
+  const sections = svc ? sectionsFor({ service: svc, deployable: deploymentsAvailable }) : [];
+  const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
+
+  // On desktop the sidebar swaps to this service's sections, so the page needs
+  // no second menu of its own. Re-registered only when what it shows changes.
+  const sectionKey = sections.map((s) => s.id).join(",");
+  useEffect(() => {
+    if (!svc || !cloudServiceId || sections.length < 2) {
+      setSideContext(null);
+      return;
+    }
+    setSideContext({
+      title: name,
+      subtitle: [svc.category, svc.tier].filter(Boolean).join(" · "),
+      backLabel: "Your services",
+      onBack: () => navigate("/portal/cloud"),
+      items: sections,
+      activeId: active,
+      onSelect: (id) => navigate(servicePath(cloudServiceId, id)),
+    });
+    return () => setSideContext(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc?.serviceId, name, sectionKey, active]);
+
   if (!cloudServiceId) return null;
 
   if (!svc) {
@@ -119,17 +143,16 @@ const ServicePage: React.FC = () => {
     );
   }
 
-  const sections = sectionsFor({ service: svc, deployable: deploymentsAvailable });
-  const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
   const stopping = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "stop";
   const restarting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "restart";
   const starting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "start";
   const restartable = isActive && sections.some((x) => x.id === "advanced");
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 lg:gap-8">
+    <div className="flex flex-col gap-5">
       {sections.length > 1 && (
         <SectionNav
+          stripOnly
           label={`${name} sections`}
           items={sections}
           active={active}

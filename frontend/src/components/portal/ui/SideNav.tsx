@@ -1,5 +1,5 @@
 import React from "react";
-import { PanelLeft, Search, X } from "lucide-react";
+import { ChevronLeft, PanelLeft, Search, X } from "lucide-react";
 import Logo from "../../Logo";
 
 export interface SideNavItem {
@@ -14,6 +14,21 @@ export interface SideNavGroup {
   items: SideNavItem[];
 }
 
+/**
+ * What the sidebar shows instead of the global menu while a page (a service)
+ * has a menu of its own. Desktop only: below lg the drawer keeps the global
+ * menu and the page shows its own tab strip.
+ */
+export interface SideContext {
+  title: string;
+  subtitle?: string;
+  backLabel: string;
+  onBack: () => void;
+  items: { id: string; label: string; icon: React.ReactNode; tone?: "danger" }[];
+  activeId: string;
+  onSelect: (id: string) => void;
+}
+
 interface SideNavProps {
   groups: SideNavGroup[];
   activeId: string;
@@ -25,6 +40,7 @@ interface SideNavProps {
   open: boolean;
   onClose: () => void;
   footer: React.ReactNode;
+  context?: SideContext | null;
 }
 
 /**
@@ -32,7 +48,7 @@ interface SideNavProps {
  * Below lg it is a drawer and is never collapsed.
  */
 export default function SideNav({
-  groups, activeId, onSelect, collapsed, onToggleCollapsed, onSearch, open, onClose, footer,
+  groups, activeId, onSelect, collapsed, onToggleCollapsed, onSearch, open, onClose, footer, context,
 }: SideNavProps) {
   // The rail only exists on desktop; the drawer always shows labels.
   const rail = collapsed ? "lg:w-16" : "lg:w-58";
@@ -89,7 +105,64 @@ export default function SideNav({
           </button>
         </div>
 
-        <nav aria-label="Portal" className={`grow overflow-y-auto px-3 pb-3 ${collapsed ? "lg:px-2" : ""}`}>
+        {context && (
+          <nav
+            aria-label={`${context.title} sections`}
+            data-p="sidenav-context"
+            className={`hidden lg:block grow overflow-y-auto px-3 pb-3 ${collapsed ? "lg:px-2" : ""}`}
+          >
+            <button
+              type="button"
+              onClick={context.onBack}
+              title={collapsed ? context.backLabel : undefined}
+              aria-label={context.backLabel}
+              className={`w-full p-tap flex items-center gap-2 rounded-md px-2 text-sm text-p-muted hover:text-p-text hover:bg-p-panel-2 ${collapsed ? "justify-center px-0" : ""}`}
+            >
+              <ChevronLeft className="w-4 h-4 shrink-0" />
+              {!collapsed && <span className="truncate">{context.backLabel}</span>}
+            </button>
+            {!collapsed && (
+              <div className="px-2 pt-2 pb-1">
+                <p className="text-sm font-semibold text-p-text truncate" title={context.title}>{context.title}</p>
+                {context.subtitle && <p className="text-[12px] text-p-muted truncate">{context.subtitle}</p>}
+              </div>
+            )}
+            <ul className="mt-2 space-y-0.5">
+              {context.items.map((it) => {
+                const on = it.id === context.activeId;
+                const danger = it.tone === "danger";
+                return (
+                  <li key={it.id} className={danger ? "mt-2 pt-2 border-t border-p-border" : ""}>
+                    <button
+                      type="button"
+                      onClick={() => context.onSelect(it.id)}
+                      aria-current={on ? "page" : undefined}
+                      aria-label={collapsed ? it.label : undefined}
+                      title={collapsed ? it.label : undefined}
+                      className={`w-full p-tap flex items-center gap-2.5 rounded-md px-2 text-sm text-left transition-colors
+                        ${collapsed ? "justify-center px-0" : ""}
+                        ${on
+                          ? "bg-p-accent-soft text-p-text font-medium"
+                          : danger
+                            ? "text-p-danger hover:bg-p-danger-soft"
+                            : "text-p-muted hover:text-p-text hover:bg-p-panel-2"}`}
+                    >
+                      <span
+                        className={`shrink-0 w-7 h-7 rounded-md border flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4
+                          ${on ? "border-transparent bg-p-accent text-p-accent-fg" : danger ? "border-p-danger/40 bg-p-panel text-p-danger" : "border-p-border bg-p-panel text-p-muted"}`}
+                      >
+                        {it.icon}
+                      </span>
+                      {!collapsed && <span className="grow truncate">{it.label}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        )}
+
+        <nav aria-label="Portal" className={`grow overflow-y-auto px-3 pb-3 ${context ? "lg:hidden" : ""} ${collapsed ? "lg:px-2" : ""}`}>
           {groups.map((group) => (
             <div key={group.id} className="mt-3 first:mt-1">
               {group.label && (

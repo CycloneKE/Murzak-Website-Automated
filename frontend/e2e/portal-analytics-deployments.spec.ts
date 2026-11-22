@@ -39,6 +39,12 @@ const ANALYTICS = {
   ],
   devices: BREAK([['Desktop', 1200, 1], ['Mobile', 200, 1], ['Bot', 60, 1]]),
   browsers: BREAK([['Chrome', 1370, 4_890_000]]),
+  operatingSystems: BREAK([['Windows 10', 1140, 3_800_000], ['Android', 223, 1_330_000], ['iOS', 15, 271_800]]),
+  aiAgents: BREAK([['GPTBot', 27, 541_480], ['ClaudeBot', 15, 188_180]]),
+  userAgents: BREAK([
+    ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36', 1100, 3_520_000],
+    ['<script>window.__pwned=1</script> evil-agent/1.0', 3, 100],
+  ]),
   referrers: BREAK([['trading.murzaktech.tech', 1360, 5_890_000]]),
   httpVersions: BREAK([['HTTP/1.1', 1460, 6_180_000]]),
   cacheStatuses: [],
@@ -133,7 +139,7 @@ test.describe('Analytics', () => {
     await expect(page.getByText('5.81%', { exact: true })).toBeVisible();
     await expect(page.getByText('814.0 ms', { exact: true })).toBeVisible();
     await expect(page.getByText('/api/heartbeat').first()).toBeVisible();
-    for (const title of ['Requests', 'Status codes', 'Top paths', 'Locations', 'Requests by device type', 'Top HTTP versions', 'Top cache statuses', 'Top status codes', 'Referrers', 'Browsers']) {
+    for (const title of ['Requests', 'Status codes', 'Top paths', 'Locations', 'Requests by device type', 'Top HTTP versions', 'Top cache statuses', 'Top status codes', 'Referrers', 'Browsers', 'Operating systems', 'AI agents & bots', 'Top user agents']) {
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     }
     await expect(page.getByText('trading.murzaktech.tech')).toBeVisible();
@@ -145,6 +151,39 @@ test.describe('Analytics', () => {
     await expect(page.getByText('No cache status data for the selected range.')).toBeVisible();
     await expect(page.getByText("Location data isn't enabled")).toBeVisible();
     await expect(page.getByText(/GeoLite2 data created by MaxMind/)).toHaveCount(0);
+  });
+
+  test('operating systems, AI agents and user agents list their rows', async ({ page }) => {
+    await open(page, '/analytics');
+    await expect(page.getByRole('heading', { name: 'Operating systems', exact: true })).toBeVisible();
+    await expect(page.getByText('Windows 10', { exact: true })).toBeVisible();
+    await expect(page.getByText('GPTBot', { exact: true })).toBeVisible();
+    await expect(page.getByText('ClaudeBot', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Chrome\/157\.0\.0\.0 Safari/)).toBeVisible();
+  });
+
+  test('visitor-supplied user agents are shown as plain text, never run', async ({ page }) => {
+    await open(page, '/analytics');
+    await expect(page.getByText('<script>window.__pwned=1</script> evil-agent/1.0')).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__pwned)).toBeUndefined();
+  });
+
+  test('there is no Top IPs panel: visitor addresses are never shown', async ({ page }) => {
+    await open(page, '/analytics');
+    await expect(page.getByRole('heading', { name: 'Top user agents', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Top IPs/ })).toHaveCount(0);
+  });
+
+  test('no AI agents seen is said plainly', async ({ page }) => {
+    await open(page, '/analytics', { ...ANALYTICS, aiAgents: [] });
+    await expect(page.getByText('No known AI crawlers visited in the selected range.')).toBeVisible();
+  });
+
+  test('an older backend without the new fields still renders', async ({ page }) => {
+    const { operatingSystems, aiAgents, userAgents, ...old } = ANALYTICS as any;
+    await open(page, '/analytics', old);
+    await expect(page.getByText('No operating system data for the selected range.')).toBeVisible();
+    await expect(page.getByText('Unique visitors')).toBeVisible();
   });
 
   test('changing the range asks the API for that range', async ({ page }) => {

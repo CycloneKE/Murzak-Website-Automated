@@ -46,8 +46,8 @@ const Tile: React.FC<{ label: string; value: string; color: string; trend: numbe
 );
 
 /** Name / share-bar / requests / bandwidth, the shape every ranked list here shares. */
-const Breakdown: React.FC<{ rows: BreakdownRow[]; nameHeader?: string; emptyTitle: string; emptyBody: string }> = ({
-  rows, nameHeader = "Name", emptyTitle, emptyBody,
+const Breakdown: React.FC<{ rows: BreakdownRow[]; nameHeader?: string; emptyTitle: string; emptyBody: string; wide?: boolean }> = ({
+  rows, nameHeader = "Name", emptyTitle, emptyBody, wide,
 }) => {
   if (!rows.length) return <Empty icon={<BarChart3 />} title={emptyTitle} description={emptyBody} />;
   const max = Math.max(...rows.map((r) => r.requests), 1);
@@ -65,7 +65,7 @@ const Breakdown: React.FC<{ rows: BreakdownRow[]; nameHeader?: string; emptyTitl
       <tbody>
         {rows.slice(0, 10).map((r) => (
           <tr key={r.name} className="border-b border-p-border last:border-b-0">
-            <td className="px-4 sm:px-5 py-2.5 text-p-text truncate max-w-[14rem]">{r.name}</td>
+            <td className={wide ? "px-4 sm:px-5 py-2.5 text-p-text break-words min-w-[12rem]" : "px-4 sm:px-5 py-2.5 text-p-text truncate max-w-[14rem]"} title={wide ? undefined : r.name}>{r.name}</td>
             <td className="hidden sm:table-cell pr-2">
               <div className="h-1.5 rounded-full bg-p-panel-2" aria-hidden>
                 <div className="h-full rounded-full" style={{ width: `${Math.max(2, (r.requests / max) * 100)}%`, background: SERIES.blue }} />
@@ -208,7 +208,17 @@ const Dashboard: React.FC<{ data: TrafficAnalytics }> = ({ data }) => {
         <Panel title="Browsers" flush>
           <Breakdown rows={data.browsers} emptyTitle="No data" emptyBody="No browser data for the selected range." />
         </Panel>
+        <Panel title="Operating systems" flush>
+          <Breakdown rows={data.operatingSystems} emptyTitle="No data" emptyBody="No operating system data for the selected range." />
+        </Panel>
+        <Panel title="AI agents & bots" description="Named AI crawlers and assistants that visited your site." flush>
+          <Breakdown rows={data.aiAgents} emptyTitle="No AI agents seen" emptyBody="No known AI crawlers visited in the selected range." />
+        </Panel>
       </div>
+
+      <Panel title="Top user agents" flush>
+        <Breakdown rows={data.userAgents} wide emptyTitle="No data" emptyBody="No user agent data for the selected range." />
+      </Panel>
     </div>
   );
 };
