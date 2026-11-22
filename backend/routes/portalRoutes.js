@@ -34,6 +34,8 @@ const isValidRepoUrl = require('../utils/repoUrl').isValidRepoUrl;
 const supportUnread = require('../services/supportUnread');
 const mailer = require('../utils/mailer');
 const shopProgress = require('../services/apps/shopProgress');
+const trafficAggregateLib = require('../services/analytics/trafficAggregate');
+const accessLogSourceLib = require('../services/analytics/accessLogSource');
 
 module.exports = function(ctx) {
   const {
@@ -1892,6 +1894,60 @@ router.get("/api/portal/services/:serviceId/logs", requireAuth, runtimeLogsLimit
   } catch (err) {
     console.error("RUNTIME LOGS ERROR:", err.response?.data || err.message);
     return res.status(502).json({ error: "Couldn't fetch logs right now. Please try again." });
+  }
+});
+
+// --- Traffic analytics ---
+// Requests, visitors, bandwidth, errors and latency for the caller's OWN
+// domains, aggregated from the proxy's JSON access log. Read-only. Answers
+// {available:false, reason} when the data source isn't set up, never zeros
+// that would read as "no traffic". Tenant isolation is by exact hostname:
+// only lines whose host is one of this service's domains are counted.
+const analyticsCache = new Map(); // `${jobName}|${range}` -> {at, body}
+const ANALYTICS_CACHE_MS = 60 * 1000;
+
+router.get("/api/portal/services/:serviceId/analytics", requireAuth, runtimeLogsLimiter, async (req, res) => {
+  const webAccountName = req.session?.webAccount || req.session?.user?.id;
+  const { serviceId } = req.params;
+  if (!webAccountName) return res.status(401).json({ error: "No session account." });
+  if (!serviceId) return res.status(400).json({ error: "Missing serviceId." });
+  const range = trafficAggregateLib.normalizeRange(String(req.query.range || ""));
+
+  let job;
+  try {
+    job = await loadOwnedJob(frappeClient(), webAccountName, serviceId);
+  } catch (err) {
+    console.error("ANALYTICS LOOKUP ERROR:", err.response?.data || err.message);
+    return res.status(500).json({ error: "Failed to look up this service." });
+  }
+  if (!job || job.lane !== "coolify" || !job.external_ref || job.status !== "active") {
+    return res.status(404).json({ error: "Analytics aren't available for this service." });
+  }
+  if (!accessLogSourceLib.isConfigured()) {
+    return res.json({ ok: true, available: false, reason: "not_configured", range });
+  }
+
+  const cacheKey = `${job.name}|${range}`;
+  const hit = analyticsCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < ANALYTICS_CACHE_MS) return res.json(hit.body);
+
+  try {
+    const settings = await coolifyLane.getSettings(job.external_ref, { kind: jobResourceKind(job) });
+    const hosts = settings.domains.map((d) => d.host);
+    if (!hosts.length) return res.json({ ok: true, available: false, reason: "no_domains", range });
+
+    const lines = await accessLogSourceLib.readTailLines();
+    const analytics = trafficAggregateLib.aggregate(lines, { hosts, range });
+    const body = { ok: true, available: true, ...analytics };
+    analyticsCache.set(cacheKey, { at: Date.now(), body });
+    if (analyticsCache.size > 500) analyticsCache.delete(analyticsCache.keys().next().value);
+    return res.json(body);
+  } catch (err) {
+    console.error("ANALYTICS ERROR:", err.response?.data || err.message);
+    if (err.code === "ENOENT" || err.code === "EACCES") {
+      return res.json({ ok: true, available: false, reason: "source_unavailable", range });
+    }
+    return res.status(502).json({ error: "Couldn't load analytics right now. Please try again." });
   }
 });
 

@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  AlertTriangle, Archive, Database, FileText, FolderOpen, Globe, HeartPulse, KeyRound, Mail, RefreshCw, Settings,
+  AlertTriangle, Archive, BarChart3, Database, FileText, FolderOpen, Globe, HeartPulse, KeyRound, Mail, RefreshCw, Settings,
   SlidersHorizontal, SquareTerminal,
 } from "lucide-react";
 import { type SelectedServiceView } from "../../../../types";
@@ -13,6 +13,7 @@ export type SectionId =
   | "logs"
   | "terminal"
   | "health"
+  | "analytics"
   | "backups"
   | "files"
   | "mailboxes"
@@ -57,6 +58,7 @@ export function sectionsFor({ service, deployable }: SectionContext): ServiceSec
   if (deployable) out.push({ id: "updates", label: "Deployments", icon: <RefreshCw /> });
   if (deployable && isActive) out.push({ id: "logs", label: "Logs", icon: <FileText /> });
   if (deployable && isActive) out.push({ id: "health", label: "Healthcheck", icon: <HeartPulse /> });
+  if (hasContainer && isActive) out.push({ id: "analytics", label: "Analytics", icon: <BarChart3 /> });
   if (hasContainer && isActive) out.push({ id: "terminal", label: "Terminal", icon: <SquareTerminal /> });
   if (hasContainer && isActive) out.push({ id: "backups", label: "Backups", icon: <Archive /> });
   if (hasContainer) out.push({ id: "advanced", label: "Advanced", icon: <SlidersHorizontal /> });

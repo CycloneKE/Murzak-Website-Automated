@@ -90,7 +90,7 @@ test.describe('Service settings sections', () => {
   test('the section menu lists every section for a deployable app', async ({ page }) => {
     await open(page);
     const nav = page.getByRole('navigation', { name: /Shop ERP sections/ });
-    for (const label of ['General', 'Domains', 'Environment', 'Deployments', 'Logs', 'Healthcheck', 'Terminal', 'Backups', 'Advanced', 'Danger zone']) {
+    for (const label of ['General', 'Domains', 'Environment', 'Deployments', 'Logs', 'Healthcheck', 'Analytics', 'Terminal', 'Backups', 'Advanced', 'Danger zone']) {
       await expect(nav.getByRole('button', { name: label })).toBeVisible();
     }
   });
@@ -133,7 +133,7 @@ test.describe('Service settings sections', () => {
 
   test('deployment log: ANSI stripped, find highlights matches', async ({ page }) => {
     await open(page, '/updates');
-    await page.getByRole('button', { name: 'Log', exact: true }).click();
+    // The newest build is selected on arrival, so its log is already showing.
     const log = page.getByRole('log', { name: 'Log output' });
     await expect(log).toContainText('Build started');
     await expect(log).not.toContainText('[32m');
