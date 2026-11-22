@@ -34,6 +34,22 @@ function cleanHost(h) {
   return String(h || "").trim().toLowerCase().replace(/:\d+$/, "");
 }
 
+/**
+ * The visitor's address for counting unique visitors.
+ *
+ * Behind nginx the proxy's own `ClientHost` is the server's internal Docker
+ * address (every request looks like one visitor), so the address nginx saw is
+ * preferred. nginx sets `X-Real-IP` from its own connection, so unlike
+ * X-Forwarded-For a visitor can't forge it. Only a plausible IP is accepted;
+ * anything else falls back to ClientHost.
+ */
+const IP_LIKE = /^[0-9a-fA-F:.]{3,45}$/;
+function visitorAddress(o) {
+  const real = String(o["request_X-Real-Ip"] || "").split(",")[0].trim();
+  if (IP_LIKE.test(real)) return real;
+  return String(o.ClientHost || "").trim();
+}
+
 /** One log line to a plain record, or null when it isn't a usable access entry. */
 function parseLine(line) {
   const s = String(line || "").trim();
@@ -57,7 +73,7 @@ function parseLine(line) {
     bytes: Math.max(0, Number(o.DownstreamContentSize) || 0),
     ms: Math.max(0, (Number(o.Duration) || 0) / 1e6),
     protocol: String(o.RequestProtocol || "").trim(),
-    client: String(o.ClientHost || "").trim(),
+    client: visitorAddress(o),
     ua: String(o["request_User-Agent"] || ""),
     referer: String(o.request_Referer || ""),
     cache: String(o["downstream_X-Cache-Status"] || o["downstream_Cf-Cache-Status"] || "").trim(),
@@ -285,4 +301,4 @@ function aggregate(lines, { hosts, range, now = Date.now() }) {
   };
 }
 
-module.exports = { aggregate, parseLine, percentile, normalizeRange, cleanHost, classifyBrowser, classifyDevice, classifyOs, classifyAiAgent, RANGES, DEFAULT_RANGE };
+module.exports = { aggregate, parseLine, percentile, normalizeRange, cleanHost, visitorAddress, classifyBrowser, classifyDevice, classifyOs, classifyAiAgent, RANGES, DEFAULT_RANGE };

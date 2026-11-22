@@ -106,6 +106,23 @@ section("breakdowns: device, browser, referrer, protocol, cache");
   ok(a.cacheStatuses.length === 1 && a.cacheStatuses[0].name === "HIT", "cache status read only when the proxy logs it");
 }
 
+section("visitor address: behind nginx the proxy only sees the Docker gateway");
+{
+  const DOCKER = "10.0.1.1";
+  const mk = (real, extra = {}) => line({ ClientHost: DOCKER, ...(real ? { "request_X-Real-Ip": real } : {}), ...extra });
+  ok(agg.parseLine(mk("203.0.113.7")).client === "203.0.113.7", "X-Real-Ip is preferred over the proxy's own client address");
+  ok(agg.parseLine(mk("")).client === DOCKER, "without X-Real-Ip it falls back to ClientHost");
+  ok(agg.parseLine(mk("2001:db8::1")).client === "2001:db8::1", "IPv6 addresses are accepted");
+  ok(agg.parseLine(mk("<script>alert(1)</script>")).client === DOCKER, "a value that is not an IP is ignored");
+  ok(agg.parseLine(mk("198.51.100.4, 10.0.0.1")).client === "198.51.100.4", "only the first address is used if several arrive");
+  const lines = [mk("203.0.113.7"), mk("203.0.113.7"), mk("198.51.100.9"), mk("")];
+  const a = agg.aggregate(lines, { hosts: ["health.murzaktech.tech"], now: NOW });
+  ok(a.totals.uniqueVisitors === 3, "distinct real visitors are counted, not just the one Docker gateway");
+  const old = agg.aggregate([mk(""), mk("")], { hosts: ["health.murzaktech.tech"], now: NOW });
+  ok(old.totals.uniqueVisitors === 1, "with no X-Real-Ip logged the count degrades to the proxy address (documented limit)");
+  ok(!JSON.stringify(a).includes("203.0.113.7"), "visitor addresses still never appear in the response");
+}
+
 section("operating systems, AI agents and user agents");
 {
   const WIN = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/157.0.0.0 Safari/537.36";

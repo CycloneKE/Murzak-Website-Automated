@@ -84,7 +84,23 @@ the log into a folder of its own, and only that folder is given to the backend.
 
    Then redeploy. Environment changes do not reach a running container.
 
-5. **Check it in the portal.** Open a customer service that has a domain,
+5. **Log the real visitor address** (needed for "Unique visitors"). In Coolify
+   open Servers, your server, Proxy, Configuration. In the `command:` list, find
+   the line for `Referer=keep` and add ONE new line directly under it, with the
+   same indentation, the leading dash and the quotes:
+
+   ```
+         - '--accesslog.fields.headers.names.X-Real-Ip=keep'
+   ```
+
+   Every other line in that list looks the same, so copy the shape of the
+   `Referer` line and change only the name. Do not paste anything else. Save and
+   restart the proxy, which interrupts every site for a few seconds. Afterwards
+   run `tail -n 1 /data/coolify/proxy/access.log` and confirm the new line has a
+   `"request_X-Real-Ip"` entry, then open a few of your sites to check they load.
+   If the proxy fails to start, delete the line and restart.
+
+6. **Check it in the portal.** Open a customer service that has a domain,
    visit that domain a few times, then open Analytics and press Refresh.
 
 If the path is set but the file can't be read, the section says "Traffic data is
@@ -92,12 +108,12 @@ temporarily unavailable" and the backend logs `ANALYTICS ERROR`.
 
 ## Known limits to check on the real server
 
-- **Visitor addresses.** nginx sits in front of Traefik, so Traefik's own
-  `ClientHost` is probably nginx's address, not the visitor's. Until a real log
-  line is checked, "Unique visitors" may read as 1 or 2. The log keeps
-  `request_X-Forwarded-For` and, behind Cloudflare, `request_Cf-Connecting-Ip`;
-  the aggregation should use whichever holds the real visitor. Confirm the field
-  on the server before changing the code.
+- **Visitor addresses.** Confirmed on the real server: every logged request
+  has `ClientHost` 10.0.1.1, the server's internal Docker address, because nginx
+  sits in front of Traefik. Without the next step every service shows 1 unique
+  visitor. nginx sends the real address in `X-Real-IP`, and the aggregation uses
+  it once the proxy logs it.
+
 - **Long ranges.** The copy holds the newest 8 MB and the log itself is trimmed
   at 20 MB. At low traffic that is days of history; at high traffic the 7 and 30
   day views will be partial, and the portal says so. Fixing that properly means
