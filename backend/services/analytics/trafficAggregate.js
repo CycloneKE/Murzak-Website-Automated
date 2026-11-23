@@ -17,6 +17,8 @@
  * else on the shared proxy is ever visible to a customer.
  */
 
+const isPlausibleIp = require("../../utils/clientIp").isPlausibleIp;
+
 const RANGES = {
   "24h": { windowMs: 24 * 3600 * 1000, bucketMs: 3600 * 1000 },
   "7d": { windowMs: 7 * 24 * 3600 * 1000, bucketMs: 6 * 3600 * 1000 },
@@ -43,10 +45,9 @@ function cleanHost(h) {
  * X-Forwarded-For a visitor can't forge it. Only a plausible IP is accepted;
  * anything else falls back to ClientHost.
  */
-const IP_LIKE = /^[0-9a-fA-F:.]{3,45}$/;
 function visitorAddress(o) {
   const real = String(o["request_X-Real-Ip"] || "").split(",")[0].trim();
-  if (IP_LIKE.test(real)) return real;
+  if (isPlausibleIp(real)) return real;
   return String(o.ClientHost || "").trim();
 }
 
