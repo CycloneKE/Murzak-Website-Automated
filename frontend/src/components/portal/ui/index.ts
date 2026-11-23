@@ -6,7 +6,7 @@ export { default as Field, inputClass } from "./Field";
 export { default as DataTable, type Column } from "./DataTable";
 export { default as Banner } from "./Banner";
 export { default as Modal } from "./Modal";
-export { default as SideNav } from "./SideNav";
+export { default as SideNav, type SideContext } from "./SideNav";
 export { default as TopBar, type Crumb } from "./TopBar";
 export { default as UserMenu } from "./UserMenu";
 export { default as SectionNav } from "./SectionNav";

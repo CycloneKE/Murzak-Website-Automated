@@ -10,7 +10,8 @@ import RuntimeLogsPanel from "../../../../components/portal/cloud/RuntimeLogsPan
 import HealthcheckPanel from "../../../../components/portal/cloud/HealthcheckPanel";
 import DomainsPanel from "../../../../components/portal/cloud/DomainsPanel";
 import BackupsPanel from "../../../../components/portal/cloud/BackupsPanel";
-import LogViewer from "../../../../components/portal/LogViewer";
+import AnalyticsPanel from "../../../../components/portal/cloud/AnalyticsPanel";
+import DeploymentsPane from "../../../../components/portal/cloud/DeploymentsPane";
 import StorageFileBrowser from "../../../../components/portal/cloud/StorageFileBrowser";
 import MailboxManager from "../../../../components/portal/cloud/MailboxManager";
 import DatabaseConnectionPanel from "../../../../components/portal/cloud/DatabaseConnectionPanel";
@@ -18,7 +19,7 @@ import PosLoginPanel from "../../../../components/portal/cloud/PosLoginPanel";
 import WebsiteHostingDashboard from "../../../../components/portal/cloud/website-hosting/WebsiteHostingDashboard";
 import ShopChecklist from "../../../../components/apps/ShopChecklist";
 import {
-  Banner, Empty, Field, Modal, PButton, Panel, SectionNav, StatusPill, inputClass, statusTone,
+  Banner, Empty, Field, PButton, Panel, SectionNav, StatusPill, inputClass, statusTone,
 } from "../../../../components/portal/ui";
 import { usePortal } from "../../PortalContext";
 import { servicePath } from "../../helpers";
@@ -53,12 +54,12 @@ const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, ch
  */
 const ServicePage: React.FC = () => {
   const {
-    cloudAccessUrl, cloudJob, cloudSection, cloudServiceId, deployLogView, deployments,
+    cloudAccessUrl, cloudJob, cloudSection, cloudServiceId, deployments,
     deploymentsAvailable, domainInput, domainResult, domainSubmitting, handleRedeploy,
-    handleServiceHealthAction, navigate, onRequestDelete, onTabClick, openDeployLog,
+    handleServiceHealthAction, navigate, onRequestDelete, onTabClick,
     pendingServiceAction, redeployNote, redeploying, resourceAdminActive, selectedServices,
-    setActiveLogServiceId, setDeployLogView, setDeveloperUpsellSvc, setDomainInput,
-    setIsContactOpen, setResourceAdminActive, setTopBar, submitDomainAttach,
+    setActiveLogServiceId, setDeveloperUpsellSvc, setDomainInput,
+    setIsContactOpen, setResourceAdminActive, setTopBar, setSideContext, submitDomainAttach,
     serviceActionNotice, setServiceActionNotice,
   } = usePortal();
 
@@ -102,6 +103,30 @@ const ServicePage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svc?.serviceId, name, status, openUrl]);
 
+  const sections = svc ? sectionsFor({ service: svc, deployable: deploymentsAvailable }) : [];
+  const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
+
+  // On desktop the sidebar swaps to this service's sections, so the page needs
+  // no second menu of its own. Re-registered only when what it shows changes.
+  const sectionKey = sections.map((s) => s.id).join(",");
+  useEffect(() => {
+    if (!svc || !cloudServiceId || sections.length < 2) {
+      setSideContext(null);
+      return;
+    }
+    setSideContext({
+      title: name,
+      subtitle: [svc.category, svc.tier].filter(Boolean).join(" · "),
+      backLabel: "Your services",
+      onBack: () => navigate("/portal/cloud"),
+      items: sections,
+      activeId: active,
+      onSelect: (id) => navigate(servicePath(cloudServiceId, id)),
+    });
+    return () => setSideContext(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [svc?.serviceId, name, sectionKey, active]);
+
   if (!cloudServiceId) return null;
 
   if (!svc) {
@@ -118,17 +143,16 @@ const ServicePage: React.FC = () => {
     );
   }
 
-  const sections = sectionsFor({ service: svc, deployable: deploymentsAvailable });
-  const active: SectionId = sections.some((s) => s.id === cloudSection) ? (cloudSection as SectionId) : "general";
   const stopping = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "stop";
   const restarting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "restart";
   const starting = pendingServiceAction?.id === cloudServiceId && pendingServiceAction.action === "start";
   const restartable = isActive && sections.some((x) => x.id === "advanced");
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 lg:gap-8">
+    <div className="flex flex-col gap-5">
       {sections.length > 1 && (
         <SectionNav
+          stripOnly
           label={`${name} sections`}
           items={sections}
           active={active}
@@ -334,6 +358,8 @@ const ServicePage: React.FC = () => {
           </ResourceAdminGate>
         )}
 
+        {active === "analytics" && <AnalyticsPanel serviceId={cloudServiceId} />}
+
         {active === "terminal" && (
           <DeveloperTerminalPanel
             serviceId={cloudServiceId}
@@ -345,40 +371,14 @@ const ServicePage: React.FC = () => {
         {active === "backups" && <BackupsPanel serviceId={cloudServiceId} serviceName={name} />}
 
         {active === "updates" && (
-          <Panel
-            title="Updates"
-            description="Each update rebuilds your app from the latest commit on your branch."
-            flush
-            actions={
-              <PButton variant="primary" loading={redeploying} disabled={!isActive} onClick={handleRedeploy}>
-                {redeploying ? "Starting…" : "Update now"}
-              </PButton>
-            }
-          >
-            {redeployNote && <p role="status" className="px-4 sm:px-5 pt-3 text-[13px] text-p-accent-text">{redeployNote}</p>}
-            {deployments.length === 0 ? (
-              <Empty title="No updates recorded yet" description="The first build will appear here." />
-            ) : (
-              <ul className="divide-y divide-p-border">
-                {deployments.slice(0, 8).map((d) => (
-                  <li key={d.uuid} className="flex items-center gap-3 px-4 sm:px-5 py-3">
-                    <StatusPill tone={d.result === "success" ? "ok" : d.result === "failure" ? "bad" : "progress"}>
-                      {d.status || "unknown"}
-                    </StatusPill>
-                    <div className="min-w-0 grow">
-                      <p className="text-sm font-medium text-p-text truncate font-mono">{d.commit || d.uuid.slice(0, 8)}</p>
-                      {(d.createdAt || d.commitMessage) && (
-                        <p className="text-[13px] text-p-muted truncate">
-                          {[d.createdAt, d.commitMessage].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                    <PButton size="sm" onClick={() => openDeployLog(d.uuid)}>Log</PButton>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
+          <DeploymentsPane
+            serviceId={cloudServiceId}
+            deployments={deployments}
+            isActive={isActive}
+            redeploying={redeploying}
+            redeployNote={redeployNote}
+            onRedeploy={handleRedeploy}
+          />
         )}
 
         {active === "advanced" && (
@@ -436,22 +436,6 @@ const ServicePage: React.FC = () => {
           </Panel>
         )}
       </div>
-
-      <Modal
-        open={!!deployLogView}
-        onClose={() => setDeployLogView(null)}
-        title={`Update ${deployLogView?.uuid.slice(0, 12) || ""}: build log`}
-        size="lg"
-      >
-        <LogViewer
-          logs={deployLogView?.logs || ""}
-          loading={!!deployLogView?.loading}
-          empty="No log was recorded for this deployment."
-          filename={`deployment-${deployLogView?.uuid.slice(0, 12) || "log"}`}
-          follow={false}
-          heightClass="max-h-[60vh]"
-        />
-      </Modal>
     </div>
   );
 };

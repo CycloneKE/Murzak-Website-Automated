@@ -7,6 +7,7 @@
 // NEXT: this is still one large unit. The natural follow-up is to split it by
 // domain (services, invoices, updates, resource ops, uploads) — deliberately
 // not done in the same pass as the file split, to keep that change reviewable.
+import type { SideContext } from "../../components/portal/ui/SideNav";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -315,6 +316,9 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     status?: React.ReactNode;
     actions?: React.ReactNode;
   } | null>(null);
+
+  // A page can replace the sidebar's menu with its own (a service's sections).
+  const [sideContext, setSideContext] = useState<SideContext | null>(null);
 
   // Real site URL + honest provisioning state for the generic (non-website-
   // hosting) service panel. The backend only ever returns the CUSTOMER's URL
@@ -1299,6 +1303,8 @@ export function usePortalState({ user, onLogout, onNavigate, onUserUpdate }: Por
     setNavCollapsed,
     topBar,
     setTopBar,
+    sideContext,
+    setSideContext,
     cloudSection,
     applyAddonsSelection,
     buyOfferedDomain,
