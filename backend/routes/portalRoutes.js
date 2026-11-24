@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const express = require('express');
 const coolifyLane = require("../services/provisioning/lanes/coolify");
+const dbBackupLib = require("../services/provisioning/dbBackup");
 const k8sLane = require("../services/provisioning/lanes/k8s");
 const deploymentHistory = require('../services/provisioning/deploymentHistory');
 const portalRequestPayloadLib = require('../services/portalRequestPayload');
@@ -1861,7 +1862,7 @@ router.put("/api/portal/services/:serviceId/healthcheck", requireAuth, envMutati
   }
 });
 
-// --- Backups (read-only; Coolify has a backup API for databases only) ---
+// --- Backups (read-only; Coolify has a backup API for standalone databases only; customer databases are services, see below) ---
 
 router.get("/api/portal/services/:serviceId/backups", requireAuth, async (req, res) => {
   const webAccountName = req.session?.webAccount || req.session?.user?.id;
@@ -1869,6 +1870,13 @@ router.get("/api/portal/services/:serviceId/backups", requireAuth, async (req, r
   try {
     const job = await loadOwnedJob(frappeClient(), webAccountName, req.params.serviceId);
     if (!job || job.lane !== "coolify" || !job.external_ref) return res.json({ ok: true, supported: false, schedules: [] });
+    // A customer's database (db-mysql / db-postgres / db-mongo / db-redis) is a Coolify SERVICE, not one of
+    // Coolify's standalone databases, so Coolify's /databases/{uuid}/backups has nothing to say about it and
+    // asking would fail. Its backup is scheduled by our own provisioning (services/provisioning/dbBackup.js),
+    // so answer from what we recorded. This says "set up", never "last backup succeeded": nothing here checks.
+    if (coolifyLane.isDatabaseService(job.service_id)) {
+      return res.json({ ok: true, supported: true, managed: true, schedules: [], ...dbBackupLib.customerSummary(job.backup_status) });
+    }
     const kind = job.category === "Database Hosting" ? "database" : jobResourceKind(job);
     return res.json({ ok: true, ...(await coolifyLane.listBackups(job.external_ref, { kind })) });
   } catch (err) {
