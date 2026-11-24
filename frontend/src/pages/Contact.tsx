@@ -241,34 +241,34 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
   const messages = thread?.messages || [];
 
   const inputBase =
-    "w-full bg-slate-50 dark:bg-black/5 border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition-all";
+    "w-full bg-p-panel-2 border rounded-md px-4 py-2.5 sm:py-3 text-sm font-medium text-p-text placeholder:text-p-muted focus:outline-hidden focus:ring-2 focus:ring-p-accent/40 transition-all";
 
   const inputClasses = (key: string) =>
-    `${inputBase} ${errors[key] ? "border-red-500" : "border-slate-200 dark:border-murzak-border"}`;
+    `${inputBase} ${errors[key] ? "border-p-danger/40" : "border-p-border "}`;
 
   const labelClasses =
-    "block text-micro font-black text-slate-400 uppercase mb-2 ml-1";
+    "block text-xs font-semibold text-p-muted mb-2 ml-1";
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-3 sm:p-6">
       <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[2px] sm:backdrop-blur-xs"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
 
-      <div className="relative w-full max-w-4xl bg-murzak-ink rounded-[1.75rem] sm:rounded-[2.5rem] shadow-xl sm:shadow-3xl overflow-hidden border-2 border-white">
+      <div className="relative w-full max-w-4xl bg-p-panel rounded-lg sm:rounded-lg sm:shadow-3xl overflow-hidden border border-p-border">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6
-          border-b border-slate-100 dark:border-murzak-border bg-black/5">
+          border-b border-p-border bg-p-panel-2">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-murzak-accent/10 text-murzak-accent">
+            <div className="p-2.5 sm:p-3 rounded-md sm:rounded-lg bg-p-accent-soft text-p-accent-text">
               <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-black tracking-tight text-slate-100">
+              <h3 className="text-base sm:text-lg font-semibold text-p-text">
                 Chat with support
               </h3>
-              <p className="text-micro font-black uppercase text-slate-400 mt-1">
+              <p className="text-xs font-semibold text-p-muted mt-1">
                 Signed in as {email}
               </p>
             </div>
@@ -276,7 +276,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
 
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-p-muted hover:text-p-text transition-colors"
             type="button"
           >
             <X className="w-5 h-5 sm:w-[22px] sm:h-[22px]" />
@@ -287,8 +287,8 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
         <div className="p-5 sm:p-8">
           <div className="h-[52vh] sm:h-[380px] md:h-[460px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
             {messages.length === 0 ? (
-              <div className="text-center py-12 sm:py-16 bg-slate-50 dark:bg-black/5 rounded-[1.75rem] sm:rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+              <div className="text-center py-12 sm:py-16 bg-p-panel-2 rounded-lg sm:rounded-lg border border-dashed border-p-border ">
+                <p className="text-xs font-semibold text-p-muted ">
                   No messages yet. Start the conversation below.
                 </p>
               </div>
@@ -299,10 +299,10 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                 return (
                   <div key={`${idx}-${stamp || "t"}`} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
+                      className={`max-w-[92%] sm:max-w-[85%] rounded-lg sm:rounded-lg px-4 py-3 sm:px-5 sm:py-4 border ${
                         isUser
-                          ? "bg-murzak-accent/20 text-murzak-ink border-murzak-accent"
-                          : "bg-slate-50 text-murzak-ink border-slate-200"
+                          ? "bg-p-accent-soft text-p-text border-p-accent/40"
+                          : "bg-p-panel-2 text-p-text border-p-border"
                       }`}
                     >
                       <p className="text-[13px] sm:text-sm sm:leading-(--text-sm--line-height) font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">{m.message}</p>
@@ -310,15 +310,15 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                         <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="mt-3 inline-flex text-micro sm:text-micro font-black uppercase underline opacity-80"> 
+                          className="mt-3 inline-flex text-xs sm:text-xs font-semibold underline opacity-80"> 
                             View attachment
                         </a>
                       )}
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-micro font-black uppercase opacity-70">
+                        <span className="text-xs font-semibold opacity-70">
                           {isUser ? "You" : "Admin"}
                         </span>
-                        <span className="text-micro font-bold opacity-60">
+                        <span className="text-xs font-medium opacity-60">
                           {fmtTime(stamp)}
                         </span>
                       </div>
@@ -331,7 +331,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
           </div>
 
           {errors.submit && (
-            <div className="mt-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
+            <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-p-danger">
               <AlertCircle className="w-4 h-4" />
               {errors.submit}
             </div>
@@ -341,8 +341,8 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
             <div className="grow min-w-0">
               <label className={labelClasses}>Message</label>
               {(uploading || uploadedUrl) && (
-                <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
-                  <div className="text-micro font-black uppercase text-slate-600 dark:text-slate-300">
+                <div className="mb-3 flex items-center justify-between rounded-md border border-p-border bg-p-panel-2 px-4 py-3">
+                  <div className="text-xs font-semibold text-p-muted ">
                     {uploading ? "Uploading..." : "Attachment ready"}
                     {!uploading && uploadedName ? `: ${uploadedName}` : ""}
                   </div>
@@ -355,7 +355,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                         setUploadedUrl("");
                         setUploadedName("");
                       }}
-                      className="text-micro font-black uppercase text-murzak-accent hover:opacity-80">
+                      className="text-xs font-semibold text-p-accent-text hover:opacity-80">
                         Remove
                     </button>
                   )}
@@ -370,7 +370,7 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
                 placeholder="Describe your issue, what you tried, and what you need help with..."
               />
               {errors.draft && (
-                <p className="text-micro text-red-500 font-bold uppercase mt-2 flex items-center gap-1">
+                <p className="text-xs text-p-danger font-medium mt-2 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> {errors.draft}
                 </p>
               )}
@@ -416,19 +416,19 @@ const Contact: React.FC<ContactProps> = ({ isOpen, onClose, user }) => {
 
             <div className="flex flex-col justify-center gap-2 self-center">
               <label htmlFor="attach"
-                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-xl
-                  border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5
-                  text-micro sm:text-micro font-black uppercase cursor-pointer select-none
-                  hover:border-murzak-accent/40 hover:bg-murzak-accent/10 dark:hover:bg-black/5 transition">
+                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-md
+                  border border-p-border bg-p-panel-2 
+                  text-xs sm:text-xs font-semibold cursor-pointer select-none
+                  hover:border-p-accent hover:bg-p-accent-soft transition">
                 {uploading ? "Uploading..." : uploadedUrl ? "Attached" : "Attach"}
               </label>
 
               <button type="submit"
                 disabled={isSubmitting}
-                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-accent text-murzak-ink font-black px-4 rounded-xl
-                  hover:scale-[1.01] transition-all shadow-md sm:shadow-lg inline-flex items-center justify-center gap-2 disabled:opacity-70">
+                className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-p-accent text-p-accent-fg font-semibold px-4 rounded-md
+                   transition-all inline-flex items-center justify-center gap-2 disabled:opacity-70">
                 {isSubmitting ? <RefreshCw className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
-                <span className="text-micro sm:text-micro uppercase">Send</span>
+                <span className="text-xs sm:text-xs ">Send</span>
               </button>
             </div>
           </form>

@@ -137,31 +137,31 @@ export default function AddDomainModal({
 
   return createPortal(
     <div className="fixed inset-0 z-140">
-      <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
-        <div className="relative w-full max-w-xl max-h-[92vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
-          <div className="px-5 sm:px-8 py-4 sm:py-5 border-b border-murzak-accent/20 bg-murzak-ink text-white flex items-start justify-between gap-3">
+        <div className="relative w-full max-w-xl max-h-[92vh] bg-p-panel rounded-lg sm:rounded-lg overflow-hidden border border-p-border flex flex-col min-h-0 shadow-2xl">
+          <div className="px-5 sm:px-8 py-4 sm:py-5 border-b border-p-accent/40 bg-p-panel text-p-text flex items-start justify-between gap-3">
             <div className="min-w-0 flex items-center gap-3">
               {path && (
                 <button
                   type="button"
                   onClick={() => { setErr(""); setPath(null); }}
-                  className="shrink-0 rounded-xl p-2 border border-white/15 text-white/80 hover:text-murzak-accent hover:border-murzak-accent transition-all"
+                  className="shrink-0 rounded-md p-2 border border-p-border text-p-muted hover:text-p-accent-text hover:border-p-accent transition-all"
                   aria-label="Back"
                 >
                   <ArrowLeft size={18} />
                 </button>
               )}
               <div className="min-w-0">
-                <p className="text-micro font-black uppercase text-murzak-accent/90">Domains</p>
-                <h3 className="text-lg sm:text-2xl sm:leading-(--text-2xl--line-height) font-black tracking-tighter text-white mt-0.5 leading-tight">
+                <p className="text-xs font-semibold text-p-accent-text">Domains</p>
+                <h3 className="text-lg sm:text-2xl sm:leading-(--text-2xl--line-height) font-semibold text-p-text mt-0.5 leading-tight">
                   {path ? PATHS.find((p) => p.id === path)?.title : "Add a domain"}
                 </h3>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 rounded-xl p-2 sm:p-3 border border-white/15 text-white/80 hover:text-murzak-accent hover:border-murzak-accent transition-all bg-black/5"
+              className="shrink-0 rounded-md p-2 sm:p-3 border border-p-border text-p-muted hover:text-p-accent-text hover:border-p-accent transition-all bg-p-panel-2"
               aria-label="Close"
             >
               <X size={20} />
@@ -176,14 +176,14 @@ export default function AddDomainModal({
                     key={p.id}
                     type="button"
                     onClick={() => setPath(p.id)}
-                    className="text-left rounded-3xl p-5 border border-murzak-accent/25 bg-white/60 dark:bg-black/5 hover:border-murzak-accent/60 transition-all flex items-start gap-4"
+                    className="text-left rounded-lg p-5 border border-p-accent/40 bg-p-panel hover:border-p-accent transition-all flex items-start gap-4"
                   >
-                    <div className="shrink-0 w-10 h-10 rounded-2xl bg-murzak-accent/15 text-murzak-accent flex items-center justify-center">
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-p-accent-soft text-p-accent-text flex items-center justify-center">
                       {p.icon}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-murzak-ink dark:text-slate-100">{p.title}</p>
-                      <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-sm font-semibold text-p-text ">{p.title}</p>
+                      <p className="text-xs font-medium text-p-muted mt-1 leading-relaxed">
                         {p.description}
                       </p>
                     </div>
@@ -195,7 +195,7 @@ export default function AddDomainModal({
             {path === "register" && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <label className="text-xs font-semibold text-p-muted ">
                     Domain name
                   </label>
                   <div className="mt-2 flex gap-2">
@@ -204,12 +204,12 @@ export default function AddDomainModal({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="yourbrand"
-                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                      className="flex-1 h-12 px-4 rounded-md bg-p-panel-2 border border-p-border text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
                     />
                     <select
                       value={tld}
                       onChange={(e) => setTld(e.target.value)}
-                      className="h-12 px-3 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-black text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                      className="h-12 px-3 rounded-md bg-p-panel-2 border border-p-border text-sm font-semibold text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
                     >
                       {TLD_OPTIONS.map((t) => (
                         <option key={t} value={t}>{t}</option>
@@ -217,16 +217,16 @@ export default function AddDomainModal({
                     </select>
                   </div>
                   {name && !registerLabelValid && (
-                    <p className="mt-2 text-micro font-bold text-red-500">That doesn't look like a valid domain label.</p>
+                    <p className="mt-2 text-xs font-medium text-p-danger">That doesn't look like a valid domain label.</p>
                   )}
                 </div>
-                <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-xs font-medium text-p-muted leading-relaxed">
                   This creates a registration request against your active hosting plan. We'll email you once {name || "yourbrand"}{tld} is live.
                 </p>
                 {/* Required by Hostinger's Domain Name Registration Agreement
                     §7: resellers must inform the customer they are "in fact
                     registering their domain name through Hostinger." */}
-                <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-xs font-medium text-p-muted leading-relaxed">
                   Domains are registered through our infrastructure partner, Hostinger.
                 </p>
                 {err && <ErrorBanner text={err} />}
@@ -244,7 +244,7 @@ export default function AddDomainModal({
             {path === "external" && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <label className="text-xs font-semibold text-p-muted ">
                     Domain name
                   </label>
                   <input
@@ -252,24 +252,24 @@ export default function AddDomainModal({
                     value={domainName}
                     onChange={(e) => setDomainName(e.target.value)}
                     placeholder="yourbrand.com"
-                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full h-12 px-4 rounded-md bg-p-panel-2 border border-p-border text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
                   />
                   {domainName && !domainNameValid && (
-                    <p className="mt-2 text-micro font-bold text-red-500">That doesn't look like a valid domain.</p>
+                    <p className="mt-2 text-xs font-medium text-p-danger">That doesn't look like a valid domain.</p>
                   )}
                 </div>
                 <div>
-                  <label className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <label className="text-xs font-semibold text-p-muted ">
                     Where it's registered (optional)
                   </label>
                   <input
                     value={registrar}
                     onChange={(e) => setRegistrar(e.target.value)}
                     placeholder="e.g. GoDaddy, Namecheap"
-                    className="mt-2 w-full h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                    className="mt-2 w-full h-12 px-4 rounded-md bg-p-panel-2 border border-p-border text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
                   />
                 </div>
-                <p className="text-micro font-bold text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-xs font-medium text-p-muted leading-relaxed">
                   We'll send you the nameservers or DNS records to add at your registrar, then verify it once they propagate.
                 </p>
                 {err && <ErrorBanner text={err} />}
@@ -289,7 +289,7 @@ export default function AddDomainModal({
             {path === "subdomain" && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <label className="text-xs font-semibold text-p-muted ">
                     Subdomain label
                   </label>
                   <div className="mt-2 flex items-center gap-2">
@@ -298,21 +298,21 @@ export default function AddDomainModal({
                       value={label}
                       onChange={(e) => setLabel(e.target.value)}
                       placeholder="yourbrand"
-                      className="flex-1 h-12 px-4 rounded-xl bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"
+                      className="flex-1 h-12 px-4 rounded-md bg-p-panel-2 border border-p-border text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"
                     />
                     {/* Preview only — the request is fulfilled server-side against
                         whatever FREE_SUBDOMAIN_ROOT_DOMAIN is actually configured
                         to (see resolveFreeSubdomainRoot in customerDomains.js).
                         This used to say ".murzaktech.com", which has no DNS at all. */}
-                    <span className="text-sm font-black text-slate-500 dark:text-slate-400 shrink-0">.murzaktech.tech</span>
+                    <span className="text-sm font-semibold text-p-muted shrink-0">.murzaktech.tech</span>
                   </div>
                   {label && !subdomainLabelValid && (
-                    <p className="mt-2 text-micro font-bold text-red-500">Letters, numbers and hyphens only.</p>
+                    <p className="mt-2 text-xs font-medium text-p-danger">Letters, numbers and hyphens only.</p>
                   )}
                 </div>
-                <div className="flex items-start gap-2 p-3 rounded-xl bg-murzak-accent/10 border border-murzak-accent/20">
-                  <ShieldCheck className="w-4 h-4 text-murzak-accent shrink-0 mt-0.5" />
-                  <p className="text-micro font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
+                <div className="flex items-start gap-2 p-3 rounded-md bg-p-accent-soft border border-p-accent/40">
+                  <ShieldCheck className="w-4 h-4 text-p-accent-text shrink-0 mt-0.5" />
+                  <p className="text-xs font-medium text-p-muted leading-relaxed">
                     Free, no registration needed. This is usually ready the fastest.
                   </p>
                 </div>
@@ -335,9 +335,9 @@ export default function AddDomainModal({
 
 function ErrorBanner({ text }: { text: string }) {
   return (
-    <div className="p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-start gap-3">
+    <div className="p-4 rounded-lg border border-p-danger/40 bg-p-danger-soft text-p-danger flex items-start gap-3">
       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-      <p className="text-micro font-bold leading-relaxed">{text}</p>
+      <p className="text-xs font-medium leading-relaxed">{text}</p>
     </div>
   );
 }
@@ -358,10 +358,10 @@ function SubmitButton({
       type="button"
       disabled={submitting || disabled}
       onClick={onClick}
-      className={`w-full px-5 py-3 rounded-2xl font-black text-micro uppercase transition-all flex items-center justify-center gap-2 ${
+      className={`w-full px-5 py-3 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 ${
         submitting || disabled
-          ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
-          : "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
+          ? "bg-p-panel-2 text-p-muted cursor-not-allowed"
+          : "bg-p-accent text-p-accent-fg "
       }`}
     >
       {submitting ? (

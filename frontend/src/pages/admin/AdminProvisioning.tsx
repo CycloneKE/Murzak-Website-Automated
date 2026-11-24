@@ -13,29 +13,29 @@ const JOB_STATUSES = ["all", "queued", "running", "active", "needs_human", "fail
 
 function jobStatusClasses(s?: string) {
   switch ((s || "").toLowerCase()) {
-    case "active": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
-    case "running": return "bg-amber-500/15 text-amber-300 border-amber-500/20";
-    case "queued": return "bg-cyan-500/15 text-cyan-300 border-cyan-500/20";
-    case "failed": return "bg-red-500/15 text-red-400 border-red-500/20";
-    case "needs_human": return "bg-orange-500/15 text-orange-300 border-orange-500/20";
-    default: return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-murzak-border";
+    case "active": return "bg-p-success-soft text-p-success border-p-success/40";
+    case "running": return "bg-p-warning-soft text-p-warning border-p-warning/40";
+    case "queued": return "bg-p-info-soft text-p-info border-p-info/40";
+    case "failed": return "bg-p-danger-soft text-p-danger border-p-danger/40";
+    case "needs_human": return "bg-p-warning-soft text-p-warning border-p-warning/40";
+    default: return "bg-slate-500/10 text-p-muted border-p-border";
   }
 }
 
 function Dot({ ok }: { ok: boolean }) {
   return ok
-    ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-    : <XCircle className="w-4 h-4 text-red-400 shrink-0" />;
+    ? <CheckCircle2 className="w-4 h-4 text-p-success shrink-0" />
+    : <XCircle className="w-4 h-4 text-p-danger shrink-0" />;
 }
 
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white/80 dark:bg-white/5 backdrop-blur-md border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.25rem] shadow-lg overflow-hidden ${className}`}>
+  <div className={`bg-p-panel border border-p-border rounded-lg sm:rounded-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );
 
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">{children}</p>
+  <p className="text-xs font-semibold text-p-muted ">{children}</p>
 );
 
 const AdminProvisioning: React.FC = () => {
@@ -127,48 +127,48 @@ const AdminProvisioning: React.FC = () => {
     <div className="w-full">
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Provisioning</h2>
-          <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
+          <h2 className="text-2xl sm:text-3xl font-semibold ">Provisioning</h2>
+          <p className="text-xs font-semibold text-p-muted mt-2">
             Go-live readiness, capacity, and the job queue.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => refresh()} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-md border border-p-border bg-p-panel-2 text-xs font-semibold hover:border-p-accent hover:bg-p-accent-soft transition">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </button>
           <button onClick={onRun} disabled={running} type="button"
-            className="h-10 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60">
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60">
             {running ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />} Run queue now
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-p-danger">
           <AlertCircle className="w-4 h-4" /> {error}
         </div>
       )}
       {notice && (
-        <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-emerald-500">
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-p-success">
           <CheckCircle2 className="w-4 h-4" /> {notice}
         </div>
       )}
 
       {/* Readiness */}
       <Card className="mb-6">
-        <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center justify-between gap-4">
+        <div className="p-6 border-b border-p-border flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><ShieldCheck className="w-[18px] h-[18px]" /></div>
+            <div className="p-3 rounded-lg bg-p-accent-soft text-p-accent-text"><ShieldCheck className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Go-live readiness</Label>
-              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">
+              <p className="text-sm font-semibold text-p-text ">
                 {readiness ? (readiness.ready ? "Ready to go live" : "Not ready — see below") : "—"}
               </p>
             </div>
           </div>
-          <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-micro font-black uppercase ${
-            readiness?.ready ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" : "bg-orange-500/15 text-orange-300 border-orange-500/20"
+          <span className={`inline-flex items-center px-3 py-1.5 rounded-full border text-xs font-semibold ${
+            readiness?.ready ? "bg-p-success-soft text-p-success border-p-success/40" : "bg-p-warning-soft text-p-warning border-p-warning/40"
           }`}>
             {readiness ? (readiness.ready ? "Ready" : "Action needed") : "…"}
           </span>
@@ -182,13 +182,13 @@ const AdminProvisioning: React.FC = () => {
             <div key={grp.title}>
               <Label>{grp.title}</Label>
               <ul className="mt-3 space-y-2.5">
-                {grp.items.length === 0 && <li className="text-label font-bold text-slate-600 dark:text-slate-400">—</li>}
+                {grp.items.length === 0 && <li className="text-[13px] font-medium text-p-muted ">—</li>}
                 {grp.items.map((c) => (
                   <li key={c.key} className="flex items-start gap-2.5">
                     <Dot ok={c.ok} />
                     <div className="min-w-0">
-                      <p className="text-[12px] font-bold text-murzak-ink dark:text-slate-100 leading-tight">{c.label}</p>
-                      {c.detail && <p className="text-micro font-semibold text-slate-600 dark:text-slate-400 leading-tight mt-0.5">{c.detail}</p>}
+                      <p className="text-[12px] font-medium text-p-text leading-tight">{c.label}</p>
+                      {c.detail && <p className="text-xs font-semibold text-p-muted leading-tight mt-0.5">{c.detail}</p>}
                     </div>
                   </li>
                 ))}
@@ -201,25 +201,25 @@ const AdminProvisioning: React.FC = () => {
       {/* Queue + Capacity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
-          <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Activity className="w-[18px] h-[18px]" /></div>
+          <div className="p-6 border-b border-p-border flex items-center gap-3">
+            <div className="p-3 rounded-lg bg-p-accent-soft text-p-accent-text"><Activity className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Dispatcher</Label>
-              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">mode: {queue?.mode || "—"}</p>
+              <p className="text-sm font-semibold text-p-text ">mode: {queue?.mode || "—"}</p>
             </div>
           </div>
           <div className="p-6">
             {queue?.counts ? (
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {Object.entries(queue.counts).map(([k, v]) => (
-                  <div key={k} className="rounded-2xl bg-slate-50 dark:bg-black/5 border border-slate-100 dark:border-murzak-border p-3 text-center">
-                    <p className="text-lg font-black text-murzak-ink dark:text-slate-100">{v}</p>
-                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-0.5">{k}</p>
+                  <div key={k} className="rounded-lg bg-p-panel-2 border border-p-border p-3 text-center">
+                    <p className="text-lg font-semibold text-p-text ">{v}</p>
+                    <p className="text-xs font-semibold text-p-muted mt-0.5">{k}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-label font-bold text-slate-600 dark:text-slate-400">
+              <p className="text-[13px] font-medium text-p-muted ">
                 {queue?.mode === "poll" ? "Poll mode — no queue counters (jobs are read from the doctype each pass)." : "No queue metrics."}
               </p>
             )}
@@ -227,11 +227,11 @@ const AdminProvisioning: React.FC = () => {
         </Card>
 
         <Card>
-          <div className="p-6 border-b border-slate-100 dark:border-murzak-border flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent"><Server className="w-[18px] h-[18px]" /></div>
+          <div className="p-6 border-b border-p-border flex items-center gap-3">
+            <div className="p-3 rounded-lg bg-p-accent-soft text-p-accent-text"><Server className="w-[18px] h-[18px]" /></div>
             <div>
               <Label>Capacity (RAM per box)</Label>
-              <p className="text-sm font-black text-murzak-ink dark:text-slate-100">{capacity?.targets.length || 0} box(es)</p>
+              <p className="text-sm font-semibold text-p-text ">{capacity?.targets.length || 0} box(es)</p>
             </div>
           </div>
           <div className="p-6 space-y-4">
@@ -240,12 +240,12 @@ const AdminProvisioning: React.FC = () => {
               const hot = pct >= 85;
               return (
                 <div key={t.id}>
-                  <div className="flex items-center justify-between text-label font-black mb-1.5">
-                    <span className="text-murzak-ink dark:text-slate-100 uppercase tracking-widest">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
-                    <span className="text-slate-500">{t.reservedRamMb} / {t.limitRamMb} MB</span>
+                  <div className="flex items-center justify-between text-[13px] font-semibold mb-1.5">
+                    <span className="text-p-text ">{t.id}{t.status !== "active" ? ` · ${t.status}` : ""}</span>
+                    <span className="text-p-muted">{t.reservedRamMb} / {t.limitRamMb} MB</span>
                   </div>
-                  <div className="h-2.5 rounded-full bg-slate-100 dark:bg-black/5 overflow-hidden">
-                    <div className={`h-full rounded-full ${hot ? "bg-orange-400" : "bg-murzak-accent"}`} style={{ width: `${pct}%` }} />
+                  <div className="h-2.5 rounded-full bg-p-panel-2 overflow-hidden">
+                    <div className={`h-full rounded-full ${hot ? "bg-p-warning" : "bg-p-accent"}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
               );
@@ -255,7 +255,7 @@ const AdminProvisioning: React.FC = () => {
                 <Label>Open scale-out requests</Label>
                 <ul className="mt-2 space-y-1.5">
                   {capacity.requests.filter((r) => r.status === "pending" || r.status === "provisioning").map((r) => (
-                    <li key={r.name} className="flex items-center gap-2 text-label font-bold text-orange-400">
+                    <li key={r.name} className="flex items-center gap-2 text-[13px] font-medium text-p-warning">
                       <Database className="w-3.5 h-3.5" /> {r.name} · {r.status} · ~{r.requested_ram_mb}MB
                     </li>
                   ))}
@@ -268,14 +268,14 @@ const AdminProvisioning: React.FC = () => {
 
       {/* Jobs */}
       <Card>
-        <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
+        <div className="p-6 border-b border-p-border ">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <Label>Provisioning jobs</Label>
             <div className="flex items-center gap-1.5 flex-wrap">
               {JOB_STATUSES.map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} type="button"
-                  className={`px-3 py-1.5 rounded-full text-micro font-black uppercase border transition ${
-                    statusFilter === s ? "bg-murzak-accent text-murzak-ink border-murzak-accent" : "bg-slate-50 dark:bg-black/5 border-slate-200 dark:border-murzak-border text-slate-500 hover:text-murzak-accent"
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                    statusFilter === s ? "bg-p-accent text-p-accent-fg border-p-accent/40" : "bg-p-panel-2 border-p-border text-p-muted hover:text-p-accent-text"
                   }`}>
                   {s}
                 </button>
@@ -286,12 +286,12 @@ const AdminProvisioning: React.FC = () => {
         <div className="overflow-x-auto">
           {jobs.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">No jobs for this filter.</p>
+              <p className="text-xs font-semibold text-p-muted ">No jobs for this filter.</p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 border-b border-slate-100 dark:border-murzak-border">
+                <tr className="text-xs font-semibold text-p-muted border-b border-p-border ">
                   <th className="p-4">Service</th>
                   <th className="p-4">Lane / Box</th>
                   <th className="p-4">Status</th>
@@ -304,35 +304,35 @@ const AdminProvisioning: React.FC = () => {
                 {jobs.map((j) => {
                   const canRetry = j.status === "failed" || j.status === "needs_human";
                   return (
-                    <tr key={j.name} className="border-b border-slate-50 dark:border-murzak-border/50 align-top">
+                    <tr key={j.name} className="border-b border-slate-50 align-top">
                       <td className="p-4">
-                        <p className="text-[13px] font-black text-murzak-ink dark:text-slate-100">{j.service_name || j.service_id}</p>
-                        <p className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
+                        <p className="text-[13px] font-semibold text-p-text ">{j.service_name || j.service_id}</p>
+                        <p className="text-xs font-medium text-p-muted mt-0.5">{j.web_account || "—"} · {j.ram_mb || 0}MB</p>
                       </td>
                       <td className="p-4">
-                        <p className="text-label font-black text-murzak-ink dark:text-slate-100">{j.lane || "—"}</p>
-                        <p className="text-micro font-bold uppercase text-slate-600 dark:text-slate-400 mt-0.5">{j.target || "box-1"}</p>
+                        <p className="text-[13px] font-semibold text-p-text ">{j.lane || "—"}</p>
+                        <p className="text-xs font-medium text-p-muted mt-0.5">{j.target || "box-1"}</p>
                       </td>
                       <td className="p-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-micro font-black uppercase ${jobStatusClasses(j.status)}`}>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-semibold ${jobStatusClasses(j.status)}`}>
                           {j.status || "—"}{j.attempts ? ` · ${j.attempts}x` : ""}{j.gated ? " · gated" : ""}
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="text-micro font-bold text-slate-600 dark:text-slate-400">bk: {j.backup_status || "—"}</p>
-                        <p className="text-micro font-bold text-slate-600 dark:text-slate-400">edge: {j.edge_status || "—"}</p>
+                        <p className="text-xs font-medium text-p-muted ">bk: {j.backup_status || "—"}</p>
+                        <p className="text-xs font-medium text-p-muted ">edge: {j.edge_status || "—"}</p>
                       </td>
                       <td className="p-4 max-w-[260px]">
                         {j.error
-                          ? <p className="text-micro font-semibold text-red-400 wrap-break-word">{j.error}</p>
+                          ? <p className="text-xs font-semibold text-p-danger wrap-break-word">{j.error}</p>
                           : j.external_ref
-                          ? <p className="text-micro font-semibold text-emerald-400 wrap-break-word">{j.external_ref}</p>
-                          : <span className="text-micro text-slate-600 dark:text-slate-400">—</span>}
+                          ? <p className="text-xs font-semibold text-p-success wrap-break-word">{j.external_ref}</p>
+                          : <span className="text-xs text-p-muted ">—</span>}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button onClick={() => setConsoleJob(j)} type="button"
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-p-border text-xs font-semibold hover:border-p-accent hover:bg-p-accent-soft transition">
                             <Terminal className="w-3.5 h-3.5" /> Console
                           </button>
                           {canRetry && (
@@ -342,11 +342,11 @@ const AdminProvisioning: React.FC = () => {
                                 setResolveRef("");
                                 setResolveAccess("");
                               }} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-p-border text-xs font-semibold hover:border-p-accent hover:bg-p-accent-soft transition">
                                 Resolve Manually
                               </button>
                               <button onClick={() => onRetry(j.name)} disabled={retryingId === j.name} type="button"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:border-murzak-accent/40 hover:bg-murzak-accent/10 transition disabled:opacity-60">
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-p-border text-xs font-semibold hover:border-p-accent hover:bg-p-accent-soft transition disabled:opacity-60">
                                 {retryingId === j.name ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry
                               </button>
                             </>
@@ -363,26 +363,26 @@ const AdminProvisioning: React.FC = () => {
       </Card>
 
       {resolveModalJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-xs">
-          <div className="bg-white dark:bg-murzak-ink w-full max-w-lg rounded-4xl p-8 shadow-2xl border border-slate-100 dark:border-murzak-border relative">
-            <h3 className="text-xl font-black uppercase tracking-widest mb-1">Resolve Job Manually</h3>
-            <p className="text-micro font-bold text-slate-600 dark:text-slate-400 uppercase mb-6">Job: {resolveModalJob}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-p-panel w-full max-w-lg rounded-lg p-8 shadow-2xl border border-p-border relative">
+            <h3 className="text-xl font-semibold mb-1">Resolve Job Manually</h3>
+            <p className="text-xs font-medium text-p-muted mb-6">Job: {resolveModalJob}</p>
             
             <form onSubmit={onResolveSubmit} className="space-y-4">
               <div>
-                <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">External Ref (e.g. UUID, IP)</label>
+                <label className="block text-xs font-semibold text-p-muted mb-1">External Ref (e.g. UUID, IP)</label>
                 <input required value={resolveRef} onChange={e => setResolveRef(e.target.value)} type="text"
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent" />
+                  className="w-full bg-p-panel-2 border border-p-border rounded-md px-4 py-2.5 text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40" />
               </div>
               <div>
-                <label className="block text-micro font-black uppercase text-slate-600 dark:text-slate-400 mb-1">Access Credentials (JSON)</label>
+                <label className="block text-xs font-semibold text-p-muted mb-1">Access Credentials (JSON)</label>
                 <textarea rows={4} value={resolveAccess} onChange={e => setResolveAccess(e.target.value)} placeholder='{"manageUrl": "...", "password": "..."}'
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 text-sm font-bold text-murzak-ink dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent font-mono text-label" />
+                  className="w-full bg-p-panel-2 border border-p-border rounded-md px-4 py-2.5 text-sm font-medium text-p-text focus:outline-hidden focus:ring-2 focus:ring-p-accent/40 font-mono text-[13px]" />
               </div>
               
               <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-murzak-border text-micro font-black uppercase hover:bg-slate-50 dark:hover:bg-black/5 transition">Cancel</button>
-                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:opacity-90 transition disabled:opacity-50">
+                <button type="button" onClick={() => setResolveModalJob("")} className="flex-1 px-4 py-3 rounded-md border border-p-border text-xs font-semibold hover:bg-p-panel-2 transition">Cancel</button>
+                <button type="submit" disabled={resolving} className="flex-1 px-4 py-3 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold hover:opacity-90 transition disabled:opacity-50">
                   {resolving ? "Resolving..." : "Mark Active"}
                 </button>
               </div>
@@ -392,15 +392,15 @@ const AdminProvisioning: React.FC = () => {
       )}
 
       {consoleJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-murzak-ink/40 backdrop-blur-xs">
-          <div className="w-full max-w-3xl max-h-[85vh] bg-[#0a0a0a] border border-white/20 rounded-2xl shadow-2xl overflow-hidden font-mono flex flex-col">
-            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-murzak-border">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="w-full max-w-3xl max-h-[85vh] bg-[#0a0a0a] border border-p-border rounded-lg shadow-2xl overflow-hidden font-mono flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 bg-[#1a1a1a] border-b border-p-border">
               <div className="flex items-center text-gray-300 text-sm min-w-0">
                 <Terminal className="w-4 h-4 mr-2 shrink-0" />
                 <span className="truncate">
                   {consoleJob.service_name || consoleJob.service_id} — {consoleJob.name}
                 </span>
-                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded-sm text-micro uppercase ${jobStatusClasses(consoleJob.status)}`}>
+                <span className={`ml-3 shrink-0 px-2 py-0.5 rounded-sm text-xs ${jobStatusClasses(consoleJob.status)}`}>
                   {consoleJob.status || "unknown"}
                 </span>
               </div>
@@ -419,7 +419,7 @@ const AdminProvisioning: React.FC = () => {
               </div>
 
               <div>
-                <p className="text-gray-500 uppercase text-micro mb-1">Runner log</p>
+                <p className="text-gray-500 text-xs mb-1">Runner log</p>
                 {consoleJob.log ? (
                   <pre className="whitespace-pre-wrap wrap-break-word text-gray-300">{consoleJob.log}</pre>
                 ) : (
@@ -429,14 +429,14 @@ const AdminProvisioning: React.FC = () => {
 
               {consoleJob.error && (
                 <div>
-                  <p className="text-gray-500 uppercase text-micro mb-1">Error</p>
-                  <pre className="whitespace-pre-wrap wrap-break-word text-orange-400">{consoleJob.error}</pre>
+                  <p className="text-gray-500 text-xs mb-1">Error</p>
+                  <pre className="whitespace-pre-wrap wrap-break-word text-p-warning">{consoleJob.error}</pre>
                 </div>
               )}
 
               {consoleJob.access && (
                 <div>
-                  <p className="text-gray-500 uppercase text-micro mb-1">Access (shown to customer)</p>
+                  <p className="text-gray-500 text-xs mb-1">Access (shown to customer)</p>
                   {(() => {
                     // Quick links: customer URL + Coolify admin panel, parsed
                     // out of the access JSON so staff don't copy from raw text.
@@ -445,12 +445,12 @@ const AdminProvisioning: React.FC = () => {
                       return (
                         <div className="mb-2 flex flex-wrap gap-3">
                           {parsed?.url && (
-                            <a href={parsed.url} target="_blank" rel="noopener noreferrer" className="text-emerald-300 underline underline-offset-2">
+                            <a href={parsed.url} target="_blank" rel="noopener noreferrer" className="text-p-success underline underline-offset-2">
                               customer url ↗
                             </a>
                           )}
                           {parsed?.manageUrl && (
-                            <a href={parsed.manageUrl} target="_blank" rel="noopener noreferrer" className="text-sky-300 underline underline-offset-2">
+                            <a href={parsed.manageUrl} target="_blank" rel="noopener noreferrer" className="text-p-info underline underline-offset-2">
                               coolify panel ↗ (staff only)
                             </a>
                           )}
@@ -460,7 +460,7 @@ const AdminProvisioning: React.FC = () => {
                       return null;
                     }
                   })()}
-                  <pre className="whitespace-pre-wrap wrap-break-word text-emerald-400">{consoleJob.access}</pre>
+                  <pre className="whitespace-pre-wrap wrap-break-word text-p-success">{consoleJob.access}</pre>
                 </div>
               )}
             </div>

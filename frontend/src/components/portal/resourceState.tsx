@@ -54,11 +54,11 @@ export function realStateFor(svc: SelectedServiceView, job: ProvisioningActivity
 }
 
 export const REAL_STATE_TONE_CLASSES: Record<RealState["tone"], string> = {
-  green: "bg-murzak-success/10 text-murzak-success border-murzak-success/20",
-  orange: "bg-orange-500/10 text-orange-500 border-orange-500/20",
-  red: "bg-red-500/10 text-red-500 border-red-500/20",
-  blue: "bg-murzak-accent/10 text-murzak-accent border-murzak-accent/20",
-  slate: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  green: "bg-p-success-soft text-p-success border-p-success/40",
+  orange: "bg-p-warning-soft text-p-warning border-p-warning/40",
+  red: "bg-p-danger-soft text-p-danger border-p-danger/40",
+  blue: "bg-p-accent-soft text-p-accent-text border-p-accent/40",
+  slate: "bg-slate-500/10 text-p-muted border-p-border",
 };
 
 export function RealStateIcon({ tone, className = "w-3.5 h-3.5" }: { tone: RealState["tone"]; className?: string }) {
@@ -73,7 +73,7 @@ export function RealStateBadge({ svc, job, loading }: { svc: SelectedServiceView
   const state = realStateFor(svc, job);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${REAL_STATE_TONE_CLASSES[state.tone]}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${REAL_STATE_TONE_CLASSES[state.tone]}`}
     >
       <RealStateIcon tone={state.tone} />
       {loading ? "Checking…" : state.label}

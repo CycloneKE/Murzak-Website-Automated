@@ -115,6 +115,8 @@ const { paypalConfig } = require("./config/paypal");
 const fs = require("fs");
 const fsp = fs.promises;
 
+const clientIp = require("./utils/clientIp").clientIp;
+
 const app = express();
 app.set("trust proxy", 1);
 // START
@@ -1104,9 +1106,7 @@ app.post("/api/test-plan", publicFormLimiter, async (req, res) => {
       status: "Trial Pending",
       source: "Website",
       page_url: pageUrl || "",
-      ip_address:
-        req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() ||
-        req.socket.remoteAddress,
+      ip_address: clientIp(req),
       user_agent: req.headers["user-agent"] || "",
     };
     
@@ -2624,7 +2624,7 @@ app.post("/api/requests", publicFormLimiter, async (req, res) => {
       request_type: requestType,
       source: "Website",
       page_url: pageUrl || "",
-      ip_address: req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.socket.remoteAddress,
+      ip_address: clientIp(req),
       user_agent: req.headers["user-agent"] || "",
       status: "New",
     };

@@ -413,7 +413,7 @@ const App: React.FC = () => {
           />
         )}
   
-        <main className={`grow relative ${!hideChrome ? "pt-16 sm:pt-20 lg:pt-28" : ""}`}>
+        <main className={`grow relative ${!hideChrome ? "pt-16 sm:pt-20 lg:pt-24" : ""}`}>
           <div className="max-w-full overflow-x-hidden">
             <Routes>
               <Route path="/" element={<Home onNavigate={onNavigate} isLoading={isPageLoading} />} />

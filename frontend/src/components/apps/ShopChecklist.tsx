@@ -38,21 +38,21 @@ const ShopChecklist: React.FC<Props> = ({ serviceId }) => {
 
   if (p.complete) {
     return (
-      <section className="mt-4 rounded-2xl border border-emerald-600/25 bg-emerald-600/5 p-5" aria-labelledby="shop-checklist">
-        <h3 id="shop-checklist" className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Getting your shop going</h3>
-        <p className="mt-2 text-[13px] font-black text-murzak-ink dark:text-slate-100">All set. Your shop is up and selling.</p>
+      <section className="mt-4 rounded-lg border border-emerald-600/25 bg-emerald-600/5 p-5" aria-labelledby="shop-checklist">
+        <h3 id="shop-checklist" className="text-xs font-semibold text-p-muted ">Getting your shop going</h3>
+        <p className="mt-2 text-[13px] font-semibold text-p-text ">All set. Your shop is up and selling.</p>
       </section>
     );
   }
 
   return (
-    <section className="mt-4 rounded-2xl border border-slate-200 dark:border-white/10 p-5" aria-labelledby="shop-checklist">
+    <section className="mt-4 rounded-lg border border-p-border p-5" aria-labelledby="shop-checklist">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 id="shop-checklist" className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Getting your shop going</h3>
-        {p.checked && <span className="text-[12px] font-bold text-slate-500">{p.doneCount} of {p.total} done</span>}
+        <h3 id="shop-checklist" className="text-xs font-semibold text-p-muted ">Getting your shop going</h3>
+        {p.checked && <span className="text-[12px] font-medium text-p-muted">{p.doneCount} of {p.total} done</span>}
       </div>
       {!p.checked && (
-        <p className="mt-2 text-[12px] font-semibold text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-[12px] font-semibold text-p-muted ">
           We update this every few minutes once your shop is ready.
         </p>
       )}
@@ -63,17 +63,17 @@ const ShopChecklist: React.FC<Props> = ({ serviceId }) => {
             <li key={s.id} className="flex items-start gap-3">
               <span
                 className={`mt-0.5 w-5 h-5 shrink-0 rounded-full flex items-center justify-center ${
-                  s.done ? "bg-emerald-600 text-white" : next ? "bg-murzak-accent text-murzak-ink" : "bg-slate-200 dark:bg-white/10 text-slate-500"
+                  s.done ? "bg-emerald-600 text-white" : next ? "bg-p-accent text-p-accent-fg" : "bg-p-panel-2 text-p-muted"
                 }`}
               >
                 {s.done ? <Check size={12} aria-hidden="true" /> : <Circle size={8} aria-hidden="true" />}
               </span>
               <span className="text-[13px]">
-                <span className={`font-black ${s.done ? "text-slate-500 line-through" : "text-murzak-ink dark:text-slate-100"}`}>
+                <span className={`font-semibold ${s.done ? "text-p-muted line-through" : "text-p-text "}`}>
                   {s.label}{s.optional ? " (optional)" : ""}
                 </span>
                 <span className="sr-only">{s.done ? " (done)" : next ? " (next)" : " (to do)"}</span>
-                {next && <span className="block text-[12px] font-medium text-slate-600 dark:text-slate-400">{s.help}</span>}
+                {next && <span className="block text-[12px] font-medium text-p-muted ">{s.help}</span>}
               </span>
             </li>
           );

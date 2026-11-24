@@ -360,6 +360,43 @@ async function main() {
     } catch (e) {
       console.log(`\nLOGS PROBE FAILED: ${e.response?.status} ${JSON.stringify(e.response?.data || e.message)}`);
     }
+
+    // ---- Probe 12: service settings (domains / healthcheck / bulk envs) -------
+    // Back GET/DELETE .../domains, GET/PUT .../healthcheck, POST .../envs/bulk.
+    // Read the dumps: does `fqdn` come back comma-separated? Did the healthcheck
+    // PATCH stick? Does /envs/bulk accept { data: [...] }?
+    try {
+      const got = await client.get(`/api/v1/applications/${appUuid}`);
+      const app = got.data?.data || got.data || {};
+      console.log(
+        `\nSETTINGS PROBE: fqdn=${JSON.stringify(app.fqdn)} is_force_https_enabled=${JSON.stringify(app.is_force_https_enabled)} ` +
+          `health_check_enabled=${JSON.stringify(app.health_check_enabled)} health_check_path=${JSON.stringify(app.health_check_path)} ` +
+          `health_check_interval=${JSON.stringify(app.health_check_interval)}`
+      );
+
+      const hc = await client.patch(`/api/v1/applications/${appUuid}`, {
+        health_check_enabled: true,
+        health_check_path: "/",
+        health_check_interval: 30,
+      });
+      show("PATCH healthcheck fields", hc);
+      const again = (await client.get(`/api/v1/applications/${appUuid}`)).data;
+      console.log(
+        `SETTINGS PROBE: after PATCH interval=${JSON.stringify((again.data || again).health_check_interval)} (want 30 — else the field names in updateHealthcheck are wrong)`
+      );
+
+      const bulk = await client.patch(`/api/v1/applications/${appUuid}/envs/bulk`, {
+        data: [{ key: "SMOKE_BULK", value: "1", is_buildtime: false, is_literal: false }],
+      });
+      show("PATCH /envs/bulk { data: [...] }", bulk);
+      const envBody = (await client.get(`/api/v1/applications/${appUuid}/envs`)).data;
+      const row = (envBody?.data || envBody || []).find((e) => e.key === "SMOKE_BULK" && !e.is_preview);
+      if (row?.uuid) await client.delete(`/api/v1/applications/${appUuid}/envs/${row.uuid}`);
+      else console.log("SETTINGS PROBE: SMOKE_BULK not found after bulk — bulkUpsertEnvs shape is wrong.");
+    } catch (e) {
+      console.log(`\nSETTINGS PROBE FAILED: ${e.response?.status} ${JSON.stringify(e.response?.data || e.message)}`);
+      console.log("  -> the domains/healthcheck/bulk calls in lanes/coolify.js are wrong for this version. Do NOT ship those sections.");
+    }
   } finally {
     // ---- Cleanup -------------------------------------------------------------
     if (KEEP) {

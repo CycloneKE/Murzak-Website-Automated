@@ -178,29 +178,29 @@ useLayoutEffect(() => {
 
 return createPortal(
   <div className="fixed inset-0 z-140">
-    <div className="absolute inset-0 bg-murzak-ink/50 backdrop-blur-xl" onClick={onClose} />
+    <div className="absolute inset-0 bg-black/60" onClick={onClose} />
     <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-6">
-      <div className="relative w-full max-w-6xl md:max-w-7xl max-h-[95vh] sm:max-h-[90vh] bg-white/95 dark:bg-murzak-ink/95 backdrop-blur-xl rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-murzak-border flex flex-col min-h-0 shadow-2xl">
+      <div className="relative w-full max-w-6xl md:max-w-7xl max-h-[95vh] sm:max-h-[90vh] bg-p-panel rounded-lg sm:rounded-lg overflow-hidden border border-p-border flex flex-col min-h-0 shadow-2xl">
         {/* header */}
-        <div className="px-4 sm:px-8 py-3 sm:pt-5 sm:pb-5 border-b border-murzak-accent/20 bg-murzak-ink text-white flex items-start justify-between gap-3 sm:gap-4">
+        <div className="px-4 sm:px-8 py-3 sm:pt-5 sm:pb-5 border-b border-p-accent/40 bg-p-panel text-p-text flex items-start justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
-            <p className="text-micro sm:text-micro font-black uppercase text-murzak-accent/90">
+            <p className="text-xs sm:text-xs font-semibold text-p-accent-text">
               Add-ons for {planLabel}
             </p>
-            <h3 className="text-base sm:text-2xl sm:leading-(--text-2xl--line-height) font-black tracking-tighter text-white mt-0.5 sm:mt-1 leading-tight">
+            <h3 className="text-base sm:text-2xl sm:leading-(--text-2xl--line-height) font-semibold text-p-text mt-0.5 sm:mt-1 leading-tight">
               Purchase extra services
             </h3>
-            <p className="hidden sm:block text-micro font-bold text-white/80 mt-2 max-w-2xl">
+            <p className="hidden sm:block text-xs font-medium text-p-muted mt-2 max-w-2xl">
               Add-ons are charged separately and will appear as an Add-on invoice in Billing.
             </p>
-            <p className="sm:hidden text-micro font-bold text-white/75 mt-1 leading-snug">
+            <p className="sm:hidden text-xs font-medium text-p-muted mt-1 leading-snug">
               Charged separately • shows in Billing
             </p>
           </div>
 
           <button
             onClick={onClose}
-            className="shrink-0 rounded-xl p-2 sm:p-3 border border-white/15 text-white/80 hover:text-murzak-accent hover:border-murzak-accent transition-all bg-black/5 hover:bg-black/5"
+            className="shrink-0 rounded-md p-2 sm:p-3 border border-p-border text-p-muted hover:text-p-accent-text hover:border-p-accent transition-all bg-p-panel-2 hover:bg-p-panel-2"
             aria-label="Close"
           >
             <X size={18} className="sm:hidden" />
@@ -217,8 +217,8 @@ return createPortal(
     style={{ WebkitOverflowScrolling: "touch" }}
   >
     {addons.length === 0 ? (
-      <div className="text-center py-16 rounded-4xl border border-dashed border-slate-200 dark:border-murzak-border bg-slate-50/50 dark:bg-black/5">
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <div className="text-center py-16 rounded-lg border border-dashed border-p-border bg-p-panel-2 ">
+        <p className="text-xs font-semibold text-p-muted ">
           No add-ons available for this plan tier yet.
         </p>
       </div>
@@ -232,30 +232,30 @@ return createPortal(
               type="button"
               onClick={() => toggle(a.id)}
               aria-pressed={on}
-              className={`text-left rounded-[1.75rem] p-5 border transition-all ${
+              className={`text-left rounded-lg p-5 border transition-all ${
                 on
-                  ? "border-murzak-accent bg-murzak-accent/10 shadow-[0_0_0_3px_rgba(34,211,238,0.12)]"
-                  : "border-murzak-accent/25 bg-white/60 dark:bg-black/5 hover:border-murzak-accent/60"
+                  ? "border-p-accent bg-p-accent-soft"
+                  : "border-p-accent/40 bg-p-panel hover:border-p-accent"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <p className="text-xs font-semibold text-p-muted ">
                     {a.category} • {a.tier}
                   </p>
-                  <p className="text-sm sm:text-base font-black text-murzak-ink dark:text-slate-100 mt-2">
+                  <p className="text-sm sm:text-base font-semibold text-p-text mt-2">
                     {a.name}
                   </p>
-                  <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-2 line-clamp-2">
+                  <p className="text-xs font-medium text-p-muted mt-2 line-clamp-2">
                     {a.description}
                   </p>
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <p className="text-xs font-semibold text-p-muted ">
                     Monthly
                   </p>
-                  <p className="text-lg font-black text-murzak-ink dark:text-slate-100">
+                  <p className="text-lg font-semibold text-p-text ">
                     KES {Number(a?.pricing?.monthlyKes || 0).toLocaleString()}
                   </p>
                 </div>
@@ -267,9 +267,9 @@ return createPortal(
     )}
 
     {err && (
-      <div className="mt-6 p-4 rounded-2xl border border-red-500/20 bg-red-500/10 text-red-500 flex items-start gap-3">
+      <div className="mt-6 p-4 rounded-lg border border-p-danger/40 bg-p-danger-soft text-p-danger flex items-start gap-3">
         <AlertCircle className="w-4 h-4 mt-0.5" />
-        <div className="text-micro font-black uppercase">
+        <div className="text-xs font-semibold ">
           {err}
         </div>
       </div>
@@ -277,16 +277,16 @@ return createPortal(
   </div>
 
   {/* RIGHT: desktop sticky summary */}
-  <div className="hidden sm:block sm:w-[32%] border-l border-slate-200 dark:border-murzak-border p-5 sm:p-6">
+  <div className="hidden sm:block sm:w-[32%] border-l border-p-border p-5 sm:p-6">
     <div className="sticky top-4 space-y-4">
       {/* Selected list */}
-      <div className="rounded-4xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <div className="rounded-lg border border-p-border bg-p-panel p-5">
+        <p className="text-xs font-semibold text-p-muted ">
           Selected
         </p>
 
         {selectedDisplay.length === 0 ? (
-          <p className="mt-4 text-micro font-bold text-slate-600 dark:text-slate-400">
+          <p className="mt-4 text-xs font-medium text-p-muted ">
             Pick add-ons to continue.
           </p>
         ) : (
@@ -294,30 +294,30 @@ return createPortal(
             {selectedDisplay.map((row, idx) => (
               <div
                 key={row.id}
-                className="rounded-2xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/10 p-4"
+                className="rounded-lg border border-p-border bg-p-panel p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                    <p className="text-xs font-semibold text-p-muted ">
                       #{idx + 1} • {row.tier}
                     </p>
-                    <p className="text-sm font-black text-murzak-ink dark:text-slate-100 mt-1 truncate">
+                    <p className="text-sm font-semibold text-p-text mt-1 truncate">
                       {row.name}
                     </p>
                   </div>
 
                   <div className="shrink-0 text-right">
-                    <p className="text-sm font-black text-murzak-accent">
+                    <p className="text-sm font-semibold text-p-accent-text">
                       KES {Number(row.price || 0).toLocaleString()}
                     </p>
                     <button
                       type="button"
                       onClick={() => removeSelected(row.id)}
-                      className="mt-2 rounded-xl p-2 border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 hover:border-red-500/40 hover:bg-red-500/10 transition-all"
+                      className="mt-2 rounded-md p-2 border border-p-border bg-p-panel hover:border-p-danger/40 hover:bg-p-danger-soft transition-all"
                       aria-label={`Remove ${row.name}`}
                       title="Remove"
                     >
-                      <X className="w-4 h-4 text-slate-500" />
+                      <X className="w-4 h-4 text-p-muted" />
                     </button>
                   </div>
                 </div>
@@ -328,21 +328,21 @@ return createPortal(
       </div>
 
       {/* Total + CTA */}
-      <div className="rounded-4xl border border-slate-200 dark:border-murzak-border bg-white/60 dark:bg-black/5 p-5">
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <div className="rounded-lg border border-p-border bg-p-panel p-5">
+        <p className="text-xs font-semibold text-p-muted ">
           Total monthly
         </p>
-        <p className="text-2xl font-black text-murzak-accent mt-2">
+        <p className="text-2xl font-semibold text-p-accent-text mt-2">
           KES {total.toLocaleString()}
         </p>
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
+        <p className="text-xs font-semibold text-p-muted mt-2">
           Selected: {selectedList.length}
         </p>
 
         {disabledReason && (
-          <div className="mt-4 p-3 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-600 flex items-start gap-2">
+          <div className="mt-4 p-3 rounded-md border border-p-warning/40 bg-p-warning-soft text-p-warning flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <p className="text-micro font-bold leading-relaxed">{disabledReason}</p>
+            <p className="text-xs font-medium leading-relaxed">{disabledReason}</p>
           </div>
         )}
 
@@ -350,10 +350,10 @@ return createPortal(
           type="button"
           onClick={handleCreate}
           disabled={submitting || !!disabledReason || addons.length === 0}
-          className={`mt-5 w-full px-5 py-3 rounded-2xl font-black text-micro uppercase transition-all flex items-center justify-center gap-2 ${
+          className={`mt-5 w-full px-5 py-3 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 ${
             submitting || !!disabledReason || addons.length === 0
-              ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
-              : "bg-murzak-accent text-murzak-ink hover:scale-[1.02]"
+              ? "bg-p-panel-2 text-p-muted cursor-not-allowed"
+              : "bg-p-accent text-p-accent-fg "
           }`}
         >
           {submitting ? (
@@ -372,16 +372,16 @@ return createPortal(
 </div>
 
 {/* MOBILE: compact fixed footer */}
-<div className="sm:hidden p-4 border-t border-slate-200 dark:border-murzak-border bg-white/95 dark:bg-murzak-ink/95">
+<div className="sm:hidden p-4 border-t border-p-border bg-p-panel ">
   <div className="flex items-center justify-between gap-3">
     <div>
-      <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <p className="text-xs font-semibold text-p-muted ">
         Total monthly
       </p>
-      <p className="text-lg font-black text-murzak-accent">
+      <p className="text-lg font-semibold text-p-accent-text">
         KES {total.toLocaleString()}
       </p>
-      <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+      <p className="text-xs font-semibold text-p-muted ">
         Selected: {selectedList.length}
       </p>
     </div>
@@ -390,10 +390,10 @@ return createPortal(
       type="button"
       onClick={handleCreate}
       disabled={submitting || !!disabledReason || addons.length === 0}
-      className={`px-4 py-3 rounded-2xl font-black text-micro uppercase transition-all flex items-center justify-center gap-2 ${
+      className={`px-4 py-3 rounded-lg font-semibold text-xs transition-all flex items-center justify-center gap-2 ${
         submitting || !!disabledReason || addons.length === 0
-          ? "bg-slate-100 dark:bg-black/5 text-slate-500 cursor-not-allowed"
-          : "bg-murzak-accent text-murzak-ink"
+          ? "bg-p-panel-2 text-p-muted cursor-not-allowed"
+          : "bg-p-accent text-p-accent-fg"
       }`}
     >
       {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -402,9 +402,9 @@ return createPortal(
   </div>
 
   {disabledReason && (
-    <div className="mt-3 p-3 rounded-xl border border-orange-500/20 bg-orange-500/10 text-orange-600 flex items-start gap-2">
+    <div className="mt-3 p-3 rounded-md border border-p-warning/40 bg-p-warning-soft text-p-warning flex items-start gap-2">
       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-      <p className="text-micro font-bold leading-relaxed">{disabledReason}</p>
+      <p className="text-xs font-medium leading-relaxed">{disabledReason}</p>
     </div>
   )}
 
@@ -414,24 +414,24 @@ return createPortal(
       {selectedDisplay.map((row) => (
         <div
           key={row.id}
-          className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5 p-3"
+          className="flex items-center justify-between gap-3 rounded-md border border-p-border bg-p-panel p-3"
         >
           <div className="min-w-0">
-            <p className="text-micro font-black truncate text-murzak-ink dark:text-slate-100">
+            <p className="text-xs font-semibold truncate text-p-text ">
               {row.name}
             </p>
-            <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <p className="text-xs font-semibold text-p-muted ">
               KES {Number(row.price || 0).toLocaleString()}
             </p>
           </div>
           <button
             type="button"
             onClick={() => removeSelected(row.id)}
-            className="rounded-lg p-2 border border-slate-200 dark:border-murzak-border bg-white/70 dark:bg-black/5"
+            className="rounded-lg p-2 border border-p-border bg-p-panel "
             aria-label={`Remove ${row.name}`}
             title="Remove"
           >
-            <X className="w-4 h-4 text-slate-500" />
+            <X className="w-4 h-4 text-p-muted" />
           </button>
         </div>
       ))}

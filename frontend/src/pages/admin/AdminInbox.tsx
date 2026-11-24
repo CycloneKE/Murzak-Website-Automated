@@ -37,11 +37,11 @@ function fmtTime(ts?: string) {
 
 function statusClasses(status?: string) {
   const s = (status || "").toLowerCase();
-  if (s.includes("waiting on admin")) return "bg-red-500/15 text-red-400 border-red-500/20";
-  if (s.includes("waiting on user")) return "bg-amber-500/15 text-amber-300 border-amber-500/20";
-  if (s.includes("new")) return "bg-cyan-500/15 text-cyan-300 border-cyan-500/20";
-  if (s.includes("resolved")) return "bg-emerald-500/15 text-emerald-300 border-emerald-500/20";
-  return "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-murzak-border";
+  if (s.includes("waiting on admin")) return "bg-p-danger-soft text-p-danger border-p-danger/40";
+  if (s.includes("waiting on user")) return "bg-p-warning-soft text-p-warning border-p-warning/40";
+  if (s.includes("new")) return "bg-p-info-soft text-p-info border-p-info/40";
+  if (s.includes("resolved")) return "bg-p-success-soft text-p-success border-p-success/40";
+  return "bg-slate-500/10 text-p-muted border-p-border";
 }
 
 
@@ -293,25 +293,25 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
   return (
     <div className="w-full">
       <div className="mb-8">
-        <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Admin Inbox</h2>
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-2">
+        <h2 className="text-2xl sm:text-3xl font-semibold ">Admin Inbox</h2>
+        <p className="text-xs font-semibold text-p-muted mt-2">
           View portal conversations and reply per user thread.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         {/* Left: Threads */}
-        <div className="lg:col-span-2 bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
+        <div className="lg:col-span-2 bg-p-panel border border-p-border rounded-lg sm:rounded-lg overflow-hidden">
+          <div className="p-6 border-b border-p-border ">
             <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-murzak-accent/10 text-murzak-accent">
+              <div className="p-3 rounded-lg bg-p-accent-soft text-p-accent-text">
                 <MessageSquare className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               </div>
               <div className="grow">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <p className="text-xs font-semibold text-p-muted ">
                   Threads
                 </p>
-                <p className="text-sm font-black text-murzak-ink dark:text-slate-100">
+                <p className="text-sm font-semibold text-p-text ">
                   {loadingThreads
                     ? "Loading..."
                     : unreadCount > 0
@@ -321,7 +321,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
               </div>
               <button
                 onClick={loadThreads}
-                className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-2.5 sm:p-3 rounded-md sm:rounded-lg hover:bg-p-accent-soft text-p-muted hover:text-p-accent-text transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40"
                 title="Refresh"
                 aria-label="Refresh threads"
                 type="button"
@@ -331,20 +331,20 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
             </div>
 
             <div className="mt-4 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-p-muted w-4 h-4" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name, email, company..."
-                className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl sm:rounded-2xl pl-11 pr-4 py-2.5 sm:py-3
-                            text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent"/>
+                className="w-full bg-p-panel-2 border border-p-border rounded-md sm:rounded-lg pl-11 pr-4 py-2.5 sm:py-3
+                            text-sm font-medium text-p-text placeholder:text-p-muted focus:outline-hidden focus:ring-2 focus:ring-p-accent/40"/>
             </div>
           </div>
 
           <div className="max-h-[520px] overflow-y-auto">
             {filteredThreads.length === 0 ? (
               <div className="p-10 text-center">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <p className="text-xs font-semibold text-p-muted ">
                   No threads found.
                 </p>
               </div>
@@ -355,32 +355,32 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                   <button
                     key={t.name}
                     onClick={() => setSelectedId(t.name)}
-                    className={`w-full text-left p-4 sm:p-6 border-b border-slate-100 dark:border-murzak-border transition-all ${
+                    className={`w-full text-left p-4 sm:p-6 border-b border-p-border transition-all ${
                       active ? 
-                      "bg-murzak-accent/10" : "hover:bg-slate-50 dark:hover:bg-black/5"
+                      "bg-p-accent-soft" : "hover:bg-p-panel-2 "
                     }`}
                     type="button"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-sm font-black text-murzak-ink dark:text-slate-100">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-p-text ">
                           {t.unread && (
                             <span
-                              className="w-2 h-2 shrink-0 rounded-full bg-red-500"
+                              className="w-2 h-2 shrink-0 rounded-full bg-red-600"
                               aria-label="Unread"
                             />
                           )}
                           <span className="truncate">{labelFromThread(t)}</span>
                         </p>
-                        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
+                        <p className="text-xs font-semibold text-p-muted mt-1 truncate">
                           {(t.company_name || "—")} • {(t.email || "—")}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full border text-micro font-black uppercase ${statusClasses(t.status)}`}>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full border text-xs font-semibold ${statusClasses(t.status)}`}>
                           {t.status || "—"}
                         </span>
-                        <p className="text-micro font-bold text-slate-600 dark:text-slate-400 mt-1">
+                        <p className="text-xs font-medium text-p-muted mt-1">
                           {fmtTime(t.last_message_at || t.modified)}
                         </p>
                       </div>
@@ -393,24 +393,24 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
         </div>
 
         {/* Right: Thread */}
-        <div className="lg:col-span-3 bg-white/80 dark:bg-white/5 backdrop-blur-md sm:backdrop-blur-xl border border-slate-100 dark:border-murzak-border/50 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-lg sm:shadow-xl overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-murzak-border">
+        <div className="lg:col-span-3 bg-p-panel border border-p-border rounded-lg sm:rounded-lg overflow-hidden">
+          <div className="p-6 border-b border-p-border ">
             <div className="flex items-center justify-between gap-6">
               <div className="min-w-0">
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <p className="text-xs font-semibold text-p-muted ">
                   Active Thread
                 </p>
-                <p className="text-base sm:text-lg font-black text-murzak-ink dark:text-slate-100 truncate">
+                <p className="text-base sm:text-lg font-semibold text-p-text truncate">
                   {threadTitle}
                 </p>
-                <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400 mt-1 truncate">
+                <p className="text-xs font-semibold text-p-muted mt-1 truncate">
                   {threadMeta}
                 </p>
               </div>
 
               <button
                 onClick={() => selectedId && loadThread(selectedId)}
-                className="p-3 rounded-2xl hover:bg-murzak-accent/10 text-slate-500 hover:text-murzak-accent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-murzak-accent"
+                className="p-3 rounded-lg hover:bg-p-accent-soft text-p-muted hover:text-p-accent-text transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-p-accent/40"
                 title="Refresh thread"
                 aria-label="Refresh thread"
                 type="button"
@@ -421,49 +421,49 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
           </div>
 
           {isDeveloperAccessThread(threadDoc) && (
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-murzak-border bg-murzak-accent/5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <div className="px-6 py-4 border-b border-p-border bg-p-accent-soft flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-p-muted ">
                 Developer access request
               </p>
               <button
                 type="button"
                 onClick={handleApproveTerminalAccess}
                 disabled={approvingTerminal || !threadDoc?.portal_user}
-                className="h-9 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+                className="h-9 px-4 inline-flex items-center gap-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
               >
                 {approvingTerminal ? "Approving..." : "Approve Developer Access"}
               </button>
             </div>
           )}
           {terminalApproveNote && (
-            <div className="px-6 pt-4 text-micro font-black uppercase text-murzak-accent">
+            <div className="px-6 pt-4 text-xs font-semibold text-p-accent-text">
               {terminalApproveNote}
             </div>
           )}
           {isResourceAdminThread(threadDoc) && (
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-murzak-border bg-murzak-accent/5 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <div className="px-6 py-4 border-b border-p-border bg-p-accent-soft flex flex-wrap items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-p-muted ">
                 Advanced controls request
               </p>
               <button
                 type="button"
                 onClick={handleApproveResourceAdmin}
                 disabled={approvingResourceAdmin || !threadDoc?.portal_user}
-                className="h-9 px-4 inline-flex items-center gap-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+                className="h-9 px-4 inline-flex items-center gap-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
               >
                 {approvingResourceAdmin ? "Approving..." : "Approve Advanced Controls"}
               </button>
             </div>
           )}
           {resourceAdminApproveNote && (
-            <div className="px-6 pt-4 text-micro font-black uppercase text-murzak-accent">
+            <div className="px-6 pt-4 text-xs font-semibold text-p-accent-text">
               {resourceAdminApproveNote}
             </div>
           )}
 
           <div className="p-6">
             {error && (
-              <div className="mb-4 flex items-center gap-2 text-micro font-black uppercase text-red-500">
+              <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-p-danger">
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </div>
@@ -471,20 +471,20 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
 
             <div className="h-[52vh] sm:h-[420px] max-h-[60vh] overflow-y-auto pr-2 space-y-4">
               {!selectedId ? (
-                <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <div className="text-center py-16 bg-p-panel-2 rounded-lg border border-dashed border-p-border ">
+                  <p className="text-xs font-semibold text-p-muted ">
                     Select a thread on the left to view messages.
                   </p>
                 </div>
               ) : loadingThread ? (
                 <div className="text-center py-16">
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                  <p className="text-xs font-semibold text-p-muted ">
                     Loading conversation...
                   </p>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center py-16 bg-slate-50 dark:bg-black/5 rounded-3xl border border-dashed border-slate-200 dark:border-murzak-border">
-                  <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+                <div className="text-center py-16 bg-p-panel-2 rounded-lg border border-dashed border-p-border ">
+                  <p className="text-xs font-semibold text-p-muted ">
                     No messages yet in this thread.
                   </p>
                 </div>
@@ -495,10 +495,10 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                   return (
                     <div key={`${idx}-${stamp || "t"}`} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[92%] sm:max-w-[85%] rounded-[1.25rem] sm:rounded-2xl px-4 py-3 sm:px-5 sm:py-4 border ${
+                        className={`max-w-[92%] sm:max-w-[85%] rounded-lg sm:rounded-lg px-4 py-3 sm:px-5 sm:py-4 border ${
                           isAdmin
-                            ? "bg-murzak-accent text-murzak-ink border-murzak-accent"
-                            : "bg-slate-50 dark:bg-black/5 text-murzak-ink dark:text-slate-100 border-slate-200 dark:border-murzak-border"
+                            ? "bg-p-accent text-p-accent-fg border-p-accent/40"
+                            : "bg-p-panel-2 text-p-text border-p-border "
                         }`}
                       >
                         <p className="text-[13px] sm:text-sm sm:leading-(--text-sm--line-height) font-bold leading-relaxed whitespace-pre-wrap wrap-break-word">
@@ -508,16 +508,16 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                           <a href={`/api/portal/files?url=${encodeURIComponent(m.attachments)}`} 
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-3 inline-flex text-micro sm:text-micro font-black uppercase underline opacity-80">
+                            className="mt-3 inline-flex text-xs sm:text-xs font-semibold underline opacity-80">
                               View attachment
                           </a>
                         )}
 
                         <div className="mt-2 flex items-center justify-between gap-3">
-                          <span className="text-micro font-black uppercase opacity-70">
+                          <span className="text-xs font-semibold opacity-70">
                             {isAdmin ? "Admin" : (m.sender || "User")}
                           </span>
-                          <span className="text-micro font-bold opacity-60">
+                          <span className="text-xs font-medium opacity-60">
                             {fmtTime(stamp)}
                           </span>
                         </div>
@@ -532,13 +532,13 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
 
             <form onSubmit={handleSend} className="mt-5 flex flex-col sm:flex-row gap-3 items-stretch">
               <div className="grow">
-                <label className="block text-micro font-black text-slate-600 dark:text-slate-400 uppercase mb-2 ml-1">
+                <label className="block text-xs font-semibold text-p-muted mb-2 ml-1">
                   Reply
                 </label>
 
                 {(uploading || uploadedUrl) && (
-                  <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5 px-4 py-3">
-                    <div className="text-micro sm:text-micro font-black uppercase text-slate-600 dark:text-slate-200">
+                  <div className="mb-3 flex items-center justify-between rounded-md border border-p-border bg-p-panel-2 px-4 py-3">
+                    <div className="text-xs sm:text-xs font-semibold text-p-muted ">
                       {uploading ? "Uploading..." : `Attachment ready: ${uploadedName}`}
                     </div>
 
@@ -549,7 +549,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                         setUploadedUrl("");
                         setUploadedName("");
                       }}
-                      className="text-micro font-black uppercase text-murzak-accent hover:opacity-80">
+                      className="text-xs font-semibold text-p-accent-text hover:opacity-80">
                         Remove
                     </button>
                   )}
@@ -561,7 +561,7 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder="Reply to this user..."
-                  className="w-full bg-slate-50 dark:bg-black/5 border border-slate-200 dark:border-murzak-border rounded-xl px-4 py-2.5 sm:py-3 text-sm font-bold text-murzak-ink dark:text-slate-100 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-murzak-accent transition-all resize-none"
+                  className="w-full bg-p-panel-2 border border-p-border rounded-md px-4 py-2.5 sm:py-3 text-sm font-medium text-p-text placeholder:text-p-muted focus:outline-hidden focus:ring-2 focus:ring-p-accent/40 transition-all resize-none"
                 />
               </div>
 
@@ -601,23 +601,23 @@ const AdminInbox: React.FC<AdminInboxProps> = ({ onUnreadChange }) => {
               />
               <div className="flex flex-col justify-center gap-2 self-center">
                 <label htmlFor="admin-attach"
-                  className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-xl
-                    border border-slate-200 dark:border-murzak-border bg-slate-50 dark:bg-black/5
-                    text-micro sm:text-micro font-black uppercase cursor-pointer select-none
-                    hover:border-murzak-accent/40 hover:bg-murzak-accent/10 dark:hover:bg-black/5 transition">
+                  className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] inline-flex items-center justify-center text-center leading-none px-4 rounded-md
+                    border border-p-border bg-p-panel-2 
+                    text-xs sm:text-xs font-semibold cursor-pointer select-none
+                    hover:border-p-accent hover:bg-p-accent-soft transition">
                   {uploading ? "Uploading..." : uploadedUrl ? "Attached" : "Attach"}
                 </label>
 
                 <button type="submit"
                   disabled={isSubmitting || !selectedId || sending || !draft.trim()}
-                  className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-murzak-accent text-murzak-ink font-black px-4 rounded-xl
-                    hover:scale-[1.01] transition-all shadow-md sm:shadow-lg inline-flex items-center justify-center gap-2 disabled:opacity-70">
+                  className="h-10 sm:h-11 min-w-[96px] sm:min-w-[108px] bg-p-accent text-p-accent-fg font-semibold px-4 rounded-md
+                     transition-all inline-flex items-center justify-center gap-2 disabled:opacity-70">
                   {isSubmitting ? <RefreshCw className="animate-spin w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  <span className="text-micro sm:text-micro uppercase">Send</span>
+                  <span className="text-xs sm:text-xs ">Send</span>
                 </button>
               </div>              
             </form>
-            <p className="mt-3 text-micro font-black uppercase text-slate-600 dark:text-slate-400">
+            <p className="mt-3 text-xs font-semibold text-p-muted ">
               Tip: statuses update automatically when you reply.
             </p>
           </div>

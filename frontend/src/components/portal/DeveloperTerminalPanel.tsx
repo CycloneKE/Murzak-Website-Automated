@@ -89,31 +89,31 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
   if (!isActive) return null;
 
   return (
-    <div className="mt-4 rounded-2xl border border-slate-100 dark:border-murzak-border bg-slate-50/70 dark:bg-white/3 p-5">
+    <div className="mt-4 rounded-lg border border-p-border bg-p-panel-2 p-5">
       <div className="flex items-center gap-3 mb-3">
-        <Terminal className="w-5 h-5 text-murzak-accent" />
-        <p className="text-micro font-black uppercase text-slate-600 dark:text-slate-400">Developer Access</p>
+        <Terminal className="w-5 h-5 text-p-accent-text" />
+        <p className="text-xs font-semibold text-p-muted ">Developer Access</p>
       </div>
 
       {loading ? (
-        <p className="text-label font-medium text-slate-500">Checking access…</p>
+        <p className="text-[13px] font-medium text-p-muted">Checking access…</p>
       ) : !eligibility?.enterprisePlan ? (
         <div>
-          <p className="text-label font-medium text-slate-600 dark:text-slate-400 mb-3">
+          <p className="text-[13px] font-medium text-p-muted mb-3">
             A jailed shell into this service is available on the Enterprise plan.
           </p>
           <button
             type="button"
             onClick={onRequestUpgrade}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition"
+            className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition"
           >
             Request Upgrade
           </button>
         </div>
       ) : !eligibility.approved ? (
         <div className="flex items-start gap-3">
-          <Clock className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-label font-medium text-slate-600 dark:text-slate-400">
+          <Clock className="w-4 h-4 text-p-warning shrink-0 mt-0.5" />
+          <p className="text-[13px] font-medium text-p-muted ">
             Your developer access request is awaiting approval from our team. You'll be able to
             connect as soon as it's confirmed.
           </p>
@@ -121,8 +121,8 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
       ) : !eligibility.disclosureAccepted ? (
         <div>
           <div className="flex items-start gap-3 mb-4">
-            <ShieldCheck className="w-4 h-4 text-murzak-accent shrink-0 mt-0.5" />
-            <div className="text-label font-medium text-slate-600 dark:text-slate-400 space-y-2">
+            <ShieldCheck className="w-4 h-4 text-p-accent-text shrink-0 mt-0.5" />
+            <div className="text-[13px] font-medium text-p-muted space-y-2">
               <p>
                 Before your first session, please review: this shell runs inside your own service's
                 container. You'll be able to see its internal network address, hostname, and
@@ -132,12 +132,12 @@ const DeveloperTerminalPanel: React.FC<DeveloperTerminalPanelProps> = ({ service
               </p>
             </div>
           </div>
-          {acceptError && <p className="text-label font-bold text-red-500 mb-3">{acceptError}</p>}
+          {acceptError && <p className="text-[13px] font-medium text-p-danger mb-3">{acceptError}</p>}
           <button
             type="button"
             onClick={handleAccept}
             disabled={accepting}
-            className="px-4 py-2 rounded-xl bg-murzak-accent text-murzak-ink text-micro font-black uppercase hover:scale-[1.02] transition disabled:opacity-60"
+            className="px-4 py-2 rounded-md bg-p-accent text-p-accent-fg text-xs font-semibold transition disabled:opacity-60"
           >
             {accepting ? "Saving…" : "I understand and agree"}
           </button>

@@ -129,19 +129,19 @@ const TerminalView: React.FC<TerminalViewProps> = ({ serviceId }) => {
   }, [serviceId]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0a0a0a] overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#1a1a1a] border-b border-white/10">
+    <div className="rounded-lg border border-p-border bg-[#0a0a0a] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#1a1a1a] border-b border-p-border">
         <span className="text-[11px] font-mono text-gray-400">developer terminal</span>
         <span
-          className={`text-[10px] font-black uppercase tracking-widest ${
-            state === "open" ? "text-murzak-success" : state === "error" ? "text-red-500" : "text-slate-500"
+          className={`text-[10px] font-semibold ${
+            state === "open" ? "text-p-success" : state === "error" ? "text-p-danger" : "text-p-muted"
           }`}
         >
           {state === "connecting" ? "Connecting…" : state === "open" ? "Connected" : state === "error" ? "Error" : "Closed"}
         </span>
       </div>
       {(state === "error" || state === "closed") && message && (
-        <p className="px-4 py-2 text-[12px] font-medium text-red-400 border-b border-white/10">{message}</p>
+        <p className="px-4 py-2 text-[12px] font-medium text-p-danger border-b border-p-border">{message}</p>
       )}
       <div ref={containerRef} className="p-2 h-[420px]" />
     </div>

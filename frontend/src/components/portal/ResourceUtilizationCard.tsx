@@ -1,5 +1,6 @@
 import React from 'react';
 import { HardDrive, Activity, Cpu } from 'lucide-react';
+import { Panel } from './ui';
 
 // Real usage, when available, comes from the Coolify lane's getUsage() (Phase
 // 3) — unconfirmed whether Coolify's API actually exposes these numbers (see
@@ -27,48 +28,39 @@ function Metric({
   unsupported?: boolean;
 }) {
   const hasData = typeof percent === 'number';
-  const color = !hasData
-    ? 'bg-slate-600'
-    : percent > 90
-    ? 'bg-red-500'
-    : percent > 75
-    ? 'bg-orange-500'
-    : 'bg-murzak-accent';
-  const textColor = !hasData
-    ? 'text-slate-500'
-    : percent > 90
-    ? 'text-red-500'
-    : percent > 75
-    ? 'text-orange-500'
-    : 'text-murzak-accent';
+  const level = !hasData ? 'none' : percent > 90 ? 'high' : percent > 75 ? 'warn' : 'ok';
+  const bar = { none: 'bg-p-border-strong', high: 'bg-p-danger', warn: 'bg-p-warning', ok: 'bg-p-accent' }[level];
+  const text = { none: 'text-p-muted', high: 'text-p-danger', warn: 'text-p-warning', ok: 'text-p-text' }[level];
 
   return (
     <div>
-      <div className="flex justify-between items-end mb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex justify-between items-center mb-1.5">
+        <div className="flex items-center gap-2 text-p-muted">
           {icon}
-          <span className="text-label font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">{label}</span>
+          <span className="text-sm font-medium text-p-text">{label}</span>
         </div>
-        <span className={`text-micro font-black ${textColor}`}>
+        <span className={`text-[13px] font-medium tabular-nums ${text}`}>
           {hasData ? `${percent}%` : unsupported ? 'Coming soon' : 'No data yet'}
         </span>
       </div>
-      <div className="h-2 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden border border-murzak-border/50">
-        <div
-          className={`h-full ${color} transition-all duration-1000`}
-          style={{ width: hasData ? `${percent}%` : '100%', opacity: hasData ? 1 : 0.15 }}
-        />
+      <div
+        className="h-1.5 w-full bg-p-panel-2 rounded-full overflow-hidden"
+        role={hasData ? 'progressbar' : undefined}
+        aria-label={hasData ? label : undefined}
+        aria-valuenow={hasData ? percent : undefined}
+        aria-valuemin={hasData ? 0 : undefined}
+        aria-valuemax={hasData ? 100 : undefined}
+      >
+        {hasData && <div className={`h-full ${bar} transition-all duration-700`} style={{ width: `${percent}%` }} />}
       </div>
       {hasData && percent > 80 && (
-        <p className="text-micro text-orange-400 mt-2 uppercase">
-          Approaching capacity. Consider upgrading soon.
-        </p>
+        <p className="text-[13px] text-p-warning mt-1.5">Approaching capacity. Consider upgrading soon.</p>
       )}
       {!hasData && (
-        <p className="text-micro text-slate-500 mt-2">
+        <p className="text-[13px] text-p-muted mt-1.5">
           {unsupported
             ? "We're wiring this up to our hosting layer. No action needed."
-            : "Metrics appear automatically once your service reports usage."}
+            : "Appears automatically once your service reports usage."}
         </p>
       )}
     </div>
@@ -81,23 +73,13 @@ const ResourceUtilizationCard: React.FC<ResourceUtilizationCardProps> = ({
   bandwidthUsagePercent,
 }) => {
   return (
-    <div className="glass-panel p-8 rounded-[3rem] border border-murzak-border h-full">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="p-3 bg-murzak-accent/10 rounded-2xl text-murzak-accent">
-          <Activity size={20} />
-        </div>
-        <div>
-          <h3 className="text-[12px] font-black uppercase tracking-widest text-murzak-ink dark:text-white">Resource Utilization</h3>
-          <p className="text-micro font-medium text-slate-600 dark:text-slate-400 mt-1">Limits for your infrastructure</p>
-        </div>
+    <Panel title="Usage" description="How much of your allowance is in use." className="h-full">
+      <div className="space-y-5">
+        <Metric icon={<HardDrive size={14} />} label="Storage" percent={diskUsagePercent} />
+        <Metric icon={<Cpu size={14} />} label="Memory" percent={ramUsagePercent} />
+        <Metric icon={<Activity size={14} />} label="Monthly traffic" percent={bandwidthUsagePercent} unsupported />
       </div>
-
-      <div className="space-y-8">
-        <Metric icon={<HardDrive size={14} className="text-slate-500" />} label="Storage Limit" percent={diskUsagePercent} />
-        <Metric icon={<Cpu size={14} className="text-slate-500" />} label="Memory (RAM)" percent={ramUsagePercent} />
-        <Metric icon={<Activity size={14} className="text-slate-500" />} label="Monthly Traffic" percent={bandwidthUsagePercent} unsupported />
-      </div>
-    </div>
+    </Panel>
   );
 };
 
