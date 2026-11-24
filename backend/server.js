@@ -3713,6 +3713,28 @@ const server = IS_ENTRYPOINT
     console.log(`[orphan-sweep] scheduled every ${Math.round(everyMs / 3600000)}h`);
   }
 
+  // Customer database backups: schedules the backup of any active Coolify
+  // database whose job shows backup failed/skipped/pending, so a database that
+  // was handed over without one (S3 not yet configured, Coolify briefly
+  // unavailable) is covered without anyone remembering. Does nothing until
+  // COOLIFY_DB_BACKUP_S3_UUID or _NAME is set. See provisioning/dbBackupSweep.js.
+  if (process.env.COOLIFY_DB_BACKUP_SWEEP_ENABLED !== "false") {
+    const { sweepDatabaseBackups } = require("./services/provisioning/dbBackupSweep");
+    const everyMs = Math.max(300000, Number(process.env.COOLIFY_DB_BACKUP_SWEEP_INTERVAL_MS || 6 * 60 * 60 * 1000));
+    const run = () =>
+      sweepDatabaseBackups(frappeClient())
+        .then((r) => {
+          if (r.skippedAll) return;
+          if (r.configured > 0 || r.failed > 0 || r.error) {
+            console.log(`[db-backup-sweep] checked=${r.checked} scheduled=${r.configured} stillFailing=${r.failed}${r.error ? ` error=${r.error}` : ""}`);
+          }
+        })
+        .catch((e) => console.warn("[db-backup-sweep] error:", e.message));
+    setTimeout(run, 240000).unref();
+    setInterval(run, everyMs).unref();
+    console.log(`[db-backup-sweep] scheduled every ${Math.round(everyMs / 3600000)}h`);
+  }
+
   // Capacity snapshot sweep (platform maintenance automation, Job 2): writes
   // a Platform Health Check row every run so the dashboard has a trend, and
   // emails admins when reserved RAM crosses the same

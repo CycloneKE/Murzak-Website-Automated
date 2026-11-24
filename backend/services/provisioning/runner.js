@@ -361,16 +361,27 @@ async function processJob(client, job, lanes = DEFAULT_LANES, runnerId = DEFAULT
       // meaningless without one and guessing would provision the wrong address.
       const out = await adapter.provision(job, { target, client });
       // Off-site backup at create-time (best-effort; recorded on the job).
-      let backup = { status: "skipped" };
-      try {
-        backup = await backups.registerBackup({
-          service_id: job.service_id,
-          web_account: job.web_account,
-          target: targetId,
-          external_ref: out.externalRef,
-        });
-      } catch (be) {
-        backup = { status: "failed", detail: be.message };
+      // A lane that schedules its own backup (the coolify lane does, for a
+      // customer's database) reports it as out.backup. Use that unless it was
+      // "skipped" (not configured), in which case the generic
+      // BACKUP_CONFIG_CMD hook below still gets its turn.
+      let backup = out.backup && out.backup.status !== "skipped" ? out.backup : null;
+      if (!backup) {
+        backup = { status: "skipped" };
+        try {
+          backup = await backups.registerBackup({
+            service_id: job.service_id,
+            web_account: job.web_account,
+            target: targetId,
+            external_ref: out.externalRef,
+          });
+        } catch (be) {
+          backup = { status: "failed", detail: be.message };
+        }
+      }
+      if (backup.status === "failed") {
+        // Loud enough to alert on: a customer's data is running without an off-server copy.
+        console.error(`[provisioning] BACKUP NOT SET UP for job ${job.name} (${job.service_id}): ${backup.detail || "unknown reason"}`);
       }
       // Per-tenant edge / WAF at create-time (best-effort; recorded on the job).
       let edgeRes = { status: "skipped" };

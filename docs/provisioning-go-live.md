@@ -51,9 +51,23 @@ Turn on the runner and wire at least one build lane.
 > Dark-launch first: run on internal/test invoices before real customers. With
 > no lane configured every job just escalates to `needs_human` (never faked).
 
+**Customer database backups (set this before the first database is sold).**
+A customer's database is a Coolify service, so Coolify's database backup feature
+cannot reach it; its data volume is backed up to the S3 destination you name in
+`COOLIFY_DB_BACKUP_S3_NAME` (or `_UUID`). Until that is set, a new database is
+handed over with no off-server backup and its job shows `Backup: skipped`, and the
+readiness panel lists it as a conditional check. Once set, every new database gets
+a nightly schedule (02:00 Nairobi) as it is handed over, the database is stopped for
+the few seconds the copy takes so the copy restores, and a background check every
+six hours schedules any database that was missed. Full list of settings and the
+reasoning: `backend/.env.example` and `backend/services/provisioning/dbBackup.js`.
+First time: buy a test database, then in Coolify open that service, its storage for
+the data folder, and confirm the schedule is there and points at the right bucket.
+
 **Hardening (optional, each is an upsell too):**
 ```
 BACKUP_PROVIDER=b2   BACKUP_CONFIG_CMD=/opt/murzak/backup.sh     # off-site backups
+COOLIFY_DB_BACKUP_S3_NAME="R2 bucket"                           # customer database backups (see below)
 EDGE_PROVIDER=cloudflare  EDGE_CONFIG_CMD=/opt/murzak/edge.sh    # per-tenant WAF
 PROVISIONING_BOX1_MAX_PREMIUM=6                                  # cap ERP tenants/box
 ```
