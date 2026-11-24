@@ -74,9 +74,23 @@ export interface BackupSchedule {
   lastRunAt: string | null;
 }
 
+/**
+ * `managed` is set for a customer's database, whose backup we schedule ourselves rather than read from
+ * Coolify. For those, `state` says whether it is set up, `when` is the nightly time in East Africa Time
+ * (or null), and `brieflyStopped` is true when the database is stopped for a few seconds during the copy.
+ */
+export interface BackupsResponse {
+  supported: boolean;
+  schedules: BackupSchedule[];
+  managed?: boolean;
+  state?: "active" | "setting_up";
+  when?: string | null;
+  brieflyStopped?: boolean;
+}
+
 export async function fetchBackups(id: string) {
   const res = await fetch(`${base(id)}/backups`, { credentials: "include" });
-  return handleJson<{ supported: boolean; schedules: BackupSchedule[] }>(res);
+  return handleJson<BackupsResponse>(res);
 }
 
 /** `.env`-style text for the Developer view. Values that need it are quoted. */

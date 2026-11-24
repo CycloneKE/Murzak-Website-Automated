@@ -188,8 +188,49 @@ async function ensureDatabaseBackup(client, ctx, env = process.env) {
   }
 }
 
+/**
+ * "m h * * *" (a once-a-day schedule in UTC) as a clock time in East Africa
+ * Time, which is UTC+3 all year with no daylight saving. Anything that is not a
+ * plain daily schedule returns null: the customer is then told "every night"
+ * without a time, rather than a time we derived from an expression we did not
+ * fully understand.
+ */
+function dailyTimeEat(frequency) {
+  const m = /^(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*$/.exec(trim(frequency));
+  if (!m) return null;
+  const minute = Number(m[1]);
+  const hour = Number(m[2]);
+  if (minute > 59 || hour > 23) return null;
+  const eat = (hour + 3) % 24;
+  return `${String(eat).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+/**
+ * What the customer's portal may say about their database's backup.
+ *
+ * Built only from what we recorded (the job's backup_status) and the settings,
+ * never from a live check, so it promises "set up", not "the last backup
+ * worked": nothing here has looked at whether the last run succeeded.
+ *   state "active"      the schedule is saved in Coolify
+ *   state "setting_up"  anything else (pending, skipped, failed): not active yet
+ * `when` is the nightly time in East Africa Time, or null. `brieflyStopped` is
+ * true when the database is stopped for the few seconds the copy takes, which
+ * the customer is told because connections made at that moment fail.
+ */
+function customerSummary(backupStatus, env = process.env) {
+  const s = settings(env);
+  const active = backupStatus === "configured";
+  return {
+    state: active ? "active" : "setting_up",
+    when: active ? dailyTimeEat(s.frequency) : null,
+    brieflyStopped: active && s.stopDuringBackup,
+  };
+}
+
 module.exports = {
   DEFAULT_FREQUENCY,
+  dailyTimeEat,
+  customerSummary,
   settings,
   isConfigured,
   ensureDatabaseBackup,
